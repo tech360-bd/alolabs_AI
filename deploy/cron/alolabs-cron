@@ -1,0 +1,44 @@
+# ============================================================
+# ALO Labs Agent Hub — Cron Jobs
+# Install: sudo cp deploy/cron/alolabs-cron /etc/cron.d/alolabs-hub
+#         sudo chmod 644 /etc/cron.d/alolabs-hub
+#         sudo systemctl restart cron
+# ============================================================
+#
+# NOTE: All paths must be absolute. No user-specific paths.
+# These run as root (system crontab format).
+# The 'alohub' user is specified in the 6th field.
+#
+# Format: MIN HOUR DOM MON DOW USER  COMMAND
+# ============================================================
+
+# ── Backups ───────────────────────────────────────────────────
+# Daily database and file backup at 2:00 AM
+0 2 * * * alohub /opt/alolabs/agent-hub/deploy/scripts/backup.sh --quiet >> /opt/alolabs/agent-hub/logs/cron-backup.log 2>&1
+
+# ── Health Checks ─────────────────────────────────────────────
+# Every 5 minutes: health check (JSON output for monitoring)
+*/5 * * * * root /opt/alolabs/agent-hub/deploy/scripts/health-check.sh --json --quiet > /opt/alolabs/agent-hub/logs/health-last.json 2>&1 || true
+
+# Every 30 minutes: security check
+*/30 * * * * root /opt/alolabs/agent-hub/deploy/scripts/security-check.sh --json --quiet > /opt/alolabs/agent-hub/logs/security-last.json 2>&1 || true
+
+# ── Database Maintenance ──────────────────────────────────────
+# Weekly database check and analyze (Sunday 3:00 AM)
+0 3 * * 0 root /opt/alolabs/agent-hub/deploy/scripts/database-check.sh --analyze --quiet >> /opt/alolabs/agent-hub/logs/cron-dbcheck.log 2>&1 || true
+
+# Daily database optimize at 4:00 AM (low traffic)
+0 4 * * * root mysql -h 127.0.0.1 -u alohub_user -p"$(grep '^DATABASE_URL=' /opt/alolabs/agent-hub/.env | sed -n 's|mysql://[^:]*:\([^@]*\)@.*|\1|p')" alohub_production -e "OPTIMIZE TABLE $(mysql -h 127.0.0.1 -u alohub_user -p"$(grep '^DATABASE_URL=' /opt/alolabs/agent-hub/.env | sed -n 's|mysql://[^:]*:\([^@]*\)@.*|\1|p')" -N -e "SELECT GROUP_CONCAT(table_name) FROM information_schema.tables WHERE table_schema='alohub_production' AND table_type='BASE TABLE';" 2>/dev/null);" >> /opt/alolabs/agent-hub/logs/cron-dboptimize.log 2>&1 || true
+
+# ── Log Cleanup ───────────────────────────────────────────────
+# Clean up old cron logs (keep 30 days)
+0 0 * * * root find /opt/alolabs/agent-hub/logs -name "cron-*.log" -mtime +30 -delete 2>/dev/null || true
+
+# ── SSL Certificate Renewal (handled by certbot cron) ────────
+# certbot auto-renewal is configured separately by ssl-setup.sh
+# Typical entry: 0 3 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx'
+
+# ── Application Restart (weekly, Sunday 5:00 AM) ─────────────
+# Optional: restart service once a week for memory cleanup
+# Uncomment the line below if desired:
+# 0 5 * * 0 root systemctl restart alolabs-agent-hub

@@ -1,0 +1,151 @@
+name: Production database-safe deployment
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      migrations_approved:
+        description: 'Explicitly authorize reviewed, non-destructive production migrations'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: '1.3.4'
+  DATABASE_URL: 'file:./ci.db'
+  NEXTAUTH_SECRET: 'ci-only-not-production'
+  CSRF_SECRET: 'ci-only-not-production'
+  JWT_SECRET: 'ci-only-not-production'
+  API_GATEWAY_SECRET: 'ci-only-not-production'
+
+jobs:
+  quality-and-safety:
+    name: CI quality and production safety hard-gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Production dependency advisory gate (blocks deployment)
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Generate CI Prisma client
+        run: bun run db:generate
+      - name: Prisma delegate/schema reconciliation
+        run: bun run check:prisma-delegates
+      - name: TypeScript hard gate
+        shell: bash
+        run: |
+          set +e
+          ./node_modules/.bin/tsc --noEmit --pretty false 2>&1 | tee /tmp/typescript-errors.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          if (( status != 0 )); then
+            {
+              echo '## TypeScript diagnostics'
+              echo '```text'
+              cat /tmp/typescript-errors.txt
+              echo '```'
+            } >> "${GITHUB_STEP_SUMMARY}"
+            diagnostic="$(cat /tmp/typescript-errors.txt)"
+            diagnostic="${diagnostic//'%'/'%25'}"
+            diagnostic="${diagnostic//$'\r'/'%0D'}"
+            diagnostic="${diagnostic//$'\n'/'%0A'}"
+            echo "::error title=Complete TypeScript diagnostics::${diagnostic}"
+            exit "${status}"
+          fi
+      - name: Complete test suite
+        run: bun run test
+        env:
+          NODE_ENV: test
+      - name: ESLint
+        run: bun run lint
+      - name: Build verification
+        run: bun run build
+        env:
+          NODE_ENV: production
+          PORT: '3011'
+      - name: Validate artifacts and deployment safety
+        run: |
+          test -f .next/standalone/server.js
+          test -d .next/static
+          test -d .next/standalone/.next/static
+          test -d public
+          test -d .next/standalone/public
+          bash deploy/scripts/database-safety-scan.sh .
+          bash -n deploy/scripts/database-safety-scan.sh
+          bash -n deploy/scripts/backup.sh
+          bash -n deploy/scripts/deploy.sh
+      - name: Stage reviewed safety scripts
+        run: |
+          mkdir -p production-safety-scripts
+          install -m 700 deploy/scripts/deploy.sh production-safety-scripts/deploy.sh
+          install -m 700 deploy/scripts/backup.sh production-safety-scripts/backup.sh
+          install -m 700 deploy/scripts/database-safety-scan.sh production-safety-scripts/database-safety-scan.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-safety-scripts
+          path: production-safety-scripts
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    name: Deploy production
+    needs: quality-and-safety
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate required deployment secrets
+        env:
+          HOST: ${{ secrets.PRODUCTION_HOST }}
+          USERNAME: ${{ secrets.PRODUCTION_USER }}
+          SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          SSH_PORT: ${{ secrets.PRODUCTION_PORT }}
+        run: |
+          test -n "${HOST}" || { echo 'PRODUCTION_HOST is missing'; exit 1; }
+          test -n "${USERNAME}" || { echo 'PRODUCTION_USER is missing'; exit 1; }
+          test -n "${SSH_KEY}" || { echo 'PRODUCTION_SSH_KEY is missing'; exit 1; }
+          test -n "${SSH_PORT}" || { echo 'PRODUCTION_PORT is missing'; exit 1; }
+      - uses: actions/download-artifact@v4
+        with:
+          name: production-safety-scripts
+          path: production-safety-scripts
+      - name: Transfer reviewed safety scripts without changing production
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          source: production-safety-scripts/*
+          target: /tmp/alo-deploy-${{ github.run_id }}-${{ github.run_attempt }}
+          strip_components: 1
+          overwrite: true
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          MIGRATIONS_APPROVED: ${{ inputs.migrations_approved || 'false' }}
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          command_timeout: 30m
+          envs: MIGRATIONS_APPROVED
+          script: |
+            set -euo pipefail
+            TEMP_DIR=/tmp/alo-deploy-${{ github.run_id }}-${{ github.run_attempt }}
+            trap 'rm -rf "${TEMP_DIR}"' EXIT
+            chmod 700 "${TEMP_DIR}"/*.sh
+            sudo APP_DIR=/opt BRANCH=main SAFETY_SCRIPT_DIR="${TEMP_DIR}" \
+              MIGRATIONS_APPROVED="${MIGRATIONS_APPROVED}" bash "${TEMP_DIR}/deploy.sh"

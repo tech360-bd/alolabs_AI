@@ -1,0 +1,6 @@
+{
+  "name": "ALO Labs Command Center",
+  "description": "Central AI Brain for ALO Companies. Enterprise Command Center and AgentOS orchestration suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

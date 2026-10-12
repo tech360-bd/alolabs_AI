@@ -1,0 +1,54 @@
+[Unit]
+Description=ALO Labs AISMH - AI Agent Operating System
+Documentation=https://docs.alolabs.net
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=alolabs
+Group=alolabs
+WorkingDirectory=/opt/alolabs-aismh/current
+
+EnvironmentFile=-/opt/alolabs-aismh/shared/.env
+Environment=NODE_ENV=production
+Environment=PORT=3011
+Environment=HOSTNAME=0.0.0.0
+Environment=NEXT_TELEMETRY_DISABLED=1
+
+ExecStart=/usr/local/bin/bun .next/standalone/server.js
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+LimitNOFILE=65535
+LimitNPROC=4096
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/alolabs-aismh
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictRealtime=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alolabs-aismh
+
+MemoryMax=4G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

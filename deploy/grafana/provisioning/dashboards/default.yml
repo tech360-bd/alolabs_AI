@@ -1,0 +1,15 @@
+# ============================================================
+# ALO Labs AI-EOS — Grafana Dashboard Provisioning
+# ============================================================
+apiVersion: 1
+
+providers:
+  - name: 'AI-EOS Dashboards'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
+      foldersFromFilesStructure: false

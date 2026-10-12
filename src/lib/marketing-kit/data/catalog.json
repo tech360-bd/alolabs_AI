@@ -1,0 +1,2088 @@
+{
+  "source": "https://github.com/coreyhaines31/marketingskills.git",
+  "license": "MIT",
+  "syncedAt": "2026-10-08T22:51:50.182Z",
+  "totalSkills": 50,
+  "categories": [
+    "SEO & Content",
+    "CRO",
+    "Content & Copy",
+    "Paid & Measurement",
+    "Growth & Retention",
+    "Sales & GTM",
+    "Strategy"
+  ],
+  "skills": [
+    {
+      "slug": "ab-testing",
+      "name": "ab-testing",
+      "title": "A/B Test Setup",
+      "description": "When the user wants to plan, design, or implement an A/B test or experiment, or build a growth experimentation program. Also use when the user mentions \"A/B test,\" \"split test,\" \"experiment,\" \"test this change,\" \"variant copy,\" \"multivariate test,\" \"hypothesis,\" \"should I test this,\" \"which version is better,\" \"test two versions,\" \"statistical significance,\" \"how long should I run this test,\" \"growth experiments,\" \"experiment velocity,\" \"experiment backlog,\" \"ICE score,\" \"experimentation program,\" or \"experiment playbook.\" Use this whenever someone is comparing two approaches and wants to measure which performs better, or when they want to build a systematic experimentation practice. For tracking implementation, see analytics. For page-level conversion optimization, see cro.",
+      "version": "2.0.1",
+      "license": "MIT",
+      "category": "Paid & Measurement",
+      "references": [
+        {
+          "path": "references/sample-size-guide.md",
+          "name": "sample-size-guide",
+          "bytes": 7746,
+          "heading": "Sample Size Guide"
+        },
+        {
+          "path": "references/test-templates.md",
+          "name": "test-templates",
+          "bytes": 6473,
+          "heading": "A/B Test Templates Reference"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 12525,
+      "bodyBytes": 11672
+    },
+    {
+      "slug": "ad-creative",
+      "name": "ad-creative",
+      "title": "Ad Creative",
+      "description": "When the user wants to generate, iterate, or scale ad creative — headlines, descriptions, primary text, or full ad variations — for any paid advertising platform. Also use when the user mentions 'ad copy variations,' 'ad creative,' 'generate headlines,' 'RSA headlines,' 'bulk ad copy,' 'ad iterations,' 'creative testing,' 'write me some ads,' 'Facebook ad copy,' 'Google ad headlines,' 'LinkedIn ad text,' 'static ads,' 'ad templates,' 'iMessage ad,' 'chat reveal ad,' 'ChatGPT ad,' 'Apple Notes ad,' 'AirDrop ad,' 'creative strategy,' 'creative roadmap,' 'creative retro,' 'hook writing,' 'creative review page,' 'present ad creative for approval,' 'motion video ad,' 'faceless video ad,' 'UGC ad,' 'greenscreen ad,' 'TikTok/Reels ad format,' 'which ad format to make,' 'Meta ad format tier list,' or 'creative format taxonomy.' Use it to produce or iterate ad copy at scale. Copy avoids AI tells like 'it's not X, it's Y' reveals. For campaign strategy and targeting, see ads. For landing page copy, see copywriting.",
+      "version": "2.10.0",
+      "license": "MIT",
+      "category": "Paid & Measurement",
+      "references": [
+        {
+          "path": "references/awareness-headlines.md",
+          "name": "awareness-headlines",
+          "bytes": 6765,
+          "heading": "Awareness-Based Headline Creative"
+        },
+        {
+          "path": "references/creative-review-page.md",
+          "name": "creative-review-page",
+          "bytes": 9602,
+          "heading": "The Creative Review Page"
+        },
+        {
+          "path": "references/creative-roadmap.md",
+          "name": "creative-roadmap",
+          "bytes": 9010,
+          "heading": "The Creative Strategy Loop"
+        },
+        {
+          "path": "references/generative-tools.md",
+          "name": "generative-tools",
+          "bytes": 23286,
+          "heading": "Generative AI Tools for Ad Creative"
+        },
+        {
+          "path": "references/hook-system.md",
+          "name": "hook-system",
+          "bytes": 8335,
+          "heading": "The Hook System"
+        },
+        {
+          "path": "references/imessage-video-ads.md",
+          "name": "imessage-video-ads",
+          "bytes": 19899,
+          "heading": "iOS-Native Reveal Video Ads (iMessage, ChatGPT, Apple Notes, AirDrop)"
+        },
+        {
+          "path": "references/meta-creative-formats.md",
+          "name": "meta-creative-formats",
+          "bytes": 10686,
+          "heading": "Meta Creative Format Taxonomy — Which Format to Make Next"
+        },
+        {
+          "path": "references/motion-video-ads.md",
+          "name": "motion-video-ads",
+          "bytes": 11801,
+          "heading": "Motion-Style Video Ads (Faceless, Fully Generated)"
+        },
+        {
+          "path": "references/platform-specs.md",
+          "name": "platform-specs",
+          "bytes": 6525,
+          "heading": "Platform Specs Reference"
+        },
+        {
+          "path": "references/short-form-video-specs.md",
+          "name": "short-form-video-specs",
+          "bytes": 19389,
+          "heading": "Short-Form Vertical Video — Production Spec & Creator Formats"
+        },
+        {
+          "path": "references/static-ad-templates.md",
+          "name": "static-ad-templates",
+          "bytes": 23710,
+          "heading": "Static Ad Template Library"
+        }
+      ],
+      "assets": [
+        {
+          "path": "assets/creative-review-template.html",
+          "bytes": 26092
+        }
+      ],
+      "hasEvals": true,
+      "bytes": 25058,
+      "bodyBytes": 23966
+    },
+    {
+      "slug": "ads",
+      "name": "ads",
+      "title": "Paid Ads",
+      "description": "When the user wants help with paid advertising campaigns on Google Ads, Meta (Facebook/Instagram), LinkedIn, Twitter/X, or other ad platforms. Also use when the user mentions 'PPC,' 'paid media,' 'ROAS,' 'CPA,' 'ad campaign,' 'retargeting,' 'audience targeting,' 'Google Ads,' 'Facebook ads,' 'LinkedIn ads,' 'ad budget,' 'cost per click,' 'ad spend,' 'should I run ads,' 'ABM,' 'account-based marketing,' 'B2B ads,' 'lead quality,' 'negative keywords,' 'Performance Max,' 'thought leader ads,' 'when should I kill an ad,' 'search terms report,' 'wasted spend,' or 'is this campaign working.' Use this for campaign strategy, audience targeting, bidding, and optimization. For bulk ad creative generation and iteration, see ad-creative. For landing page optimization, see cro. For outbound to target accounts, see cold-email.",
+      "version": "2.4.6",
+      "license": "MIT",
+      "category": "Paid & Measurement",
+      "references": [
+        {
+          "path": "references/abm-playbook.md",
+          "name": "abm-playbook",
+          "bytes": 8100,
+          "heading": "ABM Playbook (Paid)"
+        },
+        {
+          "path": "references/ad-copy-templates.md",
+          "name": "ad-copy-templates",
+          "bytes": 4821,
+          "heading": "Ad Copy Templates Reference"
+        },
+        {
+          "path": "references/audience-targeting.md",
+          "name": "audience-targeting",
+          "bytes": 6067,
+          "heading": "Audience Targeting Reference"
+        },
+        {
+          "path": "references/audit-guardrails.md",
+          "name": "audit-guardrails",
+          "bytes": 7144,
+          "heading": "Account Audits, Scoring & Recommendation Guardrails"
+        },
+        {
+          "path": "references/b2b-paid-playbook.md",
+          "name": "b2b-paid-playbook",
+          "bytes": 7951,
+          "heading": "B2B Paid Playbook"
+        },
+        {
+          "path": "references/conversion-tracking.md",
+          "name": "conversion-tracking",
+          "bytes": 11133,
+          "heading": "Conversion Tracking Setup"
+        },
+        {
+          "path": "references/creative-research-automation.md",
+          "name": "creative-research-automation",
+          "bytes": 8481,
+          "heading": "Creative Research Automation"
+        },
+        {
+          "path": "references/google-ads-audit-checklist.md",
+          "name": "google-ads-audit-checklist",
+          "bytes": 9531,
+          "heading": "Google Ads Audit Checklist (Ecommerce)"
+        },
+        {
+          "path": "references/google-search-playbook.md",
+          "name": "google-search-playbook",
+          "bytes": 9844,
+          "heading": "Google Search Playbook (B2B)"
+        },
+        {
+          "path": "references/linkedin-b2b-playbook.md",
+          "name": "linkedin-b2b-playbook",
+          "bytes": 8889,
+          "heading": "LinkedIn B2B Playbook"
+        },
+        {
+          "path": "references/meta-andromeda-playbook.md",
+          "name": "meta-andromeda-playbook",
+          "bytes": 3496,
+          "heading": "Modern Meta Playbook (Andromeda Era)"
+        },
+        {
+          "path": "references/meta-decision-system.md",
+          "name": "meta-decision-system",
+          "bytes": 15663,
+          "heading": "Meta Decision System (B2B)"
+        },
+        {
+          "path": "references/payback-period.md",
+          "name": "payback-period",
+          "bytes": 6920,
+          "heading": "Payback Period Budgeting"
+        },
+        {
+          "path": "references/platform-setup-checklists.md",
+          "name": "platform-setup-checklists",
+          "bytes": 7613,
+          "heading": "Platform Setup Checklists"
+        },
+        {
+          "path": "references/reading-google-ads-data.md",
+          "name": "reading-google-ads-data",
+          "bytes": 8750,
+          "heading": "Reading Google Ads Data Without False Conclusions"
+        },
+        {
+          "path": "references/rsa-output-spec.md",
+          "name": "rsa-output-spec",
+          "bytes": 3689,
+          "heading": "Google RSA Output Spec"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 28013,
+      "bodyBytes": 27126
+    },
+    {
+      "slug": "ai-seo",
+      "name": "ai-seo",
+      "title": "AI SEO",
+      "description": "When the user wants to optimize content for AI search engines, get cited by LLMs, or appear in AI-generated answers. Also use when the user mentions 'AI SEO,' 'AEO,' 'GEO,' 'LLMO,' 'answer engine optimization,' 'generative engine optimization,' 'LLM optimization,' 'AI Overviews,' 'optimize for ChatGPT,' 'optimize for Perplexity,' 'AI citations,' 'AI visibility,' 'zero-click search,' 'how do I show up in AI answers,' 'LLM mentions,' 'optimize for Claude/Gemini,' 'llms.txt,' 'llms-full.txt,' 'OKF,' 'Open Knowledge Format,' 'knowledge bundle,' 'agent-readable site,' 'agent readiness,' 'is my site agent-ready,' 'WebMCP,' 'do listicles still work for AI,' 'ChatGPT stopped citing comparison pages,' 'how do LLMs see our brand,' 'LinkedIn for AEO,' or 'AI citation format shift.' Use this whenever someone wants their content to be cited or surfaced by AI assistants and AI search engines. For traditional technical and on-page SEO audits, see seo-audit. For structured data implementation, see schema.",
+      "version": "2.7.6",
+      "license": "MIT",
+      "category": "SEO & Content",
+      "references": [
+        {
+          "path": "references/agent-readiness.md",
+          "name": "agent-readiness",
+          "bytes": 8204,
+          "heading": "Agent Readiness — Can an Agent Reach, Navigate, and Parse Your Site?"
+        },
+        {
+          "path": "references/citations-vs-recommendations.md",
+          "name": "citations-vs-recommendations",
+          "bytes": 10129,
+          "heading": "Citations vs. Recommendations: The AI Visibility Ladder"
+        },
+        {
+          "path": "references/content-patterns.md",
+          "name": "content-patterns",
+          "bytes": 10432,
+          "heading": "AEO and GEO Content Patterns"
+        },
+        {
+          "path": "references/content-types.md",
+          "name": "content-types",
+          "bytes": 3558,
+          "heading": "AI SEO by Content Type"
+        },
+        {
+          "path": "references/format-volatility.md",
+          "name": "format-volatility",
+          "bytes": 7269,
+          "heading": "Format Volatility — Which Content Formats AI Cites (and How Fast That Changes)"
+        },
+        {
+          "path": "references/linkedin-ai-citations.md",
+          "name": "linkedin-ai-citations",
+          "bytes": 8747,
+          "heading": "LinkedIn Content That Gets Cited by AI"
+        },
+        {
+          "path": "references/okf.md",
+          "name": "okf",
+          "bytes": 5952,
+          "heading": "Open Knowledge Format (OKF)"
+        },
+        {
+          "path": "references/platform-ranking-factors.md",
+          "name": "platform-ranking-factors",
+          "bytes": 13098,
+          "heading": "How Each AI Platform Picks Sources"
+        },
+        {
+          "path": "references/positioning-and-consensus.md",
+          "name": "positioning-and-consensus",
+          "bytes": 7283,
+          "heading": "Positioning and Consensus in AI Answers"
+        },
+        {
+          "path": "references/youtube-ai-citations.md",
+          "name": "youtube-ai-citations",
+          "bytes": 4478,
+          "heading": "YouTube Videos That Get Cited by AI"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 33506,
+      "bodyBytes": 32436
+    },
+    {
+      "slug": "analytics",
+      "name": "analytics",
+      "title": "Analytics Tracking",
+      "description": "When the user wants to set up, improve, or audit analytics tracking and measurement. Also use when the user mentions \"set up tracking,\" \"GA4,\" \"Google Analytics,\" \"conversion tracking,\" \"event tracking,\" \"UTM parameters,\" \"tag manager,\" \"GTM,\" \"analytics implementation,\" \"tracking plan,\" \"how do I measure this,\" \"track conversions,\" \"Mixpanel,\" \"Segment,\" \"are my events firing,\" or \"analytics isn't working.\" Use this whenever someone asks how to know if something is working or wants to measure marketing results. For choosing attribution models, comparing multi-touch/MMM/incrementality, or reconciling conflicting numbers across tools, see attribution. For A/B test measurement, see ab-testing.",
+      "version": "2.0.3",
+      "license": "MIT",
+      "category": "Paid & Measurement",
+      "references": [
+        {
+          "path": "references/event-library.md",
+          "name": "event-library",
+          "bytes": 8654,
+          "heading": "Event Library Reference"
+        },
+        {
+          "path": "references/ga4-implementation.md",
+          "name": "ga4-implementation",
+          "bytes": 7084,
+          "heading": "GA4 Implementation Reference"
+        },
+        {
+          "path": "references/gtm-implementation.md",
+          "name": "gtm-implementation",
+          "bytes": 8413,
+          "heading": "Google Tag Manager Implementation Reference"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 9194,
+      "bodyBytes": 8427
+    },
+    {
+      "slug": "aso",
+      "name": "aso",
+      "title": "ASO Audit",
+      "description": "When the user wants to audit or optimize an App Store or Google Play listing. Also use when the user mentions 'ASO audit,' 'app store optimization,' 'optimize my app listing,' 'improve app visibility,' 'app store ranking,' 'audit my listing,' 'why aren't people downloading my app,' 'improve my app conversion,' 'keyword optimization for app,' or 'compare my app to competitors.' Use when the user shares an App Store or Google Play URL and wants to improve it.",
+      "version": "2.0.2",
+      "license": "MIT",
+      "category": "SEO & Content",
+      "references": [
+        {
+          "path": "references/apple-specs.md",
+          "name": "apple-specs",
+          "bytes": 6089,
+          "heading": "Apple App Store — Official Specs & Guidelines"
+        },
+        {
+          "path": "references/benchmarks.md",
+          "name": "benchmarks",
+          "bytes": 5444,
+          "heading": "ASO Benchmarks & Conversion Data"
+        },
+        {
+          "path": "references/google-play-specs.md",
+          "name": "google-play-specs",
+          "bytes": 6599,
+          "heading": "Google Play Store — Official Specs & Guidelines"
+        },
+        {
+          "path": "references/report-template.md",
+          "name": "report-template",
+          "bytes": 5124,
+          "heading": "ASO Audit Report Template"
+        },
+        {
+          "path": "references/scoring-criteria.md",
+          "name": "scoring-criteria",
+          "bytes": 13667,
+          "heading": "ASO Scoring Criteria"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 15873,
+      "bodyBytes": 15349
+    },
+    {
+      "slug": "attribution",
+      "name": "attribution",
+      "title": "Attribution",
+      "description": "When the user wants to figure out which marketing actually drives conversions and revenue, choose or interpret an attribution model, or reconcile conflicting numbers across tools. Also use when the user mentions \"attribution,\" \"attribution model,\" \"first-touch vs last-touch,\" \"multi-touch,\" \"which channel drives revenue,\" \"what's my real CAC,\" \"my dashboards disagree,\" \"Google/Meta says X but GA says Y,\" \"media mix model,\" \"MMM,\" \"incrementality,\" \"geo lift,\" \"holdout test,\" \"how did you hear about us,\" \"self-reported attribution,\" \"dark social,\" or wants to instrument attribution themselves — \"stitch my bookings to their source,\" \"SavvyCal/Calendly attribution,\" \"close the identify gap,\" \"track conversions on a third-party domain,\" \"first-party / self-hosted attribution.\" For event tracking setup and UTMs, see analytics. For ad-platform pixels/CAPI, see ads. For pipeline and CRM revenue reporting, see revops. For the AI-search attribution blind spot, see ai-seo.",
+      "version": "1.1.4",
+      "license": "MIT",
+      "category": "Paid & Measurement",
+      "references": [
+        {
+          "path": "references/attribution-models.md",
+          "name": "attribution-models",
+          "bytes": 6783,
+          "heading": "Attribution Models — The Math, Worked"
+        },
+        {
+          "path": "references/by-business-type.md",
+          "name": "by-business-type",
+          "bytes": 7866,
+          "heading": "Attribution by Business Type"
+        },
+        {
+          "path": "references/first-party-tracking.md",
+          "name": "first-party-tracking",
+          "bytes": 19867,
+          "heading": "First-Party Attribution — The Own-Your-Attribution Runbook"
+        },
+        {
+          "path": "references/measurement-paradigms.md",
+          "name": "measurement-paradigms",
+          "bytes": 9839,
+          "heading": "Measurement Paradigms — MTA vs. MMM vs. Incrementality"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 23267,
+      "bodyBytes": 22221
+    },
+    {
+      "slug": "churn-prevention",
+      "name": "churn-prevention",
+      "title": "Churn Prevention",
+      "description": "When the user wants to reduce churn, build cancellation flows, set up save offers, recover failed payments, or implement retention strategies. Also use when the user mentions 'churn,' 'cancel flow,' 'offboarding,' 'save offer,' 'dunning,' 'failed payment recovery,' 'win-back,' 'retention,' 'exit survey,' 'pause subscription,' 'involuntary churn,' 'people keep canceling,' 'churn rate is too high,' 'how do I keep users,' or 'customers are leaving.' Use this whenever someone is losing subscribers or wants to build systems to prevent it. For post-cancel win-back email sequences, see emails. For in-app upgrade paywalls, see paywalls.",
+      "version": "2.0.2",
+      "license": "MIT",
+      "category": "Growth & Retention",
+      "references": [
+        {
+          "path": "references/cancel-flow-patterns.md",
+          "name": "cancel-flow-patterns",
+          "bytes": 10650,
+          "heading": "Cancel Flow Patterns"
+        },
+        {
+          "path": "references/dunning-playbook.md",
+          "name": "dunning-playbook",
+          "bytes": 13670,
+          "heading": "Dunning Playbook"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 17851,
+      "bodyBytes": 17139
+    },
+    {
+      "slug": "co-marketing",
+      "name": "co-marketing",
+      "title": "co-marketing",
+      "description": "When the user wants to find co-marketing partners, plan joint campaigns, or brainstorm partnership opportunities. Use when the user says 'co-marketing,' 'partner marketing,' 'joint campaign,' 'who should we partner with,' 'integration marketing,' 'cross-promotion,' 'collaborate with another company,' 'partnership ideas,' or 'co-brand.' For customer referral programs, see referrals. For launch-specific partnerships, see launch.",
+      "version": "2.0.2",
+      "license": "MIT",
+      "category": "Growth & Retention",
+      "references": [
+        {
+          "path": "references/partnership-types.md",
+          "name": "partnership-types",
+          "bytes": 7366,
+          "heading": "Partnership Types"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 12010,
+      "bodyBytes": 11508
+    },
+    {
+      "slug": "cold-email",
+      "name": "cold-email",
+      "title": "Cold Email Writing",
+      "description": "Write and run B2B cold outbound that gets replies, from cold emails and follow-ups to sending setup, LinkedIn, multichannel cadences, and reply handling. Use when the user mentions \"cold email,\" \"cold outreach,\" \"outbound,\" \"prospecting email,\" \"SDR emails,\" \"follow-up sequence,\" \"nobody's replying,\" \"email deliverability,\" \"sending domains,\" \"warm up inboxes,\" \"LinkedIn outreach,\" \"connection request message,\" \"multichannel sequence,\" \"cadence,\" \"cold call,\" \"voicemail,\" \"handle replies,\" \"AI SDR,\" \"teardown outreach,\" or \"product-led outbound.\" Send from secondary domains, verify lists first, turn off open tracking, and stop every channel when a prospect replies. Copy avoids AI tells like 'it's not X, it's Y' reveals. For building the list and account research, see prospecting. For lifecycle email, see emails. For call scripts and sales collateral, see sales-enablement.",
+      "version": "2.2.0",
+      "license": "MIT",
+      "category": "Content & Copy",
+      "references": [
+        {
+          "path": "references/benchmarks.md",
+          "name": "benchmarks",
+          "bytes": 6411,
+          "heading": "Benchmarks, Data & Expert Methods"
+        },
+        {
+          "path": "references/deliverability.md",
+          "name": "deliverability",
+          "bytes": 7833,
+          "heading": "Cold Email Deliverability"
+        },
+        {
+          "path": "references/follow-up-sequences.md",
+          "name": "follow-up-sequences",
+          "bytes": 3863,
+          "heading": "Follow-Up Sequences"
+        },
+        {
+          "path": "references/frameworks.md",
+          "name": "frameworks",
+          "bytes": 5387,
+          "heading": "Cold Email Copywriting Frameworks"
+        },
+        {
+          "path": "references/linkedin-outreach.md",
+          "name": "linkedin-outreach",
+          "bytes": 5750,
+          "heading": "LinkedIn Outreach"
+        },
+        {
+          "path": "references/multichannel-cadence.md",
+          "name": "multichannel-cadence",
+          "bytes": 5481,
+          "heading": "Multichannel Cadence"
+        },
+        {
+          "path": "references/outbound-plays.md",
+          "name": "outbound-plays",
+          "bytes": 6113,
+          "heading": "Outbound Plays"
+        },
+        {
+          "path": "references/personalization.md",
+          "name": "personalization",
+          "bytes": 5238,
+          "heading": "Personalization at Scale"
+        },
+        {
+          "path": "references/reply-handling.md",
+          "name": "reply-handling",
+          "bytes": 4648,
+          "heading": "Handling Replies"
+        },
+        {
+          "path": "references/subject-lines.md",
+          "name": "subject-lines",
+          "bytes": 3015,
+          "heading": "Subject Line Optimization"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 12499,
+      "bodyBytes": 11547
+    },
+    {
+      "slug": "community-marketing",
+      "name": "community-marketing",
+      "title": "Community Marketing",
+      "description": "Build and leverage online communities to drive product growth and brand loyalty. Use when the user wants to create a community strategy, grow a Discord or Slack community, manage a forum or subreddit, build brand advocates, increase word-of-mouth, drive community-led growth, engage users post-signup, or turn customers into evangelists. Trigger phrases: \\\"build a community,\\\" \\\"community strategy,\\\" \\\"Discord community,\\\" \\\"Slack community,\\\" \\\"community-led growth,\\\" \\\"brand advocates,\\\" \\\"user community,\\\" \\\"forum strategy,\\\" \\\"community engagement,\\\" \\\"grow our community,\\\" \\\"ambassador program,\\\" \\\"community flywheel.\\\"",
+      "version": "2.0.1",
+      "license": "MIT",
+      "category": "Growth & Retention",
+      "references": [
+        {
+          "path": "references/community-models.md",
+          "name": "community-models",
+          "bytes": 4049,
+          "heading": "Community Models & Scaling Phases"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 9704,
+      "bodyBytes": 8995
+    },
+    {
+      "slug": "competitor-profiling",
+      "name": "competitor-profiling",
+      "title": "Competitor Profiling",
+      "description": "When the user wants to research, profile, or analyze competitors from their URLs. Also use when the user mentions 'competitor profile,' 'competitor research,' 'competitor analysis,' 'profile this competitor,' 'analyze competitor,' 'competitive intelligence,' 'competitor deep dive,' 'who are my competitors,' 'competitor landscape,' 'competitor dossier,' 'competitive audit,' or 'research these competitors.' Input is a list of competitor URLs. Output is structured competitor profile markdown files. For creating comparison/alternative pages from profiles, see competitors. For sales-specific battle cards, see sales-enablement. For researching accounts you're selling to, see prospecting.",
+      "version": "2.1.3",
+      "license": "MIT",
+      "category": "SEO & Content",
+      "references": [
+        {
+          "path": "references/templates.md",
+          "name": "templates",
+          "bytes": 4668,
+          "heading": "Profile Templates"
+        },
+        {
+          "path": "references/tool-reference.md",
+          "name": "tool-reference",
+          "bytes": 13132,
+          "heading": "MCP Tool Reference for Competitor Profiling"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 17293,
+      "bodyBytes": 16523
+    },
+    {
+      "slug": "competitors",
+      "name": "competitors",
+      "title": "Competitor & Alternative Pages",
+      "description": "When the user wants to create competitor comparison or alternative pages for SEO and buyer-facing use. Also use when the user mentions 'alternative page,' 'vs page,' 'competitor comparison,' 'comparison page,' '[Product] vs [Product],' '[Product] alternative,' 'competitive landing pages,' 'how do we compare to X,' 'competitor teardown,' 'audit our competitor pages,' 'are our comparison pages out of date,' or 'competitive asset audit.' Use this for any content that positions your product against competitors. Covers four formats: singular alternative, plural alternatives, you vs competitor, and competitor vs competitor. For auditing existing claims (not researching competitors from scratch, which is competitor-profiling; not technical SEO on these pages, which is seo-audit), use the asset audit here. For internal battle cards and sales-specific competitor docs, see sales-enablement.",
+      "version": "2.3.0",
+      "license": "MIT",
+      "category": "SEO & Content",
+      "references": [
+        {
+          "path": "references/content-architecture.md",
+          "name": "content-architecture",
+          "bytes": 7745,
+          "heading": "Content Architecture for Competitor Pages"
+        },
+        {
+          "path": "references/templates.md",
+          "name": "templates",
+          "bytes": 5649,
+          "heading": "Section Templates for Competitor Pages"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 12063,
+      "bodyBytes": 11099
+    },
+    {
+      "slug": "content-strategy",
+      "name": "content-strategy",
+      "title": "Content Strategy",
+      "description": "When the user wants to plan a content strategy, decide what content to create, or figure out what topics to cover. Also use when the user mentions \"content strategy,\" \"what should I write about,\" \"content ideas,\" \"blog strategy,\" \"topic clusters,\" \"content planning,\" \"editorial calendar,\" \"content marketing,\" \"content roadmap,\" \"what content should I create,\" \"blog topics,\" \"content pillars,\" or \"I don't know what to write.\" Use this whenever someone needs help deciding what content to produce, not just writing it. For writing individual pieces, see copywriting. For SEO-specific audits, see seo-audit. For social media content specifically, see social.",
+      "version": "2.1.3",
+      "license": "MIT",
+      "category": "SEO & Content",
+      "references": [
+        {
+          "path": "references/content-distribution.md",
+          "name": "content-distribution",
+          "bytes": 5576,
+          "heading": "Content Distribution Spine"
+        },
+        {
+          "path": "references/headless-cms.md",
+          "name": "headless-cms",
+          "bytes": 8583,
+          "heading": "Headless CMS Guide"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 18996,
+      "bodyBytes": 18263
+    },
+    {
+      "slug": "copy-editing",
+      "name": "copy-editing",
+      "title": "Copy Editing",
+      "description": "When the user wants to edit, review, or improve existing marketing copy, or refresh outdated content. Also use when the user mentions 'edit this copy,' 'review my copy,' 'copy feedback,' 'proofread,' 'polish this,' 'make this better,' 'copy sweep,' 'tighten this up,' 'this reads awkwardly,' 'clean up this text,' 'too wordy,' 'sharpen the messaging,' 'refresh this content,' 'update this page,' 'this content is outdated,' or 'content audit,' 'this sounds like AI,' 'AI slop,' 'de-slop this,' or 'make it sound human.' Use this when the user already has copy and wants it improved or refreshed rather than rewritten from scratch. Every edit removes AI tells such as 'it's not X, it's Y' reveals, 'no X, no Y, no Z' lists, and sentences that trail into extra comma clauses. For writing new copy, see copywriting.",
+      "version": "2.1.1",
+      "license": "MIT",
+      "category": "Content & Copy",
+      "references": [
+        {
+          "path": "references/checklist.md",
+          "name": "checklist",
+          "bytes": 2462,
+          "heading": "Copy Editing Checklist"
+        },
+        {
+          "path": "references/content-refresh.md",
+          "name": "content-refresh",
+          "bytes": 4662,
+          "heading": "Content Refresh Editing"
+        },
+        {
+          "path": "references/plain-english-alternatives.md",
+          "name": "plain-english-alternatives",
+          "bytes": 8258,
+          "heading": "Plain English Alternatives"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 17868,
+      "bodyBytes": 16984
+    },
+    {
+      "slug": "copywriting",
+      "name": "copywriting",
+      "title": "Copywriting",
+      "description": "When the user wants to write, rewrite, or improve marketing copy for any page, including homepage, landing pages, pricing pages, feature pages, about pages, or product pages. Also use when the user says \"write copy for,\" \"improve this copy,\" \"rewrite this page,\" \"marketing copy,\" \"headline help,\" \"CTA copy,\" \"value proposition,\" \"tagline,\" \"subheadline,\" \"hero section copy,\" \"above the fold,\" \"this copy is weak,\" \"make this more compelling,\" \"this sounds like AI,\" \"AI slop,\" \"make it sound human,\" or \"help me describe my product.\" Use this whenever someone is working on website text that needs to persuade or convert. Drafts never use AI tells like \"it's not X, it's Y\" reveals, \"no X, no Y, no Z\" lists, or sentences that trail into extra comma clauses. For email copy, see emails. For popup copy, see popups. For editing existing copy, see copy-editing. For the offer underneath the copy (bonuses, guarantees, value framing), see offers.",
+      "version": "2.1.0",
+      "license": "MIT",
+      "category": "Content & Copy",
+      "references": [
+        {
+          "path": "references/ai-tells.md",
+          "name": "ai-tells",
+          "bytes": 15617,
+          "heading": "AI Tells: The Copy Blacklist"
+        },
+        {
+          "path": "references/copy-frameworks.md",
+          "name": "copy-frameworks",
+          "bytes": 14352,
+          "heading": "Copy Frameworks Reference"
+        },
+        {
+          "path": "references/natural-transitions.md",
+          "name": "natural-transitions",
+          "bytes": 5561,
+          "heading": "Natural Transitions"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 10924,
+      "bodyBytes": 9909
+    },
+    {
+      "slug": "cro",
+      "name": "cro",
+      "title": "Conversion Rate Optimization (CRO)",
+      "description": "When the user wants to optimize, improve, or increase conversions on any marketing page or form — including homepage, landing pages, pricing pages, feature pages, lead capture forms, or contact forms. Also use when the user says 'CRO,' 'conversion rate optimization,' 'this page isn't converting,' 'improve conversions,' 'why isn't this page working,' 'my landing page sucks,' 'form abandonment,' 'nobody's converting,' 'low conversion rate,' or 'this page needs work.' Use this even if the user just shares a URL and asks for feedback. For signup/registration flows, see signup. For post-signup activation, see onboarding. For popups/modals, see popups.",
+      "version": "2.0.3",
+      "license": "MIT",
+      "category": "CRO",
+      "references": [
+        {
+          "path": "references/experiments.md",
+          "name": "experiments",
+          "bytes": 7850,
+          "heading": "Page CRO Experiment Ideas"
+        },
+        {
+          "path": "references/form.md",
+          "name": "form",
+          "bytes": 10332,
+          "heading": "Form CRO"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 7108,
+      "bodyBytes": 6391
+    },
+    {
+      "slug": "customer-research",
+      "name": "customer-research",
+      "title": "Customer Research",
+      "description": "When the user wants to conduct, analyze, or synthesize customer research. Use when the user mentions \"customer research,\" \"ICP research,\" \"talk to customers,\" \"analyze transcripts,\" \"customer interviews,\" \"survey analysis,\" \"support ticket analysis,\" \"voice of customer,\" \"VOC,\" \"build personas,\" \"customer personas,\" \"jobs to be done,\" \"JTBD,\" \"what do customers say,\" \"what are customers struggling with,\" \"Reddit mining,\" \"G2 reviews,\" \"review mining,\" \"digital watering holes,\" \"community research,\" \"forum research,\" \"competitor reviews,\" \"customer sentiment,\" \"PMF survey,\" \"product/market fit survey,\" \"customer interview questions,\" \"interview outreach,\" \"Sales Safari,\" or \"find out why customers churn/convert/buy.\" Use for analyzing existing research assets, mining online sources, AND running primary research (interviews and surveys). For writing copy informed by research, see copywriting. For acting on research to improve pages, see cro.",
+      "version": "2.0.4",
+      "license": "MIT",
+      "category": "Strategy",
+      "references": [
+        {
+          "path": "references/interviews-and-surveys.md",
+          "name": "interviews-and-surveys",
+          "bytes": 8640,
+          "heading": "Customer Research — Interviews & Surveys (Primary Research)"
+        },
+        {
+          "path": "references/source-guides.md",
+          "name": "source-guides",
+          "bytes": 16240,
+          "heading": "Customer Research — Source Guides"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 15045,
+      "bodyBytes": 14017
+    },
+    {
+      "slug": "directory-submissions",
+      "name": "directory-submissions",
+      "title": "Directory Submissions",
+      "description": "When the user wants to submit their product to startup, SaaS, AI, agent, MCP, no-code, or review directories for backlinks, domain rating, and discovery. Also use when the user mentions \"directory submissions,\" \"submit to directories,\" \"backlinks from directories,\" \"list my product,\" \"submit to Product Hunt,\" \"BetaList,\" \"TAAFT,\" \"Futurepedia,\" \"G2 listing,\" \"Capterra listing,\" \"AlternativeTo,\" \"SaaSHub,\" \"AI directories,\" \"MCP registry,\" \"publish my MCP server,\" \"awesome list,\" \"llms.txt directory,\" \"Claude plugin directory,\" \"agent directory,\" \"dofollow backlinks,\" \"launch directories,\" or \"directory tracker.\" Use this whenever someone is planning the directory layer of a product launch or an ongoing backlink campaign. For the broader launch moment, see launch. For programmatic SEO pages that should live behind these backlinks, see programmatic-seo. For AI citation optimization, see ai-seo.",
+      "version": "2.1.1",
+      "license": "MIT",
+      "category": "Growth & Retention",
+      "references": [
+        {
+          "path": "references/directory-list.md",
+          "name": "directory-list",
+          "bytes": 32309,
+          "heading": "Directory List — Full Reference"
+        },
+        {
+          "path": "references/positioning-variations.md",
+          "name": "positioning-variations",
+          "bytes": 9398,
+          "heading": "Positioning Variations Library"
+        },
+        {
+          "path": "references/submission-tracker-template.csv",
+          "name": "submission-tracker-template.csv",
+          "bytes": 20690,
+          "heading": "submission-tracker-template.csv"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 26676,
+      "bodyBytes": 25692
+    },
+    {
+      "slug": "emails",
+      "name": "emails",
+      "title": "Email Sequence Design",
+      "description": "When the user wants to create or optimize an email sequence, drip campaign, automated email flow, or lifecycle email program. Also use when the user mentions \"email sequence,\" \"drip campaign,\" \"nurture sequence,\" \"onboarding emails,\" \"welcome sequence,\" \"re-engagement emails,\" \"email automation,\" \"lifecycle emails,\" \"trigger-based emails,\" \"email funnel,\" \"email workflow,\" \"what emails should I send,\" \"welcome series,\" or \"email cadence.\" Use this for any multi-email automated flow. Emails avoid AI tells like 'it's not X, it's Y' reveals, 'no X, no Y, no Z' lists, and fake 'Re:' subject lines. For cold outreach and outbound sequences, see cold-email. For in-app onboarding, see onboarding.",
+      "version": "2.1.3",
+      "license": "MIT",
+      "category": "Content & Copy",
+      "references": [
+        {
+          "path": "references/copy-guidelines.md",
+          "name": "copy-guidelines",
+          "bytes": 2332,
+          "heading": "Email Copy Guidelines"
+        },
+        {
+          "path": "references/email-types.md",
+          "name": "email-types",
+          "bytes": 14250,
+          "heading": "Email Types Reference"
+        },
+        {
+          "path": "references/sequence-templates.md",
+          "name": "sequence-templates",
+          "bytes": 3909,
+          "heading": "Email Sequence Templates"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 11341,
+      "bodyBytes": 10580
+    },
+    {
+      "slug": "events",
+      "name": "events",
+      "title": "Event Marketing",
+      "description": "When the user wants to plan, run, sponsor, speak at, or get pipeline from events — webinars, conferences, trade shows, meetups, dinners, workshops, virtual summits, or user conferences. Also use when the user mentions 'event marketing,' 'field marketing,' 'run a webinar,' 'webinar funnel,' 'show-up rate,' 'should we sponsor,' 'sponsor a conference,' 'trade show booth,' 'booth strategy,' 'event ROI,' 'badge scans,' 'event follow-up,' 'speaking slot,' 'CFP,' 'conference talk,' 'host a dinner,' 'user conference,' or 'virtual summit.' Covers all four roles: hosting, sponsoring/exhibiting, speaking, and attending. For product launch moments, see launch. For the partnership side of joint webinars, see co-marketing. For ongoing community programs, see community-marketing. For podcast appearances, see public-relations. For the email sequences themselves, see emails.",
+      "version": "1.0.0",
+      "license": "MIT",
+      "category": "Growth & Retention",
+      "references": [
+        {
+          "path": "references/event-portfolio-strategy.md",
+          "name": "event-portfolio-strategy",
+          "bytes": 7981,
+          "heading": "Event Portfolio Strategy — Which Events, Why, and the Economics"
+        },
+        {
+          "path": "references/speaking.md",
+          "name": "speaking",
+          "bytes": 5348,
+          "heading": "Speaking — Get Booked, Design the Talk, Compound the Recording"
+        },
+        {
+          "path": "references/sponsorship-roi.md",
+          "name": "sponsorship-roi",
+          "bytes": 6243,
+          "heading": "Sponsorship & Exhibiting — Evaluate, Negotiate, Work the Floor, Follow Up"
+        },
+        {
+          "path": "references/webinar-funnel.md",
+          "name": "webinar-funnel",
+          "bytes": 8191,
+          "heading": "The Webinar Funnel — Registration → Show-Up → Live-to-Close → Nurture"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 12021,
+      "bodyBytes": 11085
+    },
+    {
+      "slug": "free-tools",
+      "name": "free-tools",
+      "title": "Free Tool Strategy (Engineering as Marketing)",
+      "description": "When the user wants to plan, evaluate, or build a free tool for marketing purposes — lead generation, SEO value, or brand awareness. Also use when the user mentions \"engineering as marketing,\" \"free tool,\" \"marketing tool,\" \"calculator,\" \"generator,\" \"interactive tool,\" \"lead gen tool,\" \"build a tool for leads,\" \"free resource,\" \"ROI calculator,\" \"grader tool,\" \"audit tool,\" \"should I build a free tool,\" or \"tools for lead gen.\" Use this whenever someone wants to build something useful and give it away to attract leads or earn links. For downloadable content lead magnets (ebooks, checklists, templates), see lead-magnets.",
+      "version": "2.0.1",
+      "license": "MIT",
+      "category": "Growth & Retention",
+      "references": [
+        {
+          "path": "references/tool-benchmarks.md",
+          "name": "tool-benchmarks",
+          "bytes": 3015,
+          "heading": "Free Tool Case Benchmarks"
+        },
+        {
+          "path": "references/tool-types.md",
+          "name": "tool-types",
+          "bytes": 4012,
+          "heading": "Free Tool Types Reference"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 7219,
+      "bodyBytes": 6523
+    },
+    {
+      "slug": "image",
+      "name": "image",
+      "title": "Image",
+      "description": "When the user wants to create, generate, edit, or optimize images for marketing — blog heroes, social graphics, product mockups, profile banners, listing visuals, or brand assets. Also use when the user mentions 'AI image generation,' 'generate an image,' 'create a graphic,' 'product mockup,' 'hero image,' 'social media graphic,' 'banner image,' 'cover photo,' 'profile banner,' 'listing screenshot,' 'Flux,' 'Flux Kontext,' 'Midjourney,' 'DALL-E,' 'GPT Image,' 'ChatGPT Images,' 'Ideogram,' 'Gemini image,' 'Nano Banana,' 'Recraft,' 'Stable Diffusion,' 'Canva,' 'Figma,' 'image optimization,' 'compress images,' 'WebP,' or 'OG image.' Use this for general-purpose marketing image creation and optimization. For paid ad image creative and platform-specific ad specs, see ad-creative. For video production, see video.",
+      "version": "2.0.2",
+      "license": "MIT",
+      "category": "Content & Copy",
+      "references": [
+        {
+          "path": "references/ai-image-prompting.md",
+          "name": "ai-image-prompting",
+          "bytes": 8161,
+          "heading": "AI Image Prompting Guide"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 15832,
+      "bodyBytes": 14949
+    },
+    {
+      "slug": "influencer-marketing",
+      "name": "influencer-marketing",
+      "title": "Influencer & Creator Marketing",
+      "description": "When the user wants to run influencer, creator, or ambassador partnerships to promote their product — finding and vetting partners, structuring deals, briefing creators, disclosure compliance, and measuring ROI. Also use when the user mentions 'influencer marketing,' 'creator partnerships,' 'sponsorships,' 'YouTube sponsorships,' 'podcast sponsorships,' 'brand ambassador,' 'ambassador program,' 'creator program,' 'UGC creators,' 'tech UGC,' 'UGC creator program,' 'creator network,' 'B2B influencers,' 'thought leader ads,' 'gifting,' 'product seeding,' 'whitelisting creator content,' 'how much to pay an influencer,' or 'FTC disclosure.' For affiliate/referral payout mechanics, see referrals. For community-led advocacy, see community-marketing. For turning creator content into paid ads, see ad-creative.",
+      "version": "1.1.2",
+      "license": "MIT",
+      "category": "Growth & Retention",
+      "references": [
+        {
+          "path": "references/ugc-creator-program.md",
+          "name": "ugc-creator-program",
+          "bytes": 8908,
+          "heading": "Volume UGC Creator Programs (\"Tech UGC\")"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 18102,
+      "bodyBytes": 17210
+    },
+    {
+      "slug": "launch",
+      "name": "launch",
+      "title": "Launch Strategy",
+      "description": "When the user wants to plan a product launch, feature announcement, or release strategy. Also use when the user mentions 'launch,' 'Product Hunt,' 'feature release,' 'announcement,' 'go-to-market,' 'beta launch,' 'early access,' 'waitlist,' 'product update,' 'how do I launch this,' 'site launch,' 'go live,' 'pre-launch QA,' 'launch checklist,' 'GTM plan,' 'we're about to ship,' 'changelog,' 'release notes,' or 'what did we ship this week.' Use this whenever someone is preparing to release something publicly. For ongoing marketing after launch, see marketing-ideas. For the offer being launched (bonuses, guarantees, scarcity, naming), see offers.",
+      "version": "2.2.0",
+      "license": "MIT",
+      "category": "Sales & GTM",
+      "references": [
+        {
+          "path": "references/shipped-changes.md",
+          "name": "shipped-changes",
+          "bytes": 4703,
+          "heading": "From Shipped Code to Marketing"
+        },
+        {
+          "path": "references/site-launch-qa.md",
+          "name": "site-launch-qa",
+          "bytes": 3793,
+          "heading": "Site Launch QA"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 15679,
+      "bodyBytes": 14961
+    },
+    {
+      "slug": "lead-magnets",
+      "name": "lead-magnets",
+      "title": "Lead Magnets",
+      "description": "When the user wants to create, plan, or optimize a lead magnet for email capture or lead generation. Also use when the user mentions \"lead magnet,\" \"gated content,\" \"content upgrade,\" \"downloadable,\" \"ebook,\" \"cheat sheet,\" \"checklist,\" \"template download,\" \"opt-in,\" \"freebie,\" \"PDF download,\" \"resource library,\" \"content offer,\" \"email capture content,\" \"Notion template,\" \"spreadsheet template,\" \"what should I give away for emails,\" \"course as a skill,\" or \"package our content as an agent skill.\" Use this for planning what to create and how to distribute it. For interactive tools as lead magnets, see free-tools. For writing the actual content, see copywriting. For the email sequence after capture, see emails.",
+      "version": "2.1.0",
+      "license": "MIT",
+      "category": "Content & Copy",
+      "references": [
+        {
+          "path": "references/benchmarks.md",
+          "name": "benchmarks",
+          "bytes": 4234,
+          "heading": "Lead Magnet Benchmarks"
+        },
+        {
+          "path": "references/content-to-skill-corpus-design.md",
+          "name": "content-to-skill-corpus-design",
+          "bytes": 4993,
+          "heading": "Corpus Design and Extraction"
+        },
+        {
+          "path": "references/content-to-skill-release.md",
+          "name": "content-to-skill-release",
+          "bytes": 4792,
+          "heading": "Release and Evaluation"
+        },
+        {
+          "path": "references/content-to-skill.md",
+          "name": "content-to-skill",
+          "bytes": 8406,
+          "heading": "Content Library to Agent Skill"
+        },
+        {
+          "path": "references/format-guide.md",
+          "name": "format-guide",
+          "bytes": 5826,
+          "heading": "Lead Magnet Format Guide"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 11250,
+      "bodyBytes": 10461
+    },
+    {
+      "slug": "marketing-council",
+      "name": "marketing-council",
+      "title": "Marketing Council",
+      "description": "When the user wants multiple expert perspectives on a marketing question — a simulated board of advisors staffed by legendary marketers (Seth Godin, David Ogilvy, Eugene Schwartz, April Dunford, Rory Sutherland, Alex Hormozi, Byron Sharp, and more). Also use when the user mentions 'marketing council,' 'board of advisors,' 'advisory board,' 'what would Seth Godin say,' 'what would Ogilvy think,' 'channel Hormozi,' 'get multiple perspectives,' 'debate this,' 'have the council review,' 'marketing mentors,' or asks how a famous marketer would approach their problem. The council gives each advisor's take through their documented frameworks, surfaces where they disagree, and synthesizes a recommendation. For executing the winning direction, hand off to positioning, offers, copywriting, ads, or the relevant skill.",
+      "version": "1.0.0",
+      "license": "MIT",
+      "category": "Strategy",
+      "references": [
+        {
+          "path": "references/advisor-template.md",
+          "name": "advisor-template",
+          "bytes": 2112,
+          "heading": "Custom Advisor Template"
+        },
+        {
+          "path": "references/advisors/alex-hormozi.md",
+          "name": "advisors/alex-hormozi",
+          "bytes": 3987,
+          "heading": "Alex Hormozi"
+        },
+        {
+          "path": "references/advisors/ann-handley.md",
+          "name": "advisors/ann-handley",
+          "bytes": 4064,
+          "heading": "Ann Handley"
+        },
+        {
+          "path": "references/advisors/april-dunford.md",
+          "name": "advisors/april-dunford",
+          "bytes": 4410,
+          "heading": "April Dunford"
+        },
+        {
+          "path": "references/advisors/byron-sharp.md",
+          "name": "advisors/byron-sharp",
+          "bytes": 4790,
+          "heading": "Byron Sharp"
+        },
+        {
+          "path": "references/advisors/claude-hopkins.md",
+          "name": "advisors/claude-hopkins",
+          "bytes": 3789,
+          "heading": "Claude Hopkins (1866–1932)"
+        },
+        {
+          "path": "references/advisors/david-ogilvy.md",
+          "name": "advisors/david-ogilvy",
+          "bytes": 4096,
+          "heading": "David Ogilvy (1911–1999)"
+        },
+        {
+          "path": "references/advisors/eugene-schwartz.md",
+          "name": "advisors/eugene-schwartz",
+          "bytes": 4184,
+          "heading": "Eugene Schwartz (1927–1995)"
+        },
+        {
+          "path": "references/advisors/gary-halbert.md",
+          "name": "advisors/gary-halbert",
+          "bytes": 3968,
+          "heading": "Gary Halbert (1938–2007)"
+        },
+        {
+          "path": "references/advisors/gary-vaynerchuk.md",
+          "name": "advisors/gary-vaynerchuk",
+          "bytes": 4399,
+          "heading": "Gary Vaynerchuk"
+        },
+        {
+          "path": "references/advisors/rory-sutherland.md",
+          "name": "advisors/rory-sutherland",
+          "bytes": 4732,
+          "heading": "Rory Sutherland"
+        },
+        {
+          "path": "references/advisors/russell-brunson.md",
+          "name": "advisors/russell-brunson",
+          "bytes": 4331,
+          "heading": "Russell Brunson (b. 1980)"
+        },
+        {
+          "path": "references/advisors/seth-godin.md",
+          "name": "advisors/seth-godin",
+          "bytes": 4026,
+          "heading": "Seth Godin"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 12382,
+      "bodyBytes": 11487
+    },
+    {
+      "slug": "marketing-ideas",
+      "name": "marketing-ideas",
+      "title": "Marketing Ideas for SaaS",
+      "description": "When the user needs marketing ideas, inspiration, or strategies for their SaaS or software product. Also use when the user asks for 'marketing ideas,' 'growth ideas,' 'how to market,' 'marketing strategies,' 'marketing tactics,' 'ways to promote,' 'ideas to grow,' 'what else can I try,' 'I don't know how to market this,' 'brainstorm marketing,' or 'what marketing should I do.' Use this as a starting point whenever someone is stuck or looking for inspiration on how to grow. For specific channel execution, see the relevant skill (ads, social, emails, etc.).",
+      "version": "2.0.1",
+      "license": "MIT",
+      "category": "Strategy",
+      "references": [
+        {
+          "path": "references/guerrilla-marketing.md",
+          "name": "guerrilla-marketing",
+          "bytes": 5033,
+          "heading": "Guerrilla Marketing (#121)"
+        },
+        {
+          "path": "references/ideas-by-category.md",
+          "name": "ideas-by-category",
+          "bytes": 15400,
+          "heading": "The 139 Marketing Ideas"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 5787,
+      "bodyBytes": 5151
+    },
+    {
+      "slug": "marketing-loops",
+      "name": "marketing-loops",
+      "title": "Marketing Loops",
+      "description": "When the user wants to set up a recurring, self-running marketing workflow — a repeatable loop an AI agent runs on a cadence (weekly, daily, on a trigger) rather than a one-off task. Also use when the user mentions 'marketing loop,' 'recurring marketing workflow,' 'automate my marketing,' 'marketing on autopilot,' 'weekly marketing review,' 'ad fatigue check,' 'content refresh loop,' 'churn watch,' 'ranking drop alert,' 'run my SEO,' 'SEO operator,' 'daily SEO agent,' 'run my outbound,' 'AI SDR,' 'reply triage,' 'always-on marketing,' 'marketing automation workflow,' or 'run this every week.' Use this to pick, adapt, and schedule an ongoing marketing loop that orchestrates the other marketing skills. For one-off marketing ideas, see marketing-ideas. For the experimentation loop specifically, see ab-testing.",
+      "version": "1.4.0",
+      "license": "MIT",
+      "category": "Growth & Retention",
+      "references": [
+        {
+          "path": "references/loop-catalog.md",
+          "name": "loop-catalog",
+          "bytes": 55607,
+          "heading": "Marketing Loop Catalog"
+        },
+        {
+          "path": "references/loop-guardrails.md",
+          "name": "loop-guardrails",
+          "bytes": 4998,
+          "heading": "Loop Guardrails & Compliance"
+        },
+        {
+          "path": "references/loop-orchestration.md",
+          "name": "loop-orchestration",
+          "bytes": 5061,
+          "heading": "Loop Orchestration & Rollout"
+        },
+        {
+          "path": "references/loop-state.md",
+          "name": "loop-state",
+          "bytes": 3818,
+          "heading": "Loop State & Run Logging"
+        },
+        {
+          "path": "references/loop-template.md",
+          "name": "loop-template",
+          "bytes": 5122,
+          "heading": "Loop Template"
+        },
+        {
+          "path": "references/outbound-operator.md",
+          "name": "outbound-operator",
+          "bytes": 5001,
+          "heading": "The Outbound Operator"
+        },
+        {
+          "path": "references/seo-operator.md",
+          "name": "seo-operator",
+          "bytes": 8377,
+          "heading": "The SEO Operator"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 9880,
+      "bodyBytes": 8987
+    },
+    {
+      "slug": "marketing-plan",
+      "name": "marketing-plan",
+      "title": "Marketing Plan",
+      "description": "When the user needs a comprehensive marketing plan for a client, a company they advise, or their own product. Also use when the user mentions \"marketing plan,\" \"growth plan,\" \"GTM plan,\" \"go-to-market plan,\" \"AARRR plan,\" \"90-day marketing plan,\" \"12-month marketing roadmap,\" \"fractional CMO plan,\" \"fCMO plan,\" \"market sizing,\" \"TAM SAM SOM,\" \"how big is this market,\" or \"market research.\" Generates an exhaustive 13-section plan structured by AARRR (Acquisition, Activation, Retention, Referral, Revenue), customized to the client's current budget, team, and stage, mapped to future funding milestones, cross-referenced with the 139-idea marketing-ideas library and an embedded 17-section current-state audit rubric, with a marketing operations stack showing which skills and MCP/API integrations execute each part. Outputs a Notion-paste-ready markdown document. For positioning and ICP context before planning, see product-marketing. For stage-specific deep work, see onboarding, signup, emails, referrals, pricing.",
+      "version": "1.2.1",
+      "license": "MIT",
+      "category": "Sales & GTM",
+      "references": [
+        {
+          "path": "references/aarrr-framework.md",
+          "name": "aarrr-framework",
+          "bytes": 10766,
+          "heading": "AARRR Framework — Primer for Plan Sequencing"
+        },
+        {
+          "path": "references/budget-planning.md",
+          "name": "budget-planning",
+          "bytes": 10265,
+          "heading": "Budget Planning — Scientific Methods for Setting the Marketing Budget"
+        },
+        {
+          "path": "references/client-types.md",
+          "name": "client-types",
+          "bytes": 11386,
+          "heading": "Client Types — Variations by Business Model"
+        },
+        {
+          "path": "references/current-state-rubric.md",
+          "name": "current-state-rubric",
+          "bytes": 11656,
+          "heading": "Current State Rubric — 17-Section Scoring Lens"
+        },
+        {
+          "path": "references/example-quietude.md",
+          "name": "example-quietude",
+          "bytes": 69116,
+          "heading": "Example — Quietude Marketing Plan v1"
+        },
+        {
+          "path": "references/funding-stage-unlocks.md",
+          "name": "funding-stage-unlocks",
+          "bytes": 9797,
+          "heading": "Funding-Stage Capability Unlocks"
+        },
+        {
+          "path": "references/growth-patterns.md",
+          "name": "growth-patterns",
+          "bytes": 13419,
+          "heading": "Growth Patterns — The Real Shape of SaaS Growth"
+        },
+        {
+          "path": "references/idea-cross-reference.md",
+          "name": "idea-cross-reference",
+          "bytes": 13418,
+          "heading": "Idea Cross-Reference — 139 Marketing Ideas Mapped to AARRR"
+        },
+        {
+          "path": "references/market-sizing.md",
+          "name": "market-sizing",
+          "bytes": 9820,
+          "heading": "Market Sizing"
+        },
+        {
+          "path": "references/measurement-framework.md",
+          "name": "measurement-framework",
+          "bytes": 10845,
+          "heading": "Measurement Framework — KPIs, North Stars, Cadence"
+        },
+        {
+          "path": "references/methodology.md",
+          "name": "methodology",
+          "bytes": 16806,
+          "heading": "Methodology — How a Marketing Plan Gets Made"
+        },
+        {
+          "path": "references/ops-stack-mapping.md",
+          "name": "ops-stack-mapping",
+          "bytes": 12221,
+          "heading": "Marketing Operations Stack — Skills + MCPs per AARRR Stage"
+        },
+        {
+          "path": "references/plan-template.md",
+          "name": "plan-template",
+          "bytes": 18735,
+          "heading": "Plan Template — The 13-Section Structure"
+        },
+        {
+          "path": "references/team-and-agency-model.md",
+          "name": "team-and-agency-model",
+          "bytes": 14537,
+          "heading": "Team and Agency Model — Hire for Strategy, Outsource Execution"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 24891,
+      "bodyBytes": 23798
+    },
+    {
+      "slug": "marketing-psychology",
+      "name": "marketing-psychology",
+      "title": "Marketing Psychology & Mental Models",
+      "description": "When the user wants to apply psychological principles, mental models, or behavioral science to marketing. Also use when the user mentions 'psychology,' 'mental models,' 'cognitive bias,' 'persuasion,' 'behavioral science,' 'why people buy,' 'decision-making,' 'consumer behavior,' 'anchoring,' 'social proof,' 'scarcity,' 'loss aversion,' 'framing,' or 'nudge.' Use this whenever someone wants to understand or leverage how people think and make decisions in a marketing context. For applying psychology to specific pages, see cro; for pricing tactics, see pricing; for copy framing, see copywriting.",
+      "version": "2.0.0",
+      "license": "MIT",
+      "category": "Strategy",
+      "references": [],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 21836,
+      "bodyBytes": 21156
+    },
+    {
+      "slug": "offers",
+      "name": "offers",
+      "title": "Offer Design",
+      "description": "When the user wants to design, construct, or improve an offer — the thing they actually sell — including value framing, bonus stacking, guarantee design, scarcity/urgency, naming, and payment structure. Also use when the user mentions 'offer,' 'offer design,' 'build an offer,' 'grand slam offer,' 'irresistible offer,' 'value stack,' 'bonus stack,' 'guarantee,' 'risk reversal,' 'money-back guarantee,' 'scarcity,' 'urgency,' 'high-ticket offer,' 'productize a service,' 'naming an offer,' 'payment plan,' 'down-sell,' 'upsell offer,' or 'why isn't my offer converting.' Best for services, agencies, courses, coaching, info products, high-ticket B2B, and direct-response. If you run pure self-serve SaaS, read pricing first — tiers and packaging do more work there. For price level itself (tiers, freemium, value metric), see pricing. For the page that presents the offer, see copywriting. For the launch moment, see launch. For sales collateral, see sales-enablement.",
+      "version": "1.0.1",
+      "license": "MIT",
+      "category": "Sales & GTM",
+      "references": [
+        {
+          "path": "references/bonus-stacking.md",
+          "name": "bonus-stacking",
+          "bytes": 7758,
+          "heading": "Bonus Stacking"
+        },
+        {
+          "path": "references/examples.md",
+          "name": "examples",
+          "bytes": 10203,
+          "heading": "Worked Examples — Before/After Offers"
+        },
+        {
+          "path": "references/guarantee-design.md",
+          "name": "guarantee-design",
+          "bytes": 8173,
+          "heading": "Guarantee Design"
+        },
+        {
+          "path": "references/offer-anatomy.md",
+          "name": "offer-anatomy",
+          "bytes": 8857,
+          "heading": "Offer Anatomy"
+        },
+        {
+          "path": "references/offer-formats.md",
+          "name": "offer-formats",
+          "bytes": 10557,
+          "heading": "Offer Formats by Business Type"
+        },
+        {
+          "path": "references/saas-offers.md",
+          "name": "saas-offers",
+          "bytes": 7869,
+          "heading": "SaaS Offers — the discount trap + worked examples"
+        },
+        {
+          "path": "references/scarcity-urgency.md",
+          "name": "scarcity-urgency",
+          "bytes": 7106,
+          "heading": "Scarcity & Urgency"
+        },
+        {
+          "path": "references/value-equation.md",
+          "name": "value-equation",
+          "bytes": 7883,
+          "heading": "The Value Equation"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 9789,
+      "bodyBytes": 8754
+    },
+    {
+      "slug": "onboarding",
+      "name": "onboarding",
+      "title": "Onboarding CRO",
+      "description": "When the user wants to optimize post-signup onboarding, user activation, first-run experience, or time-to-value. Also use when the user mentions \"onboarding flow,\" \"activation rate,\" \"user activation,\" \"first-run experience,\" \"empty states,\" \"onboarding checklist,\" \"aha moment,\" \"new user experience,\" \"users aren't activating,\" \"nobody completes setup,\" \"low activation rate,\" \"users sign up but don't use the product,\" \"time to value,\" or \"first session experience.\" Use this whenever users are signing up but not sticking around. For signup/registration optimization, see signup. For ongoing email sequences, see emails.",
+      "version": "2.0.1",
+      "license": "MIT",
+      "category": "CRO",
+      "references": [
+        {
+          "path": "references/activation-models.md",
+          "name": "activation-models",
+          "bytes": 3258,
+          "heading": "Activation Models"
+        },
+        {
+          "path": "references/experiments.md",
+          "name": "experiments",
+          "bytes": 7796,
+          "heading": "Onboarding Experiment Ideas"
+        },
+        {
+          "path": "references/minimum-path-to-value.md",
+          "name": "minimum-path-to-value",
+          "bytes": 3152,
+          "heading": "Minimum Path to Value (MPTV)"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 10158,
+      "bodyBytes": 9466
+    },
+    {
+      "slug": "paywalls",
+      "name": "paywalls",
+      "title": "Paywall and Upgrade Screen CRO",
+      "description": "When the user wants to create or optimize in-app paywalls, upgrade screens, upsell modals, or feature gates. Also use when the user mentions \"paywall,\" \"upgrade screen,\" \"upgrade modal,\" \"upsell,\" \"feature gate,\" \"convert free to paid,\" \"freemium conversion,\" \"trial expiration screen,\" \"limit reached screen,\" \"plan upgrade prompt,\" \"in-app pricing,\" \"free users won't upgrade,\" \"trial to paid conversion,\" or \"how do I get users to pay.\" Use this for any in-product moment where you're asking users to upgrade. Distinct from public pricing pages (see cro) — this focuses on in-product upgrade moments where the user has already experienced value. For pricing decisions, see pricing.",
+      "version": "2.0.0",
+      "license": "MIT",
+      "category": "CRO",
+      "references": [
+        {
+          "path": "references/experiments.md",
+          "name": "experiments",
+          "bytes": 5419,
+          "heading": "Paywall Experiment Ideas"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 5781,
+      "bodyBytes": 5031
+    },
+    {
+      "slug": "popups",
+      "name": "popups",
+      "title": "Popup CRO",
+      "description": "When the user wants to create or optimize popups, modals, overlays, slide-ins, or banners for conversion purposes. Also use when the user mentions \"exit intent,\" \"popup conversions,\" \"modal optimization,\" \"lead capture popup,\" \"email popup,\" \"announcement banner,\" \"overlay,\" \"collect emails with a popup,\" \"exit popup,\" \"scroll trigger,\" \"sticky bar,\" or \"notification bar.\" Use this for any overlay or interrupt-style conversion element. For forms outside of popups, see cro. For general page conversion optimization, see cro.",
+      "version": "2.0.0",
+      "license": "MIT",
+      "category": "CRO",
+      "references": [],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 11795,
+      "bodyBytes": 11203
+    },
+    {
+      "slug": "pricing",
+      "name": "pricing",
+      "title": "Pricing Strategy",
+      "description": "When the user wants help with pricing decisions, packaging, or monetization strategy. Also use when the user mentions 'pricing,' 'pricing tiers,' 'freemium,' 'free trial,' 'packaging,' 'price increase,' 'value metric,' 'Van Westendorp,' 'willingness to pay,' 'monetization,' 'how much should I charge,' 'my pricing is wrong,' 'pricing page,' 'annual vs monthly,' 'per seat pricing,' 'should I offer a free plan,' 'pricing page teardown,' 'pricing page audit,' 'is my pricing page AI-readable,' or 'can AI read my pricing.' Use this whenever someone is figuring out what to charge, how to structure their plans, or wants to audit a pricing page (for humans and for the AI agents that shortlist tools). For in-app upgrade screens, see paywalls. For offer construction (bonuses, guarantees, value framing, naming) on services/courses/coaching/high-ticket B2B, see offers.",
+      "version": "2.1.3",
+      "license": "MIT",
+      "category": "Sales & GTM",
+      "references": [
+        {
+          "path": "references/pricing-models.md",
+          "name": "pricing-models",
+          "bytes": 4681,
+          "heading": "Pricing Models"
+        },
+        {
+          "path": "references/pricing-page-teardown.md",
+          "name": "pricing-page-teardown",
+          "bytes": 7283,
+          "heading": "Pricing Page Teardown"
+        },
+        {
+          "path": "references/research-methods.md",
+          "name": "research-methods",
+          "bytes": 5462,
+          "heading": "Pricing Research Methods"
+        },
+        {
+          "path": "references/tier-structure.md",
+          "name": "tier-structure",
+          "bytes": 7199,
+          "heading": "Tier Structure and Packaging"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 13393,
+      "bodyBytes": 12458
+    },
+    {
+      "slug": "product-marketing",
+      "name": "product-marketing",
+      "title": "Product Marketing Context",
+      "description": "When the user wants to create or update their product marketing context document. Also use when the user mentions 'product context,' 'marketing context,' 'set up context,' 'positioning,' 'who is my target audience,' 'describe my product,' 'ICP,' 'ideal customer profile,' or wants to avoid repeating foundational information across marketing tasks. Use this at the start of any new project before using other marketing skills — it creates `.agents/product-marketing.md` that all other skills reference for product, audience, and positioning context.",
+      "version": "2.1.0",
+      "license": "MIT",
+      "category": "Strategy",
+      "references": [],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 9389,
+      "bodyBytes": 8763
+    },
+    {
+      "slug": "programmatic-seo",
+      "name": "programmatic-seo",
+      "title": "Programmatic SEO",
+      "description": "When the user wants to create SEO-driven pages at scale using templates and data. Also use when the user mentions \"programmatic SEO,\" \"template pages,\" \"pages at scale,\" \"directory pages,\" \"location pages,\" \"[keyword] + [city] pages,\" \"comparison pages,\" \"integration pages,\" \"building many pages for SEO,\" \"pSEO,\" \"generate 100 pages,\" \"data-driven pages,\" \"templated landing pages,\" or \"which CMS for pSEO.\" Use this whenever someone wants to create many similar pages targeting different keywords or locations. For auditing existing SEO issues, see seo-audit. For content strategy planning, see content-strategy.",
+      "version": "2.1.0",
+      "license": "MIT",
+      "category": "SEO & Content",
+      "references": [
+        {
+          "path": "references/implementation-platforms.md",
+          "name": "implementation-platforms",
+          "bytes": 5617,
+          "heading": "Implementation Platforms for Pages at Scale"
+        },
+        {
+          "path": "references/playbooks.md",
+          "name": "playbooks",
+          "bytes": 8304,
+          "heading": "The 12 Programmatic SEO Playbooks"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 7517,
+      "bodyBytes": 6828
+    },
+    {
+      "slug": "prospecting",
+      "name": "prospecting",
+      "title": "Prospecting",
+      "description": "When the user wants to find, qualify, and build a list of prospects to reach out to, across B2B SaaS, general B2B, or local small businesses. Also use when the user mentions \"prospecting,\" \"build a prospect list,\" \"find leads,\" \"lead list,\" \"outbound list,\" \"target account list,\" \"ICP-fit accounts,\" \"find local businesses,\" \"find my first customers,\" \"design partners,\" \"signal-based outbound,\" \"buying signals,\" \"intent data,\" \"job change alerts,\" \"waterfall enrichment,\" \"Clay table,\" \"lookalike accounts,\" \"catch-all emails,\" \"account tiering,\" or \"research this account before I reach out.\" Always verify emails before they reach a sequence, and never scrape LinkedIn. Define audiences in Sales Navigator and pull contacts from licensed data. Covers list building, signals, enrichment, verification, and account research. For the outreach itself (copy, sending setup, LinkedIn, cadences, replies), see cold-email. For researching competitors, see competitor-profiling.",
+      "version": "1.3.0",
+      "license": "MIT",
+      "category": "Sales & GTM",
+      "references": [
+        {
+          "path": "references/account-research.md",
+          "name": "account-research",
+          "bytes": 3771,
+          "heading": "Account Research for Outreach"
+        },
+        {
+          "path": "references/b2b-prospecting.md",
+          "name": "b2b-prospecting",
+          "bytes": 4978,
+          "heading": "B2B Prospecting Reference"
+        },
+        {
+          "path": "references/compliance.md",
+          "name": "compliance",
+          "bytes": 11065,
+          "heading": "Prospecting Compliance Reference"
+        },
+        {
+          "path": "references/data-sources.md",
+          "name": "data-sources",
+          "bytes": 13456,
+          "heading": "Prospecting Data Sources"
+        },
+        {
+          "path": "references/demand-signals.md",
+          "name": "demand-signals",
+          "bytes": 10185,
+          "heading": "Demand-Signal Discovery (Find Your First Customers)"
+        },
+        {
+          "path": "references/enrichment-playbook.md",
+          "name": "enrichment-playbook",
+          "bytes": 5290,
+          "heading": "Waterfall Enrichment and Cache Reuse"
+        },
+        {
+          "path": "references/local-prospecting.md",
+          "name": "local-prospecting",
+          "bytes": 8150,
+          "heading": "Local SMB Prospecting Reference"
+        },
+        {
+          "path": "references/saas-prospecting.md",
+          "name": "saas-prospecting",
+          "bytes": 6045,
+          "heading": "SaaS Prospecting Reference"
+        },
+        {
+          "path": "references/signal-plays.md",
+          "name": "signal-plays",
+          "bytes": 8150,
+          "heading": "Signal Plays"
+        },
+        {
+          "path": "references/sourcing-and-enrichment.md",
+          "name": "sourcing-and-enrichment",
+          "bytes": 6740,
+          "heading": "Sourcing, Enrichment, and Verification"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 20045,
+      "bodyBytes": 19002
+    },
+    {
+      "slug": "public-relations",
+      "name": "public-relations",
+      "title": "Public Relations & Earned Media",
+      "description": "When the user wants help with public relations, earned media, press coverage, journalist outreach, or media strategy (not pull requests). Also use when the user mentions 'PR,' 'press,' 'press release,' 'media outreach,' 'pitch a journalist,' 'get featured,' 'media list,' 'media kit,' 'press kit,' 'newsjacking,' 'news hijack,' 'HARO,' 'Qwoted,' 'Featured,' 'reporter request,' 'tech press,' 'TechCrunch,' 'thought leadership placement,' 'op-ed,' 'guest article,' 'press contacts,' 'podcast prep,' 'podcast guest,' 'prep me for this podcast,' 'how do I get press,' 'PR crisis,' 'crisis communications,' 'respond to backlash,' 'we got hacked,' 'data breach statement,' or 'holding statement.' Also covers crisis response when something goes wrong. For startup/SaaS/AI directory submissions, see directory-submissions. For product launches, see launch. For social-media engagement, see social. For cold-email outreach to prospects, see cold-email.",
+      "version": "1.2.0",
+      "license": "MIT",
+      "category": "Growth & Retention",
+      "references": [
+        {
+          "path": "references/crisis-communications.md",
+          "name": "crisis-communications",
+          "bytes": 8599,
+          "heading": "Crisis Communications"
+        },
+        {
+          "path": "references/journalist-pitching.md",
+          "name": "journalist-pitching",
+          "bytes": 11065,
+          "heading": "Journalist Pitching — Proactive PR Workflow"
+        },
+        {
+          "path": "references/media-outlets.md",
+          "name": "media-outlets",
+          "bytes": 9307,
+          "heading": "Media Outlets — Where to Pitch"
+        },
+        {
+          "path": "references/newsjacking.md",
+          "name": "newsjacking",
+          "bytes": 8650,
+          "heading": "Newsjacking — Reactive PR Workflow"
+        },
+        {
+          "path": "references/podcast-guest-prep.md",
+          "name": "podcast-guest-prep",
+          "bytes": 5593,
+          "heading": "Podcast Guest Prep"
+        },
+        {
+          "path": "references/press-platforms.md",
+          "name": "press-platforms",
+          "bytes": 6909,
+          "heading": "Press Request Platforms — Inbound PR"
+        },
+        {
+          "path": "references/statement-templates.md",
+          "name": "statement-templates",
+          "bytes": 5637,
+          "heading": "Crisis Statement Templates"
+        },
+        {
+          "path": "references/story-angles.md",
+          "name": "story-angles",
+          "bytes": 6509,
+          "heading": "Story Angles — What Earns Press"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 9537,
+      "bodyBytes": 8516
+    },
+    {
+      "slug": "referrals",
+      "name": "referrals",
+      "title": "Referral & Affiliate Programs",
+      "description": "When the user wants to create, optimize, or analyze a referral program, affiliate program, or word-of-mouth strategy. Also use when the user mentions 'referral,' 'affiliate,' 'ambassador,' 'word of mouth,' 'viral loop,' 'refer a friend,' 'partner program,' 'referral incentive,' 'how to get referrals,' 'customers referring customers,' 'affiliate payout,' 'get more reviews,' 'G2 reviews,' 'review campaign,' or 'respond to a bad review.' Use this whenever someone wants existing users or partners to bring in new customers. For launch-specific virality, see launch.",
+      "version": "2.2.0",
+      "license": "MIT",
+      "category": "Growth & Retention",
+      "references": [
+        {
+          "path": "references/affiliate-operations.md",
+          "name": "affiliate-operations",
+          "bytes": 7098,
+          "heading": "Operating an Affiliate Program"
+        },
+        {
+          "path": "references/affiliate-programs.md",
+          "name": "affiliate-programs",
+          "bytes": 4484,
+          "heading": "Affiliate Program Design"
+        },
+        {
+          "path": "references/program-examples.md",
+          "name": "program-examples",
+          "bytes": 4561,
+          "heading": "Referral Program Examples"
+        },
+        {
+          "path": "references/review-platform-rules.md",
+          "name": "review-platform-rules",
+          "bytes": 4533,
+          "heading": "Review Platform Rules"
+        },
+        {
+          "path": "references/review-program-operations.md",
+          "name": "review-program-operations",
+          "bytes": 4383,
+          "heading": "Review Program Operations"
+        },
+        {
+          "path": "references/review-programs.md",
+          "name": "review-programs",
+          "bytes": 9618,
+          "heading": "Review Programs"
+        },
+        {
+          "path": "references/viral-mechanisms.md",
+          "name": "viral-mechanisms",
+          "bytes": 6057,
+          "heading": "Viral Mechanisms"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 10376,
+      "bodyBytes": 9741
+    },
+    {
+      "slug": "revops",
+      "name": "revops",
+      "title": "RevOps",
+      "description": "When the user wants help with revenue operations, lead lifecycle management, or marketing-to-sales handoff processes. Also use when the user mentions 'RevOps,' 'revenue operations,' 'lead scoring,' 'outbound pipeline stages,' 'lead routing,' 'MQL,' 'SQL,' 'pipeline stages,' 'deal desk,' 'CRM automation,' 'marketing-to-sales handoff,' 'data hygiene,' 'leads aren't getting to sales,' 'pipeline management,' 'lead qualification,' or 'when should marketing hand off to sales.' Use this for anything involving the systems and processes that connect marketing to revenue. For cold outreach emails, see cold-email. For email drip campaigns, see emails. For pricing decisions, see pricing.",
+      "version": "2.2.0",
+      "license": "MIT",
+      "category": "Sales & GTM",
+      "references": [
+        {
+          "path": "references/automation-playbooks.md",
+          "name": "automation-playbooks",
+          "bytes": 10905,
+          "heading": "Automation Playbooks"
+        },
+        {
+          "path": "references/inbound-routing.md",
+          "name": "inbound-routing",
+          "bytes": 4642,
+          "heading": "Enrichment at Form Submission"
+        },
+        {
+          "path": "references/lifecycle-definitions.md",
+          "name": "lifecycle-definitions",
+          "bytes": 9167,
+          "heading": "Lifecycle Stage Definitions"
+        },
+        {
+          "path": "references/routing-rules.md",
+          "name": "routing-rules",
+          "bytes": 6792,
+          "heading": "Lead Routing Rules"
+        },
+        {
+          "path": "references/scoring-models.md",
+          "name": "scoring-models",
+          "bytes": 7450,
+          "heading": "Lead Scoring Models"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 16367,
+      "bodyBytes": 15617
+    },
+    {
+      "slug": "sales-enablement",
+      "name": "sales-enablement",
+      "title": "Sales Enablement",
+      "description": "When the user wants to create sales collateral, pitch decks, one-pagers, objection handling docs, or demo scripts. Also use when the user mentions 'sales deck,' 'pitch deck,' 'one-pager,' 'leave-behind,' 'objection handling,' 'deal-specific ROI analysis,' 'demo script,' 'talk track,' 'sales playbook,' 'proposal template,' 'buyer persona card,' 'battle card,' 'battlecard,' 'competitive one-pager,' 'win-loss analysis,' 'why are we losing deals,' 'loss reasons,' 'how do I respond to this objection,' 'prospect just said,' 'help my sales team,' 'sales materials,' or 'what should I give my sales reps,' 'cold call script,' or 'voicemail script.' Use this for any document or asset that helps a sales team close deals. For public competitor comparison pages, see competitors. For running buyer interviews or churn research, see customer-research. For marketing website copy, see copywriting. For cold outreach emails, see cold-email. For the offer being sold (bonuses, guarantees, pricing structure), see offers.",
+      "version": "2.4.0",
+      "license": "MIT",
+      "category": "Sales & GTM",
+      "references": [
+        {
+          "path": "references/cold-call-scripts.md",
+          "name": "cold-call-scripts",
+          "bytes": 4133,
+          "heading": "Cold Call Scripts"
+        },
+        {
+          "path": "references/deck-frameworks.md",
+          "name": "deck-frameworks",
+          "bytes": 7730,
+          "heading": "Sales Deck Frameworks"
+        },
+        {
+          "path": "references/demo-scripts.md",
+          "name": "demo-scripts",
+          "bytes": 11769,
+          "heading": "Demo Script Templates"
+        },
+        {
+          "path": "references/objection-library.md",
+          "name": "objection-library",
+          "bytes": 13393,
+          "heading": "Objection Library"
+        },
+        {
+          "path": "references/one-pager-templates.md",
+          "name": "one-pager-templates",
+          "bytes": 5823,
+          "heading": "One-Pager Templates"
+        },
+        {
+          "path": "references/win-loss-analysis.md",
+          "name": "win-loss-analysis",
+          "bytes": 4299,
+          "heading": "Win-Loss Analysis"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 20959,
+      "bodyBytes": 19871
+    },
+    {
+      "slug": "schema",
+      "name": "schema",
+      "title": "Schema Markup",
+      "description": "When the user wants to add, fix, or optimize schema markup and structured data on their site. Also use when the user mentions \"schema markup,\" \"structured data,\" \"JSON-LD,\" \"rich snippets,\" \"schema.org,\" \"FAQ schema,\" \"product schema,\" \"review schema,\" \"breadcrumb schema,\" \"Google rich results,\" \"knowledge panel,\" \"star ratings in search,\" or \"add structured data.\" Use this whenever someone wants their pages to show enhanced results in Google. For broader SEO issues, see seo-audit. For AI search optimization, see ai-seo.",
+      "version": "2.0.2",
+      "license": "MIT",
+      "category": "SEO & Content",
+      "references": [
+        {
+          "path": "references/schema-examples.md",
+          "name": "schema-examples",
+          "bytes": 9298,
+          "heading": "Schema Markup Examples"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 7122,
+      "bodyBytes": 6532
+    },
+    {
+      "slug": "seo-audit",
+      "name": "seo-audit",
+      "title": "SEO Audit",
+      "description": "When the user wants to audit, review, or diagnose SEO issues on their site. Also use when the user mentions \"SEO audit,\" \"technical SEO,\" \"why am I not ranking,\" \"SEO issues,\" \"on-page SEO,\" \"meta tags review,\" \"SEO health check,\" \"my traffic dropped,\" \"lost rankings,\" \"not showing up in Google,\" \"site isn't ranking,\" \"Google update hit me,\" \"page speed,\" \"core web vitals,\" \"crawl errors,\" \"indexing issues,\" \"stuck on page 2,\" \"striking distance keywords,\" \"title tag rewrite,\" \"low CTR,\" \"local SEO,\" \"Google Business Profile,\" or \"map pack.\" Use this even if the user just says something vague like \"my SEO is bad\" or \"help with SEO\" — start with an audit. For building pages at scale to target keywords, see programmatic-seo. For adding structured data, see schema. For AI search optimization, see ai-seo.",
+      "version": "2.2.0",
+      "license": "MIT",
+      "category": "SEO & Content",
+      "references": [
+        {
+          "path": "references/ai-writing-detection.md",
+          "name": "ai-writing-detection",
+          "bytes": 6528,
+          "heading": "AI Writing Detection"
+        },
+        {
+          "path": "references/international-seo.md",
+          "name": "international-seo",
+          "bytes": 14622,
+          "heading": "International SEO: Evidence & Sources"
+        },
+        {
+          "path": "references/local-seo-pages-and-measurement.md",
+          "name": "local-seo-pages-and-measurement",
+          "bytes": 4036,
+          "heading": "Location Pages and Measurement"
+        },
+        {
+          "path": "references/local-seo-profile-and-citations.md",
+          "name": "local-seo-profile-and-citations",
+          "bytes": 3971,
+          "heading": "Profiles and Citations"
+        },
+        {
+          "path": "references/local-seo.md",
+          "name": "local-seo",
+          "bytes": 7249,
+          "heading": "Local SEO"
+        },
+        {
+          "path": "references/rankings-push.md",
+          "name": "rankings-push",
+          "bytes": 4466,
+          "heading": "Rankings Push"
+        },
+        {
+          "path": "references/title-tags.md",
+          "name": "title-tags",
+          "bytes": 5533,
+          "heading": "Title Tags"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 17633,
+      "bodyBytes": 16754
+    },
+    {
+      "slug": "signup",
+      "name": "signup",
+      "title": "Signup Flow CRO",
+      "description": "When the user wants to optimize signup, registration, account creation, or trial activation flows. Also use when the user mentions \"signup conversions,\" \"registration friction,\" \"signup form optimization,\" \"free trial signup,\" \"reduce signup dropoff,\" \"account creation flow,\" \"people aren't signing up,\" \"signup abandonment,\" \"trial conversion rate,\" \"nobody completes registration,\" \"too many steps to sign up,\" or \"simplify our signup.\" Use this whenever the user has a signup or registration flow that isn't performing. For post-signup onboarding, see onboarding. For lead capture forms (not account creation), see cro.",
+      "version": "2.0.1",
+      "license": "MIT",
+      "category": "CRO",
+      "references": [],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 10770,
+      "bodyBytes": 10083
+    },
+    {
+      "slug": "site-architecture",
+      "name": "site-architecture",
+      "title": "Site Architecture",
+      "description": "When the user wants to plan, map, or restructure their website's page hierarchy, navigation, URL structure, or internal linking. Also use when the user mentions \"sitemap,\" \"site map,\" \"visual sitemap,\" \"site structure,\" \"page hierarchy,\" \"information architecture,\" \"IA,\" \"navigation design,\" \"URL structure,\" \"breadcrumbs,\" \"internal linking strategy,\" \"website planning,\" \"what pages do I need,\" \"how should I organize my site,\" \"site navigation,\" \"which website builder should I use,\" \"migrate my website,\" or \"add a blog to my existing site.\" Use this whenever someone is planning what pages a website should have, how they connect, and where to build them. NOT for XML sitemaps (that's technical SEO — see seo-audit). For SEO audits, see seo-audit. For structured data, see schema.",
+      "version": "2.1.0",
+      "license": "MIT",
+      "category": "SEO & Content",
+      "references": [
+        {
+          "path": "references/mermaid-templates.md",
+          "name": "mermaid-templates",
+          "bytes": 4922,
+          "heading": "Mermaid Diagram Templates"
+        },
+        {
+          "path": "references/navigation-patterns.md",
+          "name": "navigation-patterns",
+          "bytes": 10733,
+          "heading": "Navigation Patterns"
+        },
+        {
+          "path": "references/platforms-and-migration.md",
+          "name": "platforms-and-migration",
+          "bytes": 9915,
+          "heading": "Platforms and Migration"
+        },
+        {
+          "path": "references/site-type-templates.md",
+          "name": "site-type-templates",
+          "bytes": 9624,
+          "heading": "Site Type Templates"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 13885,
+      "bodyBytes": 13024
+    },
+    {
+      "slug": "sms",
+      "name": "sms",
+      "title": "SMS Marketing",
+      "description": "When the user wants to plan, build, or optimize SMS, MMS, or WhatsApp marketing — including welcome flows, abandoned cart texts, post-purchase, win-back, promotional sends, or transactional/auth SMS. Also use when the user mentions \"SMS marketing,\" \"text message campaigns,\" \"SMS sequence,\" \"SMS automation,\" \"abandoned cart text,\" \"post-purchase SMS,\" \"Klaviyo SMS,\" \"Postscript,\" \"Attentive,\" \"Twilio,\" \"A2P 10DLC,\" \"TCPA,\" \"SMS compliance,\" \"short code,\" \"toll-free SMS,\" \"MMS campaign,\" \"should I do SMS,\" \"SMS vs email,\" \"WhatsApp marketing,\" \"WhatsApp Business API,\" \"WhatsApp templates,\" or \"click-to-WhatsApp.\" For email sequences, see emails. For SMS copy framing, see copywriting. For opt-in popups that capture phone numbers, see popups.",
+      "version": "1.1.0",
+      "license": "MIT",
+      "category": "Content & Copy",
+      "references": [
+        {
+          "path": "references/compliance.md",
+          "name": "compliance",
+          "bytes": 7833,
+          "heading": "SMS Compliance Reference"
+        },
+        {
+          "path": "references/platforms.md",
+          "name": "platforms",
+          "bytes": 9865,
+          "heading": "SMS Platform Reference"
+        },
+        {
+          "path": "references/sequence-templates.md",
+          "name": "sequence-templates",
+          "bytes": 7070,
+          "heading": "SMS Sequence Templates"
+        },
+        {
+          "path": "references/whatsapp.md",
+          "name": "whatsapp",
+          "bytes": 16194,
+          "heading": "WhatsApp Business Platform Reference"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 18295,
+      "bodyBytes": 17486
+    },
+    {
+      "slug": "social",
+      "name": "social",
+      "title": "Social Content",
+      "description": "When the user wants help creating, scheduling, or optimizing social media content for LinkedIn, Twitter/X, Instagram, TikTok, or Facebook, or wants to do social listening and engagement triage. Also use when the user mentions 'LinkedIn post,' 'Twitter thread,' 'social media,' 'content calendar,' 'social scheduling,' 'engagement,' 'viral content,' 'what should I post,' 'repurpose this content,' 'tweet ideas,' 'LinkedIn carousel,' 'social media strategy,' 'grow my following,' 'TikTok video,' 'Reels,' 'Shorts,' 'video script,' 'video hook,' 'short-form video,' 'create a reel,' 'social listening,' 'brand mentions,' 'competitor monitoring,' 'top posts to comment on,' 'find people asking for,' 'carousel,' 'slide-by-slide,' or 'document post.' Use this for social content, repurposing, scheduling, video scripts, and listening. Posts avoid AI tells like 'it's not X, it's Y' reveals and broetry. For broader content strategy, see content-strategy. For paid ads, see ad-creative. For earned media, see public-relations.",
+      "version": "2.3.3",
+      "license": "MIT",
+      "category": "Content & Copy",
+      "references": [
+        {
+          "path": "references/carousel-frameworks.md",
+          "name": "carousel-frameworks",
+          "bytes": 11124,
+          "heading": "Carousel Frameworks"
+        },
+        {
+          "path": "references/listening-sources-template.md",
+          "name": "listening-sources-template",
+          "bytes": 3479,
+          "heading": "Listening Sources — Template"
+        },
+        {
+          "path": "references/listening.md",
+          "name": "listening",
+          "bytes": 12268,
+          "heading": "Social Listening & Engagement Triage"
+        },
+        {
+          "path": "references/platform-limits.md",
+          "name": "platform-limits",
+          "bytes": 2830,
+          "heading": "Platform Limits Reference"
+        },
+        {
+          "path": "references/platforms.md",
+          "name": "platforms",
+          "bytes": 5412,
+          "heading": "Platform-Specific Strategy Guide"
+        },
+        {
+          "path": "references/post-templates.md",
+          "name": "post-templates",
+          "bytes": 4016,
+          "heading": "Post Format Templates"
+        },
+        {
+          "path": "references/reverse-engineering.md",
+          "name": "reverse-engineering",
+          "bytes": 5551,
+          "heading": "Reverse Engineering Viral Content"
+        },
+        {
+          "path": "references/short-form-video.md",
+          "name": "short-form-video",
+          "bytes": 6517,
+          "heading": "Short-Form Video: Hooks, Scripts & Strategy"
+        },
+        {
+          "path": "references/x-algorithm.md",
+          "name": "x-algorithm",
+          "bytes": 7113,
+          "heading": "X (Twitter) Algorithm Playbook"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 18192,
+      "bodyBytes": 17105
+    },
+    {
+      "slug": "video",
+      "name": "video",
+      "title": "Video",
+      "description": "When the user wants to create, generate, or produce video content using AI tools or programmatic frameworks. Also use when the user mentions 'video production,' 'AI video,' 'Remotion,' 'Hyperframes,' 'HeyGen,' 'Synthesia,' 'Veo,' 'Sora,' 'Runway,' 'Kling,' 'Seedance,' 'Hailuo,' 'MiniMax,' 'Pika,' 'Hunyuan,' 'Wan,' 'video generation,' 'AI avatar,' 'talking head video,' 'programmatic video,' 'video template,' 'explainer video,' 'product demo video,' 'record a product demo,' 'feature demo video,' 'in-app demo,' 'video pipeline,' 'copy this edit,' 'match this video style,' 'reverse-engineer this video,' 'edit like this reference,' or 'make me a video.' Use this for video creation, generation, and production workflows. For video content strategy and what to post, see social. For paid video ad creative, see ad-creative.",
+      "version": "2.2.1",
+      "license": "MIT",
+      "category": "Content & Copy",
+      "references": [
+        {
+          "path": "references/ai-video-prompting.md",
+          "name": "ai-video-prompting",
+          "bytes": 5258,
+          "heading": "AI Video Prompting Guide"
+        },
+        {
+          "path": "references/edit-anatomy.md",
+          "name": "edit-anatomy",
+          "bytes": 7593,
+          "heading": "Reverse-Engineering an Edit (The Beat Sheet)"
+        },
+        {
+          "path": "references/product-demo-recording.md",
+          "name": "product-demo-recording",
+          "bytes": 10635,
+          "heading": "Product Demo Recording"
+        }
+      ],
+      "assets": [],
+      "hasEvals": true,
+      "bytes": 15030,
+      "bodyBytes": 14140
+    }
+  ]
+}

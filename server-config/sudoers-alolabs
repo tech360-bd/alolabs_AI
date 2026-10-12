@@ -1,0 +1,7 @@
+# ALO Labs AISMH — Restricted Sudo Policy
+# Allows only specific helper scripts — NO wildcard commands
+# Install: cp sudoers-alolabs /etc/sudoers.d/alolabs-aismh
+# Validate: visudo -c -f sudoers-alolabs
+
+alolabs ALL=(root) NOPASSWD: /opt/alolabs-aismh/current/scripts/healthcheck.sh
+alolabs ALL=(root) NOPASSWD: /opt/alolabs-aismh/current/scripts/backup.sh

@@ -1,0 +1,52 @@
+[Unit]
+Description=ALO Labs Agent Hub — Next.js Application Server
+Documentation=https://github.com/alolabs/agent-hub
+After=network-online.target mariadb.service redis.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=alohub
+Group=alohub
+WorkingDirectory=/opt/alolabs/agent-hub
+
+# Environment file (secrets live here, NOT in the unit file)
+EnvironmentFile=/opt/alolabs/agent-hub/.env
+
+# Run via Bun (installed at /root/.bun/bin/bun or /usr/local/bin/bun)
+ExecStart=/usr/local/bin/bun .next/standalone/server.js
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+# Process limits
+LimitNOFILE=65535
+LimitNPROC=4096
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/alolabs/agent-hub
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictRealtime=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alolabs-agent-hub
+
+# Resource limits
+MemoryMax=4G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

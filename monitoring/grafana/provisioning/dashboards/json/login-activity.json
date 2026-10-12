@@ -1,0 +1,478 @@
+{
+  "uid": "alolabs-login-activity",
+  "title": "ALO Labs - Login Activity",
+  "tags": ["alolabs", "auth", "login", "security", "sessions"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "selected": true, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Login Attempts",
+      "description": "Total login attempts over time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "stacking": { "mode": "none", "group": "A" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": 0 }]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total[5m]))",
+          "refId": "A",
+          "legendFormat": "Total"
+        },
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total{result=\"success\"}[5m]))",
+          "refId": "B",
+          "legendFormat": "Successful"
+        },
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total{result=\"failure\"}[5m]))",
+          "refId": "C",
+          "legendFormat": "Failed"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "sum"] }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Success Rate",
+      "description": "Login success percentage",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 70 },
+              { "color": "green", "value": 90 }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total{result=\"success\"}[5m])) / sum(rate(alolabs_auth_login_attempts_total[5m])) * 100",
+          "refId": "A",
+          "legendFormat": "Success"
+        }
+      ],
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Active Sessions",
+      "description": "Currently active user sessions",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": 0 }]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "alolabs_auth_active_sessions",
+          "refId": "A",
+          "legendFormat": "Sessions"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Failed Logins",
+      "description": "Failed login attempts by reason",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "stacking": { "mode": "none", "group": "A" },
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total{result=\"failure\", reason=\"invalid_credentials\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "Invalid Credentials"
+        },
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total{result=\"failure\", reason=\"mfa_required\"}[5m]))",
+          "refId": "B",
+          "legendFormat": "MFA Required"
+        },
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total{result=\"failure\", reason=\"mfa_invalid\"}[5m]))",
+          "refId": "C",
+          "legendFormat": "MFA Invalid"
+        },
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total{result=\"failure\", reason=\"account_locked\"}[5m]))",
+          "refId": "D",
+          "legendFormat": "Account Locked"
+        },
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total{result=\"failure\", reason=\"rate_limited\"}[5m]))",
+          "refId": "E",
+          "legendFormat": "Rate Limited"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "sum"] }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Active Sessions Over Time",
+      "description": "Number of active sessions trend",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "area",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "stacking": { "mode": "none", "group": "A" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": 0 }]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "alolabs_auth_active_sessions",
+          "refId": "A",
+          "legendFormat": "Active Sessions"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Login by Hour",
+      "description": "Login activity heatmap by hour of day",
+      "type": "heatmap",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "scheme",
+            "scheme": "OrYl"
+          },
+          "custom": {
+            "cellWidth": 20,
+            "cellHeight": 20,
+            "fillOpacity": 80,
+            "showValue": "never",
+            "yAxis": {
+              "min": 0,
+              "max": 23,
+              "unit": "short"
+            }
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(alolabs_auth_login_attempts_total[1h]))",
+          "refId": "A",
+          "legendFormat": "Logins"
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "cellGap": 2,
+        "cellRadius": { "c": 0 },
+        "color": { "exponent": 0.5, "fill": "dark-orange", "mode": "scheme", "reverse": false, "scheme": "OrYl", "steps": 64 },
+        "exemplars": { "color": "rgba(237, 129, 40, 0.7)" },
+        "filterValues": { "le": 1e-9 },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "rowsFrame": { "layout": "auto" },
+        "showValue": "never",
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "yAxis": { "axisPlacement": "left", "reverse": false },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Brute Force Blocks",
+      "description": "Rate-limited and blocked login attempts",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false,
+            "stacking": { "mode": "normal", "group": "A" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 20 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total{result=\"failure\", reason=\"rate_limited\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "Rate Limited"
+        },
+        {
+          "expr": "sum(rate(alolabs_auth_login_attempts_total{result=\"failure\", reason=\"account_locked\"}[5m]))",
+          "refId": "B",
+          "legendFormat": "Account Locked"
+        },
+        {
+          "expr": "sum(rate(alolabs_auth_brute_force_blocks_total[5m]))",
+          "refId": "C",
+          "legendFormat": "Brute Force Blocked"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "sum"] }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Login by IP (Top 10)",
+      "description": "Most frequent login source IPs",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "left", "filterable": true },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 20 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Value" },
+            "properties": [{ "id": "unit", "value": "short" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Failed" },
+            "properties": [
+              { "id": "unit", "value": "short" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": 0 }, { "color": "red", "value": 5 }] } },
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum(increase(alolabs_auth_login_attempts_total[$__range])) by (ip))",
+          "refId": "A",
+          "legendFormat": "{{ip}}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "topk(10, sum(increase(alolabs_auth_login_attempts_total{result=\"failure\"}[$__range])) by (ip))",
+          "refId": "B",
+          "legendFormat": "{{ip}}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "ip": "IP Address",
+              "Value #A": "Total Logins",
+              "Value #B": "Failed"
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "footer": { "show": false }
+      }
+    },
+    {
+      "id": 9,
+      "title": "MFA Usage",
+      "description": "MFA login attempts breakdown",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "failure" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(alolabs_auth_mfa_attempts_total[$__range])) by (result)",
+          "refId": "A",
+          "legendFormat": "{{result}}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "pieType": "donut",
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+        "displayLabels": []
+      }
+    }
+  ]
+}

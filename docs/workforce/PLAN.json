@@ -1,0 +1,9 @@
+{
+  "planVersion": "workforce-plan@1",
+  "planHash": "48600a1721bd3e5929839f8b250cfbe0ac6efb910a66f35445316d096365182e",
+  "departments": 100,
+  "agents": 2000,
+  "agentsPerDepartment": true,
+  "lifecycleAtProvisioning": "provisioned",
+  "note": "Configuration inventory. Agents are not operational until execution verification promotes them."
+}

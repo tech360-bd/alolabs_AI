@@ -1,0 +1,58 @@
+name: Backup script portability (macOS + Linux)
+
+# The backup/restore integration test must pass on BOTH userlands: GNU
+# coreutils (Linux production hosts) and BSD coreutils (macOS laptops).
+# `deploy/scripts/backup.sh` previously failed on macOS with
+# "realpath: illegal option -- m", so macOS is a first-class gate here.
+#
+# No production credentials are used: no `environment:`, no secrets and no
+# DATABASE_URL. The test writes a throw-away SQLite file and storage
+# directory under the OS temporary directory.
+
+on:
+  push:
+    branches: [main, develop, 'arena/**']
+    paths:
+      - 'deploy/scripts/**'
+      - '__tests__/integration/backup-restore.test.ts'
+      - '.github/workflows/backup-portability.yml'
+  pull_request:
+    branches: [main, develop, 'arena/**']
+    paths:
+      - 'deploy/scripts/**'
+      - '__tests__/integration/backup-restore.test.ts'
+      - '.github/workflows/backup-portability.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: backup-portability-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup-integration:
+    name: Backup/restore integration — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.4'
+      - name: Record tool versions
+        run: |
+          bun --version
+          node --version
+          uname -a
+          bash --version | head -n 1
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Backup and restore integration test (isolated temp directories only)
+        run: bunx vitest run __tests__/integration/backup-restore.test.ts
+        env:
+          NODE_ENV: test

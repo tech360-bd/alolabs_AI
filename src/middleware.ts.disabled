@@ -1,0 +1,33 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+// Middleware runs in Edge Runtime - cannot use Prisma directly
+// Auth verification is handled by each API route via requireAuth()
+// This middleware just ensures API routes get proper CORS and headers
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Allow public paths without any checks
+  if (pathname.startsWith('/api/auth/login') || pathname.startsWith('/api/health')) {
+    return NextResponse.next();
+  }
+
+  // For API routes, pass through - let each route handle auth via requireAuth()
+  // requireAuth() reads x-user-id from the Authorization header set by the client
+  // and verifies against the database in Node.js runtime
+  if (pathname.startsWith('/api/')) {
+    const requestHeaders = new Headers(request.headers);
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+  }
+
+  // Non-API routes: pass through
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/api/:path*'],
+};

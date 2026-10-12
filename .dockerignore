@@ -1,0 +1,83 @@
+# ============================================================
+# ALO Labs Agent Hub — Docker Ignore
+# ============================================================
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dependencies (installed during build)
+node_modules
+
+# Build output (built inside container)
+.next
+out
+dist
+build
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Development files
+*.log
+dev.log
+server.log
+*.tsbuildinfo
+
+# Prisma
+db/
+*.db
+*.db-journal
+
+# Docker files
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Deploy scripts
+deploy/
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Test files
+__tests__
+*.test.ts
+*.spec.ts
+coverage
+.nyc_output
+
+# Backups and data
+backups/
+data/
+*.sql
+*.sql.gz
+*.dump
+
+# Mini services (run separately)
+mini-services/
+
+# Misc
+.agent-ctx
+worklog.md
+scripts/seed-*.ts
+examples/

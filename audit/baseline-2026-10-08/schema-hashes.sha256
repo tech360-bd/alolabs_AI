@@ -1,0 +1,3 @@
+650f75f20046cbfa0d209a861b945b0656862e60b02c88f1c06da7885c81c693  prisma/schema.prisma
+f044db3f261d5defb1ca8e258e34e0e531f1aace004177c6bfb0fcdc0b75ae9f  prisma/schema.mysql.prisma
+33a289c8d620f6691e0209f1e9a9fcba4addfd0751489597326dcc013cca8665  prisma/migrations/mysql/20261008_agentos_foundation.sql

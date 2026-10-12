@@ -1,0 +1,430 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+  /* Editorial design-system registers (Diagram Design) */
+  --font-editorial: var(--font-instrument-serif);
+  --font-editorial-sans: var(--font-geist);
+  --font-editorial-mono: var(--font-geist-mono);
+  /* Brand registers (ALO Labs brand guideline: Inter primary, Poppins secondary) */
+  --font-brand: var(--font-inter-brand);
+  --font-display: var(--font-poppins);
+  --font-brand-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-alo-orange: #FF6A00;
+  --color-alo-blue: #003ABC;
+  --color-alo-light-blue: #0077FF;
+  --color-alo-success: #22C55E;
+  --color-alo-warning: #F59E0B;
+  --color-alo-danger: #EF4444;
+  --color-alo-text-dark: #1E293B;
+  --color-alo-text-medium: #64748B;
+  --color-alo-text-light: #94A3B8;
+  --color-alo-bg-white: #FFFFFF;
+  --color-alo-bg-light: #F8FAFC;
+  --color-alo-border: #E2E8F0;
+}
+
+/* ===== Typography registers ===== */
+/* Geist is the UI sans, Geist Mono the technical register, Instrument Serif the
+   editorial register. Declared once so no component falls back silently. */
+:root {
+  --font-geist: 'Geist', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-inter: var(--font-geist);
+  --font-geist-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-instrument-serif: 'Instrument Serif', 'Noto Serif', Georgia, serif;
+  /* Brand guideline faces */
+  --font-inter-brand: 'Inter', 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-poppins: 'Poppins', 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ===== ALO LABS LIGHT THEME ===== */
+:root {
+  --radius: 0.75rem;
+
+  /* Core backgrounds & text */
+  --background: #F8FAFC;
+  --foreground: #1E293B;
+
+  /* Cards */
+  --card: #FFFFFF;
+  --card-foreground: #1E293B;
+
+  /* Popovers */
+  --popover: #FFFFFF;
+  --popover-foreground: #1E293B;
+
+  /* Primary — ALO Orange */
+  --primary: #FF6A00;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary — ALO Blue */
+  --secondary: #F1F5F9;
+  --secondary-foreground: #003ABC;
+
+  /* Muted */
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+
+  /* Accent */
+  --accent: #F1F5F9;
+  --accent-foreground: #1E293B;
+
+  /* Destructive */
+  --destructive: #EF4444;
+
+  /* Borders & inputs */
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #FF6A00;
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1E293B;
+  --sidebar-primary: #003ABC;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #003ABC;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #FF6A00;
+
+  /* Chart colors */
+  --chart-1: #FF6A00;
+  --chart-2: #003ABC;
+  --chart-3: #0077FF;
+  --chart-4: #22C55E;
+  --chart-5: #F59E0B;
+}
+
+/* ===== Base layer ===== */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* ===== Custom Scrollbar — light, clean ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+/* ===== ALO Card — clean white card ===== */
+.alo-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.alo-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* ===== ALO Buttons ===== */
+.alo-btn-primary {
+  background: #FF6A00;
+  color: #FFFFFF;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+.alo-btn-primary:hover {
+  background: #E5600A;
+  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.3);
+}
+
+.alo-btn-secondary {
+  background: transparent;
+  color: #003ABC;
+  border: 1px solid #003ABC;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.alo-btn-secondary:hover {
+  background: rgba(0, 58, 188, 0.06);
+  box-shadow: 0 4px 12px rgba(0, 58, 188, 0.1);
+}
+
+/* ===== ALO Badge ===== */
+.alo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.alo-badge-orange {
+  background: rgba(255, 106, 0, 0.1);
+  color: #FF6A00;
+}
+.alo-badge-blue {
+  background: rgba(0, 58, 188, 0.1);
+  color: #003ABC;
+}
+.alo-badge-green {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16A34A;
+}
+.alo-badge-gray {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+/* ===== ALO Gradient ===== */
+.alo-gradient {
+  background: linear-gradient(135deg, #FF6A00 0%, #003ABC 100%);
+}
+.alo-gradient-text {
+  background: linear-gradient(135deg, #FF6A00 0%, #003ABC 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ===== Status Indicator Dots ===== */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.status-dot-active {
+  background: #FF6A00;
+  box-shadow: 0 0 6px rgba(255, 106, 0, 0.5);
+}
+.status-dot-success {
+  background: #22C55E;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+}
+.status-dot-warning {
+  background: #F59E0B;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+}
+.status-dot-error {
+  background: #EF4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+}
+.status-dot-idle {
+  background: #94A3B8;
+}
+
+/* ===== Subtle Divider ===== */
+.alo-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, #E2E8F0 50%, transparent 100%);
+  border: none;
+}
+
+/* ===== Card Hover Lift ===== */
+.alo-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.alo-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* ===== Selection color ===== */
+::selection {
+  background: rgba(255, 106, 0, 0.2);
+  color: #1E293B;
+}
+
+/* ===== Pulse Animation for active indicators ===== */
+@keyframes alo-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 4px rgba(255, 106, 0, 0.4);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 12px rgba(255, 106, 0, 0.7), 0 0 24px rgba(255, 106, 0, 0.2);
+  }
+}
+.alo-pulse {
+  animation: alo-pulse 2s ease-in-out infinite;
+}
+
+/* ─── Dark Mode Overrides ─────────────────────────────────────── */
+.dark body,
+.dark .bg-\[\#F8FAFC\] {
+  background-color: #0F172A !important;
+}
+
+.dark .bg-white {
+  background-color: #1E293B !important;
+}
+
+.dark .text-\[\#1E293B\] {
+  color: #E2E8F0 !important;
+}
+
+.dark .text-\[\#64748B\] {
+  color: #94A3B8 !important;
+}
+
+.dark .text-\[\#94A3B8\] {
+  color: #64748B !important;
+}
+
+.dark .border-\[\#E2E8F0\] {
+  border-color: #334155 !important;
+}
+
+.dark .bg-\[\#F1F5F9\] {
+  background-color: #334155 !important;
+}
+
+.dark .hover\:bg-\[\#F1F5F9\]:hover {
+  background-color: #475569 !important;
+}
+
+.dark .bg-gray-100 {
+  background-color: #334155 !important;
+}
+
+.dark input, .dark textarea, .dark select {
+  background-color: #0F172A !important;
+  border-color: #334155 !important;
+  color: #E2E8F0 !important;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(51, 65, 85, 0.5);
+}
+/* ===== BRAND DOCUMENTS (letterhead, invoice, statements) ==================
+   The sheet is authored at A4 @96dpi (794 × 1123) so on-screen layout is
+   predictable; print collapses it to true A4 with no browser margin. */
+.alo-sheet-frame {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+
+  .alo-print-sheet {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    aspect-ratio: auto !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+
+  .alo-print-page {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+
+  /* The document grid collapses so the sheet is never offset into a column
+     left empty by the hidden sidebar. */
+  .alo-print-page .alo-print-flow {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    gap: 0 !important;
+  }
+
+  .alo-print-page .alo-sheet-frame {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+}
+
+/* Brand gradient rules, available as utilities */
+.alo-gradient-orange { background: linear-gradient(90deg, #FF6A00 0%, #FFB300 100%); }
+.alo-gradient-blue { background: linear-gradient(90deg, #003ABC 0%, #0077FF 100%); }
+.alo-gradient-ribbon { background: linear-gradient(135deg, #0077FF 0%, #001C6B 100%); }
+.alo-gradient-brand { background: linear-gradient(90deg, #FF6A00 0%, #003ABC 100%); }

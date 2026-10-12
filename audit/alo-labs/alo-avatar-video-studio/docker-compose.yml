@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: alo_avatar_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/storage
+    environment:
+      - LOCAL_FIRST=TRUE
+      - PRIVATE_DATA_MODE=TRUE
+    restart: unless-stopped
+
+  frontend:
+    image: nginx:alpine
+    container_name: alo_avatar_frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+    restart: unless-stopped

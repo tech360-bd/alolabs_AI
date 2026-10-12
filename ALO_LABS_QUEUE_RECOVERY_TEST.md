@@ -1,0 +1,5 @@
+# Queue and workflow restart evidence — 2026-10-09
+
+**Status: NOT VERIFIED.** `src/instrumentation.node.ts` polls the DB-backed `agentos` queue every 3 seconds and requeues `processing` jobs older than 10 minutes on startup. The previous pass verified a queued command moving to an honest `Configuration required` failure; this is not a worker interruption/restart, exactly-once side-effect or workflow resumption test.
+
+No safe long-running provider/tool job was available in this environment. A correct recovery test must use a disposable database and a deliberately interruptible *real* job, capture QueueItem/AgentOSRun/Task states before and after worker SIGTERM, restart a separate worker, verify a single final output and no duplicated side effects, and test both younger-than-threshold and stale jobs. Multi-replica claim/lease behavior, approval continuation, persistent memory/artifacts and workflow restart are **NOT VERIFIED**. Do not mark queue or workflow recovery PASS based on `updateMany` alone.

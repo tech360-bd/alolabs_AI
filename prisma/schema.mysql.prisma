@@ -1,0 +1,3464 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         String    @default("viewer") // super_admin, admin, manager, operator, viewer
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  otpSecret    String?
+  otpEnabled   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  auditLogs             AuditLog[]
+  approvals             Approval[]
+  oauthAccounts         OAuthAccount[]
+  commands              Command[]
+  managedDepartments    Department[]
+  collaborationSessions CollaborationSession[]
+  projects              Project[]
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.LongText
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions         RolePermission[]
+  skillPermissions    SkillPermission[]
+  workflowPermissions WorkflowPermission[]
+}
+
+model Permission {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  resource  String
+  action    String
+  createdAt DateTime @default(now())
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?  @db.LongText
+  managerId   String?
+  agentCount  Int      @default(20)
+  sortOrder   Int      @default(0)
+  status      String   @default("active")
+  // Tenant that owns this department (null = legacy/unowned row).
+  companyId   String?
+  // Provisioning profile: budget, allowed models/providers, knowledge sources, KPIs,
+  // orchestrator agent business key and the provisioning marker (see src/lib/workforce).
+  runtimeProfile String @db.LongText @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company             Company?             @relation(fields: [companyId], references: [id])
+  manager             User?                @relation(fields: [managerId], references: [id])
+  agents              Agent[]
+  departmentMemories  DepartmentMemory[]
+  constitutionalRules ConstitutionalRule[]
+  enterpriseSOPs      EnterpriseSOP[]
+  promptTemplates     PromptTemplate[]
+  knowledgeNodes      KnowledgeNode[]
+  trainingSources     TrainingSource[]
+  @@index([companyId])
+}
+
+model Agent {
+  id                String   @id @default(cuid())
+  agentId           String   @unique // AGENT-0001 format
+  name              String
+  slug              String   @unique
+  departmentId      String
+  departmentName    String
+  purpose           String   @db.LongText
+  type              String   @default("specialist") // conversational, autonomous, workflow, specialized
+  role              String   @default("specialist") // manager, planner, execution, qa, report, automation, safety, memory, productivity, owner_approval, specialist
+  allowedSkills     String   @default("[]") @db.LongText
+  forbiddenSkills   String   @default("[]") @db.LongText
+  allowedTools      String   @default("[]") @db.LongText
+  forbiddenTools    String   @default("[]") @db.LongText
+  inputSchema       String   @default("{}") @db.LongText
+  outputSchema      String   @default("{}") @db.LongText
+  workflowSteps     String   @default("[]") @db.LongText
+  protectionRules   String   @default("[]") @db.LongText
+  approvalRules     String   @default("[]") @db.LongText
+  handoffRules      String   @default("[]") @db.LongText
+  qualityChecklist  String   @default("[]") @db.LongText
+  selfImprovement   String   @default("{}") @db.LongText
+  productivityRules String   @default("{}") @db.LongText
+  status            String   @default("active")
+  version           Int      @default(1)
+  // Tenant that owns this agent (null = legacy row created before tenant ownership).
+  companyId         String?
+  // Primary system instructions used by the runtime when this agent executes a task.
+  systemInstructions String @db.LongText @default("")
+  // Model configuration, knowledge scope, memory policy, resource limits, task queue,
+  // evaluation profile and provisioning marker (see src/lib/workforce).
+  runtimeProfile    String @db.LongText @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  company                Company?               @relation(fields: [companyId], references: [id])
+  department             Department             @relation(fields: [departmentId], references: [id])
+  versions               AgentVersion[]
+  permissions            AgentPermission[]
+  tasks                  Task[]
+  memory                 AgentMemory[]
+  agentCompanyAccess     AgentCompanyAccess[]
+  healthRecords          AgentHealth[]
+  statusHistory          AgentStatusHistory[]
+  trainingRecords        AgentTrainingRecord[]
+  agentRuns              AgentRun[]
+  tokenUsage             TokenUsage[]
+  evolution              AgentEvolution?
+  learningSessions       AgentLearningSession[]
+  protectiveMode         AgentProtectiveMode?
+  instances              AgentInstance[]
+  alerts                 AgentAlert[]
+  communicationsSent     AgentCommunication[]   @relation("CommunicationFromAgent")
+  communicationsReceived AgentCommunication[]   @relation("CommunicationToAgent")
+  trainingSources        TrainingSource[]
+  metrics                Metric[]
+  recoveryEvents         AgentRecoveryEvent[]
+  executions             AgentExecution[]
+  evaluations            AgentEvaluation[]
+
+  @@index([departmentId])
+  @@index([companyId, departmentId])
+}
+
+model AgentVersion {
+  id        String   @id @default(cuid())
+  agentId   String
+  version   Int
+  config    String   @db.LongText // JSON snapshot
+  changeLog String?  @db.LongText
+  createdAt DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, version])
+}
+
+model AgentPermission {
+  id          String   @id @default(cuid())
+  agentId     String
+  resourceId  String
+  accessLevel String   @default("read") // read, write, execute, admin
+  createdAt   DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}
+
+model Skill {
+  id                  String   @id @default(cuid())
+  name                String
+  slug                String   @unique
+  category            String
+  categorySlug        String
+  title               String
+  version             String   @default("1.0.0")
+  status              String   @default("private") // private, approved, quarantined, disabled
+  riskLevel           String   @default("low") @db.LongText // low, medium, high
+  requiresApproval    Boolean  @default(true)
+  description         String   @default("") @db.LongText
+  runtime             String   @default("builtin") // node, python, builtin
+  allowedTools        String   @default("[]") @db.LongText
+  forbiddenTools      String   @default("[]") @db.LongText
+  inputs              String   @default("[]") @db.LongText
+  outputs             String   @default("[]") @db.LongText
+  purpose             String   @default("") @db.LongText
+  validationRules     String   @default("{}") @db.LongText
+  securityRules       String   @default("{}") @db.LongText
+  costPolicy          String   @default("{}") @db.LongText
+  requiredPermissions String   @default("[]") @db.LongText
+  safetyRules         String   @default("[]") @db.LongText
+  approvalRules       String   @default("") @db.LongText
+  failureHandling     String   @default("") @db.LongText
+  content             String   @default("") @db.LongText // SKILL.md body
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  versions           SkillVersion[]
+  permissions        SkillPermission[]
+  validationLogs     SkillValidationLog[]
+  skillCompanyAccess SkillCompanyAccess[]
+  skillRuns          SkillRun[]
+}
+
+model SkillVersion {
+  id        String   @id @default(cuid())
+  skillId   String
+  version   String
+  content   String   @db.LongText
+  createdAt DateTime @default(now())
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([skillId, version])
+}
+
+model SkillPermission {
+  id          String   @id @default(cuid())
+  skillId     String
+  roleId      String?
+  accessLevel String   @default("use")
+  createdAt   DateTime @default(now())
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  role  Role? @relation(fields: [roleId], references: [id])
+
+  @@index([skillId])
+}
+
+model SkillValidationLog {
+  id        String   @id @default(cuid())
+  skillId   String
+  status    String // PASS, WARNING, BLOCKED
+  reason    String?  @db.LongText
+  checkedBy String?  @db.LongText
+  createdAt DateTime @default(now())
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+}
+
+model Command {
+  id           String    @id @default(cuid())
+  rawCommand   String    @db.LongText
+  parsedIntent String?   @db.LongText
+  detectedDept String?   @db.LongText
+  workflowId   String?
+  status       String    @default("pending") // pending, processing, completed, failed, blocked
+  result       String?   @db.LongText
+  userId       String?
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  workflow Workflow? @relation(fields: [workflowId], references: [id])
+  user     User?     @relation(fields: [userId], references: [id])
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model Task {
+  id           String    @id @default(cuid())
+  commandId    String?
+  title        String
+  description  String?   @db.LongText
+  status       String    @default("pending") // pending, in_progress, completed, failed, blocked
+  priority     String    @default("medium")
+  departmentId String?
+  agentId      String?
+  workflowId   String?
+  userId       String?
+  runId        String? // AgentOSRun that created this task (precise run linkage)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  agent          Agent?          @relation(fields: [agentId], references: [id])
+  workflow       Workflow?       @relation(fields: [workflowId], references: [id])
+  steps          TaskStep[]
+  outputs        Output[]
+  outputVersions OutputVersion[]
+  taskErrors     TaskError[]
+  agentRuns      AgentRun[]
+  skillRuns      SkillRun[]
+  artifacts      Artifact[]
+
+  @@index([agentId])
+  @@index([workflowId])
+  @@index([runId])
+  @@index([status])
+}
+
+model TaskStep {
+  id          String    @id @default(cuid())
+  taskId      String
+  stepNumber  Int
+  agentId     String?
+  skillId     String?
+  action      String
+  input       String    @default("{}") @db.LongText
+  output      String?   @db.LongText
+  status      String    @default("pending") // pending, in_progress, completed, failed
+  error       String?   @db.LongText
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model Workflow {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  slug         String   @unique
+  description  String?  @db.LongText
+  triggers     String   @default("[]") @db.LongText
+  stepConfigs  String   @default("[]") @db.LongText
+  departmentId String?
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workflowSteps       WorkflowStep[]
+  workflowPermissions WorkflowPermission[]
+  commands            Command[]
+  runs                WorkflowRun[]
+  tasks               Task[]
+  improvementRequests WorkflowImprovementRequest[]
+}
+
+model WorkflowStep {
+  id         String   @id @default(cuid())
+  workflowId String
+  stepNumber Int
+  agentId    String?
+  skillId    String?
+  action     String
+  config     String   @default("{}") @db.LongText
+  createdAt  DateTime @default(now())
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+}
+
+model Approval {
+  id           String    @id @default(cuid())
+  type         String // agent_build, skill_build, workflow_build, tool_approval, paid_api, external_cost, deployment, dns_change, file_delete, public_publish, bulk_whatsapp, real_human_face, voice_clone, legal_final, financial_final, shell_command, new_agent, new_skill, new_workflow
+  title        String
+  description  String?   @db.LongText
+  requestJson  String    @default("{}") @db.LongText
+  status       String    @default("pending") // pending, approved, rejected, expired, cancelled
+  requestedBy  String?
+  reviewedBy   String?   @db.LongText
+  reviewedAt   DateTime?
+  responseNote String?   @db.LongText
+  riskLevel    String    @default("medium") @db.LongText
+  executionId  String?
+  companyId    String?
+  expiresAt    DateTime? // pending approvals past this instant are expired, never executed
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user            User?            @relation(fields: [requestedBy], references: [id])
+  company         Company?         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  agentRuns       AgentRun[]
+  agentExecutions AgentExecution[]
+
+  @@index([companyId, status])
+  @@index([executionId])
+}
+
+model CapabilityRequest {
+  id          String   @id @default(cuid())
+  type        String // new_agent, new_skill, new_workflow
+  title       String
+  description String?  @db.LongText
+  proposedBy  String?  @db.LongText
+  status      String   @default("pending") // pending, approved, rejected
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AgentBuildRequest {
+  id           String   @id @default(cuid())
+  agentName    String   @db.LongText
+  departmentId String?
+  config       String   @default("{}") @db.LongText
+  status       String   @default("pending")
+  result       String?  @db.LongText
+  createdAt    DateTime @default(now())
+}
+
+model SkillBuildRequest {
+  id        String   @id @default(cuid())
+  skillName String   @db.LongText
+  category  String?
+  content   String   @default("") @db.LongText
+  status    String   @default("pending")
+  result    String?  @db.LongText
+  createdAt DateTime @default(now())
+}
+
+model WorkflowBuildRequest {
+  id           String   @id @default(cuid())
+  workflowName String   @db.LongText
+  config       String   @default("{}") @db.LongText
+  status       String   @default("pending")
+  result       String?  @db.LongText
+  createdAt    DateTime @default(now())
+}
+
+model ToolApprovalRequest {
+  id        String   @id @default(cuid())
+  toolName  String   @db.LongText
+  reason    String?  @db.LongText
+  riskLevel String   @default("medium") @db.LongText
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+}
+
+model DomainDeployment {
+  id          String   @id @default(cuid())
+  domain      String
+  projectType String?  @db.LongText
+  status      String   @default("pending") // pending, deploying, success, failed
+  deployLog   String   @default("[]") @db.LongText
+  sslStatus   String   @default("none") @db.LongText
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProjectUpload {
+  id         String   @id @default(cuid())
+  fileName   String   @db.LongText
+  fileSize   Int      @default(0)
+  fileType   String?  @db.LongText
+  storedPath String?  @db.LongText
+  uploadedBy String?  @db.LongText
+  status     String   @default("stored")
+  createdAt  DateTime @default(now())
+}
+
+model AgentMemory {
+  id           String    @id @default(cuid())
+  agentId      String
+  companyId    String?
+  category     String    @default("general") // general, learning, correction, pattern
+  content      String    @db.LongText
+  temperature  String    @default("hot") @db.LongText // hot, warm, cold
+  successCount Int       @default(0)
+  failCount    Int       @default(0)
+  useCount     Int       @default(0)
+  confidence   Float     @default(0.5)
+  source       String    @default("experience")
+  tags         String    @default("[]") @db.LongText
+  isVerified   Boolean   @default(false)
+  promotedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  agent   Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([agentId])
+  @@index([companyId, agentId, createdAt])
+}
+
+model DepartmentMemory {
+  id           String   @id @default(cuid())
+  departmentId String
+  category     String   @default("general")
+  content      String   @db.LongText
+  temperature  String   @default("warm") @db.LongText
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+}
+
+model CompanyMemory {
+  id        String   @id @default(cuid())
+  companyId String
+  category  String   @default("general")
+  content   String   @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model LearningReport {
+  id          String   @id @default(cuid())
+  taskId      String?
+  agentId     String?
+  whatWorked  String   @default("[]") @db.LongText
+  whatFailed  String   @default("[]") @db.LongText
+  corrections String   @default("[]") @db.LongText
+  pattern     String?  @db.LongText
+  suggestion  String?  @db.LongText
+  createdAt   DateTime @default(now())
+}
+
+model ProductivityReport {
+  id                     String   @id @default(cuid())
+  taskId                 String?
+  speedScore             Float    @default(0)
+  qualityScore           Float    @default(0)
+  reuseScore             Float    @default(0)
+  errorScore             Float    @default(0)
+  finalProductivityScore Float    @default(0)
+  recommendations        String   @default("[]") @db.LongText
+  createdAt              DateTime @default(now())
+}
+
+model BlockedAction {
+  id         String   @id @default(cuid())
+  actionType String   @db.LongText
+  reason     String   @db.LongText
+  commandId  String?
+  agentId    String?
+  createdAt  DateTime @default(now())
+}
+
+model PaymentGuardLog {
+  id              String   @id @default(cuid())
+  apiName         String
+  blocked         Boolean  @default(true)
+  replacementUsed Boolean  @default(false)
+  replacementName String?  @db.LongText
+  reason          String?  @db.LongText
+  commandId       String?
+  createdAt       DateTime @default(now())
+
+  @@index([apiName])
+  @@index([createdAt])
+}
+
+model ProtectionLog {
+  id         String   @id @default(cuid())
+  actionType String   @db.LongText
+  blocked    Boolean  @default(true)
+  reason     String   @db.LongText
+  commandId  String?
+  agentId    String?
+  createdAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  resource  String
+  details   String   @default("{}") @db.LongText
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Output {
+  id        String   @id @default(cuid())
+  taskId    String
+  type      String   @default("text") // text, file, image, video, audio, report
+  content   String   @db.LongText
+  filePath  String?  @db.LongText
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Settings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.LongText
+  type      String   @default("string") // string, number, boolean, json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HealthCheck {
+  id         String   @id @default(cuid())
+  service    String   @db.LongText
+  status     String   @default("healthy") // healthy, degraded, down
+  responseMs Int?
+  details    String?  @db.LongText
+  createdAt  DateTime @default(now())
+}
+
+model ErrorLog {
+  id        String   @id @default(cuid())
+  source    String
+  message   String   @db.LongText
+  stack     String?  @db.LongText
+  severity  String   @default("error")
+  createdAt DateTime @default(now())
+}
+
+model ServerLog {
+  id        String   @id @default(cuid())
+  level     String   @default("info")
+  message   String   @db.LongText
+  metadata  String   @default("{}") @db.LongText
+  createdAt DateTime @default(now())
+}
+
+model DeploymentLog {
+  id          String   @id @default(cuid())
+  domain      String?
+  projectType String?  @db.LongText
+  action      String
+  status      String   @default("success")
+  details     String   @default("{}") @db.LongText
+  createdAt   DateTime @default(now())
+}
+
+model SOPUpdate {
+  id           String   @id @default(cuid())
+  departmentId String?
+  title        String
+  content      String   @db.LongText
+  reason       String?  @db.LongText
+  status       String   @default("suggested") // suggested, approved, applied
+  suggestedBy  String?  @db.LongText
+  approvedBy   String?  @db.LongText
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model WorkflowImprovementRequest {
+  id          String   @id @default(cuid())
+  workflowId  String?
+  title       String
+  description String?  @db.LongText
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+
+  workflow Workflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+}
+
+model AutomationSuggestion {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?  @db.LongText
+  departmentId String?
+  frequency    String?  @db.LongText
+  status       String   @default("suggested") // suggested, approved, implemented, rejected
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model File {
+  id         String   @id @default(cuid())
+  name       String
+  path       String   @db.LongText
+  size       Int      @default(0)
+  mimeType   String?
+  category   String?
+  uploadedBy String?  @db.LongText
+  createdAt  DateTime @default(now())
+}
+
+model Company {
+  id                   String   @id @default(cuid())
+  name                 String
+  slug                 String   @unique
+  domain               String?
+  status               String   @default("active")
+  allowedWorkflows     String   @default("[]") @db.LongText
+  allowedDepartments   String   @default("[]") @db.LongText
+  monthlyUsageLimit    Int      @default(10000)
+  paidApiAllowed       Boolean  @default(false)
+  smsAllowed           Boolean  @default(false)
+  whatsappBulkAllowed  Boolean  @default(false)
+  publicPublishAllowed Boolean  @default(false)
+  apiSecret            String?  @db.LongText
+  webCrmConnected      Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  users                 CompanyUser[]
+  apiKeys               CompanyApiKey[]
+  usageLogs             UsageLog[]
+  permissions           CompanyPermission[]
+  subscription          Subscription?
+  invoices              Invoice[]
+  payments              Payment[]
+  tokenBudget           TokenBudget?
+  tenantConfig          TenantConfig?
+  companyDomains        CompanyDomain[]
+  ipAllowlists          CompanyIpAllowlist[]
+  agentAccess           AgentCompanyAccess[]
+  skillAccess           SkillCompanyAccess[]
+  webhooks              WebhookConfig[]
+  workflowRuns          WorkflowRun[]
+  companyMemories       CompanyMemory[]
+  agentMemories         AgentMemory[]
+  brand                 Brand?
+  workflowPermissions   WorkflowPermission[]
+  collaborationSessions CollaborationSession[]
+  tokenUsages           TokenUsage[]
+  agentInstances        AgentInstance[]
+  departments           Department[]
+  agents                Agent[]
+  agentAlerts           AgentAlert[]
+  agentCommunications   AgentCommunication[]
+  syncLogs              CrossSystemSyncLog[]
+  trainingSources       TrainingSource[]
+  metrics               Metric[]
+  constitutionalRules   ConstitutionalRule[]
+  templateInstalls      TemplateInstall[]
+  approvals             Approval[]
+  improvementProposals  AgentImprovementProposal[]
+  recoveryEvents        AgentRecoveryEvent[]
+  agentExecutions       AgentExecution[]
+  agentLearningSessions AgentLearningSession[]
+  projects              Project[]
+  artifacts             Artifact[]
+  providerConfigs       AIProviderConfig[]
+}
+
+model CompanyUser {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  role      String   @default("operator")
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+}
+
+model CompanyApiKey {
+  id              String    @id @default(cuid())
+  companyId       String
+  keyHash         String    @unique
+  keyPrefix       String    @db.LongText
+  keySuffix       String    @default("") @db.LongText
+  name            String
+  keyType         String    @default("live") @db.LongText // test, live, restricted, service, webhook
+  scopes          String    @default("[]") @db.LongText // JSON array of scope strings
+  rateLimit       Int       @default(1000) // requests per minute
+  ipAllowlist     String    @default("[]") @db.LongText // JSON array of allowed IPs
+  isActive        Boolean   @default(true)
+  lastUsedAt      DateTime?
+  rotatedAt       DateTime?
+  previousKeyHash String?   @db.LongText
+  expiresAt       DateTime?
+  createdBy       String?   @db.LongText
+  createdAt       DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model CompanyPermission {
+  id           String   @id @default(cuid())
+  companyId    String
+  departmentId String?
+  agentId      String?
+  accessLevel  String   @default("read")
+  createdAt    DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model UsageLog {
+  id                String    @id @default(cuid())
+  companyId         String?
+  companyName       String?   @db.LongText
+  userId            String?
+  userName          String?   @db.LongText
+  commandId         String?
+  taskId            String?
+  workflowId        String?
+  workflowName      String?   @db.LongText
+  agentId           String?
+  agentName         String?   @db.LongText
+  skillId           String?
+  skillName         String?   @db.LongText
+  tokensOrLocalUsed Int       @default(0)
+  paidApiUsed       Boolean   @default(false)
+  externalCostRisk  String    @default("none") @db.LongText
+  approvalRequired  Boolean   @default(false)
+  status            String    @default("completed")
+  startedAt         DateTime  @default(now())
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model WorkflowRun {
+  id           String    @id @default(cuid())
+  workflowId   String
+  workflowName String?   @db.LongText
+  companyId    String?
+  status       String    @default("running")
+  input        String    @default("{}") @db.LongText
+  output       String?   @db.LongText
+  durationMs   Int?
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  workflow Workflow? @relation(fields: [workflowId], references: [id])
+  company  Company?  @relation(fields: [companyId], references: [id])
+
+  @@index([workflowId])
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AgentRun {
+  id             String    @id @default(cuid())
+  agentId        String
+  agentName      String?   @db.LongText
+  taskId         String?
+  status         String    @default("running")
+  input          String    @default("{}") @db.LongText
+  output         String?   @db.LongText
+  durationMs     Int?
+  model          String?
+  tokensUsed     Int       @default(0)
+  companyId      String    @default("default-company")
+  latencyMs      Int?
+  confidence     Float?
+  contextSources String?   @db.LongText
+  conversationId String?
+  instanceId     String?
+  requestId      String?
+  userId         String?
+  priority       String    @default("normal")
+  step           String?
+  stepNumber     Int?
+  retryCount     Int       @default(0)
+  maxRetries     Int       @default(3)
+  validatedInput String?   @db.LongText
+  securityFlags  String?   @db.LongText
+  riskScore      Float?
+  approvalId     String?
+  executionPlan  String?   @db.LongText
+  selectedTools  String?   @db.LongText
+  reviewResult   String?   @db.LongText
+  logIds         String?   @db.LongText
+  deliveryResult String?   @db.LongText
+  error          String?   @db.LongText
+  errorMessage   String?   @db.LongText
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  agent              Agent?            @relation(fields: [agentId], references: [id])
+  task               Task?             @relation(fields: [taskId], references: [id])
+  conversation       Conversation?     @relation(fields: [conversationId], references: [id])
+  instance           AgentInstance?    @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+  approval           Approval?         @relation(fields: [approvalId], references: [id], onDelete: SetNull)
+  messages           AgentRunMessage[]
+  workforceExecution AgentExecution?
+
+  @@index([agentId])
+  @@index([taskId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([companyId])
+  @@index([conversationId])
+  @@index([instanceId])
+  @@index([requestId])
+}
+
+model SkillRun {
+  id          String    @id @default(cuid())
+  skillId     String
+  skillName   String?   @db.LongText
+  taskId      String?
+  status      String    @default("running")
+  input       String    @default("{}") @db.LongText
+  output      String?   @db.LongText
+  durationMs  Int?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  skill Skill? @relation(fields: [skillId], references: [id])
+  task  Task?  @relation(fields: [taskId], references: [id])
+
+  @@index([skillId])
+  @@index([taskId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model WebhookConfig {
+  id              String    @id @default(cuid())
+  companyId       String
+  name            String
+  url             String    @db.LongText
+  events          String    @default("[]") @db.LongText
+  secret          String?   @db.LongText
+  isActive        Boolean   @default(true)
+  lastTriggeredAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  deliveries WebhookDelivery[]
+  company    Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([isActive])
+}
+
+// ========== MEMORY TIERS ==========
+
+model MemoryShortTerm {
+  id        String    @id @default(cuid())
+  sessionId String
+  taskId    String?
+  agentId   String?
+  content   String    @db.LongText
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+}
+
+model MemoryLongTerm {
+  id         String   @id @default(cuid())
+  scope      String   @default("global") @db.LongText // global, company, department, agent
+  scopeId    String?
+  category   String
+  content    String   @db.LongText
+  source     String?
+  confidence Float    @default(0.5)
+  approvedBy String?  @db.LongText
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model RateLimitRecord {
+  id        String   @id @default(cuid())
+  key       String
+  timestamp DateTime
+  createdAt DateTime @default(now())
+
+  @@index([key, timestamp])
+}
+
+model MemoryStaticRule {
+  id        String   @id @default(cuid())
+  scope     String   @default("global") @db.LongText // global, company, department
+  scopeId   String?
+  ruleType  String   @db.LongText // protection, payment, approval, rbac, data_classification
+  ruleKey   String   @db.LongText
+  ruleValue String   @db.LongText
+  isLocked  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ========== RAG SYSTEM ==========
+
+model RagCollection {
+  id            String   @id @default(cuid())
+  companyId     String?
+  name          String
+  description   String?  @db.LongText
+  documentCount Int      @default(0)
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  documents RagDocument[]
+}
+
+model RagDocument {
+  id             String    @id @default(cuid())
+  collectionId   String
+  companyId      String?
+  name           String
+  source         String?
+  classification String    @default("internal") @db.LongText // public, internal, confidential, restricted, highly_restricted
+  checksum       String?
+  version        Int       @default(1)
+  status         String    @default("indexed")
+  chunkCount     Int       @default(0)
+  createdAt      DateTime  @default(now())
+  indexedAt      DateTime?
+
+  collection     RagCollection   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  chunks         RagChunk[]
+  trainingSource TrainingSource?
+}
+
+model RagChunk {
+  id         String   @id @default(cuid())
+  documentId String
+  companyId  String?
+  content    String   @db.LongText
+  embedding  String?  @db.LongText // stored as base64 or JSON vector
+  metadata   String   @default("{}") @db.LongText
+  position   Int
+  createdAt  DateTime @default(now())
+
+  document RagDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model RagQuery {
+  id           String   @id @default(cuid())
+  companyId    String?
+  userId       String?
+  query        String   @db.LongText
+  collectionId String?
+  resultCount  Int      @default(0)
+  status       String   @default("success")
+  durationMs   Int?
+  createdAt    DateTime @default(now())
+}
+
+model RagAnswer {
+  id         String   @id @default(cuid())
+  queryId    String
+  companyId  String?
+  content    String   @db.LongText
+  chunks     String   @default("[]") @db.LongText // chunk IDs used
+  confidence Float    @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model RagFeedback {
+  id        String   @id @default(cuid())
+  queryId   String
+  companyId String?
+  rating    String   @db.LongText // positive, negative, correction
+  comment   String?  @db.LongText
+  createdAt DateTime @default(now())
+}
+
+// ========== LEARNING & PERFORMANCE ==========
+
+model FeedbackLog {
+  id        String   @id @default(cuid())
+  taskId    String?
+  agentId   String?
+  companyId String?
+  category  String // correction, praise, complaint, suggestion
+  content   String   @db.LongText
+  fromUser  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model ToolRun {
+  id           String   @id @default(cuid())
+  taskId       String?
+  agentId      String?
+  toolName     String   @db.LongText
+  toolCategory String   @db.LongText
+  input        String   @default("{}") @db.LongText
+  output       String?  @db.LongText
+  status       String   @default("success") // success, failed, blocked, timeout
+  durationMs   Int?
+  blocked      Boolean  @default(false)
+  blockReason  String?  @db.LongText
+  createdAt    DateTime @default(now())
+
+  @@index([taskId])
+  @@index([agentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AgentPerformanceScore {
+  id                    String   @id @default(cuid())
+  agentId               String
+  period                String   @default("daily") // daily, weekly, monthly
+  successRate           Float    @default(0)
+  errorRate             Float    @default(0)
+  avgRuntimeMs          Int      @default(0)
+  outputQualityScore    Float    @default(0)
+  userCorrectionCount   Int      @default(0)
+  blockedActionCount    Int      @default(0)
+  approvalRequiredCount Int      @default(0)
+  productivityScore     Float    @default(0)
+  calculatedAt          DateTime @default(now())
+}
+
+// ========== USAGE SUMMARIES ==========
+
+model CompanyUsageSummary {
+  id                String   @id @default(cuid())
+  companyId         String
+  period            String   @default("daily")
+  totalRequests     Int      @default(0)
+  totalTokensUsed   Int      @default(0)
+  totalCostEstimate Float    @default(0)
+  paidApiUsed       Int      @default(0)
+  blockedCount      Int      @default(0)
+  approvalRequired  Int      @default(0)
+  calculatedAt      DateTime @default(now())
+}
+
+model AgentUsageSummary {
+  id              String   @id @default(cuid())
+  agentId         String
+  period          String   @default("daily")
+  totalRuns       Int      @default(0)
+  successCount    Int      @default(0)
+  failureCount    Int      @default(0)
+  avgRuntimeMs    Int      @default(0)
+  totalTokensUsed Int      @default(0)
+  calculatedAt    DateTime @default(now())
+}
+
+model WorkflowUsageSummary {
+  id            String   @id @default(cuid())
+  workflowId    String
+  period        String   @default("daily")
+  totalRuns     Int      @default(0)
+  successCount  Int      @default(0)
+  failureCount  Int      @default(0)
+  avgDurationMs Int      @default(0)
+  calculatedAt  DateTime @default(now())
+}
+
+model CostEstimate {
+  id               String    @id @default(cuid())
+  companyId        String?
+  taskId           String?
+  provider         String
+  modelOrService   String    @db.LongText
+  estimatedUnits   Int       @default(0)
+  estimatedCost    Float     @default(0)
+  currency         String    @default("USD")
+  localAlternative String?   @db.LongText
+  reasonNeeded     String?   @db.LongText
+  status           String    @default("pending") // pending, approved, rejected, expired
+  approvedBy       String?   @db.LongText
+  approvedAt       DateTime?
+  actualCost       Float?
+  createdAt        DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SubscriptionPlan {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  slug            String   @unique
+  description     String?  @db.LongText
+  priceMonthly    Float    @default(0)
+  priceYearly     Float    @default(0)
+  agentLimit      Int      @default(100)
+  skillLimit      Int      @default(500)
+  workflowLimit   Int      @default(100)
+  monthlyTokens   Int      @default(1000000)
+  monthlyRequests Int      @default(50000)
+  features        String   @default("[]") @db.LongText // JSON array of feature strings
+  isEnterprise    Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String    @id @default(cuid())
+  companyId          String    @unique
+  planId             String
+  status             String    @default("active") // active, past_due, cancelled, trial, paused
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime  @default(now())
+  currentPeriodEnd   DateTime
+  cancelledAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  company  Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id])
+  invoices Invoice[]
+}
+
+model Invoice {
+  id             String    @id @default(cuid())
+  subscriptionId String
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceNumber  String    @unique
+  amount         Float
+  currency       String    @default("USD")
+  status         String    @default("draft") // draft, sent, paid, failed, refunded, void
+  dueDate        DateTime
+  paidAt         DateTime?
+  periodStart    DateTime
+  periodEnd      DateTime
+  lineItems      String    @default("[]") @db.LongText // JSON array
+  notes          String?   @db.LongText
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model Payment {
+  id             String    @id @default(cuid())
+  invoiceId      String?
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  amount         Float
+  currency       String    @default("USD")
+  method         String    @default("manual") @db.LongText // manual, bank_transfer, card, crypto
+  status         String    @default("pending") // pending, completed, failed, refunded
+  transactionRef String?   @db.LongText
+  notes          String?   @db.LongText
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([companyId])
+}
+
+// ========== MARKETPLACE ==========
+
+model MarketplaceListing {
+  id           String   @id @default(cuid())
+  type         String // agent, skill, workflow
+  itemId       String // reference to Agent/Skill/Workflow id
+  title        String
+  description  String   @db.LongText
+  category     String?
+  tags         String   @default("[]") @db.LongText // JSON array
+  version      String   @default("1.0.0")
+  authorId     String?
+  authorName   String?
+  rating       Float    @default(0)
+  reviewCount  Int      @default(0)
+  installCount Int      @default(0)
+  status       String   @default("published") // draft, published, deprecated, removed
+  pricing      String   @default("free") // free, premium, enterprise
+  priceMonthly Float    @default(0)
+  featured     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reviews MarketplaceReview[]
+}
+
+model MarketplaceReview {
+  id        String   @id @default(cuid())
+  listingId String
+  companyId String?
+  userId    String?
+  rating    Int // 1-5
+  title     String?
+  comment   String?  @db.LongText
+  createdAt DateTime @default(now())
+
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+// ========== OAUTH & SSO ==========
+
+model OAuthProvider {
+  id               String   @id @default(cuid())
+  provider         String   @unique // google, github, microsoft, okta
+  clientId         String
+  clientSecret     String   @db.LongText
+  authorizationUrl String   @db.LongText
+  tokenUrl         String   @db.LongText
+  userInfoUrl      String   @db.LongText
+  scopes           String   @default("[]") @db.LongText
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  accounts OAuthAccount[]
+}
+
+model OAuthAccount {
+  id                String    @id @default(cuid())
+  userId            String
+  providerId        String
+  provider          String // google, github, etc.
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  tokenExpiry       DateTime?
+  profileJson       String    @default("{}") @db.LongText
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  oauthProvider OAuthProvider @relation(fields: [providerId], references: [id])
+
+  @@index([userId])
+}
+
+model SsoConfig {
+  id          String   @id @default(cuid())
+  provider    String   @unique // saml, ldap, oidc
+  metadataUrl String?  @db.LongText
+  entityId    String?
+  callbackUrl String?  @db.LongText
+  isActive    Boolean  @default(false)
+  config      String   @default("{}") @db.LongText // JSON config
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ========== JOB QUEUE & WORKERS ==========
+
+model JobQueue {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.LongText
+  concurrency Int      @default(3)
+  maxRetries  Int      @default(3)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items QueueItem[]
+}
+
+model QueueItem {
+  id             String    @id @default(cuid())
+  queueId        String
+  jobId          String? // references AgentRun, SkillRun, WorkflowRun, or generic job
+  jobType        String    @db.LongText // agent_run, skill_run, workflow_run, email, report, maintenance
+  priority       Int       @default(0)
+  payload        String    @default("{}") @db.LongText
+  status         String    @default("queued") // queued, processing, completed, failed, cancelled
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(3)
+  error          String?   @db.LongText
+  result         String?   @db.LongText // handler result (payload is preserved for audit)
+  idempotencyKey String?   @unique // duplicate-delivery prevention
+  lockedBy       String? // worker id holding the processing lease
+  lockExpiresAt  DateTime? // lease expiry; expired leases are reclaimed
+  heartbeatAt    DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  scheduledAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  queue JobQueue @relation(fields: [queueId], references: [id], onDelete: Cascade)
+
+  @@index([queueId, status, scheduledAt])
+  @@index([status, lockExpiresAt])
+}
+
+// ========== TOKEN BUDGETING ==========
+
+model TokenBudget {
+  id               String   @id @default(cuid())
+  companyId        String   @unique
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  monthlyBudget    Int      @default(1000000)
+  monthlyUsed      Int      @default(0)
+  dailyBudget      Int      @default(50000)
+  dailyUsed        Int      @default(0)
+  warningThreshold Float    @default(0.8) // warn at 80%
+  blockThreshold   Float    @default(1.0) // block at 100%
+  resetDayOfMonth  Int      @default(1)
+  lastResetAt      DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model TokenUsage {
+  id               String   @id @default(cuid())
+  companyId        String?
+  agentId          String?
+  taskId           String?
+  model            String   @default("deepseek-v3")
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  costEstimate     Float    @default(0)
+  createdAt        DateTime @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id])
+  agent   Agent?   @relation(fields: [agentId], references: [id])
+
+  @@index([companyId])
+  @@index([agentId])
+  @@index([createdAt])
+}
+
+model Metric {
+  id         String   @id @default(cuid())
+  name       String
+  value      Float
+  labels     String   @default("{}") @db.LongText // JSON {key:value}
+  unit       String   @default("") @db.LongText
+  metricType String   @default("general")
+  instanceId String?
+  agentId    String?
+  companyId  String?
+  dimensions String   @default("{}") @db.LongText
+  recordedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  instance AgentInstance? @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+  agent    Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  company  Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([name, createdAt])
+  @@index([instanceId, recordedAt])
+  @@index([agentId, recordedAt])
+  @@index([companyId, recordedAt])
+  @@index([metricType, recordedAt])
+}
+
+model Alert {
+  id            String    @id @default(cuid())
+  name          String
+  severity      String    @default("warning") // info, warning, critical
+  condition     String    @db.LongText // JSON expression
+  isFiring      Boolean   @default(false)
+  lastFiredAt   DateTime?
+  silencedUntil DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ========== TENANT CONFIG ==========
+
+model TenantConfig {
+  id                   String   @id @default(cuid())
+  companyId            String   @unique
+  company              Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  logoUrl              String?  @db.LongText
+  primaryColor         String   @default("#003ABC") @db.LongText
+  customDomain         String?  @db.LongText
+  emailFrom            String?  @db.LongText
+  supportEmail         String?  @db.LongText
+  locale               String   @default("en") @db.LongText
+  timezone             String   @default("Asia/Dhaka") @db.LongText
+  notificationsEnabled Boolean  @default(true)
+  webhookTimeoutMs     Int      @default(30000)
+  maxConcurrentJobs    Int      @default(5)
+  config               String   @default("{}") @db.LongText // extensible JSON config
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// ========== QUALITY LEVELS ==========
+
+model QualityAssessment {
+  id         String    @id @default(cuid())
+  agentId    String?
+  skillId    String?
+  workflowId String?
+  assessor   String    @default("system") @db.LongText // system, human, peer
+  level      String    @default("draft") // draft, junior, mid, senior, expert, dept_lead
+  score      Float
+  criteria   String    @default("{}") @db.LongText // JSON {criterion: score}
+  notes      String?   @db.LongText
+  promotedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+// ========== COMPANY SECURITY & ACCESS ==========
+
+model CompanyDomain {
+  id                 String   @id @default(cuid())
+  companyId          String
+  company            Company  @relation(fields: [companyId], references: [id])
+  domain             String
+  isPrimary          Boolean  @default(false)
+  verificationStatus String   @default("pending") @db.LongText
+  sslStatus          String   @default("none") @db.LongText
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model CompanyIpAllowlist {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  cidr        String   @db.LongText
+  description String?  @db.LongText
+  createdBy   String?  @db.LongText
+  createdAt   DateTime @default(now())
+
+  @@index([companyId])
+}
+
+model AgentCompanyAccess {
+  id          String   @id @default(cuid())
+  agentId     String
+  agent       Agent    @relation(fields: [agentId], references: [id])
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  accessLevel String   @default("full")
+  grantedBy   String?  @db.LongText
+  createdAt   DateTime @default(now())
+
+  @@unique([agentId, companyId])
+  @@index([agentId])
+  @@index([companyId])
+}
+
+model AgentHealth {
+  id                  String   @id @default(cuid())
+  agentId             String
+  agent               Agent    @relation(fields: [agentId], references: [id])
+  status              String   @default("healthy")
+  cpuUsage            Float    @default(0)
+  memoryUsage         Float    @default(0)
+  lastHeartbeat       DateTime @default(now())
+  consecutiveFailures Int      @default(0)
+  checkedAt           DateTime @default(now())
+
+  @@index([agentId])
+  @@index([status])
+}
+
+model AgentStatusHistory {
+  id         String   @id @default(cuid())
+  agentId    String
+  agent      Agent    @relation(fields: [agentId], references: [id])
+  fromStatus String   @db.LongText
+  toStatus   String   @db.LongText
+  reason     String?  @db.LongText
+  changedBy  String?  @db.LongText
+  createdAt  DateTime @default(now())
+
+  @@index([agentId])
+  @@index([createdAt])
+}
+
+model SkillCompanyAccess {
+  id          String   @id @default(cuid())
+  skillId     String
+  skill       Skill    @relation(fields: [skillId], references: [id])
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  accessLevel String   @default("full")
+  grantedBy   String?  @db.LongText
+  createdAt   DateTime @default(now())
+
+  @@unique([skillId, companyId])
+  @@index([skillId])
+  @@index([companyId])
+}
+
+model WorkflowPermission {
+  id          String   @id @default(cuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id])
+  roleId      String?
+  role        Role?    @relation(fields: [roleId], references: [id])
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+  accessLevel String   @default("view")
+  createdAt   DateTime @default(now())
+
+  @@index([workflowId])
+}
+
+model TaskError {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id])
+  stepId    String?
+  agentId   String?
+  errorCode String?  @db.LongText
+  message   String   @db.LongText
+  stack     String?  @db.LongText
+  severity  String   @default("error")
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@index([severity])
+}
+
+model SecurityEvent {
+  id         String   @id @default(cuid())
+  type       String
+  severity   String   @default("medium")
+  source     String?
+  agentId    String?
+  companyId  String?
+  input      String?  @db.LongText
+  output     String?  @db.LongText
+  riskScore  Float?
+  action     String?
+  details    String?  @db.LongText
+  resolved   Boolean  @default(false)
+  resolvedBy String?  @db.LongText
+  createdAt  DateTime @default(now())
+
+  @@index([type])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+model AgentTrainingRecord {
+  id           String    @id @default(cuid())
+  agentId      String
+  agent        Agent     @relation(fields: [agentId], references: [id])
+  curriculumId String?
+  trainingType String    @db.LongText
+  status       String    @default("pending")
+  score        Float?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  result       String?   @db.LongText
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([agentId])
+  @@index([status])
+}
+
+// ========== MODEL REGISTRY ==========
+
+model ModelRegistry {
+  id              String    @id @default(cuid())
+  modelId         String    @unique
+  name            String
+  provider        String    @default("local")
+  costPer1kTokens Float     @default(0)
+  maxContext      Int       @default(4096)
+  capabilities    String    @default("[]") @db.LongText
+  status          String    @default("active")
+  deployedAt      DateTime?
+  healthStatus    String    @default("unknown")
+  endpoint        String?   @db.LongText
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  assignments  ModelAssignment[]
+  healthChecks ModelHealth[]
+}
+
+model ModelAssignment {
+  id         String        @id @default(cuid())
+  agentId    String?
+  workflowId String?
+  taskId     String?
+  modelId    String
+  model      ModelRegistry @relation(fields: [modelId], references: [id])
+  reason     String?       @db.LongText
+  assignedBy String?       @db.LongText
+  createdAt  DateTime      @default(now())
+
+  @@index([agentId])
+  @@index([workflowId])
+}
+
+model ModelHealth {
+  id            String        @id @default(cuid())
+  modelId       String
+  model         ModelRegistry @relation(fields: [modelId], references: [id])
+  status        String        @default("unknown")
+  avgLatencyMs  Float         @default(0)
+  errorRate     Float         @default(0)
+  successRate   Float         @default(0)
+  lastCheckedAt DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+
+  @@index([modelId])
+}
+
+model WebhookDelivery {
+  id             String        @id @default(cuid())
+  webhookId      String
+  webhook        WebhookConfig @relation(fields: [webhookId], references: [id])
+  eventId        String?
+  payload        String?       @db.LongText
+  responseStatus Int?
+  responseBody   String?       @db.LongText
+  durationMs     Int?
+  retryCount     Int           @default(0)
+  success        Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+
+  @@index([webhookId])
+  @@index([createdAt])
+}
+
+// ========== NOTIFICATIONS & FEATURE FLAGS ==========
+
+model Notification {
+  id        String    @id @default(cuid())
+  type      String
+  title     String
+  message   String    @db.LongText
+  priority  String    @default("info")
+  read      Boolean   @default(false)
+  readAt    DateTime?
+  userId    String?
+  companyId String?
+  metadata  String?   @db.LongText
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model FeatureFlag {
+  id                String   @id @default(cuid())
+  key               String   @unique
+  name              String
+  description       String?  @db.LongText
+  enabled           Boolean  @default(false)
+  environment       String   @default("production")
+  rolloutPercentage Int      @default(100)
+  createdBy         String?  @db.LongText
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// ========== DISASTER RECOVERY ==========
+
+model DisasterRecoveryConfig {
+  id               String    @id @default(cuid())
+  rtoTargetMinutes Int       @default(60)
+  rpoTargetMinutes Int       @default(15)
+  failoverZone     String    @default("primary") @db.LongText
+  backupFrequency  String    @default("daily") @db.LongText
+  lastTestDate     DateTime?
+  lastTestResult   String?   @db.LongText
+  autoFailover     Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model RecoveryRun {
+  id          String    @id @default(cuid())
+  type        String
+  status      String    @default("pending")
+  triggeredBy String?   @db.LongText
+  rtoActual   Int?
+  rpoActual   Int?
+  result      String?   @db.LongText
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+}
+
+// ========== INFRASTRUCTURE SERVICES ==========
+
+model InfraService {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  type        String    @unique
+  host        String    @default("localhost")
+  port        Int       @default(0)
+  status      String    @default("disconnected")
+  connectedAt DateTime?
+  lastPingAt  DateTime?
+  latencyMs   Int       @default(0)
+  version     String?
+  configJson  String    @default("{}") @db.LongText
+  statsJson   String    @default("{}") @db.LongText
+  errorCount  Int       @default(0)
+  lastError   String?   @db.LongText
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ========== CRM MODULES ==========
+
+model CrmContact {
+  id            String    @id @default(cuid())
+  companyId     String?
+  firstName     String    @db.LongText
+  lastName      String    @db.LongText
+  email         String
+  phone         String?
+  company       String?   @db.LongText
+  jobTitle      String?   @db.LongText
+  source        String    @default("manual")
+  status        String    @default("lead")
+  tags          String    @default("[]") @db.LongText
+  metadata      String    @default("{}") @db.LongText
+  assignedTo    String?   @db.LongText
+  score         Int       @default(0)
+  lastContactAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  deals      CrmDeal[]
+  activities CrmActivity[]
+  notes      CrmNote[]
+  scores     CrmLeadScore[]
+
+  @@index([companyId])
+  @@index([email])
+  @@index([status])
+  @@index([score])
+  @@index([createdAt])
+}
+
+model CrmDeal {
+  id            String           @id @default(cuid())
+  companyId     String?
+  contactId     String
+  contact       CrmContact       @relation(fields: [contactId], references: [id])
+  pipelineId    String
+  pipeline      CrmPipeline      @relation(fields: [pipelineId], references: [id])
+  stageId       String
+  stage         CrmPipelineStage @relation(fields: [stageId], references: [id])
+  title         String
+  value         Float            @default(0)
+  currency      String           @default("USD")
+  probability   Int              @default(50)
+  expectedClose DateTime?
+  actualClose   DateTime?
+  lostReason    String?          @db.LongText
+  assignedTo    String?          @db.LongText
+  metadata      String           @default("{}") @db.LongText
+  status        String           @default("active")
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  activities CrmActivity[]
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([pipelineId])
+  @@index([stageId])
+  @@index([status])
+  @@index([expectedClose])
+}
+
+model CrmPipeline {
+  id          String   @id @default(cuid())
+  companyId   String?
+  name        String
+  description String?  @db.LongText
+  isDefault   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stages CrmPipelineStage[]
+  deals  CrmDeal[]
+
+  @@index([companyId])
+}
+
+model CrmPipelineStage {
+  id          String      @id @default(cuid())
+  pipelineId  String
+  pipeline    CrmPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name        String
+  color       String      @default("#6B7280") @db.LongText
+  sortOrder   Int         @default(0)
+  probability Int         @default(50)
+  createdAt   DateTime    @default(now())
+
+  deals CrmDeal[]
+
+  @@unique([pipelineId, name])
+  @@index([pipelineId])
+}
+
+model CrmActivity {
+  id          String      @id @default(cuid())
+  companyId   String?
+  contactId   String?
+  contact     CrmContact? @relation(fields: [contactId], references: [id])
+  dealId      String?
+  deal        CrmDeal?    @relation(fields: [dealId], references: [id])
+  type        String
+  subject     String      @db.LongText
+  description String?     @db.LongText
+  direction   String?     @db.LongText
+  status      String      @default("completed")
+  scheduledAt DateTime?
+  completedAt DateTime?
+  durationMin Int?
+  assignedTo  String?     @db.LongText
+  metadata    String      @default("{}") @db.LongText
+  createdAt   DateTime    @default(now())
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([type])
+  @@index([scheduledAt])
+}
+
+model CrmNote {
+  id        String     @id @default(cuid())
+  contactId String
+  contact   CrmContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  content   String     @db.LongText
+  createdBy String?    @db.LongText
+  createdAt DateTime   @default(now())
+
+  @@index([contactId])
+}
+
+model CrmLeadScore {
+  id           String     @id @default(cuid())
+  contactId    String
+  contact      CrmContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  score        Int
+  maxScore     Int        @default(100)
+  factors      String     @default("{}") @db.LongText
+  calculatedBy String     @default("rule-engine") @db.LongText
+  createdAt    DateTime   @default(now())
+
+  @@index([contactId])
+  @@index([score])
+}
+
+// ========== AUTOMATION ENGINE ==========
+
+model AutomationTrigger {
+  id          String    @id @default(cuid())
+  name        String
+  description String?   @db.LongText
+  type        String
+  config      String    @default("{}") @db.LongText
+  enabled     Boolean   @default(true)
+  lastFiredAt DateTime?
+  fireCount   Int       @default(0)
+  companyId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  actions AutomationAction[]
+  logs    AutomationTriggerLog[]
+
+  @@index([type])
+  @@index([enabled])
+  @@index([companyId])
+}
+
+model AutomationAction {
+  id                String            @id @default(cuid())
+  triggerId         String
+  trigger           AutomationTrigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+  name              String
+  type              String
+  config            String            @default("{}") @db.LongText
+  sortOrder         Int               @default(0)
+  conditionType     String            @default("always") @db.LongText
+  conditionConfig   String            @default("{}") @db.LongText
+  delaySeconds      Int               @default(0)
+  retryCount        Int               @default(0)
+  retryDelaySeconds Int               @default(30)
+  lastExecutedAt    DateTime?
+  executionCount    Int               @default(0)
+  successCount      Int               @default(0)
+  failCount         Int               @default(0)
+  createdAt         DateTime          @default(now())
+
+  @@index([triggerId])
+}
+
+model AutomationTriggerLog {
+  id            String            @id @default(cuid())
+  triggerId     String
+  trigger       AutomationTrigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+  eventData     String            @default("{}") @db.LongText
+  actionResults String            @default("[]") @db.LongText
+  status        String            @default("success")
+  durationMs    Int?
+  error         String?           @db.LongText
+  createdAt     DateTime          @default(now())
+
+  @@index([triggerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ========== INCIDENT MANAGEMENT ==========
+
+model Incident {
+  id          String    @id @default(cuid())
+  title       String
+  description String?   @db.LongText
+  severity    String    @default("medium") // low, medium, high, critical
+  status      String    @default("open") // open, investigating, resolved, closed
+  type        String    @default("general") // security, performance, data, infrastructure
+  assignedTo  String?   @db.LongText
+  companyId   String?
+  resolvedAt  DateTime?
+  resolution  String?   @db.LongText
+  metadata    String    @default("{}") @db.LongText
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([severity])
+  @@index([status])
+  @@index([companyId])
+  @@index([createdAt])
+}
+
+// ========== BRAND MANAGEMENT ==========
+
+model Brand {
+  id             String   @id @default(cuid())
+  companyId      String   @unique
+  name           String
+  logoUrl        String?  @db.LongText
+  primaryColor   String   @default("#003ABC") @db.LongText
+  secondaryColor String   @default("#10B981") @db.LongText
+  accentColor    String   @default("#F59E0B") @db.LongText
+  fontFamily     String   @default("Inter") @db.LongText
+  customCss      String   @default("") @db.LongText
+  faviconUrl     String?  @db.LongText
+  emailLogoUrl   String?  @db.LongText
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+// ========== MCP SERVER REGISTRY ==========
+
+model McpServer {
+  id          String    @id @default(cuid())
+  name        String
+  host        String    @default("localhost")
+  port        Int       @default(3000)
+  protocol    String    @default("http") // http, https, ws, wss
+  status      String    @default("disconnected") // connected, disconnected, error
+  description String?   @db.LongText
+  config      String    @default("{}") @db.LongText // JSON config
+  tools       String    @default("[]") @db.LongText // JSON array of tool definitions
+  lastPingAt  DateTime?
+  latencyMs   Int?
+  errorCount  Int       @default(0)
+  lastError   String?   @db.LongText
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([name])
+}
+
+// ========== WORKER NODES ==========
+
+model WorkerNode {
+  id              String    @id @default(cuid())
+  name            String    @unique
+  host            String
+  port            Int
+  status          String    @default("idle") // idle, busy, draining, offline
+  concurrency     Int       @default(5)
+  activeJobs      Int       @default(0)
+  maxMemoryMb     Int       @default(512)
+  cpuUsage        Float     @default(0)
+  memoryUsageMb   Int       @default(0)
+  totalProcessed  Int       @default(0)
+  totalFailed     Int       @default(0)
+  lastHeartbeatAt DateTime?
+  lastError       String?   @db.LongText
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([lastHeartbeatAt])
+}
+
+model University {
+  id                    String   @id @default(cuid())
+  name                  String
+  slug                  String   @unique
+  country               String
+  city                  String
+  campus                String   @default("Main Campus") @db.LongText
+  type                  String   @default("public") // public, private
+  foundedYear           Int?
+  studentCount          Int      @default(0)
+  internationalStudents Int      @default(0)
+  website               String   @default("") @db.LongText
+  description           String   @default("") @db.LongText
+  rankingQS             Int?
+  rankingTHE            Int?
+  rankingARWU           Int?
+  acceptanceRate        Float? // percentage
+  status                String   @default("active")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  faculties      UniversityFaculty[]
+  scholarships   UniversityScholarship[]
+  courses        UniversityCourse[]
+  accommodations UniversityAccommodation[]
+  intakes        UniversityIntake[]
+}
+
+model UniversityFaculty {
+  id           String   @id @default(cuid())
+  universityId String
+  name         String
+  description  String   @default("") @db.LongText
+  departments  String   @default("[]") @db.LongText // JSON array of department names
+  createdAt    DateTime @default(now())
+
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+}
+
+model UniversityCourse {
+  id                String   @id @default(cuid())
+  universityId      String
+  facultyName       String   @default("") @db.LongText
+  name              String
+  slug              String   @default("")
+  level             String   @default("undergraduate") // undergraduate, postgraduate, phd, foundation
+  duration          String   @default("") @db.LongText // e.g. "4 years", "2 years"
+  tuitionFeeUSD     Float?
+  tuitionFeeLocal   Float?
+  localCurrency     String   @default("")
+  intakeMonths      String   @default("[]") @db.LongText // JSON array e.g. ["September", "February"]
+  entryRequirements String   @default("[]") @db.LongText // JSON array e.g. ["IELTS 6.5", "GPA 3.0"]
+  description       String   @default("") @db.LongText
+  status            String   @default("active")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+  @@index([level])
+}
+
+model UniversityScholarship {
+  id            String   @id @default(cuid())
+  universityId  String
+  name          String
+  type          String   @default("merit") // merit, need, sports, research, specific
+  coverage      String   @default("partial") @db.LongText // full, partial, tuition_only, living_only
+  amountUSD     Float?
+  amountLocal   Float?
+  localCurrency String   @default("")
+  eligibility   String   @default("[]") @db.LongText // JSON array of eligibility criteria
+  deadline      String   @default("") @db.LongText
+  description   String   @default("") @db.LongText
+  website       String   @default("") @db.LongText
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+}
+
+model UniversityAccommodation {
+  id               String   @id @default(cuid())
+  universityId     String
+  name             String
+  type             String   @default("halls") // halls, apartments, homestay, private
+  costPerWeekUSD   Float?
+  costPerWeekLocal Float?
+  localCurrency    String   @default("")
+  capacity         Int?
+  amenities        String   @default("[]") @db.LongText // JSON array
+  description      String   @default("") @db.LongText
+  status           String   @default("available")
+  createdAt        DateTime @default(now())
+
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+}
+
+model UniversityIntake {
+  id           String   @id @default(cuid())
+  universityId String
+  season       String   @default("Fall")
+  month        String   @default("September")
+  year         Int
+  deadline     String   @default("") @db.LongText
+  status       String   @default("open") // open, closed, upcoming
+  createdAt    DateTime @default(now())
+
+  university University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENTERPRISE AI PLATFORM MODELS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model ConstitutionalRule {
+  id           String   @id @default(cuid())
+  ruleId       String   @unique
+  title        String
+  category     String // governance, security, compliance, operations, ethics, data, ai, hr, finance, legal
+  severity     String   @default("critical") // critical, high, medium, low, informational
+  description  String   @db.LongText
+  conditions   String   @default("[]") @db.LongText // JSON array of conditions
+  actions      String   @default("[]") @db.LongText // JSON array of required actions
+  departmentId String?
+  companyId    String?
+  isActive     Boolean  @default(true)
+  version      Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department? @relation(fields: [departmentId], references: [id])
+  company    Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([category])
+  @@index([severity])
+  @@index([departmentId])
+  @@index([companyId, isActive])
+}
+
+model EnterpriseSOP {
+  id            String   @id @default(cuid())
+  sopId         String   @unique
+  title         String
+  category      String // onboarding, operations, security, incident, deployment, compliance, communication, quality
+  departmentId  String?
+  ownerRole     String   @default("manager") @db.LongText
+  priority      String   @default("medium")
+  description   String   @db.LongText
+  steps         String   @default("[]") @db.LongText // JSON array of step objects
+  checklist     String   @default("[]") @db.LongText // JSON array of checklist items
+  estimatedTime String   @default("30 min") @db.LongText
+  version       Int      @default(1)
+  status        String   @default("active") // draft, active, deprecated
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  department Department? @relation(fields: [departmentId], references: [id])
+
+  @@index([category])
+  @@index([departmentId])
+  @@index([status])
+}
+
+model PromptTemplate {
+  id           String   @id @default(cuid())
+  templateId   String   @unique
+  title        String
+  category     String // analysis, generation, coding, writing, research, planning, review, optimization, communication, creative
+  subcategory  String   @default("")
+  departmentId String?
+  agentTypeId  String   @default("") // links to agent type
+  description  String   @default("") @db.LongText
+  systemPrompt String   @db.LongText
+  userTemplate String   @default("") @db.LongText
+  variables    String   @default("[]") @db.LongText // JSON array of variable definitions
+  outputFormat String   @default("text") @db.LongText // text, json, markdown, code, structured
+  temperature  Float    @default(0.7)
+  maxTokens    Int      @default(2048)
+  version      Int      @default(1)
+  isPublic     Boolean  @default(true)
+  usageCount   Int      @default(0)
+  rating       Float    @default(0)
+  tags         String   @default("[]") @db.LongText // JSON array
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department? @relation(fields: [departmentId], references: [id])
+
+  @@index([category])
+  @@index([departmentId])
+  @@index([agentTypeId])
+}
+
+model KnowledgeNode {
+  id           String   @id @default(cuid())
+  nodeId       String   @unique
+  title        String
+  type         String // concept, entity, process, rule, skill, tool, document, person, department
+  domain       String   @default("enterprise")
+  departmentId String?
+  content      String   @default("") @db.LongText
+  metadata     String   @default("{}") @db.LongText // JSON
+  confidence   Float    @default(1.0)
+  source       String   @default("internal")
+  version      Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department    Department?     @relation(fields: [departmentId], references: [id])
+  outgoingEdges KnowledgeEdge[] @relation("EdgeFrom")
+  incomingEdges KnowledgeEdge[] @relation("EdgeTo")
+
+  @@index([type])
+  @@index([domain])
+  @@index([departmentId])
+}
+
+model KnowledgeEdge {
+  id           String   @id @default(cuid())
+  edgeId       String   @unique
+  fromNodeId   String
+  toNodeId     String
+  relationType String // depends_on, part_of, related_to, implements, requires, produces, governs
+  weight       Float    @default(1.0)
+  metadata     String   @default("{}") @db.LongText
+  createdAt    DateTime @default(now())
+
+  fromNode KnowledgeNode @relation("EdgeFrom", fields: [fromNodeId], references: [id])
+  toNode   KnowledgeNode @relation("EdgeTo", fields: [toNodeId], references: [id])
+
+  @@index([fromNodeId])
+  @@index([toNodeId])
+  @@index([relationType])
+}
+
+model CollaborationSession {
+  id           String   @id @default(cuid())
+  title        String
+  type         String // task, brainstorm, review, planning, problem_solving, creative
+  status       String   @default("active") // active, completed, archived
+  departmentId String?
+  companyId    String?
+  userId       String?
+  agentIds     String   @default("[]") @db.LongText // JSON array of agent IDs
+  messages     String   @default("[]") @db.LongText // JSON array of messages
+  taskInput    String   @default("") @db.LongText
+  taskOutput   String   @default("") @db.LongText
+  metrics      String   @default("{}") @db.LongText // JSON metrics
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([departmentId])
+  @@index([companyId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model EngineRecord {
+  id           String   @id @default(cuid())
+  engineType   String // memory, planning, reflection, self_healing, self_optimization, evaluation, governance, security, audit, compliance, observability
+  action       String   @default("process") // process, analyze, execute, evaluate, heal, optimize, govern, audit, monitor
+  status       String   @default("completed") // pending, running, completed, failed
+  input        String   @default("{}") @db.LongText // JSON
+  output       String   @default("{}") @db.LongText // JSON
+  agentId      String?
+  departmentId String?
+  duration     Int      @default(0) // ms
+  score        Float?
+  metadata     String   @default("{}") @db.LongText
+  createdAt    DateTime @default(now())
+
+  @@index([engineType])
+  @@index([status])
+  @@index([agentId])
+  @@index([createdAt])
+}
+
+model EnterpriseEvent {
+  id            String   @id @default(cuid())
+  eventType     String // agent.action, system.health, workflow.complete, rule.violated, compliance.breach, etc
+  source        String   @default("system")
+  severity      String   @default("info") // critical, warning, info, debug
+  payload       String   @default("{}") @db.LongText // JSON
+  agentId       String?
+  departmentId  String?
+  correlationId String?
+  processed     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([eventType])
+  @@index([severity])
+  @@index([source])
+  @@index([createdAt])
+}
+
+model DataLakeEntry {
+  id           String   @id @default(cuid())
+  source       String // agent_logs, system_metrics, interactions, knowledge, compliance
+  category     String   @default("raw")
+  format       String   @default("json")
+  data         String   @default("{}") @db.LongText // JSON
+  size         Int      @default(0)
+  departmentId String?
+  tags         String   @default("[]") @db.LongText
+  retention    String   @default("365d")
+  createdAt    DateTime @default(now())
+
+  @@index([source])
+  @@index([category])
+  @@index([departmentId])
+  @@index([createdAt])
+}
+
+// ─── Unified Orchestrator Conversations ─────────────────────────────────────
+
+model Conversation {
+  id           String   @id @default(cuid())
+  userId       String
+  companyId    String   @default("default-company")
+  title        String   @default("")
+  agentId      String?
+  departmentId String?
+  status       String   @default("active") // active, closed, archived
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  messages  ConversationMessage[]
+  agentRuns AgentRun[]
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([agentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ConversationMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String // user, agent, system, orchestrator
+  agentId        String?
+  agentName      String?  @db.LongText
+  content        String   @db.LongText
+  model          String?
+  tokensUsed     Int      @default(0)
+  latencyMs      Int?
+  confidence     Float?
+  metadata       String   @default("{}") @db.LongText // JSON: routing info, context sources, etc.
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// AGENT EVOLUTION, LINEAGE, AND QUALIFICATION SYSTEM
+// ============================================================
+
+model AgentLineage {
+  id              String   @id @default(cuid())
+  agentId         String   @unique
+  rootAgentId     String
+  parentAgentId   String?
+  generation      Int      @default(0)
+  lineagePath     String   @db.LongText
+  creationReason  String   @db.LongText
+  creatorAgentId  String?
+  approvingEntity String   @default("system") @db.LongText
+  lifecycleStatus String   @default("active") // active, observing, suspended, retired
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([rootAgentId])
+  @@index([parentAgentId])
+  @@index([generation])
+  @@index([lifecycleStatus])
+}
+
+model AgentEvolutionPolicy {
+  id                    String   @id @default(cuid())
+  name                  String   @unique
+  phase                 String   @default("phase1_descendants") @db.LongText // phase1_descendants, phase2_loop_agents, phase3_department_models, locked
+  maxGeneration         Int      @default(3)
+  maxChildrenPerAgent   Int      @default(3)
+  monthlyCreationLimit  Int      @default(100)
+  maxPopulation         Int      @default(5000)
+  maxConcurrencyPerDept Int      @default(50)
+  minTaskSuccessRate    Float    @default(0.85)
+  minUptimePercent      Float    @default(99.0)
+  minCompletedTasks     Int      @default(50)
+  maxErrorRate          Float    @default(0.05)
+  maxSafetyViolations   Int      @default(0)
+  requireHumanApproval  Boolean  @default(true)
+  requireMultiStepAuth  Boolean  @default(false)
+  isGlobalStopActive    Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model AgentEvolutionProposal {
+  id                    String    @id @default(cuid())
+  proposalId            String    @unique
+  parentAgentId         String
+  parentAgentName       String    @db.LongText
+  departmentId          String
+  departmentName        String
+  proposedRole          String    @db.LongText
+  proposedName          String    @db.LongText
+  proposedPurpose       String    @db.LongText
+  proposedSkills        String    @db.LongText // JSON array
+  proposedTools         String    @db.LongText // JSON array
+  proposedModel         String?   @db.LongText
+  proposedKnowledge     String    @db.LongText // JSON array
+  expectedWorkload      String?   @db.LongText
+  expectedBusinessValue String?   @db.LongText
+  estimatedTokenBudget  Int       @default(100000)
+  estimatedCostBudget   Float     @default(50.0)
+  securityRequirements  String    @db.LongText // JSON array
+  successCriteria       String    @db.LongText // JSON array
+  capabilityGap         String    @db.LongText
+  reason                String    @db.LongText
+  generation            Int       @default(1)
+  isLoopAgent           Boolean   @default(false)
+  qualificationScore    Float     @default(0.0)
+  qualificationDetails  String    @db.LongText // JSON
+  status                String    @default("proposed") // proposed, observing, evaluated, approved, rejected, created
+  reviewNotes           String?   @db.LongText
+  reviewedBy            String?   @db.LongText
+  reviewedAt            DateTime?
+  createdAgentId        String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([parentAgentId])
+  @@index([departmentId])
+  @@index([status])
+}
+
+model AgentEvolutionRun {
+  id              String    @id @default(cuid())
+  runId           String    @unique
+  proposalId      String
+  parentAgentId   String
+  childAgentId    String
+  status          String    @default("running") // running, completed, failed, rolled_back
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  metricsSnapshot String    @db.LongText // JSON
+  logs            String    @db.LongText // JSON
+  error           String?   @db.LongText
+
+  @@index([proposalId])
+  @@index([parentAgentId])
+  @@index([childAgentId])
+}
+
+model AgentQualification {
+  id                     String   @id @default(cuid())
+  agentId                String   @unique
+  state                  String   @default("UNQUALIFIED") // UNQUALIFIED, OBSERVING, QUALIFIED, PROPOSAL_ALLOWED, CREATION_APPROVED, CHILD_RUNNING, CHILD_EVALUATED, ACTIVE, SUSPENDED, RETIRED
+  taskSuccessRate        Float    @default(0.0)
+  reliabilityScore       Float    @default(0.0)
+  errorRate              Float    @default(0.0)
+  safetyViolations       Int      @default(0)
+  policyViolations       Int      @default(0)
+  toolExecutionSuccess   Float    @default(0.0)
+  customerOutcomeScore   Float    @default(0.0)
+  costEfficiencyScore    Float    @default(0.0)
+  tokenEfficiencyScore   Float    @default(0.0)
+  responseQualityScore   Float    @default(0.0)
+  knowledgeAccuracy      Float    @default(0.0)
+  memoryQuality          Float    @default(0.0)
+  workflowCompletionRate Float    @default(0.0)
+  uptimePercent          Float    @default(100.0)
+  humanFeedbackScore     Float?
+  totalTasksEvaluated    Int      @default(0)
+  lastEvaluatedAt        DateTime @default(now())
+  qualificationReason    String?  @db.LongText
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([state])
+}
+
+model AgentLearningCycle {
+  id                  String   @id @default(cuid())
+  cycleId             String   @unique
+  agentId             String
+  parentAgentId       String?
+  observations        String   @db.LongText // JSON
+  failures            String   @db.LongText // JSON
+  proposedImprovement String   @db.LongText // JSON
+  evaluationResults   String   @db.LongText // JSON
+  testResults         String   @db.LongText // JSON
+  approved            Boolean  @default(false)
+  approvedBy          String?  @db.LongText
+  deployedVersion     String?  @db.LongText
+  rollbackVersion     String?  @db.LongText
+  metricsBefore       String   @db.LongText // JSON
+  metricsAfter        String?  @db.LongText // JSON
+  status              String   @default("analyzing") // observing, analyzing, simulating, approved, deployed, rolled_back, completed
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([agentId])
+  @@index([parentAgentId])
+  @@index([status])
+}
+
+model AgentImprovementProposal {
+  id               String    @id @default(cuid())
+  agentId          String
+  companyId        String?
+  targetType       String // prompt, task_strategy, workflow, skill_selection, tool_selection, knowledge_retrieval, planning
+  currentConfig    String    @db.LongText // JSON
+  proposedConfig   String    @db.LongText // JSON
+  rationale        String    @db.LongText
+  safetyAssessment String    @db.LongText // JSON
+  status           String    @default("pending") // pending, approved, rejected, applied, rolled_back
+  appliedVersion   Int?
+  evaluatedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  company          Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([companyId, status])
+  @@index([targetType])
+  @@index([status])
+}
+
+model AgentEvaluation {
+  id              String   @id @default(cuid())
+  agentId         String
+  sourceId        String?
+  level           Int?
+  metric          String?
+  maxScore        Float?
+  details         String?  @db.LongText
+  evaluatorId     String   @default("system")
+  evaluationType  String // benchmark, task_run, human_review, safety_audit, training_readiness
+  score           Float
+  accuracy        Float?
+  latencyMs       Int?
+  tokenEfficiency Float?
+  safetyScore     Float?
+  notes           String?  @db.LongText
+  detailedResults String   @db.LongText // JSON
+  createdAt       DateTime @default(now())
+
+  agent  Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  source TrainingSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([agentId])
+  @@index([sourceId, createdAt])
+  @@index([evaluationType])
+}
+
+model AgentResourceBudget {
+  id                  String   @id @default(cuid())
+  agentId             String   @unique
+  monthlyTokenLimit   Int      @default(1000000)
+  monthlyCostLimit    Float    @default(100.0)
+  currentTokensUsed   Int      @default(0)
+  currentCostUsed     Float    @default(0.0)
+  maxExecutionRateMin Int      @default(60)
+  maxMemorySizeMb     Int      @default(256)
+  maxRuntimeMsPerTask Int      @default(60000)
+  isBudgetExceeded    Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model AgentGovernanceEvent {
+  id          String   @id @default(cuid())
+  eventType   String // EVOLUTION_PROPOSAL, EVOLUTION_APPROVED, EMERGENCY_STOP, ROLLBACK, QUALIFICATION_CHANGE, POLICY_UPDATE, SUSPENSION
+  actorId     String
+  agentId     String?
+  lineagePath String?  @db.LongText
+  details     String   @db.LongText // JSON
+  severity    String   @default("info") // info, warning, critical
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([eventType])
+  @@index([agentId])
+  @@index([createdAt])
+}
+
+model DepartmentModel {
+  id                  String   @id @default(cuid())
+  departmentId        String   @unique
+  departmentCode      String
+  departmentName      String
+  modelType           String   @default("shared_foundation") @db.LongText // shared_foundation, department_specific, fine_tuned, lora_adapter, local_model, external_api
+  activeModelId       String
+  activeProvider      String   @default("groq") @db.LongText
+  modelVersion        String   @default("1.0.0") @db.LongText
+  capabilities        String   @db.LongText // JSON array
+  systemConstitution  String   @db.LongText // JSON or text
+  departmentKnowledge String   @db.LongText // JSON
+  departmentMemory    String   @db.LongText // JSON
+  fallbackModelId     String   @default("llama-3.3-70b-versatile")
+  fallbackProvider    String   @default("groq") @db.LongText
+  deploymentStatus    String   @default("active") // active, canary, training, validating, rollback
+  monthlyBudget       Float    @default(500.0)
+  currentCostMonth    Float    @default(0.0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([departmentCode])
+  @@index([deploymentStatus])
+}
+
+model DepartmentModelVersion {
+  id                String    @id @default(cuid())
+  departmentId      String
+  version           String
+  modelId           String
+  provider          String
+  adapterConfig     String?   @db.LongText // JSON
+  benchmarkScore    Float?
+  trainingDataRef   String?   @db.LongText
+  evaluationSummary String    @db.LongText // JSON
+  status            String    @default("staging") // staging, active, archived, rolled_back
+  changelog         String?   @db.LongText
+  deployedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@unique([departmentId, version])
+  @@index([departmentId])
+  @@index([status])
+}
+
+model DepartmentModelEvaluation {
+  id                String   @id @default(cuid())
+  departmentId      String
+  modelVersionId    String
+  datasetName       String   @db.LongText
+  accuracy          Float
+  relevanceScore    Float
+  hallucinationRate Float    @default(0.0)
+  latencyMsAvg      Int
+  tokensPerSec      Float?
+  passedValidation  Boolean  @default(true)
+  evaluationLog     String   @db.LongText // JSON
+  evaluatedAt       DateTime @default(now())
+
+  @@index([departmentId])
+  @@index([modelVersionId])
+}
+
+model ModelTrainingRun {
+  id                  String    @id @default(cuid())
+  runId               String    @unique
+  departmentId        String
+  baseModel           String    @db.LongText
+  targetModelName     String    @db.LongText
+  trainingDatasetRef  String    @db.LongText
+  datasetRowCount     Int       @default(0)
+  status              String    @default("queued") // queued, preparing, training, validating, completed, failed
+  progressPercent     Float     @default(0.0)
+  loss                Float?
+  epochsCompleted     Int       @default(0)
+  totalEpochs         Int       @default(3)
+  trainingDurationSec Int       @default(0)
+  metricsLog          String    @db.LongText // JSON
+  errorMessage        String?   @db.LongText
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime  @default(now())
+
+  @@index([departmentId])
+  @@index([status])
+}
+
+model ModelDeployment {
+  id             String    @id @default(cuid())
+  departmentId   String
+  modelVersionId String
+  strategy       String    @default("direct") @db.LongText // direct, canary, blue_green
+  trafficPercent Int       @default(100)
+  status         String    @default("active") // staging, active, retired, rolled_back
+  healthMetrics  String    @db.LongText // JSON
+  deployedBy     String    @default("system") @db.LongText
+  deployedAt     DateTime  @default(now())
+  rolledBackAt   DateTime?
+  rollbackReason String?   @db.LongText
+
+  @@index([departmentId])
+  @@index([status])
+}
+
+model EvolutionEmergencyStop {
+  id          String    @id @default(cuid())
+  scope       String    @default("global") // global, department, lineage, agent
+  targetId    String? // null if global, or deptId / lineageId / agentId
+  reason      String    @db.LongText
+  triggeredBy String    @db.LongText
+  isActive    Boolean   @default(true)
+  activatedAt DateTime  @default(now())
+  resolvedAt  DateTime?
+  resolution  String?   @db.LongText
+
+  @@index([scope])
+  @@index([isActive])
+}
+
+model AgentEvolution {
+  id               String    @id @default(cuid())
+  agentId          String    @unique
+  level            Int       @default(1)
+  levelName        String    @default("Novice") @db.LongText
+  totalKnowledge   Int       @default(0)
+  totalSessions    Int       @default(0)
+  totalCorrections Int       @default(0)
+  avgConfidence    Float     @default(0)
+  maturityScore    Float     @default(0)
+  knowledgeDensity Float     @default(0)
+  protectiveScore  Float     @default(100)
+  modelReadiness   Float     @default(0)
+  domainCoverage   String    @default("[]") @db.LongText
+  strengthAreas    String    @default("[]") @db.LongText
+  weakAreas        String    @default("[]") @db.LongText
+  evolutionPath    String    @default("specialist")
+  achievements     String    @default("[]") @db.LongText
+  lastEvolvedAt    DateTime?
+  nextEvolutionAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([level])
+  @@index([evolutionPath])
+  @@index([modelReadiness])
+}
+
+model AgentLearningSession {
+  id              String    @id @default(cuid())
+  agentId         String
+  companyId       String?
+  agentRunId      String?
+  triggerType     String
+  triggerDetail   String?   @db.LongText
+  knowledgeBefore Int       @default(0)
+  knowledgeAfter  Int       @default(0)
+  insights        String    @default("[]") @db.LongText
+  corrections     String    @default("[]") @db.LongText
+  durationMs      Int       @default(0)
+  status          String    @default("pending")
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  agent   Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([agentId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([status, createdAt])
+}
+
+model AgentProtectiveMode {
+  id                  String    @id @default(cuid())
+  agentId             String    @unique
+  enabled             Boolean   @default(true)
+  safetyLevel         String    @default("standard")
+  blockedPatterns     String    @default("[]") @db.LongText
+  allowedDomains      String    @default("[]") @db.LongText
+  maxKnowledgePerDay  Int       @default(100)
+  maxConfidence       Float     @default(0.95)
+  requireVerification Boolean   @default(true)
+  autoFilterToxic     Boolean   @default(true)
+  learningScope       String    @default("task_domain")
+  dataRetentionDays   Int       @default(90)
+  violationCount      Int       @default(0)
+  lastViolationAt     DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}
+
+model AgentCatalogItem {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  category       String
+  subcategory    String?
+  description    String   @db.LongText
+  capabilities   String   @default("[]") @db.LongText
+  requiredTools  String   @default("[]") @db.LongText
+  systemPrompt   String   @db.LongText
+  configTemplate String   @default("{}") @db.LongText
+  icon           String   @default("Bot") @db.LongText
+  color          String   @default("#003ABC") @db.LongText
+  version        String   @default("1.0.0")
+  installCount   Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  installs AgentInstance[]
+  reviews  AgentCatalogReview[]
+
+  @@index([category, isActive])
+  @@index([installCount])
+}
+
+model AgentCatalogReview {
+  id        String   @id @default(cuid())
+  catalogId String
+  companyId String?
+  userId    String?
+  rating    Int
+  comment   String?  @db.LongText
+  createdAt DateTime @default(now())
+
+  catalog AgentCatalogItem @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+
+  @@index([catalogId, createdAt])
+  @@index([companyId])
+}
+
+model AgentInstance {
+  id              String    @id @default(cuid())
+  agentId         String
+  catalogId       String?
+  companyId       String
+  config          String    @default("{}") @db.LongText
+  status          String    @default("installing")
+  version         String    @default("1.0.0")
+  toolsConnected  String    @default("[]") @db.LongText
+  permissionsJson String    @default("[]") @db.LongText
+  healthStatus    String    @default("unknown")
+  lastHealthCheck DateTime?
+  installedAt     DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  agent              Agent                @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  catalog            AgentCatalogItem?    @relation(fields: [catalogId], references: [id], onDelete: SetNull)
+  company            Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  agentRuns          AgentRun[]
+  executions         AgentExecution[]
+  healthChecks       AgentHealthCheck[]
+  metrics            Metric[]
+  alerts             AgentAlert[]
+  communicationsFrom AgentCommunication[] @relation("CommunicationFromInstance")
+  communicationsTo   AgentCommunication[] @relation("CommunicationToInstance")
+  recoveryEvents     AgentRecoveryEvent[]
+  syncLogs           CrossSystemSyncLog[]
+
+  @@index([agentId, companyId])
+  @@index([companyId, status])
+  @@index([catalogId])
+}
+
+model AgentHealthCheck {
+  id           String   @id @default(cuid())
+  instanceId   String
+  checkType    String
+  status       String
+  responseMs   Int      @default(0)
+  details      String   @default("{}") @db.LongText
+  errorMessage String?  @db.LongText
+  checkedAt    DateTime @default(now())
+
+  instance AgentInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([instanceId, checkedAt])
+  @@index([status, checkedAt])
+}
+
+model AgentAlert {
+  id             String    @id @default(cuid())
+  instanceId     String?
+  agentId        String?
+  companyId      String?
+  alertType      String
+  severity       String    @default("warning")
+  message        String    @db.LongText
+  metadata       String    @default("{}") @db.LongText
+  isAcknowledged Boolean   @default(false)
+  acknowledgedBy String?   @db.LongText
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+
+  instance AgentInstance? @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  agent    Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  company  Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([instanceId, createdAt])
+  @@index([agentId, createdAt])
+  @@index([severity, isAcknowledged])
+}
+
+model AgentCommunication {
+  id             String    @id @default(cuid())
+  fromAgentId    String?
+  toAgentId      String?
+  fromInstanceId String?
+  toInstanceId   String?
+  type           String
+  subject        String    @db.LongText
+  payload        String    @default("{}") @db.LongText
+  parentMsgId    String?
+  companyId      String?
+  status         String    @default("pending")
+  createdAt      DateTime  @default(now())
+  deliveredAt    DateTime?
+  actedAt        DateTime?
+
+  fromAgent    Agent?         @relation("CommunicationFromAgent", fields: [fromAgentId], references: [id], onDelete: SetNull)
+  toAgent      Agent?         @relation("CommunicationToAgent", fields: [toAgentId], references: [id], onDelete: SetNull)
+  fromInstance AgentInstance? @relation("CommunicationFromInstance", fields: [fromInstanceId], references: [id], onDelete: SetNull)
+  toInstance   AgentInstance? @relation("CommunicationToInstance", fields: [toInstanceId], references: [id], onDelete: SetNull)
+  company      Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([fromAgentId, createdAt])
+  @@index([toAgentId, createdAt])
+  @@index([fromInstanceId, createdAt])
+  @@index([toInstanceId, createdAt])
+  @@index([companyId, status])
+  @@index([type, status])
+}
+
+model AgentRunMessage {
+  id          String   @id @default(cuid())
+  executionId String
+  role        String
+  content     String   @db.LongText
+  toolCalls   String   @default("[]") @db.LongText
+  createdAt   DateTime @default(now())
+
+  execution AgentRun @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId, createdAt])
+}
+
+model AgentRecoveryEvent {
+  id            String   @id @default(cuid())
+  instanceId    String?
+  agentId       String?
+  executionId   String?
+  recoveryType  String
+  triggerReason String   @db.LongText
+  actionsTaken  String   @default("[]") @db.LongText
+  status        String   @default("pending")
+  durationMs    Int      @default(0)
+  error         String?  @db.LongText
+  companyId     String?
+  createdAt     DateTime @default(now())
+
+  instance  AgentInstance?  @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+  agent     Agent?          @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  execution AgentExecution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+  company   Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([instanceId, createdAt])
+  @@index([agentId, createdAt])
+  @@index([recoveryType, status])
+}
+
+model MarketplaceTemplate {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  type         String
+  category     String
+  description  String   @db.LongText
+  configJson   String   @default("{}") @db.LongText
+  dependencies String   @default("[]") @db.LongText
+  icon         String   @default("Package") @db.LongText
+  version      String   @default("1.0.0")
+  installCount Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  installs TemplateInstall[]
+  versions TemplateVersion[]
+
+  @@index([category, isActive])
+  @@index([installCount])
+}
+
+model TemplateInstall {
+  id          String    @id @default(cuid())
+  templateId  String
+  companyId   String
+  userId      String?
+  version     String
+  status      String    @default("installed")
+  configJson  String    @default("{}") @db.LongText
+  installedAt DateTime  @default(now())
+  enabledAt   DateTime?
+  disabledAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  template MarketplaceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  company  Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, companyId])
+  @@index([companyId, installedAt])
+  @@index([templateId, status])
+}
+
+model TemplateVersion {
+  id         String   @id @default(cuid())
+  templateId String
+  version    String
+  configJson String   @db.LongText
+  changeLog  String   @db.LongText
+  isCurrent  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  template MarketplaceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+  @@index([templateId, isCurrent])
+}
+
+model CrossSystemSyncLog {
+  id           String    @id @default(cuid())
+  sourceSystem String
+  targetSystem String
+  syncType     String
+  entityType   String
+  entityId     String?
+  payload      String    @default("{}") @db.LongText
+  status       String    @default("pending")
+  durationMs   Int?
+  completedAt  DateTime?
+  errorMessage String?   @db.LongText
+  retryCount   Int       @default(0)
+  syncedBy     String?   @db.LongText
+  companyId    String?
+  instanceId   String?
+  createdAt    DateTime  @default(now())
+
+  company  Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  instance AgentInstance? @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([status, createdAt])
+  @@index([sourceSystem, targetSystem])
+  @@index([entityType, entityId])
+}
+
+model TrainingSource {
+  id            String    @id @default(cuid())
+  name          String
+  type          String
+  sourceUrl     String?   @db.LongText
+  filePath      String?   @db.LongText
+  fileSize      Int       @default(0)
+  content       String?   @db.LongText
+  level         Int       @default(1)
+  ragDocumentId String?   @unique
+  companyId     String?
+  departmentId  String?
+  agentId       String?
+  status        String    @default("pending")
+  error         String?   @db.LongText
+  chunkCount    Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  parsedAt      DateTime?
+  embeddedAt    DateTime?
+
+  company     Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department  Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  agent       Agent?            @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  ragDocument RagDocument?      @relation(fields: [ragDocumentId], references: [id], onDelete: SetNull)
+  evaluations AgentEvaluation[]
+
+  @@index([companyId, createdAt])
+  @@index([departmentId])
+  @@index([agentId, status])
+  @@index([status, createdAt])
+}
+
+model AgentExecution {
+  id              String    @id @default(cuid())
+  instanceId      String
+  assignedAgentId String?
+  agentRunId      String?   @unique
+  requestId       String    @unique
+  companyId       String?
+  userId          String?
+  priority        String    @default("normal")
+  input           String    @db.LongText
+  validatedInput  String?   @db.LongText
+  securityFlags   String?   @db.LongText
+  riskScore       Float?
+  approvalId      String?
+  step            String    @default("request")
+  stepNumber      Int       @default(1)
+  status          String    @default("pending")
+  executionPlan   String?   @db.LongText
+  selectedTools   String?   @db.LongText
+  executionOutput String?   @db.LongText
+  reviewResult    String?   @db.LongText
+  logIds          String?   @db.LongText
+  deliveryResult  String?   @db.LongText
+  retryCount      Int       @default(0)
+  maxRetries      Int       @default(3)
+  error           String?   @db.LongText
+  errorMessage    String?   @db.LongText
+  durationMs      Int?
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  instance       AgentInstance        @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  agent          Agent?               @relation(fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  company        Company?             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  approval       Approval?            @relation(fields: [approvalId], references: [id], onDelete: SetNull)
+  agentRun       AgentRun?            @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+  messages       AgentMessage[]
+  recoveryEvents AgentRecoveryEvent[]
+
+  @@index([instanceId, createdAt])
+  @@index([assignedAgentId, createdAt])
+  @@index([companyId, status])
+  @@index([status, updatedAt])
+}
+
+model AgentMessage {
+  id          String   @id @default(cuid())
+  executionId String
+  role        String
+  content     String   @db.LongText
+  toolCalls   String   @default("[]") @db.LongText
+  createdAt   DateTime @default(now())
+
+  execution AgentExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId, createdAt])
+}
+
+// ─── AgentOS: Projects, Artifacts, Run Events ────────────────────────────────
+// Added by the AgentOS transformation. Additive only — no existing model changed.
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  objective   String   @default("") @db.LongText
+  description String?  @db.LongText
+  status      String   @default("active") // active, paused, completed, archived
+  settings    String   @default("{}") @db.LongText
+  companyId   String?
+  ownerId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company   Company?   @relation(fields: [companyId], references: [id])
+  owner     User?      @relation(fields: [ownerId], references: [id])
+  artifacts Artifact[]
+
+  @@index([companyId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Artifact {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("text") // text, markdown, pdf, docx, xlsx, pptx, csv, json, image, video, audio, code, report
+  content     String   @default("") @db.LongText
+  storagePath String?  @db.LongText
+  mimeType    String   @default("text/plain")
+  size        Int      @default(0)
+  checksum    String   @default("")
+  version     Int      @default(1)
+  metadata    String   @default("{}") @db.LongText
+  projectId   String?
+  taskId      String?
+  runId       String?
+  agentId     String?
+  companyId   String?
+  createdBy   String?  @db.LongText
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id])
+  task    Task?    @relation(fields: [taskId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([projectId])
+  @@index([taskId])
+  @@index([runId])
+  @@index([companyId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model RunEvent {
+  id        String   @id @default(cuid())
+  runId     String
+  type      String // run.started, plan.created, task.queued, task.started, task.completed, task.failed, agent.selected, model.selected, tool.started, tool.completed, qc.passed, qc.failed, repair.started, approval.requested, artifact.created, run.completed, run.failed
+  source    String   @default("system")
+  agentId   String?
+  taskId    String?
+  data      String   @default("{}") @db.LongText
+  createdAt DateTime @default(now())
+
+  @@index([runId])
+  @@index([runId, createdAt])
+  @@index([type])
+}
+
+model AgentOSRun {
+  id          String    @id @default(cuid())
+  objective   String    @db.LongText
+  status      String    @default("queued") // queued, planning, running, waiting_approval, completed, failed, cancelled
+  plan        String    @default("[]") @db.LongText // JSON array of planned steps
+  summary     String?   @db.LongText
+  error       String?   @db.LongText
+  commandId   String?
+  projectId   String?
+  workflowId  String?
+  companyId   String?
+  userId      String?
+  priority    String    @default("normal")
+  checkpoint  String    @default("{}") @db.LongText // JSON step outcomes; lets a run resume after a restart
+  attempts    Int       @default(0) // number of times a worker (re)started this run
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([projectId])
+  @@index([workflowId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ─── AgentOS hardening (2026-10-09) ──────────────────────────────────────────
+
+/// Every generated/repaired output of a task, kept as an immutable version so
+/// QC failures and repairs preserve evidence instead of overwriting it.
+model OutputVersion {
+  id           String   @id @default(cuid())
+  taskId       String
+  runId        String?
+  version      Int
+  content      String   @db.LongText
+  model        String?
+  reason       String   @default("initial") // initial, repair, manual
+  qcPassed     Boolean?
+  qcScore      Float?
+  qcIssues     String   @default("[]") @db.LongText
+  assessmentId String?
+  createdAt    DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, version])
+  @@index([runId])
+}
+
+/// Configured AI provider (platform-wide when companyId is null). The API key
+/// is stored AES-256-GCM encrypted under ENCRYPTION_KEY (src/lib/security/field-encryption.ts); only a fingerprint
+/// is ever returned to clients.
+model AIProviderConfig {
+  id                  String    @id @default(cuid())
+  companyId           String?
+  provider            String // openai-compatible, anthropic, ollama, openrouter, groq, deepseek, mistral, zai-sdk
+  name                String
+  baseUrl             String?   @db.LongText
+  encryptedApiKey     String?   @db.LongText
+  keyFingerprint      String?
+  models              String    @default("[]") @db.LongText // JSON array of { id, capabilities, contextLength, costPerMillionTokens }
+  isEnabled           Boolean   @default(true)
+  priority            Int       @default(100)
+  timeoutMs           Int       @default(60000)
+  maxRetries          Int       @default(2)
+  lastHealthStatus    String? // healthy, degraded, unreachable, unauthorized
+  lastHealthAt        DateTime?
+  lastHealthLatencyMs Int?
+  lastError           String?   @db.LongText
+  createdBy           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+  @@index([provider])
+  @@index([isEnabled, priority])
+}
+
+/// One row per model-router decision (success or failure) for observability,
+/// cost tracking and fallback analysis.
+model ModelRoutingDecision {
+  id               String   @id @default(cuid())
+  runId            String?
+  taskId           String?
+  companyId        String?
+  agentId          String?
+  requestedModel   String
+  taskType         String?
+  selectedProvider String?
+  selectedModel    String?
+  reason           String   @default("")
+  candidates       String   @default("[]") @db.LongText
+  attempts         Int      @default(1)
+  fallbackFrom     String?
+  success          Boolean  @default(false)
+  errorCode        String?
+  errorMessage     String?  @db.LongText
+  latencyMs        Int?
+  promptTokens     Int?
+  completionTokens Int?
+  costUsd          Float?
+  createdAt        DateTime @default(now())
+
+  @@index([runId])
+  @@index([companyId, createdAt])
+  @@index([selectedProvider])
+}
+
+/// Backup ledger. A backup is only "verified" after its checksums were
+/// re-validated and (for SQLite) an integrity check of the copy passed.
+model BackupRecord {
+  id              String    @id @default(cuid())
+  backupId        String    @unique
+  kind            String    @default("manual") // manual, scheduled
+  status          String    @default("created") // created, verified, failed, restore_tested
+  location        String    @db.LongText
+  manifest        String    @default("{}") @db.LongText
+  checksum        String    @default("")
+  sizeBytes       BigInt    @default(0)
+  appVersion      String?
+  commit          String?
+  schemaVersion   String?
+  verifiedAt      DateTime?
+  restoreTestedAt DateTime?
+  retentionUntil  DateTime?
+  createdBy       String?
+  error           String?   @db.LongText
+  createdAt       DateTime  @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+}

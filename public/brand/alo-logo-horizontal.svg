@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 240" role="img" aria-label="ALO Labs AGENTOS">
+  <title>ALO Labs AGENTOS</title>
+  <defs>
+    <linearGradient id="hLegL" x1="0.1" y1="0.1" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#0077FF"/><stop offset="1" stop-color="#0047A1"/>
+    </linearGradient>
+    <linearGradient id="hLegR" x1="0.9" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#003ABC"/><stop offset="1" stop-color="#001C6B"/>
+    </linearGradient>
+    <linearGradient id="hFold" x1="0" y1="1" x2="1" y2="0.1">
+      <stop offset="0" stop-color="#0053C8"/><stop offset="1" stop-color="#0077FF"/>
+    </linearGradient>
+    <linearGradient id="hBar" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF8A2B"/><stop offset="1" stop-color="#FF6A00"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <path d="M120 22 L210 73 L210 167 L120 218 L30 167 L30 73 Z"
+          fill="none" stroke="#FF6A00" stroke-width="16" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M120 56 L70 184 L102 184 L132 88 Z" fill="url(#hLegL)"/>
+    <path d="M120 56 L170 184 L138 184 L108 88 Z" fill="url(#hLegR)"/>
+    <path d="M62 146 L152 118 L152 148 L94 174 Z" fill="url(#hFold)"/>
+    <path d="M62 146 L152 148 L94 174 Z" fill="#001C6B" opacity="0.28"/>
+    <g transform="rotate(-9 128 168)">
+      <rect x="102" y="155" width="52" height="26" rx="13" fill="url(#hBar)"/>
+    </g>
+  </g>
+  <text x="268" y="96" font-family="'Poppins','Inter','Segoe UI',system-ui,sans-serif" font-size="52" font-weight="600" fill="#FF6A00">ALO Labs</text>
+  <text x="270" y="158" font-family="'Poppins','Inter','Segoe UI',system-ui,sans-serif" font-size="58" font-weight="700" letter-spacing="1.4" fill="#003ABC">AGENTOS</text>
+  <text x="272" y="196" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="19" font-weight="500" letter-spacing="2.6" fill="#64748B">AI AGENT OPERATING SYSTEM</text>
+</svg>

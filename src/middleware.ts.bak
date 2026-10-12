@@ -1,0 +1,17 @@
+import { NextRequest } from 'next/server';
+import { proxy, config } from './proxy';
+
+// ─── Next.js Middleware ───────────────────────────────────────────────────────
+// Delegates entirely to the proxy module which implements:
+//   • Security headers (HSTS, X-Content-Type-Options, X-Frame-Options, etc.)
+//   • Bearer token auth for protected API routes (method-aware public list)
+//   • Rate limiting (login, /api/ai/chat, /api/enterprise/agents/run, general)
+//   • CSRF protection for page routes
+//   • Brute force protection for login
+//   • Bot protection for page routes
+
+export { config };
+
+export function middleware(request: NextRequest) {
+  return proxy(request);
+}

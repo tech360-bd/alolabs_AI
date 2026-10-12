@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=794">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 794px;
+    height: 1123px;
+    background: #f7f6f6;
+    font-family: 'Inter', sans-serif;
+    color: #252421;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Layer 1: Background grid pattern */
+  .layer-grid {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    z-index: 0;
+  }
+  .layer-grid svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Layer 2: Structural anchor line */
+  .layer-structure {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+  }
+  .anchor-line {
+    position: absolute;
+    left: 95.28px; /* 0.12 * 794 */
+    top: 112.3px; /* 0.1 * 1123 */
+    width: 6px;
+    height: 898.4px; /* 0.8 * 1123 */
+    background: #6e6444;
+  }
+
+  /* Layer 3: Content */
+  .layer-content {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 2;
+  }
+
+  /* A - Kicker */
+  .kicker {
+    position: absolute;
+    left: 125.28px; /* 0.12*794 + 30 */
+    top: 168.45px; /* 0.15 * 1123 */
+    font-size: 16pt;
+    font-weight: 700;
+    letter-spacing: 3pt;
+    text-transform: uppercase;
+    color: #6e6444;
+    opacity: 0.6;
+  }
+
+  /* B - Hero Title */
+  .hero-title {
+    position: absolute;
+    left: 125.28px;
+    top: 336.9px; /* 0.30 * 1123 */
+    font-size: 55pt;
+    font-weight: 900;
+    line-height: 1.1;
+    color: #252421;
+    width: 580px;
+  }
+
+  /* C - Summary */
+  .summary {
+    position: absolute;
+    left: 125.28px;
+    top: 561.5px; /* 0.50 * 1123 */
+    font-size: 17pt;
+    font-weight: 400;
+    line-height: 1.6;
+    color: #252421;
+    opacity: 0.85;
+    width: 476.4px; /* W * 0.6 */
+  }
+
+  /* D - Meta */
+  .meta {
+    position: absolute;
+    left: 125.28px;
+    top: 842.25px; /* 0.75 * 1123 */
+    font-size: 18pt;
+    font-weight: 400;
+    color: #86847c;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Layer 1: Background grid -->
+  <div class="layer-grid">
+    <svg xmlns="http://www.w3.org/2000/svg" width="794" height="1123">
+      <!-- Vertical lines every ~50pt -->
+      <line x1="50" y1="0" x2="50" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="100" y1="0" x2="100" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="150" y1="0" x2="150" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="200" y1="0" x2="200" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="250" y1="0" x2="250" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="300" y1="0" x2="300" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="350" y1="0" x2="350" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="400" y1="0" x2="400" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="450" y1="0" x2="450" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="500" y1="0" x2="500" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="550" y1="0" x2="550" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="600" y1="0" x2="600" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="650" y1="0" x2="650" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="700" y1="0" x2="700" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="750" y1="0" x2="750" y2="1123" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <!-- Horizontal lines every ~50pt -->
+      <line x1="0" y1="50" x2="794" y2="50" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="100" x2="794" y2="100" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="150" x2="794" y2="150" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="200" x2="794" y2="200" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="250" x2="794" y2="250" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="300" x2="794" y2="300" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="350" x2="794" y2="350" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="400" x2="794" y2="400" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="450" x2="794" y2="450" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="500" x2="794" y2="500" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="550" x2="794" y2="550" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="600" x2="794" y2="600" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="650" x2="794" y2="650" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="700" x2="794" y2="700" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="750" x2="794" y2="750" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="800" x2="794" y2="800" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="850" x2="794" y2="850" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="900" x2="794" y2="900" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="950" x2="794" y2="950" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="1000" x2="794" y2="1000" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="1050" x2="794" y2="1050" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+      <line x1="0" y1="1100" x2="794" y2="1100" stroke="#d6d2c5" stroke-width="0.5" opacity="0.02"/>
+    </svg>
+  </div>
+
+  <!-- Layer 2: Structural anchor -->
+  <div class="layer-structure">
+    <div class="anchor-line"></div>
+  </div>
+
+  <!-- Layer 3: Content -->
+  <div class="layer-content">
+    <div class="kicker">COMPREHENSIVE CODE AUDIT REPORT</div>
+    <div class="hero-title">SECURITY &<br>QUALITY<br>ASSESSMENT</div>
+    <div class="summary">In-depth security and code quality analysis of three projects: lab2.zip (ALO Labs Command Center), lab.zip (CRM Pro), and alo-labs-avatar-video-studio-ai-agent.zip (ALO Labs Monorepo). This report identifies critical vulnerabilities, architectural issues, and provides prioritized remediation guidance.</div>
+    <div class="meta">Prepared by Z.ai Code Auditor | July 2025</div>
+  </div>
+
+</body>
+</html>

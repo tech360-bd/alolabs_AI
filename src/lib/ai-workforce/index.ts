@@ -1,0 +1,5 @@
+export { executeAgentPipeline, getExecutions, getExecution, approveExecution, rejectExecution } from './execution-engine'
+export { sendMessage, getMessages, markDelivered, markActed, delegateTask, escalate, requestConsensus, getCommunicationStats } from './communication-bus'
+export { runHealthCheck, createAgentMetric, getAgentMetrics, createAgentAlert, getAlerts, acknowledgeAlert } from './health-monitor'
+export { autoRestart, retryExecution, rollbackInstance, recoverQueue, recoverWorkflow, recoverAgent, getRecoveryEvents } from './self-healing'
+export { proposeOptimization, approveOptimization, applyOptimization, rollbackOptimization, getOptimizations } from './self-improvement'
