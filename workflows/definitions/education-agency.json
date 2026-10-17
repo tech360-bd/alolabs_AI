@@ -1,0 +1,94 @@
+{
+  "workflow_id": "education_agency",
+  "name": "Education Agency",
+  "slug": "education-agency",
+  "description": "Student admission, visa, and university application support",
+  "triggers": [
+    "education agency",
+    "student admission",
+    "study abroad",
+    "visa",
+    "university"
+  ],
+  "department": "Student Counseling",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Student Counseling Execution Agent",
+      "action": "create_profile",
+      "config": {
+        "instruction": "Create profile for the Education Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "Student Profile Agent",
+        "original": {
+          "department": "Educational Agency Operations",
+          "agent": "Student Profile Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Student Counseling Research Agent",
+      "action": "find_universities",
+      "config": {
+        "instruction": "Find universities for the Education Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "University Matching Agent",
+        "original": {
+          "department": "Educational Agency Operations",
+          "agent": "University Matching Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Student Counseling Safety & Compliance Agent",
+      "action": "plan_visa_journey",
+      "config": {
+        "instruction": "Map the visa route, required documents, fees, timelines and refusal risks.",
+        "agentHint": "Visa Guide Agent",
+        "original": {
+          "department": "Educational Agency Operations",
+          "agent": "Visa Guide Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Student Counseling Execution Agent",
+      "action": "prepare_documents",
+      "config": {
+        "instruction": "Prepare the document checklist and verify each file against requirements.",
+        "agentHint": "Document Prep Agent",
+        "original": {
+          "department": "Educational Agency Operations",
+          "agent": "Document Prep Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Student Counseling Research Agent",
+      "action": "conduct_interview_prep",
+      "config": {
+        "instruction": "Conduct interview prep for the Education Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "Interview Prep Agent",
+        "original": {
+          "department": "Educational Agency Operations",
+          "agent": "Interview Prep Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Student Counseling Task Coordinator Agent",
+      "action": "track_applications",
+      "config": {
+        "instruction": "Track every application through submission, offer and decision stages.",
+        "agentHint": "Application Tracker Agent",
+        "original": {
+          "department": "Educational Agency Operations",
+          "agent": "Application Tracker Agent"
+        }
+      }
+    }
+  ]
+}

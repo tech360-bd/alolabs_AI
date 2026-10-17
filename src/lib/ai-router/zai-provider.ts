@@ -9,6 +9,7 @@
  * - The SDK auto-selects the best model; 'model' param is optional
  */
 
+import { extractToolCalls } from './tool-calls';
 import type {
   AIModel,
   AIModelFamily,
@@ -309,6 +310,7 @@ export class ZAIProvider extends BaseAIProvider {
           totalTokens,
         },
         finishReason: mapFinishReason(finishReason),
+        toolCalls: extractToolCalls(result.choices?.[0]?.message),
         latencyMs,
       };
     } finally {

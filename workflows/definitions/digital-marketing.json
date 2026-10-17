@@ -1,0 +1,106 @@
+{
+  "workflow_id": "digital_marketing_agency",
+  "name": "Digital Marketing Agency",
+  "slug": "digital-marketing",
+  "description": "Complete digital marketing campaign from research to execution",
+  "triggers": [
+    "digital marketing",
+    "marketing agency",
+    "campaign",
+    "lead generation"
+  ],
+  "department": "Digital Marketing",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Digital Marketing Research Agent",
+      "action": "research_target_market",
+      "config": {
+        "instruction": "Research the target market: size, segments, buying triggers and channels.",
+        "agentHint": "Market Research Agent",
+        "original": {
+          "department": "Digital Marketing Strategy",
+          "agent": "Market Research Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Digital Marketing Research Agent",
+      "action": "analyze_competitors",
+      "config": {
+        "instruction": "Analyse competitor positioning, pricing and messaging; cite sources.",
+        "agentHint": "Competitor Analysis Agent",
+        "original": {
+          "department": "Digital Marketing Strategy",
+          "agent": "Competitor Analysis Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Digital Marketing Strategic Planning Agent",
+      "action": "plan_content",
+      "config": {
+        "instruction": "Plan the content calendar: topics, formats, channels and publishing cadence.",
+        "agentHint": "Content Strategy Agent",
+        "original": {
+          "department": "Digital Marketing Strategy",
+          "agent": "Content Strategy Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Digital Marketing Execution Agent",
+      "action": "write_copy",
+      "config": {
+        "instruction": "Write the campaign copy for each channel and include two alternative headlines.",
+        "agentHint": "Copy Writer Agent",
+        "original": {
+          "department": "Digital Marketing Strategy",
+          "agent": "Copy Writer Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Digital Marketing Strategic Planning Agent",
+      "action": "plan_social",
+      "config": {
+        "instruction": "Plan the social calendar with platform-specific formats and posting times.",
+        "agentHint": "Social Media Agent",
+        "original": {
+          "department": "Digital Marketing Strategy",
+          "agent": "Social Media Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Digital Marketing Strategic Planning Agent",
+      "action": "plan_ads",
+      "config": {
+        "instruction": "Plan the paid campaign: objectives, audiences, budgets, creatives and bid strategy.",
+        "agentHint": "Ads Planning Agent",
+        "original": {
+          "department": "Digital Marketing Strategy",
+          "agent": "Ads Planning Agent"
+        }
+      }
+    },
+    {
+      "step": 7,
+      "agent": "Digital Marketing Execution Agent",
+      "action": "compile_campaign",
+      "config": {
+        "instruction": "Compile campaign for the Digital Marketing Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "Campaign Manager Agent",
+        "original": {
+          "department": "Digital Marketing Strategy",
+          "agent": "Campaign Manager Agent"
+        }
+      }
+    }
+  ]
+}

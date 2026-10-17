@@ -1,0 +1,105 @@
+{
+  "workflow_id": "server_auto_deploy",
+  "name": "Auto Server & Domain Deploy",
+  "slug": "auto-deploy",
+  "description": "Auto-deploy project to domain with SSL, Nginx, etc.",
+  "triggers": [
+    "deploy",
+    "domain",
+    "server"
+  ],
+  "department": "DevOps",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "DevOps Quality Assurance Agent",
+      "action": "validate_domain",
+      "config": {
+        "instruction": "Validate domain ownership, DNS records and registrar access.",
+        "agentHint": "Domain Agent",
+        "original": {
+          "department": "Server Automation",
+          "agent": "Domain Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "DevOps Execution Agent",
+      "action": "create_folders",
+      "config": {
+        "instruction": "Create folders for the Auto Server & Domain Deploy workflow; return the deliverable and its assumptions.",
+        "agentHint": "Folder Agent",
+        "original": {
+          "department": "Server Automation",
+          "agent": "Folder Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "DevOps Process Automation Agent",
+      "action": "create_nginx_config",
+      "config": {
+        "instruction": "Create the Nginx virtual host, reverse proxy and caching configuration.",
+        "agentHint": "Config Agent",
+        "original": {
+          "department": "Server Automation",
+          "agent": "Config Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "DevOps Process Automation Agent",
+      "action": "setup_ssl",
+      "config": {
+        "instruction": "Issue and install a TLS certificate, force HTTPS and verify the certificate chain.",
+        "agentHint": "SSL Agent",
+        "original": {
+          "department": "Server Automation",
+          "agent": "SSL Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "DevOps Process Automation Agent",
+      "action": "build_project",
+      "config": {
+        "instruction": "Build project for the Auto Server & Domain Deploy workflow; return the deliverable and its assumptions.",
+        "agentHint": "Build Agent",
+        "original": {
+          "department": "Server Automation",
+          "agent": "Build Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "DevOps Process Automation Agent",
+      "action": "deploy_live",
+      "config": {
+        "instruction": "Deploy the build to the target server and switch traffic over.",
+        "agentHint": "Deploy Agent",
+        "original": {
+          "department": "Server Automation",
+          "agent": "Deploy Agent"
+        }
+      }
+    },
+    {
+      "step": 7,
+      "agent": "DevOps Quality Assurance Agent",
+      "action": "smoke_test",
+      "config": {
+        "instruction": "Run post-deployment smoke tests against the live URL and record every failure.",
+        "agentHint": "Test Agent",
+        "original": {
+          "department": "Server Automation",
+          "agent": "Test Agent"
+        }
+      }
+    }
+  ]
+}

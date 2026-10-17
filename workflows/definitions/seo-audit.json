@@ -1,0 +1,93 @@
+{
+  "workflow_id": "seo_audit",
+  "name": "SEO Audit & Optimization",
+  "slug": "seo-audit",
+  "description": "Complete SEO audit and optimization plan",
+  "triggers": [
+    "SEO",
+    "audit",
+    "optimization",
+    "rankings"
+  ],
+  "department": "SEO",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "SEO Research Agent",
+      "action": "crawl_site",
+      "config": {
+        "instruction": "Crawl site for the SEO Audit & Optimization workflow; return the deliverable and its assumptions.",
+        "agentHint": "Site Crawl Agent",
+        "original": {
+          "department": "SEO",
+          "agent": "Site Crawl Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "SEO Research Agent",
+      "action": "research_keywords",
+      "config": {
+        "instruction": "Research keywords for the SEO Audit & Optimization workflow; return the deliverable and its assumptions.",
+        "agentHint": "Keyword Research Agent",
+        "original": {
+          "department": "SEO",
+          "agent": "Keyword Research Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "SEO Research Agent",
+      "action": "analyze_competitors",
+      "config": {
+        "instruction": "Analyse competitor positioning, pricing and messaging; cite sources.",
+        "agentHint": "Competitor Agent",
+        "original": {
+          "department": "SEO",
+          "agent": "Competitor Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "SEO Quality Assurance Agent",
+      "action": "audit_technical",
+      "config": {
+        "instruction": "Audit technical for the SEO Audit & Optimization workflow; return the deliverable and its assumptions.",
+        "agentHint": "Technical Agent",
+        "original": {
+          "department": "SEO",
+          "agent": "Technical Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "SEO Quality Assurance Agent",
+      "action": "audit_content",
+      "config": {
+        "instruction": "Audit content for the SEO Audit & Optimization workflow; return the deliverable and its assumptions.",
+        "agentHint": "Content Agent",
+        "original": {
+          "department": "SEO",
+          "agent": "Content Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "SEO Strategic Planning Agent",
+      "action": "create_plan",
+      "config": {
+        "instruction": "Create plan for the SEO Audit & Optimization workflow; return the deliverable and its assumptions.",
+        "agentHint": "Recommendations Agent",
+        "original": {
+          "department": "SEO",
+          "agent": "Recommendations Agent"
+        }
+      }
+    }
+  ]
+}

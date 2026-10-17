@@ -1,0 +1,106 @@
+{
+  "workflow_id": "video_production",
+  "name": "Video Production",
+  "slug": "video-production",
+  "description": "Script, storyboard, animate, edit video content",
+  "triggers": [
+    "video",
+    "reel",
+    "short video",
+    "storyboard"
+  ],
+  "department": "Content Marketing",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Content Marketing Senior Specialist Agent",
+      "action": "take_brief",
+      "config": {
+        "instruction": "Capture the brief: audience, goal, tone, constraints, deadline and success criteria.",
+        "agentHint": "Video Brief Agent",
+        "original": {
+          "department": "Video Production AI",
+          "agent": "Video Brief Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Content Marketing Execution Agent",
+      "action": "write_script",
+      "config": {
+        "instruction": "Write script for the Video Production workflow; return the deliverable and its assumptions.",
+        "agentHint": "Script Writer Agent",
+        "original": {
+          "department": "Video Production AI",
+          "agent": "Script Writer Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Content Marketing Strategic Planning Agent",
+      "action": "create_storyboard",
+      "config": {
+        "instruction": "Create a shot-by-shot storyboard with duration, visuals and voiceover.",
+        "agentHint": "Storyboard Agent",
+        "original": {
+          "department": "Video Production AI",
+          "agent": "Storyboard Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Content Marketing Strategic Planning Agent",
+      "action": "design_graphics",
+      "config": {
+        "instruction": "Produce the design for graphics for the Video Production workflow; return the deliverable and its assumptions.",
+        "agentHint": "Motion Graphics Agent",
+        "original": {
+          "department": "Video Production AI",
+          "agent": "Motion Graphics Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Content Marketing Execution Agent",
+      "action": "create_subtitles",
+      "config": {
+        "instruction": "Create accurate subtitles and a matching SRT file.",
+        "agentHint": "Subtitle Agent",
+        "original": {
+          "department": "Video Production AI",
+          "agent": "Subtitle Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Content Marketing Process Automation Agent",
+      "action": "render_video",
+      "config": {
+        "instruction": "Render the final video in the required formats and check playback.",
+        "agentHint": "Render Agent",
+        "original": {
+          "department": "Video Production AI",
+          "agent": "Render Agent"
+        }
+      }
+    },
+    {
+      "step": 7,
+      "agent": "Content Marketing Quality Assurance Agent",
+      "action": "quality_check",
+      "config": {
+        "instruction": "Review the deliverable against the brief and the quality checklist; list defects.",
+        "agentHint": "QA Agent",
+        "original": {
+          "department": "Video Production AI",
+          "agent": "QA Agent"
+        }
+      }
+    }
+  ]
+}

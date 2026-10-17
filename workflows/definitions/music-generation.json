@@ -1,0 +1,94 @@
+{
+  "workflow_id": "music_generation",
+  "name": "Song & Music Generation",
+  "slug": "music-generation",
+  "description": "Generate original lyrics, melodies, beats, and music",
+  "triggers": [
+    "song",
+    "music",
+    "jingle",
+    "lyric",
+    "melody"
+  ],
+  "department": "Content Marketing",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Content Marketing Senior Specialist Agent",
+      "action": "take_brief",
+      "config": {
+        "instruction": "Capture the brief: audience, goal, tone, constraints, deadline and success criteria.",
+        "agentHint": "Music Brief Agent",
+        "original": {
+          "department": "Song & Music AI",
+          "agent": "Music Brief Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Content Marketing Execution Agent",
+      "action": "write_lyrics",
+      "config": {
+        "instruction": "Write lyrics for the Song & Music Generation workflow; return the deliverable and its assumptions.",
+        "agentHint": "Lyric Writer Agent",
+        "original": {
+          "department": "Song & Music AI",
+          "agent": "Lyric Writer Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Content Marketing Execution Agent",
+      "action": "compose_melody",
+      "config": {
+        "instruction": "Compose melody for the Song & Music Generation workflow; return the deliverable and its assumptions.",
+        "agentHint": "Melody Composer Agent",
+        "original": {
+          "department": "Song & Music AI",
+          "agent": "Melody Composer Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Content Marketing Execution Agent",
+      "action": "create_beat",
+      "config": {
+        "instruction": "Create beat for the Song & Music Generation workflow; return the deliverable and its assumptions.",
+        "agentHint": "Beat Producer Agent",
+        "original": {
+          "department": "Song & Music AI",
+          "agent": "Beat Producer Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Content Marketing Execution Agent",
+      "action": "arrange_music",
+      "config": {
+        "instruction": "Arrange music for the Song & Music Generation workflow; return the deliverable and its assumptions.",
+        "agentHint": "Arrangement Agent",
+        "original": {
+          "department": "Song & Music AI",
+          "agent": "Arrangement Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Content Marketing Quality Assurance Agent",
+      "action": "verify_original",
+      "config": {
+        "instruction": "Check the output against existing works for originality; flag anything too close.",
+        "agentHint": "Copyright Check Agent",
+        "original": {
+          "department": "Song & Music AI",
+          "agent": "Copyright Check Agent"
+        }
+      }
+    }
+  ]
+}

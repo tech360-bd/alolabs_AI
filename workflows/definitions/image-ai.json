@@ -1,0 +1,94 @@
+{
+  "workflow_id": "image_ai_generation",
+  "name": "Image AI Generation",
+  "slug": "image-ai",
+  "description": "Generate images, posters, thumbnails, product images",
+  "triggers": [
+    "image",
+    "poster",
+    "thumbnail",
+    "product image",
+    "design"
+  ],
+  "department": "Content Marketing",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Content Marketing Senior Specialist Agent",
+      "action": "take_brief",
+      "config": {
+        "instruction": "Capture the brief: audience, goal, tone, constraints, deadline and success criteria.",
+        "agentHint": "Brief Agent",
+        "original": {
+          "department": "Image AI Studio",
+          "agent": "Brief Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Content Marketing Senior Specialist Agent",
+      "action": "engineer_prompts",
+      "config": {
+        "instruction": "Complete prompts for the Image AI Generation workflow; return the deliverable and its assumptions.",
+        "agentHint": "Prompt Engineer Agent",
+        "original": {
+          "department": "Image AI Studio",
+          "agent": "Prompt Engineer Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Content Marketing Senior Specialist Agent",
+      "action": "define_style",
+      "config": {
+        "instruction": "Define style for the Image AI Generation workflow; return the deliverable and its assumptions.",
+        "agentHint": "Style Guide Agent",
+        "original": {
+          "department": "Image AI Studio",
+          "agent": "Style Guide Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Content Marketing Quality Assurance Agent",
+      "action": "check_copyright",
+      "config": {
+        "instruction": "Check copyright for the Image AI Generation workflow; return the deliverable and its assumptions.",
+        "agentHint": "Copyright Check Agent",
+        "original": {
+          "department": "Image AI Studio",
+          "agent": "Copyright Check Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Content Marketing Execution Agent",
+      "action": "generate_images",
+      "config": {
+        "instruction": "Generate images for the Image AI Generation workflow; return the deliverable and its assumptions.",
+        "agentHint": "Image Generator Agent",
+        "original": {
+          "department": "Image AI Studio",
+          "agent": "Image Generator Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Content Marketing Quality Assurance Agent",
+      "action": "quality_check",
+      "config": {
+        "instruction": "Review the deliverable against the brief and the quality checklist; list defects.",
+        "agentHint": "QA Agent",
+        "original": {
+          "department": "Image AI Studio",
+          "agent": "QA Agent"
+        }
+      }
+    }
+  ]
+}

@@ -54,6 +54,9 @@ export type EnterpriseView =
   | 'system-architecture'
   | 'marketing-kit'
   | 'diagram-studio'
+  | 'ai-workforce'
+  | 'agent-intelligence'
+  | 'self-learning'
   | 'brand-book'
   | 'invoice'
   | 'public-site'
@@ -134,6 +137,14 @@ const navGroups: NavGroup[] = [
       { id: 'rag-engine', name: 'Enterprise RAG', icon: Database },
       { id: 'prompt-library', name: 'Prompt Library', icon: FileCode },
       { id: 'skills-registry', name: 'Skills Registry', icon: Wrench },
+    ],
+  },
+  {
+    label: 'Workforce',
+    items: [
+      { id: 'ai-workforce', name: 'AI Workforce', icon: Bot },
+      { id: 'agent-intelligence', name: 'Agent Intelligence', icon: Brain },
+      { id: 'self-learning', name: 'Self-Learning', icon: TrendingUp },
     ],
   },
   {
@@ -219,6 +230,9 @@ const panelMap: Record<EnterpriseView, React.LazyExoticComponent<React.Component
   'master-roadmap': lazy(() => import('./panels/master-roadmap')),
   'system-architecture': lazy(() => import('./panels/system-architecture')),
   'marketing-kit': lazy(() => import('@/components/panels/marketing-kit-panel')),
+  'ai-workforce': lazy(() => import('@/components/panels/ai-workforce-panel')),
+  'agent-intelligence': lazy(() => import('@/components/panels/agent-intelligence-panel')),
+  'self-learning': lazy(() => import('@/components/panels/self-learning-panel')),
   'diagram-studio': lazy(() => import('@/components/diagrams/diagram-studio-panel')),
   'brand-book': lazy(() => import('@/components/brand/brand-book-panel')),
   invoice: lazy(() => import('@/components/brand/invoice-panel')),

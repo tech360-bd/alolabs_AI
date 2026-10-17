@@ -1,0 +1,105 @@
+{
+  "workflow_id": "technology_agency",
+  "name": "Technology Agency",
+  "slug": "tech-agency",
+  "description": "Build custom software, SaaS, and web applications",
+  "triggers": [
+    "technology agency",
+    "build software",
+    "SaaS"
+  ],
+  "department": "Software Development",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Software Development Senior Specialist Agent",
+      "action": "define_requirements",
+      "config": {
+        "instruction": "Define requirements for the Technology Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "Product Manager Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "Product Manager Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Software Development Strategic Planning Agent",
+      "action": "design_architecture",
+      "config": {
+        "instruction": "Produce the design for architecture for the Technology Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "System Architect Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "System Architect Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Software Development Strategic Planning Agent",
+      "action": "design_database",
+      "config": {
+        "instruction": "Produce the design for database for the Technology Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "Database Designer Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "Database Designer Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Software Development Execution Agent",
+      "action": "build_backend",
+      "config": {
+        "instruction": "Build backend for the Technology Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "Backend Developer Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "Backend Developer Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Software Development Execution Agent",
+      "action": "build_frontend",
+      "config": {
+        "instruction": "Build frontend for the Technology Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "Frontend Developer Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "Frontend Developer Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Software Development Quality Assurance Agent",
+      "action": "test_application",
+      "config": {
+        "instruction": "Test application for the Technology Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "QA Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "QA Agent"
+        }
+      }
+    },
+    {
+      "step": 7,
+      "agent": "Software Development Process Automation Agent",
+      "action": "prepare_deployment",
+      "config": {
+        "instruction": "Prepare deployment for the Technology Agency workflow; return the deliverable and its assumptions.",
+        "agentHint": "DevOps Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "DevOps Agent"
+        }
+      }
+    }
+  ]
+}

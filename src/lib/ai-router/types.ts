@@ -54,6 +54,18 @@ export interface AIMessage {
   content: string;
   toolCallId?: string;
   name?: string;
+  /** Assistant turn only: the calls the model asked for. */
+  toolCalls?: AIToolCall[];
+}
+
+export interface AIToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    /** Raw JSON string exactly as the model emitted it. */
+    arguments: string;
+  };
 }
 
 export interface AITool {
@@ -87,6 +99,8 @@ export interface AIResponse {
   usage: AITokenUsage;
   finishReason: 'stop' | 'length' | 'tool-calls' | 'content-filter' | 'error';
   latencyMs: number;
+  /** Present when the model requested tools. Never silently dropped. */
+  toolCalls?: AIToolCall[];
 }
 
 export interface AIStreamChunk {

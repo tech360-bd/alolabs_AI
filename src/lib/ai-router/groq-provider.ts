@@ -4,6 +4,7 @@
  * OpenAI-compatible API format with SSE streaming.
  */
 
+import { extractToolCalls } from './tool-calls';
 import type {
   AIModel,
   AIModelFamily,
@@ -304,6 +305,7 @@ export class GroqProvider extends BaseAIProvider {
           totalTokens: data.usage?.total_tokens ?? 0,
         },
         finishReason: mapFinishReason(choice?.finish_reason ?? null),
+        toolCalls: extractToolCalls(choice?.message),
         latencyMs,
       };
     } finally {

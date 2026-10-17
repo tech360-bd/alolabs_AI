@@ -1,0 +1,105 @@
+{
+  "workflow_id": "crm_saas_builder",
+  "name": "CRM SaaS Builder",
+  "slug": "crm-saas",
+  "description": "Auto-generate React + Vite CRM SaaS application",
+  "triggers": [
+    "CRM SaaS",
+    "build CRM",
+    "CRM application"
+  ],
+  "department": "Software Development",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Software Development Strategic Planning Agent",
+      "action": "plan_crm",
+      "config": {
+        "instruction": "Create the plan for CRM for the CRM SaaS Builder workflow; return the deliverable and its assumptions.",
+        "agentHint": "CRM Architect Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "CRM Architect Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Software Development Execution Agent",
+      "action": "generate_frontend",
+      "config": {
+        "instruction": "Generate the frontend application shell, routes and state management.",
+        "agentHint": "React Builder Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "React Builder Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Software Development Strategic Planning Agent",
+      "action": "design_api",
+      "config": {
+        "instruction": "Design the API surface: resources, methods, payloads, errors and auth.",
+        "agentHint": "API Designer Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "API Designer Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Software Development Data Analyst Agent",
+      "action": "setup_database",
+      "config": {
+        "instruction": "Create the database schema, indexes and seed data for the application.",
+        "agentHint": "Database Setup Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "Database Setup Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Software Development Execution Agent",
+      "action": "create_components",
+      "config": {
+        "instruction": "Create components for the CRM SaaS Builder workflow; return the deliverable and its assumptions.",
+        "agentHint": "UI Components Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "UI Components Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Software Development Execution Agent",
+      "action": "add_features",
+      "config": {
+        "instruction": "Add features for the CRM SaaS Builder workflow; return the deliverable and its assumptions.",
+        "agentHint": "Features Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "Features Agent"
+        }
+      }
+    },
+    {
+      "step": 7,
+      "agent": "Software Development Process Automation Agent",
+      "action": "create_deployment_package",
+      "config": {
+        "instruction": "Produce the deployment package with build output and run instructions.",
+        "agentHint": "Build Agent",
+        "original": {
+          "department": "Software Development",
+          "agent": "Build Agent"
+        }
+      }
+    }
+  ]
+}

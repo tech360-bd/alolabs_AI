@@ -3,6 +3,7 @@
  * ALO Labs AIOS — Local LLM provider for Meta's Llama models via Ollama.
  */
 
+import { extractToolCalls } from './tool-calls';
 import type {
   AIModel,
   AIModelFamily,
@@ -231,6 +232,7 @@ export class LlamaProvider extends BaseAIProvider {
           totalTokens: (body.prompt_eval_count ?? 0) + (body.eval_count ?? 0),
         },
         finishReason: body.done ? 'stop' : 'length',
+        toolCalls: extractToolCalls(body.message),
         latencyMs,
       };
     } finally {
