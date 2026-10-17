@@ -55,7 +55,7 @@ describe('authenticateV1', () => {
   });
 
   it('authenticates an X-API-Key (sha256 of the stored hash)', async () => {
-    const rawKey = 'REDACTED_EXAMPLE_CREDENTIAL';
+    const rawKey = 'alo_labs_test_key_a1b2c3d4e5f6';
     fakeDb.db.companyApiKey.create({
       data: {
         id: 'key-1',
@@ -79,7 +79,7 @@ describe('authenticateV1', () => {
   });
 
   it('authenticates an Authorization: Bearer alo_… API key', async () => {
-    const rawKey = 'REDACTED_EXAMPLE_CREDENTIAL';
+    const rawKey = 'alo_labs_test_key_f7e8d9c0b1a2';
     fakeDb.db.companyApiKey.create({
       data: {
         id: 'key-2',
