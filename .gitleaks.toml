@@ -1,0 +1,17 @@
+# gitleaks configuration
+#
+# The only allowlisted pattern is the synthetic API key used by
+# __tests__/unit/agentos-v1-auth.test.ts. It exercises the `alo_` prefix branch
+# of authenticateV1 and is hashed into an in-memory fixture; it is not a
+# credential and cannot authenticate against anything.
+#
+# The allowlist is deliberately narrow: a real key would not contain
+# `_test_key_`, so this does not weaken detection for genuine secrets.
+
+title = "ALO Labs gitleaks configuration"
+
+[allowlist]
+description = "Synthetic API keys constructed by unit tests"
+regexes = [
+  '''alo_labs_test_key_[A-Za-z0-9]+''',
+]
