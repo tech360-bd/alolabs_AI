@@ -27,7 +27,9 @@ export async function GET() {
           ],
         },
       }),
-      db.command.count({ where: { user: { companyId } } }),
+      // User carries no company column in this schema (tenant scope lives in
+      // the JWT), so commands are counted for the signed-in user.
+      db.command.count({ where: { userId: user.userId } }),
       // Workflow rows carry no tenant column in the current schema; they are
       // the shared catalogue, so the total is the honest number to show.
       db.workflow.count({ where: { status: 'active' } }),
