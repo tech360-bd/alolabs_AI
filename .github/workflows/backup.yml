@@ -51,6 +51,30 @@ jobs:
               exit 1
             fi
             echo "Application directory: ${APP_DIR}"
+
+            # Workflow commands printed here reach the runner through the SSH
+            # action and become check annotations. Annotations stay readable
+            # through the API even when raw job logs are unavailable.
+            annotate() {
+              local title="$1" message="$2"
+              message="${message//'%'/'%25'}"
+              message="${message//$'\r'/'%0D'}"
+              message="${message//$'\n'/'%0A'}"
+              echo "::error title=${title}::${message}"
+            }
+
             # -n: fail immediately and explicitly if sudo would prompt for a password.
-            sudo -n env APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/scripts/backup.sh" --preflight
-            sudo -n env APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/scripts/backup.sh"
+            if ! PREFLIGHT_OUT="$(sudo -n env APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/scripts/backup.sh" --preflight 2>&1)"; then
+              echo "${PREFLIGHT_OUT}"
+              FAILURES="$(printf '%s\n' "${PREFLIGHT_OUT}" | grep -E 'PREFLIGHT FAIL|sudo:' | tr '\n' '|' || true)"
+              annotate "Backup preflight failed" "${FAILURES:-preflight exited non-zero}"
+              exit 1
+            fi
+            echo "${PREFLIGHT_OUT}"
+
+            if ! BACKUP_OUT="$(sudo -n env APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/scripts/backup.sh" 2>&1)"; then
+              echo "${BACKUP_OUT}"
+              annotate "Backup failed" "$(printf '%s\n' "${BACKUP_OUT}" | tail -n 4 | tr '\n' '|')"
+              exit 1
+            fi
+            echo "${BACKUP_OUT}"
