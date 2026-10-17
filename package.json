@@ -30,6 +30,8 @@
     "lint": "eslint .",
     "provision:workforce": "npx tsx scripts/provision-workforce.ts",
     "provision:workforce:dry-run": "npx tsx scripts/provision-workforce.ts --dry-run",
+    "report:tiers": "npx tsx scripts/tier-capacity.ts",
+    "report:tiers:json": "npx tsx scripts/tier-capacity.ts --json",
     "review:builder": "npx tsx scripts/chief-architect-review.ts",
     "seed:agentos": "npx tsx scripts/seed-agentos.ts",
     "seed:departments": "npx tsx scripts/seed-100-departments.ts",

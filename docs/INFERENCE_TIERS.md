@@ -80,6 +80,29 @@ OK   fast      qwen2.5:1.5b-instruct          61ms — I am qwen2.5:1.5b-instruc
 Useful flags: `--tiers reasoning,fast`, `--base-url`, `--json`,
 `--max-tokens`, `--timeout`.
 
+## What the workforce actually demands
+
+`npx tsx scripts/tier-capacity.ts` reads `docs/workforce/agents.csv` and maps
+each agent's `model_policy` through the same resolver the runtime uses:
+
+```
+Agents in inventory: 2000
+
+Tier       Model                          Agents   Weights(Gb)
+reasoning  qwen2.5:72b-instruct              600       47
+balanced   qwen2.5:32b-instruct              600       20
+fast       qwen2.5:1.5b-instruct             500      1.5
+coding     qwen2.5-coder:32b-instruct        300       20
+vision     qwen2.5vl:7b                        0        6
+embedding  embeddinggemma:300m                 0      0.3
+```
+
+Two things follow. The weights column is *per resident model*, not per agent —
+1.5B serving 500 agents is fine; 72B serving 600 is not, if they are dispatched
+at once. And with no admission control, every `reasoning` task queues behind the
+same model: start with a small worker pool, measure p95 latency, and only then
+raise concurrency.
+
 ## Configuration
 
 ```dotenv
