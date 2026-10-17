@@ -40,6 +40,86 @@ source "${ENV_FILE}"
 set +a
 [[ -n "${DATABASE_URL:-}" ]] || { echo "ERROR: DATABASE_URL is not configured" >&2; exit 1; }
 
+# ─── Preflight ───────────────────────────────────────────────────────────────
+# `--preflight` answers one question: is this host able to produce a verified
+# backup right now, and if not, exactly which prerequisite is missing? The
+# scheduled workflow runs this before the backup so a failure names its cause
+# instead of collapsing into a non-zero exit code.
+preflight() {
+  local failures=0
+  ok()   { printf 'PREFLIGHT OK   %s\n' "$*"; }
+  warn() { printf 'PREFLIGHT WARN %s\n' "$*"; }
+  bad()  { printf 'PREFLIGHT FAIL %s\n' "$*" >&2; failures=$((failures + 1)); }
+
+  printf 'PREFLIGHT app_dir=%s\n' "${APP_DIR}"
+  printf 'PREFLIGHT backup_dir=%s\n' "${BACKUP_DIR}"
+  printf 'PREFLIGHT env_file=%s\n' "${ENV_FILE}"
+  printf 'PREFLIGHT database_provider=%s\n' "${DATABASE_URL%%:*}"
+
+  [[ -d "${APP_DIR}" ]] && ok "application directory exists" || bad "application directory is missing"
+  if [[ -d "${APP_DIR}/.git" ]]; then
+    ok "git repository detected (commit ${preflight_commit})"
+  else
+    warn "no .git directory — the backup records 'unknown' as its commit"
+  fi
+
+  case "${DATABASE_URL}" in
+    file:*)
+      local db="${DATABASE_URL#file:}"
+      [[ "${db}" = /* ]] || db="${APP_DIR}/${db#./}"
+      if [[ -f "${db}" && -s "${db}" ]]; then
+        ok "SQLite database present ($(wc -c < "${db}") bytes)"
+      else
+        bad "SQLite database missing or empty at ${db}"
+      fi
+      if command -v sqlite3 >/dev/null; then
+        ok "sqlite3 available ($(sqlite3 --version 2>/dev/null | head -n 1))"
+      elif command -v python3 >/dev/null; then
+        ok "python3 available for the SQLite online-backup fallback"
+      else
+        bad "neither sqlite3 nor python3 is installed"
+      fi
+      ;;
+    mysql://*|mariadb://*)
+      if command -v mysqldump >/dev/null; then
+        ok "mysqldump available ($(mysqldump --version 2>/dev/null | head -n 1))"
+      else
+        bad "mysqldump is not installed"
+      fi
+      command -v node >/dev/null && ok "node available (DATABASE_URL parsing)" || bad "node is not installed"
+      ;;
+    *)
+      bad "unsupported database provider in DATABASE_URL"
+      ;;
+  esac
+
+  if install -d -m 700 "${BACKUP_DIR}" 2>/dev/null && [[ -w "${BACKUP_DIR}" ]]; then
+    ok "backup directory is writable"
+    local available_kb
+    available_kb="$(df -Pk "${BACKUP_DIR}" 2>/dev/null | awk 'NR==2 {print $4}')"
+    if [[ "${available_kb:-0}" =~ ^[0-9]+$ ]] && (( available_kb >= 524288 )); then
+      ok "free disk space: $(( available_kb / 1024 )) MiB"
+    else
+      warn "free disk space is below 512 MiB or could not be measured (${available_kb:-unknown} KiB)"
+    fi
+  else
+    bad "backup directory is not writable"
+  fi
+
+  if (( failures > 0 )); then
+    printf 'PREFLIGHT FAILED: %d prerequisite(s) missing\n' "${failures}" >&2
+    return 1
+  fi
+  printf 'PREFLIGHT PASSED\n'
+  return 0
+}
+
+if [[ "${1:-}" == "--preflight" ]]; then
+  preflight_commit="$(git -C "${APP_DIR}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  preflight
+  exit $?
+fi
+
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 dest="${BACKUP_DIR}/${stamp}"
 install -d -m 700 "${dest}"

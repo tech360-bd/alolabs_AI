@@ -10,6 +10,7 @@ import { db } from '@/lib/db';
 import { DatabaseManager } from '@/lib/db-adapters/manager';
 import { readFile, stat } from 'fs/promises';
 import { join, resolve } from 'path';
+import { s3BackupClientFromEnv } from '@/lib/s3/client';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -37,23 +38,15 @@ async function validateBackup(
 
   if (storage === 's3') {
     try {
-      // @ts-expect-error -- minio is an optional dependency for S3 backups
-      const { MinioClient } = await import('minio');
-      const minioClient = new MinioClient({
-        endPoint: process.env.S3_ENDPOINT || 'localhost',
-        port: parseInt(process.env.S3_PORT || '9000', 10),
-        accessKey: process.env.S3_ACCESS_KEY || '',
-        secretKey: process.env.S3_SECRET_KEY || '',
-        useSSL: process.env.S3_USE_SSL === 'true',
-      });
-
-      const bucket = process.env.S3_BACKUP_BUCKET || 'aios-backups';
-      const stream = await minioClient.getObject(bucket, filename);
-      const chunks: Buffer[] = [];
-      for await (const chunk of stream) {
-        chunks.push(chunk as Buffer);
+      if (!process.env.S3_ACCESS_KEY && !process.env.MINIO_ACCESS_KEY) {
+        return {
+          valid: false,
+          sizeBytes: 0,
+          error: 'S3 backup storage is not configured (S3_ACCESS_KEY / MINIO_ACCESS_KEY missing)',
+        };
       }
-      content = Buffer.concat(chunks).toString('utf-8');
+      const s3 = s3BackupClientFromEnv();
+      content = (await s3.getObjectBuffer(s3.config.bucket, filename)).toString('utf-8');
     } catch (err) {
       return {
         valid: false,
@@ -157,23 +150,11 @@ async function executeRestore(
 
   if (storage === 's3') {
     try {
-      // @ts-expect-error -- minio is an optional dependency for S3 backups
-      const { MinioClient } = await import('minio');
-      const minioClient = new MinioClient({
-        endPoint: process.env.S3_ENDPOINT || 'localhost',
-        port: parseInt(process.env.S3_PORT || '9000', 10),
-        accessKey: process.env.S3_ACCESS_KEY || '',
-        secretKey: process.env.S3_SECRET_KEY || '',
-        useSSL: process.env.S3_USE_SSL === 'true',
-      });
-
-      const bucket = process.env.S3_BACKUP_BUCKET || 'aios-backups';
-      const stream = await minioClient.getObject(bucket, filename);
-      const chunks: Buffer[] = [];
-      for await (const chunk of stream) {
-        chunks.push(chunk as Buffer);
+      if (!process.env.S3_ACCESS_KEY && !process.env.MINIO_ACCESS_KEY) {
+        throw new Error('S3 backup storage is not configured (S3_ACCESS_KEY / MINIO_ACCESS_KEY missing)');
       }
-      content = Buffer.concat(chunks).toString('utf-8');
+      const s3 = s3BackupClientFromEnv();
+      content = (await s3.getObjectBuffer(s3.config.bucket, filename)).toString('utf-8');
     } catch (err) {
       throw new Error(`S3 read failed: ${err instanceof Error ? err.message : String(err)}`);
     }
