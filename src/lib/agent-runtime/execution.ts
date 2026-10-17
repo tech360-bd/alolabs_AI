@@ -13,6 +13,7 @@ import { getAgentStateManager } from './state';
 import { getAgentHealthMonitor } from './health';
 import { db } from '@/lib/db';
 import { getRouter } from '@/lib/ai-router';
+import { resolveModelForTier } from '@/lib/ai-router/model-tiers';
 import { runToolLoop } from './tool-loop';
 import { parseToolList, toolSchemasFor } from '@/lib/tools';
 import { buildAgentContext } from '@/lib/context-engine';
@@ -436,7 +437,12 @@ export class AgentExecutionEngine {
       }
 
       const taskClassification = classifyTask(task.input, agent.role, agent.type);
-      const selectedModel = selectModelForTask(taskClassification);
+      // The classifier yields a policy tier; the tier maps to a concrete model
+      // on the local gateway. Passing the tier string straight through (the
+      // previous behaviour) matched no provider model and silently degraded to
+      // "best model of whatever provider was selected".
+      const modelTier = selectModelForTask(taskClassification);
+      const selectedModel = resolveModelForTier(modelTier);
 
       try {
         getEventBus().publish({
@@ -534,8 +540,9 @@ export class AgentExecutionEngine {
         const routerErrorCode = this.classifyError(routerError);
         if (!FALLBACK_RETRYABLE_ERRORS.has(routerErrorCode)) throw routerError;
 
-        const fallbackModel = MODEL_FALLBACK_CHAIN[originalModel];
-        if (!fallbackModel) throw routerError;
+        const fallbackTier = MODEL_FALLBACK_CHAIN[modelTier];
+        if (!fallbackTier) throw routerError;
+        const fallbackModel = resolveModelForTier(fallbackTier);
         try {
           aiResponse = await router.chat(
             { ...routerRequest, model: fallbackModel },
@@ -562,6 +569,7 @@ export class AgentExecutionEngine {
               taskId,
               agentId: task.agentId,
               originalModel,
+              originalTier: modelTier,
               fallbackModel: aiResponse.model,
               triggerErrorCode: fallbackTriggerError,
               latencyMs: Date.now() - startTime,

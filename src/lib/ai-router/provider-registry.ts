@@ -26,6 +26,12 @@ import { OpenRouterProvider } from './openrouter-provider';
 import { OllamaProvider } from './ollama-provider';
 import { ZAIProvider } from './zai-provider';
 import { decryptField, encryptField, fingerprint, isEncryptedField } from '../security/field-encryption';
+import {
+  gatewayModelCatalog,
+  isLocalInferenceConfigured,
+  localGatewayBaseUrl,
+  LOCAL_GATEWAY_PROVIDER_ID,
+} from './model-tiers';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -242,6 +248,27 @@ function csv(value: string | undefined): string[] {
  */
 export function providersFromEnvironment(env: NodeJS.ProcessEnv = process.env): EnvironmentProviderSpec[] {
   const specs: EnvironmentProviderSpec[] = [];
+
+  // Local inference gateway first: it speaks the OpenAI chat-completions
+  // protocol, so Ollama (`ollama serve`, /v1), vLLM and any local proxy on
+  // LOCAL_INFERENCE_URL share one adapter. Models are the six tier targets,
+  // declared statically so routing by exact id never depends on /models.
+  if (isLocalInferenceConfigured(env)) {
+    specs.push({
+      name: `openai-compatible:${LOCAL_GATEWAY_PROVIDER_ID}`,
+      source: 'LOCAL_INFERENCE_URL',
+      create: () =>
+        new OpenAICompatibleProvider({
+          id: LOCAL_GATEWAY_PROVIDER_ID,
+          label: 'Local inference gateway (Ollama / vLLM)',
+          baseUrl: localGatewayBaseUrl(env),
+          apiKey: env.LOCAL_INFERENCE_API_KEY,
+          models: gatewayModelCatalog(env),
+          timeoutMs: Number(env.LOCAL_INFERENCE_TIMEOUT_MS) || 120_000,
+          defaultContextLength: 32_768,
+        }),
+    });
+  }
 
   if (env.OPENAI_API_KEY || env.OPENAI_BASE_URL) {
     const models = csv(env.OPENAI_MODELS);

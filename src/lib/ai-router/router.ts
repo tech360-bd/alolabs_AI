@@ -16,6 +16,7 @@ import type {
   AILoadBalanceConfig,
   AICapability,
 } from './types';
+import { isLocalProviderName, localOnlyEnabled } from './model-tiers';
 import {
   AIRouterError,
   AICircuitOpenError,
@@ -744,11 +745,17 @@ export class AIRouter {
 
   /** Providers usable for a request: shared ones plus the tenant's own. */
   private getAvailableProviders(companyId?: string): ProviderEntry[] {
+    // LOCAL_ONLY (on by default once a local endpoint is configured) removes
+    // commercial providers from the candidate set entirely, so a task cannot
+    // silently bill a paid API. If nothing local is available the router throws
+    // instead of falling back to a paid provider.
+    const localOnly = localOnlyEnabled();
     return Array.from(this.providers.values()).filter(
       (e) =>
         !e.health.circuitOpen &&
         e.provider.initialized &&
-        (e.companyId === undefined || e.companyId === companyId),
+        (e.companyId === undefined || e.companyId === companyId) &&
+        (!localOnly || isLocalProviderName(e.provider.name)),
     );
   }
 
