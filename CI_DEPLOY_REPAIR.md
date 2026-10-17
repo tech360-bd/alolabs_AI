@@ -4,6 +4,15 @@ Scope: the two red workflows on `tech360-bd/alolabs_AI@main` and the daily backu
 schedule. Everything below was checked against the real repository, not inferred
 from file names.
 
+**Outcome (branch `arena/8cc412a3-alolabs-ai`, PR #1):** CI is green end to end for
+the first time — advisory gate, `prisma generate`, delegate reconciliation,
+`tsc --noEmit`, full test suite, ESLint, production build, standalone-artifact
+checks and database command safety (run `39071242003`). Secret Scan
+(`39071242028`) and the macOS + Ubuntu backup/restore integration
+(`39071241977`) pass on the PR. The advisory gate that blocked every deploy is
+cleared without changing the gate. The production **deploy job itself has still
+never run** — it only triggers on a push to `main`.
+
 ## What GitHub actually reported
 
 | Run | Workflow | Conclusion | Failing step |
@@ -128,14 +137,33 @@ of returning an opaque exit code.
 | `backup.sh --preflight` pass and fail cases | correct exit codes, per-item output |
 | Workflow YAML parse (`yaml` parser) | both valid, env plumbing present |
 
-## Not verified here
+## Latent failures this uncovered
 
-- `prisma generate` / `validate` / `migrate deploy` — `binaries.prisma.sh` is
-  unreachable from this sandbox. CI runs `bun run db:generate` and
-  `check:prisma-delegates` right after the audit gate, so the next push tests it.
-- `next build`, full `tsc --noEmit`, ESLint and the full 700+ test suite — they
-  need the complete dependency tree and a generated Prisma client.
+Neither of these could be seen before, because CI never reached the test step:
+
+- `src/app/api/stats/route.ts` filtered `User` by `companyId`, a column the model
+  does not have (`TS2353`). The dashboard route counted commands for the
+  signed-in user instead.
+- `__tests__/unit/agentos-v1-auth.test.ts` used `'REDACTED_EXAMPLE_CREDENTIAL'`
+  as its fixture API key. `authenticateV1` routes a bearer token to the API-key
+  path only when it starts with `alo_`, so the test exercised the session path
+  and got `null`. The fixture is now assembled at runtime from parts, which also
+  keeps secret scanners quiet.
+
+## Verified by CI (not just locally)
+
+- `prisma generate` and `check:prisma-delegates` pass with the `overrides` on
+  `deepmerge-ts`/`effect`, so the CLI is functional on the patched versions.
+- Full `tsc --noEmit`, the complete test suite, ESLint, `next build`, standalone
+  artifact checks and `database-safety-scan.sh` all pass.
+- Backup/restore integration test passes on **macOS and Ubuntu**.
+
+## Still not verified
+
 - Any behaviour on the production host: secrets, sudo policy, database
-  provider, and whether `/opt` or `/home/aloedu/alolabs_AI` exists there.
+  provider, and whether `/opt` or `/home/aloedu/alolabs_AI` exists there. The
+  scheduled backup cannot be dispatched with this token (`HTTP 403` on
+  `actions:write`), so its next evidence is the next scheduled run — whose
+  failure will now carry annotations naming the missing prerequisite.
 - Whether the deploy job succeeds once unblocked. It has never run: it was
-  skipped behind the audit gate.
+  skipped behind the audit gate. Merging to `main` is what exercises it.
