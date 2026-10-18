@@ -4,14 +4,21 @@ Scope: the two red workflows on `tech360-bd/alolabs_AI@main` and the daily backu
 schedule. Everything below was checked against the real repository, not inferred
 from file names.
 
-**Outcome (branch `arena/8cc412a3-alolabs-ai`, PR #1):** CI is green end to end for
-the first time — advisory gate, `prisma generate`, delegate reconciliation,
-`tsc --noEmit`, full test suite, ESLint, production build, standalone-artifact
-checks and database command safety (run `39071242003`). Secret Scan
-(`39071242028`) and the macOS + Ubuntu backup/restore integration
-(`39071241977`) pass on the PR. The advisory gate that blocked every deploy is
-cleared without changing the gate. The production **deploy job itself has still
-never run** — it only triggers on a push to `main`.
+**Outcome:** PR #1 merged to `main` as `71fe902` on 2026-10-18. On that commit
+CI, Security Scan and the macOS/Ubuntu backup integration all pass, and the
+advisory gate is cleared without changing the gate.
+
+The deployment workflow reached `Deploy production` for the **first time**
+(run `39106293624`): `CI quality and production safety hard-gates` **passed**
+(audit gate, `prisma generate`, delegate reconciliation, `tsc --noEmit`, full
+test suite, ESLint, production build, standalone artifacts, `database-safety-scan.sh`).
+The deploy job then stopped at its own first step, **Validate required
+deployment secrets**, before any SSH connection: at least one of
+`PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_SSH_KEY`, `PRODUCTION_PORT`
+is missing from the `production` environment. Secret names cannot be listed
+with this token (`HTTP 403`) and raw logs return `EOF`, so which specific
+secret is absent is not known from here. Nothing was deployed; production was
+not touched.
 
 ## What GitHub actually reported
 
