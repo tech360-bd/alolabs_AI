@@ -1,64 +1,86 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Eye, Activity, Cpu, MemoryStick, HardDrive, Wifi, Server, Database, Zap, Clock, AlertTriangle, CheckCircle2, XCircle, BarChart3 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Eye, Activity, Bot, Clock, Database, AlertTriangle, CheckCircle2, XCircle, Zap } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchApi } from '@/lib/api'
 
-interface SystemStats { totalAgents?: number; totalDepartments?: number; activeSessions?: number }
+interface ObservabilityStats {
+  generatedAt: string
+  execution: {
+    window: string
+    runs24h: number
+    completedRuns24h: number
+    failedRuns24h: number
+    activeRuns: number
+    runSuccessRate: number | null
+    agentRuns24h: number
+    completedAgentRuns24h: number
+    failedAgentRuns24h: number
+    agentRunSuccessRate: number | null
+    averageAgentRunLatencyMs: number | null
+    usageLogs24h: number
+    failedUsageLogs24h: number
+    usageErrorRate: number | null
+  }
+}
 
-const services = [
-  { name: 'API Server', status: 'healthy', latency: 12 },
-  { name: 'WebSocket', status: 'healthy', latency: 8 },
-  { name: 'Queue Service', status: 'healthy', latency: 3 },
-  { name: 'Realtime Service', status: 'healthy', latency: 15 },
-  { name: 'Database', status: 'healthy', latency: 5 },
-  { name: 'Cache', status: 'healthy', latency: 1 },
-]
+function numberLabel(value: number | null | undefined): string {
+  return value == null ? 'Not measured' : value.toLocaleString()
+}
 
-const logLevels = [
-  { level: 'Info', pct: 65, color: 'bg-blue-500' },
-  { level: 'Debug', pct: 20, color: 'bg-slate-400' },
-  { level: 'Warning', pct: 12, color: 'bg-amber-500' },
-  { level: 'Error', pct: 3, color: 'bg-red-500' },
-]
+function percentageLabel(value: number | null | undefined): string {
+  return value == null ? 'Not measured' : `${(value * 100).toFixed(2)}%`
+}
 
 export default function Observability() {
-  const [stats, setStats] = useState<SystemStats | null>(null)
+  const [stats, setStats] = useState<ObservabilityStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const ctrl = new AbortController()
+    const controller = new AbortController()
     async function load() {
-      setLoading(true); setError('')
+      setLoading(true)
+      setError('')
       try {
-        const data = await fetchApi('/api/enterprise/stats', { signal: ctrl.signal })
-        setStats(data)
-      } catch (e) {
-        if (e instanceof Error && e.name !== 'AbortError') setError(e.message)
+        setStats(await fetchApi<ObservabilityStats>('/api/enterprise/stats', { signal: controller.signal }))
+      } catch (cause) {
+        if (cause instanceof Error && cause.name !== 'AbortError') {
+          setError(cause.message)
+          setStats(null)
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
       }
-      finally { setLoading(false) }
     }
-    load(); return () => ctrl.abort()
+    void load()
+    return () => controller.abort()
   }, [])
-
-  const cpuPct = 23
-  const memPct = Math.round((4.2 / 16) * 100)
-  const diskPct = Math.round((120 / 500) * 100)
 
   if (loading) return (
     <div className="space-y-6 p-6">
       <Skeleton className="h-8 w-48" />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
+        {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-24 w-full rounded-xl" />)}
       </div>
       <Skeleton className="h-64 w-full rounded-xl" />
     </div>
   )
+
+  const execution = stats?.execution
+  const metrics = [
+    { label: 'Runs created · 24h', value: numberLabel(execution?.runs24h), icon: Zap, color: 'text-[#003ABC]' },
+    { label: 'Currently active runs', value: numberLabel(execution?.activeRuns), icon: Activity, color: 'text-blue-600' },
+    { label: 'Run completion rate · 24h', value: percentageLabel(execution?.runSuccessRate), icon: CheckCircle2, color: 'text-emerald-600' },
+    { label: 'Recorded agent runs · 24h', value: numberLabel(execution?.agentRuns24h), icon: Bot, color: 'text-violet-600' },
+    { label: 'Mean agent-run latency', value: execution?.averageAgentRunLatencyMs == null ? 'Not measured' : `${execution.averageAgentRunLatencyMs.toLocaleString()} ms`, icon: Clock, color: 'text-[#FF6A00]' },
+    { label: 'Usage records · 24h', value: numberLabel(execution?.usageLogs24h), icon: Database, color: 'text-cyan-600' },
+    { label: 'Usage error rate · 24h', value: percentageLabel(execution?.usageErrorRate), icon: XCircle, color: 'text-red-600' },
+    { label: 'Failed agent runs · 24h', value: numberLabel(execution?.failedAgentRuns24h), icon: AlertTriangle, color: 'text-amber-600' },
+  ]
 
   return (
     <div className="space-y-6 p-6">
@@ -68,95 +90,59 @@ export default function Observability() {
         </div>
         <div>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Observability</h2>
-          <p className="text-sm text-slate-500">System health, metrics, service status, and log monitoring</p>
+          <p className="text-sm text-slate-500">Tenant-scoped run and usage evidence from persisted database records.</p>
         </div>
+        <Badge variant="outline" className="ml-auto">24-hour window</Badge>
       </div>
 
-      {/* System Health Overview */}
-      <Card className="rounded-xl shadow-sm">
-        <CardHeader className="pb-3"><CardTitle className="text-base">System Health</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="h-4 w-4 text-emerald-500" />
-            <span className="text-sm font-medium text-emerald-600">Uptime: 99.97%</span>
-            <span className="text-xs text-slate-400 ml-2">Last 30 days</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <div className="flex items-center justify-between text-sm mb-1"><span className="text-slate-500 flex items-center gap-1.5"><Cpu className="h-3.5 w-3.5" />CPU</span><span className="font-medium">{cpuPct}%</span></div>
-              <Progress value={cpuPct} className="h-2" />
-            </div>
-            <div>
-              <div className="flex items-center justify-between text-sm mb-1"><span className="text-slate-500 flex items-center gap-1.5"><MemoryStick className="h-3.5 w-3.5" />Memory</span><span className="font-medium">4.2GB / 16GB</span></div>
-              <Progress value={memPct} className="h-2" />
-            </div>
-            <div>
-              <div className="flex items-center justify-between text-sm mb-1"><span className="text-slate-500 flex items-center gap-1.5"><HardDrive className="h-3.5 w-3.5" />Disk</span><span className="font-medium">120GB / 500GB</span></div>
-              <Progress value={diskPct} className="h-2" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {error && <p role="status" className="text-sm text-amber-700 dark:text-amber-400">Telemetry is unavailable: {error}</p>}
 
-      {/* Service Status Grid */}
-      <Card className="rounded-xl shadow-sm">
-        <CardHeader className="pb-3"><CardTitle className="text-base">Service Status</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {services.map(svc => (
-              <div key={svc.name} className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3 text-center">
-                <div className="flex items-center justify-center gap-1.5 mb-1">
-                  <div className={`h-2 w-2 rounded-full ${svc.status === 'healthy' ? 'bg-emerald-500' : svc.status === 'degraded' ? 'bg-amber-500' : 'bg-red-500'}`} />
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{svc.name}</span>
-                </div>
-                <span className="text-lg font-bold text-slate-900 dark:text-white">{svc.latency}ms</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Key Metrics */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Request Rate', value: '1.2K/min', icon: Zap, color: 'text-[#003ABC]' },
-          { label: 'Error Rate', value: '0.03%', icon: XCircle, color: 'text-red-600' },
-          { label: 'P99 Latency', value: '120ms', icon: Clock, color: 'text-[#FF6A00]' },
-          { label: 'Active Connections', value: '847', icon: Wifi, color: 'text-emerald-600' },
-        ].map((m, i) => (
-          <Card key={i} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div><p className="text-sm text-slate-500">{m.label}</p><p className={`text-2xl font-bold ${m.color}`}>{m.value}</p></div>
-                <m.icon className="h-5 w-5 text-slate-400" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {metrics.map((metric) => {
+          const Icon = metric.icon
+          return (
+            <Card key={metric.label} className="rounded-xl shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-slate-500">{metric.label}</p>
+                    <p className={`mt-1 text-xl font-bold ${metric.color}`}>{stats ? metric.value : '—'}</p>
+                  </div>
+                  <Icon className="h-5 w-5 shrink-0 text-slate-400" />
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
-      {/* Log Levels Distribution */}
       <Card className="rounded-xl shadow-sm">
-        <CardHeader className="pb-3"><CardTitle className="text-base">Log Levels Distribution</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex h-6 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-            {logLevels.map(l => (
-              <div key={l.level} className={`${l.color} transition-all`} style={{ width: `${l.pct}%` }} title={`${l.level}: ${l.pct}%`} />
-            ))}
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-slate-500" />
+            <CardTitle className="text-base">Operational telemetry coverage</CardTitle>
           </div>
-          <div className="flex flex-wrap gap-4 mt-3">
-            {logLevels.map(l => (
-              <div key={l.level} className="flex items-center gap-1.5 text-sm">
-                <div className={`h-2.5 w-2.5 rounded-sm ${l.color}`} />
-                <span className="text-slate-600 dark:text-slate-300">{l.level}</span>
-                <span className="font-medium">{l.pct}%</span>
-              </div>
-            ))}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/60">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div>
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Host resource and service-probe telemetry is not exposed to this tenant view.</p>
+              <p className="mt-1 text-xs text-slate-500">CPU, memory, disk, uptime, connection counts, and per-service latency are shown as unavailable rather than estimated. Configure tenant-safe instrumentation before reporting those values.</p>
+            </div>
           </div>
+          {execution ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border p-3"><p className="text-xs text-slate-500">Completed runs</p><p className="mt-1 text-lg font-semibold">{execution.completedRuns24h.toLocaleString()}</p></div>
+              <div className="rounded-lg border p-3"><p className="text-xs text-slate-500">Failed or cancelled runs</p><p className="mt-1 text-lg font-semibold">{execution.failedRuns24h.toLocaleString()}</p></div>
+              <div className="rounded-lg border p-3"><p className="text-xs text-slate-500">Agent-run completion rate</p><p className="mt-1 text-lg font-semibold">{percentageLabel(execution.agentRunSuccessRate)}</p></div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">No tenant-scoped telemetry could be loaded.</p>
+          )}
+          {stats && <p className="text-[11px] text-slate-400">Read from persisted usage and execution records. Snapshot time: {new Date(stats.generatedAt).toLocaleString()}.</p>}
         </CardContent>
       </Card>
-
-      {error && <p className="text-xs text-slate-400">Note: Stats API unavailable ({error}), showing static system metrics.</p>}
     </div>
   )
 }

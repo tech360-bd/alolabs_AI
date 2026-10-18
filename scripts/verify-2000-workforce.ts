@@ -4,8 +4,9 @@
  *
  * Verifies the live database against the deterministic plan: 100 departments,
  * 2,000 primary agents, tenant and department ownership, drift, orphans and
- * required configuration. It does NOT claim agents are operational — that
- * requires execution evidence and is reported as `agentsOperational`.
+ * required configuration. `agentsActive` reports lifecycle only, not proof of
+ * operation. Recent completed-run evidence is audited separately by
+ * scripts/activate-workforce.ts.
  *
  * Equivalent to: npx tsx scripts/provision-workforce.ts --verify
  */

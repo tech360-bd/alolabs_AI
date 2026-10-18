@@ -61,6 +61,8 @@ export interface StoredAgent {
   status: string;
   version: number;
   companyId: string | null;
+  /** Company ids with an explicit AgentCompanyAccess grant. */
+  companyAccessIds: string[];
   systemInstructions: string;
   runtimeProfile: string;
 }
@@ -112,6 +114,8 @@ export interface WorkforceStore {
   findAgents(keys: { agentIds: string[]; slugs: string[] }): Promise<StoredAgent[]>;
   createAgents(rows: Array<AgentWrite & { status: string }>): Promise<void>;
   updateAgent(id: string, data: Omit<AgentWrite, 'agentId'>): Promise<void>;
+  /** Ensure the managed agents are addressable by the runtime in their tenant. */
+  ensureAgentCompanyAccess(agentIds: string[], companyId: string): Promise<number>;
   /** Every department and agent row, for verification and orphan detection. */
   loadAll(): Promise<{ departments: StoredDepartment[]; agents: StoredAgent[] }>;
 }
@@ -138,6 +142,8 @@ export interface ProvisionReport {
   tenant: { slug: string; created: boolean };
   departments: ProvisionCounts;
   agents: ProvisionCounts;
+  /** Number of tenant access grants confirmed after provisioning (0 in dry-run). */
+  agentAccessEnsured: number;
   conflicts: ProvisionConflict[];
   /** True only if no conflicts were found. */
   ok: boolean;
@@ -369,6 +375,7 @@ export async function provisionWorkforce(
 
   const toCreate: Array<AgentWrite & { status: string }> = [];
   const toUpdate: Array<{ id: string; data: Omit<AgentWrite, 'agentId'> }> = [];
+  const accessEligibleAgentIds: string[] = [];
 
   for (const spec of plan.agents) {
     if (!AGENT_ID_PATTERN.test(spec.agentId)) {
@@ -396,7 +403,10 @@ export async function provisionWorkforce(
     }
     if (!existing) {
       agents.created++;
-      if (!dryRun) toCreate.push({ ...agentWrite(spec, deptId, tenantKey), status: PROVISIONED_STATUS });
+      if (!dryRun) {
+        toCreate.push({ ...agentWrite(spec, deptId, tenantKey), status: PROVISIONED_STATUS });
+        accessEligibleAgentIds.push(spec.agentId);
+      }
       continue;
     }
     if (!tenantId || !isManagedAgent(existing, tenantId)) {
@@ -409,9 +419,11 @@ export async function provisionWorkforce(
     // attached to the wrong department is detected as drift.
     if (agentProjection(existing, existing.departmentSlug ?? '') === agentProjection(desired, spec.departmentSlug)) {
       agents.unchanged++;
+      accessEligibleAgentIds.push(spec.agentId);
       continue;
     }
     agents.updated++;
+    accessEligibleAgentIds.push(spec.agentId);
     if (!dryRun) {
       const { agentId: _agentId, ...data } = desired;
       void _agentId;
@@ -426,6 +438,14 @@ export async function provisionWorkforce(
     for (const update of toUpdate) await store.updateAgent(update.id, update.data);
   }
 
+  // Agent.companyId records ownership, but the execution runtime deliberately
+  // resolves agents through AgentCompanyAccess. Keep that explicit grant in
+  // sync for both newly-created and already-managed rows. Conflicts are never
+  // included, so a foreign agent is not granted to this tenant by accident.
+  const agentAccessEnsured = !dryRun && tenantId && accessEligibleAgentIds.length > 0
+    ? await store.ensureAgentCompanyAccess([...new Set(accessEligibleAgentIds)], tenantId)
+    : 0;
+
   const conflictTotal = departments.conflicts + agents.conflicts;
   return {
     planVersion: plan.planVersion,
@@ -434,6 +454,7 @@ export async function provisionWorkforce(
     tenant: { slug: tenant.slug, created: tenantCreated },
     departments,
     agents,
+    agentAccessEnsured,
     conflicts,
     ok: conflictTotal === 0,
   };

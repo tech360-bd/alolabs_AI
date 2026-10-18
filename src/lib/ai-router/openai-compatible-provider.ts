@@ -23,6 +23,7 @@ import type {
 } from './types';
 import { AIRouterError } from './types';
 import { BaseAIProvider } from './provider-base';
+import { hasExplicitZeroPricing } from './free-models';
 
 // ─── Config ─────────────────────────────────────────────────────────
 
@@ -52,6 +53,8 @@ export interface OpenAICompatibleProviderConfig {
   healthTimeoutMs?: number;
   /** Optional provider-level default for unknown model context windows. */
   defaultContextLength?: number;
+  /** Fail closed unless the upstream /models payload explicitly prices both sides at $0. */
+  freeOnly?: boolean;
 }
 
 // ─── Wire types ─────────────────────────────────────────────────────
@@ -150,6 +153,7 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
   private readonly healthTimeoutMs: number;
   private readonly defaultContextLength: number;
   private readonly staticModels: OpenAICompatibleModelConfig[];
+  override readonly freeOnly: boolean;
   private lastHealthError: string | null = null;
 
   constructor(config: OpenAICompatibleProviderConfig) {
@@ -165,7 +169,10 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
     this.timeoutMs = config.timeoutMs ?? 120_000;
     this.healthTimeoutMs = config.healthTimeoutMs ?? 10_000;
     this.defaultContextLength = config.defaultContextLength ?? 32_000;
-    this.staticModels = config.models ?? [];
+    this.freeOnly = config.freeOnly ?? false;
+    // A manually-entered zero cost is not upstream price evidence. Free-only
+    // endpoints must discover and verify pricing from the live /models payload.
+    this.staticModels = this.freeOnly ? [] : (config.models ?? []);
     this.supportedModels = this.staticModels.map((m) => this.toModel(m));
   }
 
@@ -215,6 +222,23 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
     };
   }
 
+  private async revalidateFreeModel(modelId: string): Promise<void> {
+    if (!this.freeOnly) return;
+    // Recheck live upstream pricing at request time. If pricing disappears,
+    // becomes nonzero, or cannot be fetched, refuse the call rather than fall
+    // back to an unpriced model.
+    const current = await this.fetchRemoteModels();
+    this.supportedModels = current;
+    if (!current.some((model) => model.id === modelId)) {
+      throw new AIRouterError(
+        `${this.label}: refusing model "${modelId}" because the upstream catalog does not confirm $0 input and output pricing`,
+        this.name,
+        undefined,
+        false,
+      );
+    }
+  }
+
   private async fetchRemoteModels(): Promise<AIModel[]> {
     const res = await fetch(`${this.baseUrl}/models`, {
       headers: this.headers(false),
@@ -228,8 +252,21 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
         this.isRetryableStatus(res.status),
       );
     }
-    const data = (await res.json().catch(() => ({}))) as { data?: Array<{ id: string }> };
-    return (data.data ?? []).filter((m) => typeof m.id === 'string').map((m) => this.toModel({ id: m.id }));
+    const data = (await res.json().catch(() => ({}))) as { data?: unknown[] };
+    return (data.data ?? []).flatMap((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+      const row = item as Record<string, unknown>;
+      if (typeof row.id !== 'string' || row.id.trim() === '') return [];
+      if (this.freeOnly && !hasExplicitZeroPricing(row)) return [];
+      return [this.toModel({
+        id: row.id,
+        ...(typeof row.name === 'string' ? { name: row.name } : {}),
+        ...(typeof row.context_length === 'number' && row.context_length > 0
+          ? { contextLength: Math.floor(row.context_length) }
+          : {}),
+        ...(this.freeOnly ? { costPerMillionTokens: 0 } : {}),
+      })];
+    });
   }
 
   // ─── Requests ───────────────────────────────────────────────────
@@ -257,6 +294,7 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
 
   async chatCompletion(request: AIRequest): Promise<AIResponse> {
     this.requireInitialized();
+    await this.revalidateFreeModel(request.model);
     const release = this.trackConnection();
     const startTime = Date.now();
 
@@ -302,6 +340,7 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
 
   async *streamChatCompletion(request: AIRequest): AsyncGenerator<AIStreamChunk> {
     this.requireInitialized();
+    await this.revalidateFreeModel(request.model);
     const release = this.trackConnection();
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {

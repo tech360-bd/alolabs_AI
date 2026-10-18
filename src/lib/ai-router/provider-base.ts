@@ -71,6 +71,8 @@ function isRetryableError(error: unknown): boolean {
 export abstract class BaseAIProvider {
   abstract readonly name: AIProvider;
   abstract supportedModels: AIModel[];
+  /** True when this adapter advertises only upstream-confirmed zero-price models. */
+  readonly freeOnly: boolean = false;
 
   protected _initialized = false;
   protected _activeConnections = 0;

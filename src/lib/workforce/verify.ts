@@ -3,9 +3,9 @@
  *
  * This verifier does NOT claim that agents are operational. It proves the
  * *configuration* of the workforce: counts, ownership, uniqueness, required
- * fields and drift. Operational status requires execution evidence (a
- * completed verified task per agent) and is reported separately as
- * `agentsOperational`, which is zero unless agents were promoted to `active`.
+ * fields and drift. `agentsActive` reports only the stored lifecycle state; it
+ * is not proof of execution. Demonstrated execution is audited separately by
+ * scripts/activate-workforce.ts using recent, non-empty completed AgentRuns.
  */
 
 import { AGENTS_PER_DEPARTMENT, DEPARTMENT_COUNT, PRIMARY_AGENT_COUNT } from './constants';
@@ -41,8 +41,9 @@ export interface VerifyReport {
     departmentsDrifted: number;
     agentsOrphaned: number;
     agentsCrossTenantKeyClash: number;
-    agentsOperational: number;
+    agentsActive: number;
     agentsProvisioned: number;
+    agentsMissingAccess: number;
     legacyUnownedAgents: number;
     legacyUnownedDepartments: number;
   };
@@ -110,6 +111,10 @@ export function verifyWorkforce(
   // Agents -----------------------------------------------------------------
   check('agents.count', ownedAgents.length === PRIMARY_AGENT_COUNT, PRIMARY_AGENT_COUNT, ownedAgents.length);
 
+  const agentsMissingAccess = ownedAgents.filter((agent) => !agent.companyAccessIds.includes(tenantId)).length;
+  check('agents.tenant_access', agentsMissingAccess === 0, 0, agentsMissingAccess,
+    ownedAgents.filter((agent) => !agent.companyAccessIds.includes(tenantId)).slice(0, 5).map((agent) => agent.agentId).join(', ') || undefined);
+
   const agentByKey = new Map<string, StoredAgent>();
   for (const a of ownedAgents) agentByKey.set(a.agentId, a);
   const planAgentKeys = new Set(plan.agents.map((a) => a.agentId));
@@ -173,11 +178,16 @@ export function verifyWorkforce(
     if (!stored.purpose.trim()) problems.push('purpose');
     if (!stored.systemInstructions.trim()) problems.push('systemInstructions');
     if (!(parseJsonArray(stored.allowedSkills)?.length)) problems.push('allowedSkills');
-    const allowedTools = parseJsonArray(stored.allowedTools) ?? [];
-    const forbiddenTools = parseJsonArray(stored.forbiddenTools) ?? [];
-    if (allowedTools.length === 0) problems.push('allowedTools');
-    if (!GLOBALLY_FORBIDDEN_TOOLS.every((t) => forbiddenTools.includes(t))) problems.push('forbiddenTools');
-    if (allowedTools.some((t) => forbiddenTools.includes(t))) problems.push('tool_overlap');
+    const parsedAllowedTools = parseJsonArray(stored.allowedTools);
+    const parsedForbiddenTools = parseJsonArray(stored.forbiddenTools);
+    const validToolList = (tools: unknown[] | null): tools is string[] =>
+      tools !== null && tools.every((tool): tool is string => typeof tool === 'string');
+    if (!validToolList(parsedAllowedTools)) problems.push('allowedTools');
+    if (!validToolList(parsedForbiddenTools)) problems.push('forbiddenTools');
+    const allowedTools = validToolList(parsedAllowedTools) ? parsedAllowedTools : [];
+    const forbiddenTools = validToolList(parsedForbiddenTools) ? parsedForbiddenTools : [];
+    if (!GLOBALLY_FORBIDDEN_TOOLS.every((tool) => forbiddenTools.includes(tool))) problems.push('forbiddenTools');
+    if (allowedTools.some((tool) => forbiddenTools.includes(tool))) problems.push('tool_overlap');
     if (!profile || !profile.modelConfig) problems.push('modelConfig');
     if (!profile || !profile.knowledgeAccess) problems.push('knowledgeAccess');
     if (!profile || !profile.memoryPolicy) problems.push('memoryPolicy');
@@ -203,7 +213,7 @@ export function verifyWorkforce(
   check('agents.no_drift', agentsDrifted === 0, 0, agentsDrifted);
 
   // Lifecycle (informational for configuration; execution evidence required for "operational").
-  const agentsOperational = ownedAgents.filter((a) => a.status === 'active').length;
+  const agentsActive = ownedAgents.filter((a) => a.status === 'active').length;
   const agentsProvisioned = ownedAgents.filter((a) => a.status === 'provisioned').length;
 
   const ok = checks.every((c) => c.pass);
@@ -218,8 +228,9 @@ export function verifyWorkforce(
       departmentsDrifted,
       agentsOrphaned: orphans.length,
       agentsCrossTenantKeyClash: clashes.length,
-      agentsOperational,
+      agentsActive,
       agentsProvisioned,
+      agentsMissingAccess,
       legacyUnownedAgents,
       legacyUnownedDepartments,
     },

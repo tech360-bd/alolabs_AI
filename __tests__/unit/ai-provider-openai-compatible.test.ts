@@ -26,6 +26,7 @@ interface Seen {
 
 const seen: Seen[] = [];
 let failNext: { status: number; times: number } | null = null;
+let freeOnlyCatalog = false;
 let server: http.Server;
 let baseUrl = '';
 let restoreFetch: () => void = () => undefined;
@@ -56,6 +57,16 @@ beforeAll(async () => {
         return json(res, failNext.status, { error: { message: 'upstream hiccup' } });
       }
       if (req.url === '/v1/models') {
+        if (freeOnlyCatalog) {
+          return json(res, 200, {
+            object: 'list',
+            data: [
+              { id: 'free-model', pricing: { prompt: '0', completion: '0' } },
+              { id: 'paid-model', pricing: { prompt: '0.000001', completion: '0.000002' } },
+              { id: 'unknown-price-model' },
+            ],
+          });
+        }
         return json(res, 200, { object: 'list', data: [{ id: 'test-model-a' }, { id: 'test-model-b' }] });
       }
       if (req.url === '/v1/chat/completions') {
@@ -92,6 +103,7 @@ afterAll(async () => {
 beforeEach(() => {
   seen.length = 0;
   failNext = null;
+  freeOnlyCatalog = false;
 });
 
 describe('OpenAICompatibleProvider over HTTP', () => {
@@ -106,6 +118,37 @@ describe('OpenAICompatibleProvider over HTTP', () => {
     expect(provider.initialized).toBe(true);
     expect(provider.supportedModels.map((m) => m.id)).toEqual(['test-model-a', 'test-model-b']);
     expect(seen[0]).toMatchObject({ method: 'GET', url: '/v1/models', auth: `Bearer ${API_KEY}` });
+  });
+
+  it('free-only mode requires explicit upstream zero pricing and rechecks before every call', async () => {
+    freeOnlyCatalog = true;
+    const provider = new OpenAICompatibleProvider({
+      id: 'free-catalog',
+      label: 'Strict free catalog',
+      baseUrl,
+      apiKey: API_KEY,
+      freeOnly: true,
+      // A user-entered zero estimate is deliberately ignored in free-only mode.
+      models: [{ id: 'manual-zero-model', costPerMillionTokens: 0 }],
+    });
+    await provider.initialize();
+
+    expect(provider.freeOnly).toBe(true);
+    expect(provider.supportedModels.map((model) => model.id)).toEqual(['free-model']);
+    expect(provider.supportedModels[0].costPerMillionTokens).toBe(0);
+
+    await expect(provider.chatCompletion({
+      model: 'paid-model',
+      messages: [{ role: 'user', content: 'must not route' }],
+    })).rejects.toThrow(/does not confirm \$0 input and output pricing/);
+    expect(seen.some((request) => request.url === '/v1/chat/completions')).toBe(false);
+
+    const response = await provider.chatCompletion({
+      model: 'free-model',
+      messages: [{ role: 'user', content: 'free route' }],
+    });
+    expect(response.content).toBe('echo:free route');
+    expect(seen.filter((request) => request.url === '/v1/models')).toHaveLength(3);
   });
 
   it('performs a chat completion with the OpenAI wire format', async () => {

@@ -48,7 +48,14 @@ beforeAll(async () => {
       };
       if (req.headers.authorization !== `Bearer ${API_KEY}`) return send(401, { error: { message: 'bad key' } });
       if (req.url === '/v1/models') return send(200, { data: [{ id: 'local-model' }] });
-      if (req.url === '/v1/chat/completions') {
+      if (req.url === '/free/v1/models') return send(200, {
+        data: [
+          { id: 'confirmed-free-model', pricing: { prompt: '0', completion: '0' } },
+          { id: 'confirmed-paid-model', pricing: { prompt: '0.000001', completion: '0.000002' } },
+          { id: 'unpriced-model' },
+        ],
+      });
+      if (req.url === '/v1/chat/completions' || req.url === '/free/v1/chat/completions') {
         const body = JSON.parse(raw) as { model: string };
         return send(200, {
           id: 'c-1',
@@ -170,6 +177,42 @@ describe('AI provider configuration (real DB + real HTTP)', () => {
       taskType: 'integration',
     });
     expect(served!.costUsd).toBeCloseTo((6 / 1_000_000) * 0.5, 12);
+  });
+
+  it('free-only compatible configs ignore user cost claims and route only upstream-confirmed zero-price models', async () => {
+    const freeConfig = await admin.createProviderConfig(adminA, {
+      provider: 'openai-compatible-free',
+      name: 'Zero-Price Gateway',
+      baseUrl: baseUrl.replace('/v1', '/free/v1'),
+      apiKey: API_KEY,
+      // This manual claim is not trusted by free-only mode.
+      models: [{ id: 'manual-claim-model', costPerMillionTokens: 0 }],
+    });
+    expect(freeConfig.freeOnly).toBe(true);
+
+    try {
+      const result = await admin.testProviderConfig(adminA, freeConfig.id);
+      expect(result.status).toBe('healthy');
+      expect(result.models).toEqual(['confirmed-free-model']);
+
+      const router = await aiRouter.ensureRouterSynced({ force: true });
+      const providerName = `openai-compatible:${companyA.id}.zero-price-gateway`.toLowerCase();
+      const response = await router.chat(
+        { model: 'confirmed-free-model', messages: [{ role: 'user', content: 'free-only route' }] },
+        companyA.id,
+      );
+      expect(response.content).toBe('pong');
+      expect(router.getProviderSummaries().find((summary) => summary.provider === providerName)?.models)
+        .toEqual(['confirmed-free-model']);
+
+      const provider = router.getProvider(providerName as never)!;
+      await expect(provider.chatCompletion({
+        model: 'confirmed-paid-model',
+        messages: [{ role: 'user', content: 'must be refused' }],
+      })).rejects.toThrow(/does not confirm \$0 input and output pricing/);
+    } finally {
+      await admin.deleteProviderConfig(adminA, freeConfig.id);
+    }
   });
 
   it('runs a real connectivity test and records the verdict', async () => {

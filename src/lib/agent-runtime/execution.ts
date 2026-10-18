@@ -16,7 +16,7 @@ import { getRouter } from '@/lib/ai-router';
 import { resolveModelForTier } from '@/lib/ai-router/model-tiers';
 import { runToolLoop } from './tool-loop';
 import { parseToolList, toolSchemasFor } from '@/lib/tools';
-import { buildAgentContext } from '@/lib/context-engine';
+import { buildAgentContext, buildMinimalAgentSystemPrompt } from '@/lib/context-engine';
 import {
   classifyTask, selectModelForTask, retrieveRelevantKnowledge,
   validateExecution, storeExecutionMemory, buildRAGContextSection,
@@ -290,9 +290,25 @@ export class AgentExecutionEngine {
       slotAcquired = true;
       this.stateManager.transition(taskId, 'running', 'Execution started');
 
-      const agent = await db.agent.findUnique({ where: { agentId: task.agentId } });
-      if (!agent || agent.status !== 'active') {
-        throw new Error(`Active agent ${task.agentId} was not found`);
+      if (task.userId && task.userId !== 'anonymous') {
+        const membership = await db.companyUser.findUnique({
+          where: { companyId_userId: { companyId: task.companyId, userId: task.userId } },
+          select: { id: true },
+        });
+        if (!membership) throw new Error('Forbidden');
+      }
+
+      // Re-check both lifecycle and explicit company access at execution time;
+      // queued work must not survive a revoked share or an agent deactivation.
+      const agent = await db.agent.findFirst({
+        where: {
+          agentId: task.agentId,
+          status: 'active',
+          agentCompanyAccess: { some: { companyId: task.companyId } },
+        },
+      });
+      if (!agent) {
+        throw new Error(`Active agent ${task.agentId} is not available to this company`);
       }
       agentDbId = agent.id;
 
@@ -489,7 +505,13 @@ export class AgentExecutionEngine {
         }
       } catch (contextError) {
         console.warn(`[AgentRuntime] Context engine failed for ${task.agentId}:`, contextError);
-        systemPrompt = `You are ${agent.name}, a ${agent.role} AI employee in the ${agent.departmentName} department at ALO Labs. Respond accurately and professionally. Do not claim to have used tools or data that were not provided.`;
+        // Preserve the agent's own operating instructions, but do not include
+        // department details or materials that failed tenant-scope validation.
+        systemPrompt = buildMinimalAgentSystemPrompt({
+          agentName: agent.name,
+          agentRole: agent.role,
+          systemInstructions: agent.systemInstructions,
+        });
         if (ragSection) {
           systemPrompt += `\n\n${ragSection}`;
           contextSourceNames.add('rag');
