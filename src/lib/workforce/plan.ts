@@ -154,15 +154,32 @@ const FALLBACK_POLICY: Record<ModelPolicy, ModelPolicy> = {
 };
 
 /**
- * Approved tools = department tools ∩ role tool category. A role never gets a
- * tool its department does not own. If that intersection is empty the role
- * receives the department's first tool so it is still usable.
+ * DepartmentRegistry.tools describes capability families, while Agent.allowedTools
+ * is consumed as exact names by the runtime tool policy. Bind only capabilities
+ * that have an audited, registered implementation; unsupported capabilities
+ * remain unavailable rather than being advertised as executable tools.
+ */
+const RUNTIME_TOOLS_BY_CAPABILITY: Readonly<Record<string, readonly string[]>> = {
+  search: ['search_knowledge'],
+  crm: ['crm_lookup_contact', 'crm_pipeline_summary'],
+  analytics: ['calculate'],
+}
+
+/**
+ * Approved tools = department capabilities ∩ role category, translated to
+ * exact runtime registry names. Empty intersections stay empty (no unsafe or
+ * misleading first-tool fallback).
  */
 export function approvedToolsFor(deptTools: readonly string[], role: AgentRoleTemplate): string[] {
-  if (role.toolCategory === 'all') return [...deptTools];
-  const members = TOOL_CATEGORY_MEMBERS[role.toolCategory];
-  const picked = deptTools.filter((tool) => members.includes(tool));
-  return picked.length > 0 ? picked : deptTools.slice(0, 1);
+  const category = role.toolCategory
+  const capabilities = category === 'all'
+    ? deptTools
+    : deptTools.filter((capability) => TOOL_CATEGORY_MEMBERS[category].includes(capability))
+  const approved = new Set<string>()
+  for (const capability of capabilities) {
+    for (const toolName of RUNTIME_TOOLS_BY_CAPABILITY[capability] ?? []) approved.add(toolName)
+  }
+  return [...approved]
 }
 
 function buildSystemInstructions(dept: DepartmentSpec, role: AgentRoleTemplate, agentName: string): string {

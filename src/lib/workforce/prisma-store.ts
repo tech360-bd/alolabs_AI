@@ -17,7 +17,10 @@ import type {
   WorkforceStore,
 } from './provision';
 
-const AGENT_INCLUDE = { department: { select: { slug: true } } } as const;
+const AGENT_INCLUDE = {
+  department: { select: { slug: true } },
+  agentCompanyAccess: { select: { companyId: true } },
+} as const;
 
 type AgentRowWithDept = Prisma.AgentGetPayload<{ include: typeof AGENT_INCLUDE }>;
 type DeptRow = Prisma.DepartmentGetPayload<object>;
@@ -64,6 +67,7 @@ function toStoredAgent(r: AgentRowWithDept): StoredAgent {
     status: r.status,
     version: r.version,
     companyId: r.companyId,
+    companyAccessIds: r.agentCompanyAccess.map((access) => access.companyId),
     systemInstructions: r.systemInstructions,
     runtimeProfile: r.runtimeProfile,
   };
@@ -165,6 +169,36 @@ export function createPrismaWorkforceStore(client: PrismaClient = db): Workforce
 
     async updateAgent(id, data: Omit<AgentWrite, 'agentId'>) {
       await client.agent.update({ where: { id }, data });
+    },
+
+    async ensureAgentCompanyAccess(agentIds, companyId) {
+      let ensured = 0;
+      for (const idChunk of chunks([...new Set(agentIds)], LOOKUP_CHUNK)) {
+        if (idChunk.length === 0) continue;
+        // Match both the business key and ownership. The relation is an
+        // execution grant, not a way to claim a row belonging to another
+        // company.
+        const agents = await client.agent.findMany({
+          where: { agentId: { in: idChunk }, companyId },
+          select: { id: true },
+        });
+        const dbIds = agents.map((agent) => agent.id);
+        const currentAccess = await client.agentCompanyAccess.findMany({
+          where: { agentId: { in: dbIds }, companyId },
+          select: { agentId: true },
+        });
+        const currentIds = new Set(currentAccess.map((access) => access.agentId));
+        const missingIds = dbIds.filter((agentId) => !currentIds.has(agentId));
+        for (const dbIdChunk of chunks(missingIds, 25)) {
+          await Promise.all(dbIdChunk.map((agentId) => client.agentCompanyAccess.upsert({
+            where: { agentId_companyId: { agentId, companyId } },
+            update: {},
+            create: { agentId, companyId, accessLevel: 'full' },
+          })));
+        }
+        ensured += dbIds.length;
+      }
+      return ensured;
     },
   };
 }

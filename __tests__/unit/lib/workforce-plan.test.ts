@@ -36,6 +36,7 @@ class MemoryStore implements WorkforceStore {
   tenants = new Map<string, { id: string; slug: string }>();
   depts = new Map<string, StoredDepartment>();
   agents = new Map<string, StoredAgent>();
+  private companyAccess = new Map<string, Set<string>>();
   writes = 0;
   private seq = 0;
 
@@ -83,6 +84,22 @@ class MemoryStore implements WorkforceStore {
     const existing = this.agents.get(id)!;
     this.agents.set(id, this.toStored(id, { ...data, agentId: existing.agentId }, existing.status));
   }
+  async ensureAgentCompanyAccess(agentIds: string[], companyId: string) {
+    let ensured = 0;
+    for (const agentId of agentIds) {
+      const row = [...this.agents.values()].find((agent) => agent.agentId === agentId && agent.companyId === companyId);
+      if (!row) continue;
+      const grants = this.companyAccess.get(row.id) ?? new Set<string>();
+      if (!grants.has(companyId)) {
+        grants.add(companyId);
+        this.companyAccess.set(row.id, grants);
+        this.writes++;
+        this.agents.set(row.id, { ...row, companyAccessIds: [...grants] });
+      }
+      ensured++;
+    }
+    return ensured;
+  }
   async loadAll() {
     return { departments: [...this.depts.values()], agents: [...this.agents.values()] };
   }
@@ -100,14 +117,17 @@ class MemoryStore implements WorkforceStore {
       purpose: '', type: '', role: '', allowedSkills: '[]', forbiddenSkills: '[]', allowedTools: '[]',
       forbiddenTools: '[]', inputSchema: '{}', outputSchema: '{}', workflowSteps: '[]', protectionRules: '[]',
       approvalRules: '[]', handoffRules: '[]', qualityChecklist: '[]', selfImprovement: '{}',
-      productivityRules: '{}', status: 'provisioned', version: 1, companyId: null, systemInstructions: '',
+      productivityRules: '{}', status: 'provisioned', version: 1, companyId: null, companyAccessIds: [], systemInstructions: '',
       runtimeProfile: '{}',
     };
   }
 
   private toStored(id: string, write: AgentWrite, status: string): StoredAgent {
     const deptSlug = [...this.depts.values()].find((d) => d.id === write.departmentId)?.slug ?? null;
-    return { ...this.blankAgent(id), ...write, id, status, departmentSlug: deptSlug };
+    return {
+      ...this.blankAgent(id), ...write, id, status, departmentSlug: deptSlug,
+      companyAccessIds: [...(this.companyAccess.get(id) ?? new Set<string>())],
+    };
   }
 }
 
@@ -217,13 +237,13 @@ describe('workforce plan — shape and identity', () => {
 });
 
 describe('workforce plan — per-agent configuration', () => {
-  it('gives every agent every required configuration field, non-empty', () => {
+  it('gives every agent required configuration; runtime tool grants are limited to implemented capabilities', () => {
     for (const agent of plan.agents) {
       expect(agent.name.trim()).not.toBe('');
       expect(agent.purpose.trim()).not.toBe('');
       expect(agent.systemInstructions.trim()).not.toBe('');
       expect(agent.allowedSkills.length).toBeGreaterThan(0);
-      expect(agent.allowedTools.length).toBeGreaterThan(0);
+      expect(Array.isArray(agent.allowedTools)).toBe(true);
       expect(agent.modelConfig.policy).toBeTruthy();
       expect(agent.knowledgeAccess.scope).toBe(`department:${agent.departmentSlug}`);
       expect(agent.memoryPolicy.profile).toBeTruthy();
@@ -242,12 +262,18 @@ describe('workforce plan — per-agent configuration', () => {
     expect(plan.agents.every((a) => a.status === 'provisioned')).toBe(true);
   });
 
-  it('grants only department-owned tools and never a globally forbidden tool', () => {
-    const deptTools = new Map(plan.departments.map((d) => [d.slug, d.tools]));
+  it('grants only registered runtime tools backed by department capabilities', () => {
+    const capabilitiesByDepartment = new Map(plan.departments.map((d) => [d.slug, d.tools]));
+    const implementedBindings: Record<string, string[]> = {
+      search_knowledge: ['search'],
+      crm_lookup_contact: ['crm'],
+      crm_pipeline_summary: ['crm'],
+      calculate: ['analytics'],
+    };
     for (const agent of plan.agents) {
-      const owned = deptTools.get(agent.departmentSlug)!;
-      expect(agent.allowedTools.every((t) => owned.includes(t))).toBe(true);
-      expect(agent.allowedTools.some((t) => agent.forbiddenTools.includes(t))).toBe(false);
+      const capabilities = capabilitiesByDepartment.get(agent.departmentSlug)!;
+      expect(agent.allowedTools.every((tool) => implementedBindings[tool]?.some((capability) => capabilities.includes(capability)))).toBe(true);
+      expect(agent.allowedTools.some((tool) => agent.forbiddenTools.includes(tool))).toBe(false);
       for (const forbidden of GLOBALLY_FORBIDDEN_TOOLS) expect(agent.forbiddenTools).toContain(forbidden);
     }
   });
@@ -272,12 +298,13 @@ describe('workforce plan — per-agent configuration', () => {
     }
   });
 
-  it('approvedToolsFor never returns a tool outside the department and falls back when the category is empty', () => {
+  it('maps supported department capabilities to exact runtime tools and fails closed on empty intersections', () => {
     const role = ROLE_CATALOG.find((r) => r.toolCategory === 'communication')!;
-    expect(approvedToolsFor(['analytics'], role)).toEqual(['analytics']);
-    expect(approvedToolsFor(['email', 'crm', 'database'], role)).toEqual(['email', 'crm']);
+    expect(approvedToolsFor(['analytics'], role)).toEqual([]);
+    expect(approvedToolsFor(['email', 'crm', 'database'], role)).toEqual(['crm_lookup_contact', 'crm_pipeline_summary']);
     const all = ROLE_CATALOG.find((r) => r.toolCategory === 'all')!;
-    expect(approvedToolsFor(['a', 'b'], all)).toEqual(['a', 'b']);
+    expect(approvedToolsFor(['search', 'analytics', 'email'], all)).toEqual(['search_knowledge', 'calculate']);
+    expect(approvedToolsFor(['email'], role)).toEqual([]);
   });
 
   it('plans agent numbering exactly as agentBusinessKey', () => {
@@ -298,6 +325,8 @@ describe('workforce provisioner (in-memory store)', () => {
     expect(report.agents).toEqual({ created: PRIMARY_AGENT_COUNT, updated: 0, unchanged: 0, conflicts: 0 });
     expect(store.depts.size).toBe(DEPARTMENT_COUNT);
     expect(store.agents.size).toBe(PRIMARY_AGENT_COUNT);
+    expect(report.agentAccessEnsured).toBe(PRIMARY_AGENT_COUNT);
+    expect([...store.agents.values()].every((agent) => agent.companyAccessIds.includes(tenantId(store)))).toBe(true);
   });
 
   it('is idempotent: a second run creates, updates and writes nothing', async () => {
@@ -307,8 +336,24 @@ describe('workforce provisioner (in-memory store)', () => {
     expect(report.ok).toBe(true);
     expect(report.departments).toEqual({ created: 0, updated: 0, unchanged: DEPARTMENT_COUNT, conflicts: 0 });
     expect(report.agents).toEqual({ created: 0, updated: 0, unchanged: PRIMARY_AGENT_COUNT, conflicts: 0 });
+    expect(report.agentAccessEnsured).toBe(PRIMARY_AGENT_COUNT);
     expect(report.tenant.created).toBe(false);
     expect(store.writes).toBe(writesBefore);
+  });
+
+  it('repairs a missing tenant access grant without changing the agent lifecycle', async () => {
+    const { store } = await provisionedStore();
+    const target = [...store.agents.values()].find((agent) => agent.agentId === 'AGENT-0001')!;
+    target.companyAccessIds = [];
+    (store as unknown as { companyAccess: Map<string, Set<string>> }).companyAccess.delete(target.id);
+
+    const beforeWrites = store.writes;
+    const report = await provisionWorkforce(store, plan);
+    expect(report.agentAccessEnsured).toBe(PRIMARY_AGENT_COUNT);
+    expect(store.writes).toBe(beforeWrites + 1);
+    expect(store.agents.get(target.id)?.companyAccessIds).toContain(tenantId(store));
+    expect(store.agents.get(target.id)?.status).toBe('provisioned');
+    expect(verifyWorkforce(plan, { tenantId: tenantId(store), ...storedRowsFor(store) }).counts.agentsMissingAccess).toBe(0);
   });
 
   it('dry-run reports the same planned counts and performs no writes', async () => {
@@ -317,6 +362,7 @@ describe('workforce provisioner (in-memory store)', () => {
     expect(report.dryRun).toBe(true);
     expect(report.departments.created).toBe(DEPARTMENT_COUNT);
     expect(report.agents.created).toBe(PRIMARY_AGENT_COUNT);
+    expect(report.agentAccessEnsured).toBe(0);
     expect(store.writes).toBe(0);
     expect(store.agents.size).toBe(0);
   });
@@ -408,7 +454,7 @@ describe('workforce verifier', () => {
     expect(report.checks.every((c) => c.pass)).toBe(true);
     expect(report.counts.agentsOwned).toBe(PRIMARY_AGENT_COUNT);
     expect(report.counts.departmentsOwned).toBe(DEPARTMENT_COUNT);
-    expect(report.counts.agentsOperational).toBe(0);
+    expect(report.counts.agentsActive).toBe(0);
     expect(report.planHash).toBe(plan.planHash);
   });
 
@@ -485,11 +531,14 @@ describe('workforce verifier', () => {
     expect(report.counts.agentsOwned).toBe(PRIMARY_AGENT_COUNT);
   });
 
-  it('never reports agents as operational just because they are provisioned', async () => {
+  it('reports active lifecycle separately from demonstrated execution', async () => {
     const { store } = await provisionedStore();
+    const active = [...store.agents.values()].find((agent) => agent.agentId === 'AGENT-0001')!;
+    store.agents.set(active.id, { ...active, status: 'active' });
     const report = verifyWorkforce(plan, { tenantId: tenantId(store), ...storedRowsFor(store) });
-    expect(report.counts.agentsOperational).toBe(0);
-    expect(report.counts.agentsProvisioned).toBe(PRIMARY_AGENT_COUNT);
+    expect(report.counts.agentsActive).toBe(1);
+    expect(report.counts.agentsProvisioned).toBe(PRIMARY_AGENT_COUNT - 1);
+    expect(report.counts).not.toHaveProperty('agentsOperational');
   });
 
   it('with no tenant at all, fails closed', () => {

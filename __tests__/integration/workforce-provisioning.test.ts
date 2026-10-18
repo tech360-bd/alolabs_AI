@@ -19,21 +19,36 @@ import type { DepartmentConfig } from '@/lib/department-registry/types';
 const root = process.cwd();
 const tsxCli = join(root, 'node_modules/tsx/dist/cli.mjs');
 const provisionScript = join(root, 'scripts/provision-workforce.ts');
+const activationScript = join(root, 'scripts/activate-workforce.ts');
 
-type ReportDoc = { provision?: any; verify?: any };
+type ReportDoc = { provision?: any; verify?: any; totals?: any; scope?: any; agents?: any[] };
 
-function runCli(env: NodeJS.ProcessEnv, ...args: string[]) {
-  const result = spawnSync(process.execPath, [tsxCli, provisionScript, ...args], {
+function runScript(env: NodeJS.ProcessEnv, script: string, ...args: string[]) {
+  const result = spawnSync(process.execPath, [tsxCli, script, ...args], {
     cwd: root,
     env,
     encoding: 'utf8',
     timeout: 300_000,
+    maxBuffer: 10 * 1024 * 1024,
   });
-  return { status: result.status, docs: parseDocs(result.stdout), stderr: result.stderr };
+  return { status: result.status, docs: parseDocs(result.stdout), stderr: result.stderr, stdout: result.stdout };
+}
+
+function runCli(env: NodeJS.ProcessEnv, ...args: string[]) {
+  return runScript(env, provisionScript, ...args);
 }
 
 /** The CLI prints one or more concatenated JSON documents; read them all. */
 function parseDocs(text: string): ReportDoc[] {
+  const trimmed = text.trim();
+  if (trimmed) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === 'object' && parsed !== null) return [parsed as ReportDoc];
+    } catch {
+      // The provisioning CLI emits concatenated documents; parse them below.
+    }
+  }
   const docs: ReportDoc[] = [];
   let i = 0;
   while (i < text.length) {
@@ -60,8 +75,14 @@ function parseDocs(text: string): ReportDoc[] {
       }
     }
     if (end < 0) break;
-    docs.push(JSON.parse(text.slice(start, end)));
-    i = end;
+    try {
+      docs.push(JSON.parse(text.slice(start, end)));
+      i = end;
+    } catch {
+      // Runtime/provider logs can contain brace-delimited non-JSON text before
+      // the audit's JSON report. Keep scanning for the next object.
+      i = start + 1;
+    }
   }
   return docs;
 }
@@ -94,9 +115,11 @@ describe('workforce provisioning (real SQLite database)', () => {
     expect(report.ok).toBe(true);
     expect(report.departments.created).toBe(100);
     expect(report.agents.created).toBe(2000);
+    expect(report.agentAccessEnsured).toBe(2000);
 
     expect(await db.department.count()).toBe(100);
     expect(await db.agent.count()).toBe(2000);
+    expect(await db.agentCompanyAccess.count({ where: { companyId: (await db.company.findUnique({ where: { slug: 'alo-labs' }, select: { id: true } }))!.id } })).toBe(2000);
     const tenant = await db.company.findUnique({ where: { slug: 'alo-labs' } });
     expect(tenant).not.toBeNull();
     expect(await db.agent.count({ where: { companyId: tenant!.id } })).toBe(2000);
@@ -138,13 +161,14 @@ describe('workforce provisioning (real SQLite database)', () => {
     expect(afterStamp._max.updatedAt?.getTime()).toBe(beforeStamp._max.updatedAt?.getTime());
   }, 120_000);
 
-  it('verifier passes on the live database and reports no operational agents yet', async () => {
+  it('verifier passes on the live database and reports lifecycle state without claiming operation', async () => {
     const rows = await store.loadAll();
     const tenant = await store.findTenantId('alo-labs');
     const report = workforce.verifyWorkforce(plan(), { tenantId: tenant, ...rows });
     expect(report.ok).toBe(true);
     expect(report.counts.agentsOwned).toBe(2000);
-    expect(report.counts.agentsOperational).toBe(0);
+    expect(report.counts.agentsMissingAccess).toBe(0);
+    expect(report.counts.agentsActive).toBe(0);
   }, 60_000);
 
   it('repairs drift in the database and never changes a verified-active lifecycle', async () => {
@@ -223,5 +247,72 @@ describe('workforce provisioning (real SQLite database)', () => {
     expect(provision.dryRun).toBe(true);
     expect(provision.agents.created).toBe(0);
     expect(provision.departments.created).toBe(0);
+  }, 300_000);
+
+  it('activation audit joins by database id and scopes run evidence to the selected company', async () => {
+    const tenantId = await store.findTenantId('alo-labs');
+    const companyAgent = await db.agent.findUnique({ where: { agentId: 'AGENT-0001' } });
+    const partnerAgent = await db.agent.findUnique({ where: { agentId: 'PARTNER-0001' } });
+    const partnerCompany = await db.company.findUnique({ where: { slug: 'partner-co' } });
+    expect(tenantId).toBeTruthy();
+    expect(companyAgent).not.toBeNull();
+    expect(partnerAgent).not.toBeNull();
+    expect(partnerCompany).not.toBeNull();
+
+    await db.agent.update({ where: { agentId: 'AGENT-0001' }, data: { status: 'active' } });
+    const companyRun = await db.agentRun.create({
+      data: {
+        agentId: companyAgent!.id,
+        companyId: tenantId!,
+        status: 'completed',
+        input: 'Run evidence for the tenant agent.',
+        output: 'Completed response recorded for this company-scoped test agent.',
+      },
+    });
+    const crossCompanyRun = await db.agentRun.create({
+      data: {
+        agentId: companyAgent!.id,
+        companyId: partnerCompany!.id,
+        status: 'completed',
+        input: 'Foreign tenant run.',
+        output: 'Must not count in the ALO audit.',
+      },
+    });
+    const partnerRun = await db.agentRun.create({
+      data: {
+        agentId: partnerAgent!.id,
+        companyId: partnerCompany!.id,
+        status: 'completed',
+        input: 'Partner agent run.',
+        output: 'Private partner output.',
+      },
+    });
+    for (const [taskId, agentId] of [
+      [companyRun.id, companyAgent!.id],
+      [crossCompanyRun.id, companyAgent!.id],
+      [partnerRun.id, partnerAgent!.id],
+    ]) {
+      await db.toolRun.create({
+        data: { taskId, agentId, toolName: 'search_knowledge', toolCategory: 'knowledge' },
+      });
+    }
+
+    const audit = runScript(
+      { ...real.env, PRISMA_SQLITE_ADAPTER: '1' },
+      activationScript,
+      '--company', tenantId!,
+      '--json',
+      '--days', '30',
+    );
+    expect(audit.status, audit.stderr).toBe(0);
+    const report = JSON.parse(audit.stdout) as ReportDoc;
+    expect(report.scope).toMatchObject({ companyId: tenantId, agentCount: 2000 });
+    expect(report.totals.agentRuns).toBe(1);
+    expect(report.totals.agentRunsCompleted).toBe(1);
+    expect(report.totals.toolRuns).toBe(1);
+    expect(report.totals.toolRunScope).toBe('linked to company-scoped AgentRun rows');
+    expect(report.agents!.some((agent) => agent.agentId === 'PARTNER-0001')).toBe(false);
+    expect(report.agents!.find((agent) => agent.agentId === 'AGENT-0001')!.runs)
+      .toMatchObject({ total: 1, completed: 1 });
   }, 300_000);
 });

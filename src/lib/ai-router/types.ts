@@ -11,6 +11,7 @@ export type AIProvider =
   | 'ollama-phi'
   | 'ollama-gemma'
   | 'openrouter'
+  | 'openrouter-free'
   | 'zai-sdk'
   | 'openai-compatible'
   /** Additional OpenAI-compatible endpoints configured at runtime (AIProviderConfig). */

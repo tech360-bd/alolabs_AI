@@ -1,76 +1,76 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getRagEngineStats } from '@/lib/rag-engine'
+import { NextResponse } from 'next/server'
+import { requireCompanyAuth } from '@/lib/api-auth'
 import { db } from '@/lib/db'
+import { getRagEngineStats } from '@/lib/rag-engine'
 
-export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+function errorResponse(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Internal server error'
+  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500
+  if (status === 500) console.error('[RAG Engine Stats] Error:', error)
+  return NextResponse.json({ error: status === 500 ? 'Failed to retrieve RAG engine statistics' : message }, { status })
+}
+
+export async function GET() {
   try {
-    const [engineStats, collections] = await Promise.all([
-      getRagEngineStats(),
+    const user = await requireCompanyAuth()
+    const companyId = user.companyId
+    const [engineStats, collections, indexedDocuments, embeddedChunks] = await Promise.all([
+      getRagEngineStats(companyId),
       db.ragCollection.findMany({
-        select: {
-          id: true,
-          name: true,
-          documentCount: true,
-        },
+        where: { companyId },
+        select: { id: true, name: true },
         orderBy: { createdAt: 'desc' },
       }),
+      db.ragDocument.count({ where: { companyId, status: 'indexed' } }),
+      db.ragChunk.count({ where: { companyId, embedding: { not: null } } }),
     ])
 
-    // Get chunk counts per collection
-    const collectionIds = collections.map((c) => c.id)
-    let chunkCountsByCollection: Record<string, number> = {}
+    const collectionIds = collections.map((collection) => collection.id)
+    const documents = collectionIds.length > 0
+      ? await db.ragDocument.findMany({
+          where: { companyId, collectionId: { in: collectionIds } },
+          select: { id: true, collectionId: true },
+        })
+      : []
+    const documentIds = documents.map((document) => document.id)
+    const chunkGroups = documentIds.length > 0
+      ? await db.ragChunk.groupBy({
+          by: ['documentId'],
+          where: { companyId, documentId: { in: documentIds } },
+          _count: { id: true },
+        })
+      : []
 
-    if (collectionIds.length > 0) {
-      // Get document IDs per collection, then count chunks per document
-      const documents = await db.ragDocument.findMany({
-        where: { collectionId: { in: collectionIds } },
-        select: { id: true, collectionId: true },
-      })
-
-      const docIds = documents.map((d) => d.id)
-      const chunks = await db.ragChunk.groupBy({
-        by: ['documentId'],
-        where: { documentId: { in: docIds } },
-        _count: { id: true },
-      })
-
-      const chunkCountByDoc = new Map(chunks.map((c) => [c.documentId, c._count.id]))
-
-      const docToCollection = new Map(documents.map((d) => [d.id, d.collectionId]))
-
-      for (const collection of collections) {
-        const docsInCollection = documents.filter((d) => d.collectionId === collection.id)
-        const totalChunks = docsInCollection.reduce(
-          (sum, doc) => sum + (chunkCountByDoc.get(doc.id) || 0),
-          0
-        )
-        chunkCountsByCollection[collection.id] = totalChunks
-      }
+    const chunksByDocument = new Map(chunkGroups.map((group) => [group.documentId, group._count.id]))
+    const documentCounts = new Map<string, number>()
+    const chunkCounts = new Map<string, number>()
+    for (const document of documents) {
+      documentCounts.set(document.collectionId, (documentCounts.get(document.collectionId) ?? 0) + 1)
+      chunkCounts.set(
+        document.collectionId,
+        (chunkCounts.get(document.collectionId) ?? 0) + (chunksByDocument.get(document.id) ?? 0),
+      )
     }
 
-    const collectionsWithChunks = collections.map((c) => ({
-      id: c.id,
-      name: c.name,
-      documentCount: c.documentCount,
-      chunkCount: chunkCountsByCollection[c.id] || 0,
+    const embeddingProviderConfigured = Boolean(process.env.EMBEDDING_API_URL && process.env.EMBEDDING_API_KEY)
+    const collectionsWithCounts = collections.map((collection) => ({
+      id: collection.id,
+      name: collection.name,
+      documentCount: documentCounts.get(collection.id) ?? 0,
+      chunkCount: chunkCounts.get(collection.id) ?? 0,
     }))
 
     return NextResponse.json({
-      engine: engineStats,
-      collections: collectionsWithChunks,
+      engine: {
+        ...engineStats,
+        indexedDocuments,
+        indexingRate: engineStats.documents > 0 ? indexedDocuments / engineStats.documents : null,
+        embeddedChunks,
+        embeddingProviderConfigured,
+      },
+      collections: collectionsWithCounts,
     })
   } catch (error) {
-    console.error('[RAG Engine Stats] Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to retrieve RAG engine statistics' },
-      { status: 500 }
-    )
+    return errorResponse(error)
   }
 }

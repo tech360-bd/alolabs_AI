@@ -332,7 +332,7 @@ export class AIRouter {
       // Attempt failover on circuit-open, provider-unavailable, or retryable errors
       const isRetryable = err instanceof AIRouterError && err.retryable;
       if (err instanceof AICircuitOpenError || err instanceof AIProviderUnavailableError || isRetryable) {
-        const fallback = await this.attemptFailover(request, decision.provider, companyId, agentId);
+        const fallback = await this.attemptFailover(request, decision.provider, companyId, agentId, entry.provider.freeOnly);
         if (fallback) {
           this.emitDecision({
             ...base,
@@ -461,7 +461,7 @@ export class AIRouter {
 
       // Attempt failover streaming
       if (err instanceof AICircuitOpenError || err instanceof AIProviderUnavailableError) {
-        const fallbackStream = this.attemptStreamFailover(request, decision.provider, companyId, agentId);
+        const fallbackStream = this.attemptStreamFailover(request, decision.provider, companyId, agentId, entry.provider.freeOnly);
         if (fallbackStream) {
           yield* fallbackStream;
           return;
@@ -617,9 +617,10 @@ export class AIRouter {
     failedProvider: AIProvider,
     companyId?: string,
     agentId?: string,
+    freeOnlyOnly = false,
   ): Promise<{ response: AIResponse; provider: AIProvider; attempts: number } | null> {
     const available = this.getAvailableProviders(companyId).filter(
-      (e) => e.provider.name !== failedProvider,
+      (entry) => entry.provider.name !== failedProvider && (!freeOnlyOnly || entry.provider.freeOnly),
     );
 
     let attempts = 0;
@@ -665,9 +666,10 @@ export class AIRouter {
     failedProvider: AIProvider,
     companyId?: string,
     agentId?: string,
+    freeOnlyOnly = false,
   ): AsyncGenerator<AIStreamChunk> | null {
     const available = this.getAvailableProviders(companyId).filter(
-      (e) => e.provider.name !== failedProvider,
+      (entry) => entry.provider.name !== failedProvider && (!freeOnlyOnly || entry.provider.freeOnly),
     );
 
     if (available.length === 0) return null;
@@ -782,9 +784,12 @@ export class AIRouter {
     modelId: string,
     available: ProviderEntry[],
   ): ProviderEntry | undefined {
-    return available.find((e) =>
-      e.provider.supportedModels.some((m) => m.id === modelId),
+    const matches = available.filter((entry) =>
+      entry.provider.supportedModels.some((model) => model.id === modelId),
     );
+    // If a provider advertises this exact model under a live $0-only pricing
+    // gate, prefer that verified route over a paid endpoint with the same id.
+    return matches.find((entry) => entry.provider.freeOnly) ?? matches[0];
   }
 
   /**

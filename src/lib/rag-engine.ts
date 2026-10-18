@@ -528,20 +528,20 @@ export async function deleteDocumentChunks(documentId: string): Promise<number> 
   return result.count;
 }
 
-export async function getRagEngineStats(): Promise<{
+export async function getRagEngineStats(companyId: string): Promise<{
   collections: number;
   documents: number;
   chunks: number;
   qdrantConnected: boolean;
-  averageChunksPerDoc: number;
+  averageChunksPerDoc: number | null;
   totalQueries: number;
-  averageQueryDurationMs: number;
+  averageQueryDurationMs: number | null;
 }> {
   const [collections, documents, chunks, queries] = await Promise.all([
-    db.ragCollection.count(),
-    db.ragDocument.count(),
-    db.ragChunk.count(),
-    db.ragQuery.aggregate({ _avg: { durationMs: true }, _count: true }),
+    db.ragCollection.count({ where: { companyId } }),
+    db.ragDocument.count({ where: { companyId } }),
+    db.ragChunk.count({ where: { companyId } }),
+    db.ragQuery.aggregate({ where: { companyId }, _avg: { durationMs: true }, _count: true }),
   ]);
 
   return {
@@ -549,8 +549,8 @@ export async function getRagEngineStats(): Promise<{
     documents,
     chunks,
     qdrantConnected: isQdrantConnected(),
-    averageChunksPerDoc: documents > 0 ? Math.round(chunks / documents) : 0,
+    averageChunksPerDoc: documents > 0 ? Math.round(chunks / documents) : null,
     totalQueries: queries._count,
-    averageQueryDurationMs: Math.round(queries._avg.durationMs || 0),
+    averageQueryDurationMs: queries._avg.durationMs == null ? null : Math.round(queries._avg.durationMs),
   };
 }

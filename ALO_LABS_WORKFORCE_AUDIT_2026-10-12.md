@@ -75,7 +75,7 @@ Commands were run in the sandbox against the real Prisma SQLite adapter unless s
 | CLI dry-run on fresh DB | `provision-workforce.ts --dry-run` | exit 0 · 100 depts / 2,000 agents planned · 0 conflicts · no writes |
 | CLI apply | `provision-workforce.ts` | exit 0 · created 100 / 2,000 · verify ok |
 | CLI idempotent re-run | `provision-workforce.ts` | exit 0 · all unchanged |
-| Verifier | `verify-2000-workforce.ts` | exit 0 · 13/13 checks · `agentsOwned 2000` · `agentsOperational 0` |
+| Verifier | `verify-2000-workforce.ts` | Historical output: exit 0 · 13/13 checks · `agentsOwned 2000` · `agentsOperational 0` (that field counted lifecycle state only; current verifier reports `agentsActive`) |
 | Plan determinism | repeated plan builds | identical `planHash` `48600a1721bd3e5929839f8b250cfbe0ac6efb910a66f35445316d096365182e` |
 
 Integration test scenarios (all passing on real SQLite):
@@ -151,8 +151,8 @@ The directive's numbered acceptance tests 1–20 are not present in this workspa
 1. **Review:** this PR, the audit, and the inventories in `docs/workforce/`.
 2. **Staging:** restore a staging snapshot. Apply `20261012_workforce_provisioning.sql` to a MySQL 8 copy (B4). Note: `sqlite-push` only creates missing tables and refuses existing databases with undeclared foreign keys, so it cannot migrate an existing SQLite database. Existing SQLite data needs a reviewed table-rebuild migration first.
 3. **Dry-run:** `npm run provision:workforce:dry-run`. Expected: 100 / 2,000, 0 conflicts. Any conflict → resolve per B2 before continuing.
-4. **Apply:** `npm run provision:workforce`. Then `npm run verify:workforce`. Expected: `ok: true`, `agentsOwned: 2000`, `agentsOperational: 0`.
-5. **Runtime verification (not yet built):** execute a representative task per department; verify tool calls, persistence and completion. Only then promote agents from `provisioned` to `active`.
+4. **Apply:** `npm run provision:workforce`. Then `npm run verify:workforce`. Expected: `ok: true`, `agentsOwned: 2000`, `agentsActive: 0`; this is configuration/lifecycle evidence only.
+5. **Runtime verification:** run representative tasks through the existing AgentExecutionEngine; verify scoped tool calls, persistence and completion with `scripts/activate-workforce.ts`. Promote an agent only after its own execution evidence and governance checks pass.
 6. **Rollback:** `20261012_workforce_provisioning_rollback.sql` (drops tenant columns and profile data; take a backup first). Roll back the application release before the schema.
 7. **Production:** only after explicit authorization (B7).
 
@@ -161,9 +161,9 @@ The directive's numbered acceptance tests 1–20 are not present in this workspa
 ## 7. Recommended next slices (in priority order)
 
 1. Resolve B1 and B2 with the owner. This decides the adopt/renumber path.
-2. Runtime execution harness for provisioned agents (task → tools → persistence → completion), with per-agent evidence, before any promotion to `active`.
+2. Runtime verification campaign through the existing AgentExecutionEngine: representative tasks, tool/approval policy, persistence and per-agent evidence before any promotion to `active`.
 3. Tenant-scope the remaining legacy routes in S2, starting with `/api/v1/*` rate limiting and `/api/users`, `/api/settings`, `/api/approvals`.
-4. Knowledge/RAG retrieval isolation tests (cross-tenant and cross-department).
+4. Extend knowledge/RAG isolation tests to database/vector-backed integration cases; current context tests use mocked knowledge and tenant metadata.
 5. Model gateway audit: health, fallback and accounting evidence. No "best" labels without comparative evaluation.
 6. Load and recovery tests on staging compute (B6).
 

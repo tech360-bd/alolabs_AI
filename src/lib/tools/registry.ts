@@ -156,17 +156,34 @@ const departmentDirectory: ToolDefinition = {
   risk: 'low',
   requiresApproval: false,
   async handler(args, context) {
-    const department = asString(args.department, 120).trim();
+    const requestedDepartment = asString(args.department, 120).trim();
     const limit = Number.isFinite(Number(args.limit)) ? Math.min(50, Math.max(1, Number(args.limit))) : 20;
+
+    // Department itself must be owned by the caller's company. This also
+    // prevents a shared agent from using its foreign owner-department as the
+    // implicit directory scope.
+    const department = requestedDepartment
+      ? await db.department.findFirst({
+          where: {
+            companyId: context.companyId,
+            OR: [{ slug: requestedDepartment }, { name: requestedDepartment }],
+          },
+          select: { id: true },
+        })
+      : context.departmentId
+        ? await db.department.findFirst({
+            where: { id: context.departmentId, companyId: context.companyId },
+            select: { id: true },
+          })
+        : null;
+
+    if (!department) return { count: 0, agents: [] };
 
     const agents = await db.agent.findMany({
       where: {
         status: 'active',
-        ...(department
-          ? { OR: [{ departmentName: { contains: department } }, { department: { slug: department } }] }
-          : context.departmentId
-            ? { departmentId: context.departmentId }
-            : {}),
+        departmentId: department.id,
+        agentCompanyAccess: { some: { companyId: context.companyId } },
       },
       take: limit,
       select: { agentId: true, name: true, role: true, type: true, departmentName: true },

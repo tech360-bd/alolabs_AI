@@ -10,6 +10,7 @@
  */
 
 import { db } from '@/lib/db';
+import { isKnowledgeVisibleToCompany } from '@/lib/tenant-knowledge';
 
 // ─── Public Types ───────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ export interface AgentContext {
   departmentName: string;
   departmentMission: string;
   purpose: string;
+  systemInstructions: string;
   constitutionRules: Array<{
     title: string;
     severity: string;
@@ -75,6 +77,29 @@ export interface BuiltContext {
   };
 }
 
+/**
+ * Build a minimal, tenant-safe prompt when full context assembly is unavailable.
+ * Only agent-owned identity and instructions are included; department labels,
+ * knowledge, SOPs, and other context must be independently resolved first.
+ */
+export function buildMinimalAgentSystemPrompt(agent: {
+  agentName: string;
+  agentRole: string;
+  systemInstructions: string | null | undefined;
+}): string {
+  const instructions = agent.systemInstructions?.trim();
+  return [
+    [
+      '# AGENT IDENTITY',
+      '',
+      `- **Name**: ${agent.agentName}`,
+      `- **Role**: ${agent.agentRole}`,
+    ].join('\n'),
+    instructions ? ['# AGENT OPERATING INSTRUCTIONS', '', instructions].join('\n') : '',
+    'Use only the context and tools supplied for this execution. Do not assume access to department materials or data that were not provided, and do not claim to have used tools or data that were not provided.',
+  ].filter(Boolean).join('\n\n');
+}
+
 // ─── Internal helpers ───────────────────────────────────────────────
 
 /** Safely parse a JSON string, returning a default on failure. */
@@ -84,21 +109,6 @@ function safeParseJson<T>(raw: string, fallback: T): T {
     return JSON.parse(raw) as T;
   } catch {
     return fallback;
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function knowledgeBelongsToCompany(metadataJson: string, companyId: string): boolean {
-  try {
-    const metadata: unknown = JSON.parse(metadataJson)
-    if (!isRecord(metadata)) return false
-    const ownerCompanyId = metadata.companyId
-    return ownerCompanyId === undefined || ownerCompanyId === companyId
-  } catch {
-    return false
   }
 }
 
@@ -159,11 +169,15 @@ export async function buildAgentContext(params: {
   }
 
   // ── 2. Load Constitution Rules ───────────────────────────────────
+  const departmentBelongsToCompany = agent.department?.companyId === companyId
+  const departmentRuleScope = departmentBelongsToCompany
+    ? [{ departmentId: agent.departmentId }]
+    : []
   const rawConstitutionRules = await db.constitutionalRule.findMany({
     where: {
       isActive: true,
       AND: [
-        { OR: [{ departmentId: null }, { departmentId: agent.departmentId }] },
+        { OR: [{ departmentId: null }, ...departmentRuleScope] },
         { OR: [{ companyId: null }, { companyId }] },
       ],
     },
@@ -224,7 +238,7 @@ export async function buildAgentContext(params: {
       isPublic: true,
       OR: [
         { departmentId: null },
-        { departmentId: agent.departmentId },
+        ...(departmentBelongsToCompany ? [{ departmentId: agent.departmentId }] : []),
         { agentTypeId: agent.type },
       ],
     },
@@ -239,38 +253,48 @@ export async function buildAgentContext(params: {
   }));
 
   // ── 5. Load SOPs ─────────────────────────────────────────────────
-  const rawSOPs = await db.enterpriseSOP.findMany({
-    where: {
-      isActive: true,
-      status: 'active',
-      OR: [
-        { departmentId: null },
-        { departmentId: agent.departmentId },
-      ],
-    },
-    take: 5,
-  });
+  // EnterpriseSOP has no company/public owner field. Only load SOPs attached
+  // to this agent's verified tenant-owned department; unassigned legacy SOPs
+  // are not presumed globally shareable.
+  const rawSOPs = departmentBelongsToCompany
+    ? await db.enterpriseSOP.findMany({
+        where: { isActive: true, status: 'active', departmentId: agent.departmentId },
+        take: 5,
+      })
+    : [];
 
-  const relevantSOPs = rawSOPs.map((sop) => ({
+  const relevantSOPs = rawSOPs
+    .filter((sop) => departmentBelongsToCompany && sop.departmentId === agent.departmentId)
+    .map((sop) => ({
     title: sop.title,
     steps: safeParseJson<string[]>(sop.steps, []),
     checklist: safeParseJson<string[]>(sop.checklist, []),
   }));
 
   // ── 6. Load Knowledge ────────────────────────────────────────────
+  const globalKnowledgeCandidates = [
+    { departmentId: null, metadata: { contains: companyId } },
+    { departmentId: null, metadata: { contains: 'public' } },
+    { departmentId: null, metadata: { contains: 'global' } },
+    { departmentId: null, metadata: { contains: 'isPublic' } },
+  ]
   const rawKnowledge = await db.knowledgeNode.findMany({
     where: {
       OR: [
-        { departmentId: null },
-        { departmentId: agent.departmentId },
+        ...(departmentBelongsToCompany ? [{ departmentId: agent.departmentId }] : []),
+        ...globalKnowledgeCandidates,
       ],
     },
     orderBy: { confidence: 'desc' },
-    take: 50,
+    take: 100,
   });
 
   const relevantKnowledge = rawKnowledge
-    .filter((knowledge) => knowledgeBelongsToCompany(knowledge.metadata, companyId))
+    .filter((knowledge) => isKnowledgeVisibleToCompany(
+      knowledge.metadata,
+      companyId,
+      departmentBelongsToCompany && knowledge.departmentId === agent.departmentId,
+    ))
     .slice(0, 10)
     .map((k) => ({
     title: k.title,
@@ -318,9 +342,10 @@ export async function buildAgentContext(params: {
     agentName: agent.name,
     agentRole: agent.role,
     agentType: agent.type,
-    departmentName: agent.departmentName,
-    departmentMission: agent.department?.description ?? '',
+    departmentName: departmentBelongsToCompany ? agent.departmentName : 'Shared Agent (department hidden)',
+    departmentMission: departmentBelongsToCompany ? agent.department?.description ?? '' : '',
     purpose: agent.purpose,
+    systemInstructions: agent.systemInstructions ?? '',
     constitutionRules,
     relevantSkills,
     relevantPrompts,
@@ -371,15 +396,16 @@ function assembleSystemPrompt(
     // HIGHEST PRIORITY — identity and governance must never be cut
     { priority: 0, render: () => renderIdentitySection(ctx) },
     { priority: 1, render: () => renderConstitutionSection(ctx) },
-    { priority: 2, render: () => renderDepartmentSection(ctx) },
-    { priority: 3, render: () => renderSkillsSection(ctx) },
-    { priority: 4, render: () => renderPromptsSection(ctx) },
-    { priority: 5, render: () => renderSOPsSection(ctx, maxChars * 0.08) },
-    { priority: 6, render: () => renderKnowledgeSection(ctx, maxChars * 0.06) },
-    { priority: 7, render: () => renderMemorySection(ctx, maxChars * 0.05) },
-    { priority: 8, render: () => renderToolsSection(ctx) },
-    { priority: 9, render: () => renderProtectionSection(ctx) },
-    { priority: 10, render: () => renderOutputRequirements(task) },
+    { priority: 2, render: () => renderAgentInstructionsSection(ctx) },
+    { priority: 3, render: () => renderDepartmentSection(ctx) },
+    { priority: 4, render: () => renderSkillsSection(ctx) },
+    { priority: 5, render: () => renderPromptsSection(ctx) },
+    { priority: 6, render: () => renderSOPsSection(ctx, maxChars * 0.08) },
+    { priority: 7, render: () => renderKnowledgeSection(ctx, maxChars * 0.06) },
+    { priority: 8, render: () => renderMemorySection(ctx, maxChars * 0.05) },
+    { priority: 9, render: () => renderToolsSection(ctx) },
+    { priority: 10, render: () => renderProtectionSection(ctx) },
+    { priority: 11, render: () => renderOutputRequirements(task) },
   ];
 
   // Render all sections
@@ -399,26 +425,26 @@ function assembleSystemPrompt(
 
   const immutableSections = rendered.filter((s) => s.priority < 6);
   const immutableLength = immutableSections.reduce((sum, s) => sum + s.content.length, 0);
-  const truncatableSections = rendered.filter((s) => s.priority >= 6);
+  const truncatableSections = rendered.filter((s) => s.priority >= 6 && s.priority < 9);
 
   // Budget for truncatable sections
   let remainingBudget = Math.max(0, maxChars - immutableLength);
 
-  // Reduce budget for lower-priority sections first
-  // Priority 7 (memory) gets 20% of remaining, 6 (knowledge) 30%, 5 (SOP) 50%
+  // Allocate the remaining budget to truncatable sections by importance:
+  // SOPs (priority 6) get 50%, knowledge (7) 30%, and memory (8) 20%.
   const budgets = new Map<number, number>([
-    [5, Math.floor(remainingBudget * 0.50)],
-    [6, Math.floor(remainingBudget * 0.30)],
-    [7, Math.floor(remainingBudget * 0.20)],
+    [6, Math.floor(remainingBudget * 0.50)],
+    [7, Math.floor(remainingBudget * 0.30)],
+    [8, Math.floor(remainingBudget * 0.20)],
   ]);
 
   // Re-render truncatable sections with reduced budgets
   const truncatedSections = truncatableSections.map((s) => {
     const budget = budgets.get(s.priority) ?? 500;
     switch (s.priority) {
-      case 5: return renderSOPsSection(ctx, budget);
-      case 6: return renderKnowledgeSection(ctx, budget);
-      case 7: return renderMemorySection(ctx, budget);
+      case 6: return renderSOPsSection(ctx, budget);
+      case 7: return renderKnowledgeSection(ctx, budget);
+      case 8: return renderMemorySection(ctx, budget);
       default: return s.content;
     }
   });
@@ -441,7 +467,7 @@ function assembleSystemPrompt(
   }
 
   // Re-add high-priority trailing sections (tools, protection, output)
-  const trailingSections = rendered.filter((s) => s.priority >= 8);
+  const trailingSections = rendered.filter((s) => s.priority >= 9);
   for (const s of trailingSections) {
     if (used + s.content.length > maxChars) break;
     finalSections.push(s.content);
@@ -491,6 +517,15 @@ function renderConstitutionSection(ctx: AgentContext): string {
   }
 
   return parts.join('\n');
+}
+
+function renderAgentInstructionsSection(ctx: AgentContext): string {
+  if (!ctx.systemInstructions.trim()) return ''
+  return [
+    '# AGENT OPERATING INSTRUCTIONS',
+    '',
+    ctx.systemInstructions.trim(),
+  ].join('\n')
 }
 
 function renderDepartmentSection(ctx: AgentContext): string {

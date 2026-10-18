@@ -38,6 +38,8 @@ import {
 /** Provider kinds an operator can configure (AIProviderConfig.provider). */
 export const CONFIGURABLE_PROVIDER_KINDS = [
   'openai-compatible',
+  'openai-compatible-free',
+  'openrouter-free',
   'groq',
   'deepseek',
   'mistral',
@@ -79,6 +81,8 @@ export interface ProviderConfigView {
   baseUrl: string | null;
   hasApiKey: boolean;
   keyFingerprint: string | null;
+  /** True only for adapters that reject models without upstream-confirmed $0 input and output pricing. */
+  freeOnly: boolean;
   models: OpenAICompatibleModelConfig[];
   isEnabled: boolean;
   priority: number;
@@ -156,7 +160,7 @@ function openApiKey(record: Pick<ProviderConfigRecord, 'encryptedApiKey' | 'name
 
 /** Router-facing name for a config row: unique per (tenant, name) for OpenAI-compatible endpoints. */
 export function routerNameForConfig(record: Pick<ProviderConfigRecord, 'provider' | 'name' | 'companyId'>): AIProvider {
-  if (record.provider === 'openai-compatible') {
+  if (record.provider === 'openai-compatible' || record.provider === 'openai-compatible-free') {
     const scope = record.companyId ? `${record.companyId}.${record.name}` : record.name;
     return openAICompatibleProviderName(scope);
   }
@@ -171,7 +175,8 @@ export function buildProviderFromConfig(record: ProviderConfigRecord): BaseAIPro
   const endpoint = record.baseUrl ?? undefined;
 
   switch (record.provider as ConfigurableProviderKind) {
-    case 'openai-compatible': {
+    case 'openai-compatible':
+    case 'openai-compatible-free': {
       if (!endpoint) throw new Error(`Provider config "${record.name}" needs a baseUrl.`);
       const scope = record.companyId ? `${record.companyId}.${record.name}` : record.name;
       return new OpenAICompatibleProvider({
@@ -181,6 +186,7 @@ export function buildProviderFromConfig(record: ProviderConfigRecord): BaseAIPro
         apiKey,
         models,
         timeoutMs: record.timeoutMs,
+        freeOnly: record.provider === 'openai-compatible-free',
       });
     }
     case 'groq':
@@ -193,6 +199,8 @@ export function buildProviderFromConfig(record: ProviderConfigRecord): BaseAIPro
       return new QwenProvider({ endpoint, apiKey });
     case 'openrouter':
       return new OpenRouterProvider({ endpoint, apiKey });
+    case 'openrouter-free':
+      return new OpenRouterProvider({ endpoint, apiKey, providerName: 'openrouter-free', freeOnly: true });
     case 'ollama':
       return new OllamaProvider(endpoint);
     case 'zai-sdk':
@@ -213,6 +221,7 @@ export function describeProviderConfig(record: ProviderConfigRecord): ProviderCo
     baseUrl: record.baseUrl,
     hasApiKey: Boolean(record.encryptedApiKey),
     keyFingerprint: record.keyFingerprint,
+    freeOnly: record.provider === 'openrouter-free' || record.provider === 'openai-compatible-free',
     models: parseModelCatalogue(record.models),
     isEnabled: record.isEnabled,
     priority: record.priority,

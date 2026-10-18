@@ -7,7 +7,7 @@ import {
   Network, Database, FileCode, Wrench, Brain, Map, RotateCcw, Heart, TrendingUp,
   BarChart3, Users, GitBranch, Zap, Globe, Server, HardDrive, Eye, Shield, Lock,
   Menu, ChevronLeft, ChevronRight, Sun, Moon, Activity, Rocket, Calendar,
-  Megaphone, PenTool, Palette, Receipt, Globe2
+  Megaphone, PenTool, Palette, Receipt, Globe2, Cpu
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -41,6 +41,7 @@ export type EnterpriseView =
   | 'workflow-orchestration'
   | 'event-bus'
   | 'api-gateway'
+  | 'ai-providers'
   | 'mcp-integration'
   | 'data-lake'
   | 'observability'
@@ -170,6 +171,7 @@ const navGroups: NavGroup[] = [
     label: 'Infrastructure',
     items: [
       { id: 'api-gateway', name: 'API Gateway', icon: Globe },
+      { id: 'ai-providers', name: 'AI Providers', icon: Cpu },
       { id: 'mcp-integration', name: 'MCP Integration', icon: Server },
       { id: 'data-lake', name: 'Data Lake', icon: HardDrive },
       { id: 'observability', name: 'Observability', icon: Eye },
@@ -218,6 +220,7 @@ const panelMap: Record<EnterpriseView, React.LazyExoticComponent<React.Component
   'workflow-orchestration': lazy(() => import('./panels/workflow-orchestration')),
   'event-bus': lazy(() => import('./panels/event-bus')),
   'api-gateway': lazy(() => import('./panels/api-gateway')),
+  'ai-providers': lazy(() => import('./panels/ai-providers')),
   'mcp-integration': lazy(() => import('./panels/mcp-integration')),
   'data-lake': lazy(() => import('./panels/data-lake')),
   'observability': lazy(() => import('./panels/observability')),

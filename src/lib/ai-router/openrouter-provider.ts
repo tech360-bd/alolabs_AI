@@ -8,6 +8,7 @@ import { extractToolCalls } from './tool-calls';
 import type {
   AIModel,
   AIModelFamily,
+  AIProvider,
   AICapability,
   AIProviderHealth,
   AIRequest,
@@ -16,6 +17,7 @@ import type {
 } from './types';
 import { AIRouterError } from './types';
 import { BaseAIProvider } from './provider-base';
+import { hasExplicitZeroPricing } from './free-models';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -161,9 +163,10 @@ function isOpenRouterModel(obj: unknown): obj is OpenRouterModel {
 
 async function* parseSSEStream(
   response: Response,
+  provider: AIProvider = 'openrouter',
 ): AsyncGenerator<OpenRouterChatResponse> {
   const reader = response.body?.getReader();
-  if (!reader) throw new AIRouterError('Response body is not readable', 'openrouter');
+  if (!reader) throw new AIRouterError('Response body is not readable', provider);
 
   const decoder = new TextDecoder();
   let buffer = '';
@@ -195,20 +198,30 @@ async function* parseSSEStream(
 // ─── Provider ───────────────────────────────────────────────────────
 
 export class OpenRouterProvider extends BaseAIProvider {
-  readonly name = 'openrouter' as const;
+  readonly name: AIProvider;
   supportedModels: AIModel[] = [];
 
   private endpoint: string;
   private apiKey: string;
   private siteUrl: string;
   private siteName: string;
+  override readonly freeOnly: boolean;
 
-  constructor(config?: { endpoint?: string; apiKey?: string; siteUrl?: string; siteName?: string }) {
+  constructor(config?: {
+    endpoint?: string;
+    apiKey?: string;
+    siteUrl?: string;
+    siteName?: string;
+    providerName?: AIProvider;
+    freeOnly?: boolean;
+  }) {
     super();
+    this.name = config?.providerName ?? 'openrouter';
     this.endpoint = config?.endpoint ?? DEFAULT_ENDPOINT;
     this.apiKey = config?.apiKey ?? process.env.OPENROUTER_API_KEY ?? '';
     this.siteUrl = config?.siteUrl ?? process.env.SITE_URL ?? 'https://alolabs.ai';
     this.siteName = config?.siteName ?? process.env.SITE_NAME ?? 'ALO Labs AIOS';
+    this.freeOnly = config?.freeOnly ?? false;
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────
@@ -217,7 +230,7 @@ export class OpenRouterProvider extends BaseAIProvider {
     if (!this.apiKey) {
       throw new AIRouterError(
         'OpenRouter API key is required. Set OPENROUTER_API_KEY env var.',
-        'openrouter',
+        this.name,
         undefined,
         false,
       );
@@ -227,13 +240,21 @@ export class OpenRouterProvider extends BaseAIProvider {
     if (!health.isHealthy) {
       throw new AIRouterError(
         `OpenRouter is not reachable at ${this.endpoint}`,
-        'openrouter',
+        this.name,
         undefined,
         false,
       );
     }
 
     this.supportedModels = await this.listModels();
+    if (this.freeOnly && this.supportedModels.length === 0) {
+      throw new AIRouterError(
+        'OpenRouter has no models with explicit $0 input and output pricing in its current catalog.',
+        this.name,
+        undefined,
+        false,
+      );
+    }
     this._initialized = true;
   }
 
@@ -248,18 +269,19 @@ export class OpenRouterProvider extends BaseAIProvider {
     if (!response.ok) {
       throw new AIRouterError(
         `OpenRouter /models returned ${response.status}`,
-        'openrouter',
+        this.name,
         response.status,
       );
     }
 
     const body = (await response.json()) as OpenRouterModelsResponse;
-    const models = (body.data ?? []).filter(isOpenRouterModel);
+    const catalog = (body.data ?? []).filter(isOpenRouterModel);
+    const models = this.freeOnly ? catalog.filter(hasExplicitZeroPricing) : catalog;
 
     return models.map((m) => ({
       id: m.id,
       name: m.name,
-      provider: 'openrouter' as const,
+      provider: this.name,
       family: inferFamily(m.id),
       parameters: {},
       contextLength: m.context_length,
@@ -273,6 +295,7 @@ export class OpenRouterProvider extends BaseAIProvider {
 
   async chatCompletion(request: AIRequest): Promise<AIResponse> {
     this.requireInitialized();
+    await this.revalidateFreeModel(request.model);
     const release = this.trackConnection();
     const startTime = Date.now();
 
@@ -290,7 +313,7 @@ export class OpenRouterProvider extends BaseAIProvider {
           const errorBody = await res.text().catch(() => '');
           throw new AIRouterError(
             `OpenRouter chat error (${res.status}): ${errorBody}`,
-            'openrouter',
+            this.name,
             res.status,
             this.isRetryableStatus(res.status),
           );
@@ -324,6 +347,7 @@ export class OpenRouterProvider extends BaseAIProvider {
 
   async *streamChatCompletion(request: AIRequest): AsyncGenerator<AIStreamChunk> {
     this.requireInitialized();
+    await this.revalidateFreeModel(request.model);
     const release = this.trackConnection();
 
     try {
@@ -339,13 +363,13 @@ export class OpenRouterProvider extends BaseAIProvider {
       if (!response.ok) {
         throw new AIRouterError(
           `OpenRouter stream error (${response.status})`,
-          'openrouter',
+          this.name,
           response.status,
           this.isRetryableStatus(response.status),
         );
       }
 
-      for await (const chunk of parseSSEStream(response)) {
+      for await (const chunk of parseSSEStream(response, this.name)) {
         const choice = chunk.choices?.[0];
         const content = choice?.delta?.content ?? '';
         yield {
@@ -374,7 +398,7 @@ export class OpenRouterProvider extends BaseAIProvider {
       const latencyMs = Date.now() - startTime;
 
       return {
-        provider: 'openrouter',
+        provider: this.name,
         isHealthy: response.ok,
         latencyMs,
         errorRate: 0,
@@ -384,7 +408,7 @@ export class OpenRouterProvider extends BaseAIProvider {
       };
     } catch {
       return {
-        provider: 'openrouter',
+        provider: this.name,
         isHealthy: false,
         latencyMs: Date.now() - startTime,
         errorRate: 1,
@@ -396,6 +420,20 @@ export class OpenRouterProvider extends BaseAIProvider {
   }
 
   // ─── Private Helpers ────────────────────────────────────────────
+
+  private async revalidateFreeModel(modelId: string): Promise<void> {
+    if (!this.freeOnly) return;
+    const current = await this.listModels();
+    this.supportedModels = current;
+    if (!current.some((model) => model.id === modelId)) {
+      throw new AIRouterError(
+        `OpenRouter is refusing model "${modelId}" because its live catalog does not confirm $0 input and output pricing`,
+        this.name,
+        undefined,
+        false,
+      );
+    }
+  }
 
   private buildHeaders(): Record<string, string> {
     const headers: Record<string, string> = {

@@ -48,10 +48,10 @@ export type ModelPolicy = 'fast' | 'balanced' | 'reasoning' | 'coding' | 'vision
 export type ToolCategory = 'all' | 'core' | 'read' | 'reporting' | 'research' | 'communication' | 'automation';
 
 export const TOOL_CATEGORY_MEMBERS: Record<Exclude<ToolCategory, 'all'>, readonly string[]> = {
-  core: ['analytics', 'document_generation', 'calendar', 'email'],
-  read: ['analytics', 'database'],
-  reporting: ['analytics', 'document_generation'],
-  research: ['browser', 'analytics'],
+  core: ['search', 'analytics', 'document_generation', 'calendar', 'email'],
+  read: ['search', 'analytics', 'database', 'crm'],
+  reporting: ['search', 'analytics', 'document_generation'],
+  research: ['search', 'browser', 'analytics'],
   communication: ['email', 'whatsapp', 'crm', 'calendar'],
   automation: ['database', 'crm', 'calendar', 'email'],
 };

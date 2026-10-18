@@ -112,7 +112,7 @@ function requireKeyStorage(): void {
 }
 
 function needsBaseUrl(provider: string): boolean {
-  return provider === 'openai-compatible';
+  return provider === 'openai-compatible' || provider === 'openai-compatible-free';
 }
 
 function needsApiKey(provider: string): boolean {
@@ -294,13 +294,23 @@ export async function testProviderConfig(
     const health = await instance.healthCheck();
     const lastError = (instance as { lastError?: string | null }).lastError ?? null;
     let status: ProviderTestResult['status'] = health.isHealthy ? 'healthy' : 'unreachable';
+    let discoveryError: string | undefined;
     if (!health.isHealthy && lastError && /unauthorized|401|403/i.test(lastError)) status = 'unauthorized';
+    if (health.isHealthy) {
+      try {
+        // Initialize also discovers the model catalog. For free-only provider
+        // kinds this is the server-side pricing gate, not a UI-only filter.
+        await instance.initialize();
+      } catch (err) {
+        discoveryError = err instanceof Error ? err.message : String(err);
+        status = 'degraded';
+      }
+    }
 
     let chat: ProviderTestResult['chat'];
-    if (health.isHealthy && options.withChat) {
+    if (health.isHealthy && status === 'healthy' && options.withChat) {
       const started = Date.now();
       try {
-        await instance.initialize();
         const model = instance.supportedModels[0]?.id;
         if (!model) throw new Error('no model available for a chat test');
         const response = await instance.chatCompletion({
@@ -324,7 +334,7 @@ export async function testProviderConfig(
       latencyMs: health.latencyMs,
       models: instance.supportedModels.map((m) => m.id),
       chat,
-      error: status === 'healthy' ? undefined : (chat?.error ?? lastError ?? undefined),
+      error: status === 'healthy' ? undefined : (chat?.error ?? discoveryError ?? lastError ?? undefined),
       testedAt: testedAt.toISOString(),
     };
   } catch (err) {
