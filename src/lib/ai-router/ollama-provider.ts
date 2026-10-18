@@ -4,6 +4,7 @@
  * Supports any model pulled locally: GLM, Qwen, DeepSeek, Llama, Gemma, Phi, Mistral, etc.
  */
 
+import { extractToolCalls } from './tool-calls';
 import type {
   AIModel,
   AIModelFamily,
@@ -274,6 +275,7 @@ export class OllamaProvider extends BaseAIProvider {
           totalTokens: (body.prompt_eval_count ?? 0) + (body.eval_count ?? 0),
         },
         finishReason: mapFinishReason(body.done, body.message?.content ?? ''),
+        toolCalls: extractToolCalls(body.message),
         latencyMs,
       };
     } finally {

@@ -1,0 +1,92 @@
+{
+  "workflow_id": "proposal_factory",
+  "name": "Proposal & Contract Factory",
+  "slug": "proposal-factory",
+  "description": "Auto-generate professional proposals and contracts",
+  "triggers": [
+    "proposal",
+    "contract",
+    "quote"
+  ],
+  "department": "Sales",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Sales Strategic Planning Agent",
+      "action": "define_scope",
+      "config": {
+        "instruction": "Define scope for the Proposal & Contract Factory workflow; return the deliverable and its assumptions.",
+        "agentHint": "Scope Agent",
+        "original": {
+          "department": "Proposal & Contract Factory",
+          "agent": "Scope Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Sales Senior Specialist Agent",
+      "action": "calculate_pricing",
+      "config": {
+        "instruction": "Calculate pricing from scope, effort, rates and margin; show the assumptions.",
+        "agentHint": "Pricing Agent",
+        "original": {
+          "department": "Proposal & Contract Factory",
+          "agent": "Pricing Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Sales Strategic Planning Agent",
+      "action": "create_timeline",
+      "config": {
+        "instruction": "Create timeline for the Proposal & Contract Factory workflow; return the deliverable and its assumptions.",
+        "agentHint": "Timeline Agent",
+        "original": {
+          "department": "Proposal & Contract Factory",
+          "agent": "Timeline Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Sales Execution Agent",
+      "action": "draft_terms",
+      "config": {
+        "instruction": "Draft the commercial terms: payment schedule, revisions, IP and termination.",
+        "agentHint": "Terms Agent",
+        "original": {
+          "department": "Proposal & Contract Factory",
+          "agent": "Terms Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Sales Strategic Planning Agent",
+      "action": "design_proposal",
+      "config": {
+        "instruction": "Produce the design for proposal for the Proposal & Contract Factory workflow; return the deliverable and its assumptions.",
+        "agentHint": "Design Agent",
+        "original": {
+          "department": "Proposal & Contract Factory",
+          "agent": "Design Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Sales Process Automation Agent",
+      "action": "export_pdf",
+      "config": {
+        "instruction": "Export the approved proposal as a print-ready PDF and store the source file.",
+        "agentHint": "Export Agent",
+        "original": {
+          "department": "Proposal & Contract Factory",
+          "agent": "Export Agent"
+        }
+      }
+    }
+  ]
+}

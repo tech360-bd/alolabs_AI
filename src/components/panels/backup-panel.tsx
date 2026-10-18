@@ -109,11 +109,17 @@ export default function BackupPanel() {
     setCreating(true)
     try {
       const res = await fetch('/api/backups/create', { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
       if (res.ok) {
-        toast.success('Success', { description: 'Backup created successfully'  })
+        const validation = json.validation as { tables?: number; inserts?: number } | undefined
+        toast.success('Success', {
+          description: validation
+            ? `Backup created: ${validation.tables ?? 0} table(s), ${validation.inserts ?? 0} insert(s)`
+            : 'Backup created successfully',
+        })
         fetchBackups()
       } else {
-        toast.error('Error', { description: 'Failed to create backup' })
+        toast.error('Error', { description: json.error || 'Failed to create backup' })
       }
     } catch {
       toast.error('Error', { description: 'Failed to create backup' })
@@ -131,11 +137,17 @@ export default function BackupPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ backupId: restoreDialog.backupId }),
       })
+      const json = await res.json().catch(() => ({}))
       if (res.ok) {
-        toast.success('Success', { description: 'Backup restored successfully'  })
+        // The server reports whether the dump was applied in place or staged
+        // for manual application. Never claim more than it did.
+        toast.success(json.applied ? 'Restored' : 'Backup verified', {
+          description: json.message || 'Backup restored successfully',
+        })
         setRestoreDialog(null)
+        fetchBackups()
       } else {
-        toast.error('Error', { description: 'Failed to restore backup' })
+        toast.error('Error', { description: json.error || 'Failed to restore backup' })
       }
     } catch {
       toast.error('Error', { description: 'Failed to restore backup' })

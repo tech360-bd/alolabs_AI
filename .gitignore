@@ -67,9 +67,10 @@ db/*.db-wal
 db/*.db-shm
 .arena-tmp/
 
-# Uploads
-upload/
-uploads/
+# Uploads (anchored to the repository root: an unanchored `upload/` pattern
+# would also ignore src/app/api/media/upload/ and break the committed build).
+/upload/
+/uploads/
 
 # Storage (local file storage; keep source code under src/)
 /storage/
@@ -77,8 +78,9 @@ uploads/
 # Tool results
 tool-results/
 
-# Backups
-backups/
+# Backups (anchored: an unanchored `backups/` pattern would ignore
+# src/lib/backups/ and src/app/api/backups/).
+/backups/
 
 # Mini services node_modules
 mini-services/*/node_modules/

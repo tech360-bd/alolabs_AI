@@ -1,0 +1,92 @@
+{
+  "workflow_id": "web_scraper",
+  "name": "Website Scraper/Crawler",
+  "slug": "web-scraper",
+  "description": "Scrape public website data to markdown/JSON",
+  "triggers": [
+    "scrape",
+    "crawl",
+    "extract data"
+  ],
+  "department": "Software Development",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Software Development Research Agent",
+      "action": "plan_crawl",
+      "config": {
+        "instruction": "Create the plan for crawl for the Website Scraper/Crawler workflow; return the deliverable and its assumptions.",
+        "agentHint": "Crawl Planner Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Crawl Planner Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Software Development Quality Assurance Agent",
+      "action": "check_robots",
+      "config": {
+        "instruction": "Read robots.txt and the terms of service; abort if crawling is not permitted.",
+        "agentHint": "Robot Check Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Robot Check Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Software Development Research Agent",
+      "action": "crawl_site",
+      "config": {
+        "instruction": "Crawl site for the Website Scraper/Crawler workflow; return the deliverable and its assumptions.",
+        "agentHint": "Crawler Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Crawler Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Software Development Senior Specialist Agent",
+      "action": "convert_markdown",
+      "config": {
+        "instruction": "Convert markdown for the Website Scraper/Crawler workflow; return the deliverable and its assumptions.",
+        "agentHint": "Markdown Converter Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Markdown Converter Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Software Development Strategic Planning Agent",
+      "action": "structure_data",
+      "config": {
+        "instruction": "Structure data for the Website Scraper/Crawler workflow; return the deliverable and its assumptions.",
+        "agentHint": "Data Structurer Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Data Structurer Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Software Development Quality Assurance Agent",
+      "action": "verify_compliance",
+      "config": {
+        "instruction": "Verify compliance for the Website Scraper/Crawler workflow; return the deliverable and its assumptions.",
+        "agentHint": "Safety Check Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Safety Check Agent"
+        }
+      }
+    }
+  ]
+}

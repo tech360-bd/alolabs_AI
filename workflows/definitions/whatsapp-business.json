@@ -1,0 +1,92 @@
+{
+  "workflow_id": "whatsapp_business",
+  "name": "WhatsApp Business",
+  "slug": "whatsapp-business",
+  "description": "Setup WhatsApp chatbot, auto-replies, broadcasts",
+  "triggers": [
+    "WhatsApp",
+    "chatbot",
+    "broadcast"
+  ],
+  "department": "WhatsApp Operations",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "WhatsApp Operations Process Automation Agent",
+      "action": "configure_whatsapp",
+      "config": {
+        "instruction": "Configure whatsapp for the WhatsApp Business workflow; return the deliverable and its assumptions.",
+        "agentHint": "Setup Agent",
+        "original": {
+          "department": "WhatsApp Business",
+          "agent": "Setup Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "WhatsApp Operations Execution Agent",
+      "action": "build_chatbot",
+      "config": {
+        "instruction": "Build the chatbot flows: intents, fallbacks, handoff and data capture.",
+        "agentHint": "ChatBot Agent",
+        "original": {
+          "department": "WhatsApp Business",
+          "agent": "ChatBot Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "WhatsApp Operations Execution Agent",
+      "action": "create_autoresponders",
+      "config": {
+        "instruction": "Create autoresponders for the WhatsApp Business workflow; return the deliverable and its assumptions.",
+        "agentHint": "Auto Reply Agent",
+        "original": {
+          "department": "WhatsApp Business",
+          "agent": "Auto Reply Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "WhatsApp Operations Execution Agent",
+      "action": "create_templates",
+      "config": {
+        "instruction": "Create templates for the WhatsApp Business workflow; return the deliverable and its assumptions.",
+        "agentHint": "Template Agent",
+        "original": {
+          "department": "WhatsApp Business",
+          "agent": "Template Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "WhatsApp Operations Strategic Planning Agent",
+      "action": "plan_broadcasts",
+      "config": {
+        "instruction": "Plan broadcast segments, consent checks, templates and send windows.",
+        "agentHint": "Broadcast Agent",
+        "original": {
+          "department": "WhatsApp Business",
+          "agent": "Broadcast Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "WhatsApp Operations Research Agent",
+      "action": "setup_analytics",
+      "config": {
+        "instruction": "Set up analytics for the WhatsApp Business workflow; return the deliverable and its assumptions.",
+        "agentHint": "Analytics Agent",
+        "original": {
+          "department": "WhatsApp Business",
+          "agent": "Analytics Agent"
+        }
+      }
+    }
+  ]
+}

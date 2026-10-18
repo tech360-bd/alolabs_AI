@@ -3,6 +3,7 @@
  * ALO Labs AIOS — Cloud LLM provider using Qwen's OpenAI-compatible API.
  */
 
+import { extractToolCalls } from './tool-calls';
 import type {
   AIModel,
   AIModelFamily,
@@ -240,6 +241,7 @@ export class QwenProvider extends BaseAIProvider {
           totalTokens: data.usage?.total_tokens ?? 0,
         },
         finishReason: mapFinishReason(choice?.finish_reason ?? null),
+        toolCalls: extractToolCalls(choice?.message),
         latencyMs,
       };
     } finally {

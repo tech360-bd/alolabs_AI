@@ -1,0 +1,92 @@
+{
+  "workflow_id": "web_clone_rebuild",
+  "name": "Web Clone / Original Rebuild",
+  "slug": "web-clone",
+  "description": "Analyze public website and rebuild as original version",
+  "triggers": [
+    "clone website",
+    "rebuild website",
+    "URL to UI"
+  ],
+  "department": "Software Development",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Software Development Research Agent",
+      "action": "analyze_url",
+      "config": {
+        "instruction": "Analyse url for the Web Clone / Original Rebuild workflow; return the deliverable and its assumptions.",
+        "agentHint": "URL Analyzer Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "URL Analyzer Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Software Development Senior Specialist Agent",
+      "action": "take_screenshots",
+      "config": {
+        "instruction": "Complete screenshots for the Web Clone / Original Rebuild workflow; return the deliverable and its assumptions.",
+        "agentHint": "Screenshot Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Screenshot Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Software Development Data Analyst Agent",
+      "action": "extract_layout",
+      "config": {
+        "instruction": "Extract layout for the Web Clone / Original Rebuild workflow; return the deliverable and its assumptions.",
+        "agentHint": "Layout Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Layout Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Software Development Strategic Planning Agent",
+      "action": "recreate_design",
+      "config": {
+        "instruction": "Complete design for the Web Clone / Original Rebuild workflow; return the deliverable and its assumptions.",
+        "agentHint": "Design Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Design Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Software Development Quality Assurance Agent",
+      "action": "verify_safe",
+      "config": {
+        "instruction": "Confirm the output does not reproduce third-party protected design or copy.",
+        "agentHint": "Copyright Check Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Copyright Check Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Software Development Execution Agent",
+      "action": "build_original",
+      "config": {
+        "instruction": "Build original for the Web Clone / Original Rebuild workflow; return the deliverable and its assumptions.",
+        "agentHint": "Builder Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Builder Agent"
+        }
+      }
+    }
+  ]
+}

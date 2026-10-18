@@ -7,11 +7,12 @@ import { db } from '@/lib/db';
 import { recordSecurityEvent } from '@/lib/api/secure-route';
 import { WhatsAppBusinessClient } from '@/lib/whatsapp/client';
 import { WhatsAppAIHandler } from '@/lib/whatsapp/ai-handler';
+import { buildWhatsAppClient } from '@/lib/whatsapp/config';
+import { recordInboundMessage, recordOutboundMessage } from '@/lib/whatsapp/inbox';
 import type {
   WhatsAppMessage,
   WhatsAppConversation,
   WhatsAppWebhookEvent,
-  WhatsAppConfig,
 } from '@/lib/whatsapp/types';
 
 // ─── Human Handover Detection ──────────────────────────────────────────────────
@@ -26,66 +27,6 @@ function detectHandover(text: string): boolean {
     pattern.lastIndex = 0;
     return pattern.test(text);
   });
-}
-
-// ─── Helper: Build WhatsApp client from settings ───────────────────────────────
-
-async function getWhatsAppClient(phoneNumberId?: string): Promise<WhatsAppBusinessClient | null> {
-  const apiUrl = process.env.WHATSAPP_API_URL || 'https://graph.facebook.com';
-  const apiVersion = process.env.WHATSAPP_API_VERSION || 'v21.0';
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || '';
-  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || '';
-
-  // Try to get from stored settings if env vars not set
-  let resolvedPhoneNumberId = phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID || '';
-  let resolvedAccessToken = accessToken;
-
-  if (!resolvedPhoneNumberId || !resolvedAccessToken) {
-    // Check stored numbers
-    try {
-      const numbersSetting = await db.settings.findUnique({
-        where: { key: 'whatsapp:numbers' },
-      });
-      if (numbersSetting) {
-        const numbers = JSON.parse(numbersSetting.value) as Array<{
-          phoneNumberId: string;
-          accessToken: string;
-          isDefault: boolean;
-        }>;
-        const defaultNumber = numbers.find((n) => n.isDefault) || numbers[0];
-        if (defaultNumber) {
-          if (!resolvedPhoneNumberId) resolvedPhoneNumberId = defaultNumber.phoneNumberId;
-          if (!resolvedAccessToken) resolvedAccessToken = defaultNumber.accessToken;
-        }
-      }
-    } catch { /* ignore */ }
-  }
-
-  // Check token from social settings
-  if (!resolvedAccessToken) {
-    try {
-      const tokenSetting = await db.settings.findUnique({
-        where: { key: 'social:whatsapp:token' },
-      });
-      if (tokenSetting) {
-        const data = JSON.parse(tokenSetting.value) as { accessToken: string };
-        resolvedAccessToken = data.accessToken;
-      }
-    } catch { /* ignore */ }
-  }
-
-  if (!resolvedPhoneNumberId || !resolvedAccessToken) return null;
-
-  const config: WhatsAppConfig = {
-    apiUrl,
-    apiVersion,
-    phoneNumberId: resolvedPhoneNumberId,
-    accessToken: resolvedAccessToken,
-    verifyToken,
-    webhookUrl: '',
-  };
-
-  return new WhatsAppBusinessClient(config);
 }
 
 // ─── Helper: Get AI handler config ─────────────────────────────────────────────
@@ -182,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse with WhatsApp client
-    const client = await getWhatsAppClient();
+    const client = await buildWhatsAppClient();
     if (!client) {
       console.error('WhatsApp client not configured');
       return NextResponse.json({ status: 'ok' }); // Still 200 to prevent retries
@@ -305,6 +246,23 @@ async function processIncomingMessage(
     },
   });
 
+  // Shared inbox (Conversation/ConversationMessage). Best-effort: an inbox
+  // write must never make WhatsApp retry a delivery that was already handled.
+  try {
+    await recordInboundMessage({
+      phoneNumberId,
+      contact: message.from,
+      contactName: contactName ?? null,
+      content: messageContent,
+      messageId: message.id,
+      type: messageType,
+      ...(mediaId ? { mediaId } : {}),
+      timestamp: message.timestamp,
+    });
+  } catch (inboxError) {
+    console.error('WhatsApp inbox write failed:', inboxError);
+  }
+
   // Detect human handover
   const isTextMessage = message.type === 'text' && message.text?.body;
   let needsHandover = false;
@@ -387,6 +345,18 @@ async function processIncomingMessage(
               }),
             },
           });
+
+          try {
+            await recordOutboundMessage({
+              phoneNumberId,
+              contact: message.from,
+              content: reply.text?.body || '',
+              autoReply: true,
+              messageId: sendResult.messageId,
+            });
+          } catch (inboxError) {
+            console.error('WhatsApp inbox outbound write failed:', inboxError);
+          }
         }
       }
     } catch (error: unknown) {

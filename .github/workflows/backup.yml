@@ -19,12 +19,62 @@ jobs:
     steps:
       - name: Run verified server-side backup
         uses: appleboy/ssh-action@v1
+        env:
+          PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           port: ${{ secrets.PRODUCTION_PORT }}
+          command_timeout: 30m
+          script_stop: true
+          envs: PRODUCTION_APP_DIR
           script: |
             set -euo pipefail
-            cd /opt
-            sudo APP_DIR=/opt bash deploy/scripts/backup.sh
+            # The application directory is resolved, never assumed: a wrong
+            # hardcoded path fails as "cd: no such file or directory", which
+            # says nothing about what is actually broken.
+            APP_DIR="${PRODUCTION_APP_DIR:-}"
+            if [ -z "$APP_DIR" ]; then
+              for candidate in /opt /home/aloedu/alolabs_AI; do
+                if [ -f "$candidate/deploy/scripts/backup.sh" ]; then
+                  APP_DIR="$candidate"
+                  break
+                fi
+              done
+            fi
+            if [ -z "$APP_DIR" ]; then
+              echo "ERROR: no application directory found."
+              echo "  PRODUCTION_APP_DIR='${PRODUCTION_APP_DIR:-}'"
+              echo "  checked: /opt, /home/aloedu/alolabs_AI"
+              echo "Set the repository variable PRODUCTION_APP_DIR to the absolute deployment path."
+              exit 1
+            fi
+            echo "Application directory: ${APP_DIR}"
+
+            # Workflow commands printed here reach the runner through the SSH
+            # action and become check annotations. Annotations stay readable
+            # through the API even when raw job logs are unavailable.
+            annotate() {
+              local title="$1" message="$2"
+              message="${message//'%'/'%25'}"
+              message="${message//$'\r'/'%0D'}"
+              message="${message//$'\n'/'%0A'}"
+              echo "::error title=${title}::${message}"
+            }
+
+            # -n: fail immediately and explicitly if sudo would prompt for a password.
+            if ! PREFLIGHT_OUT="$(sudo -n env APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/scripts/backup.sh" --preflight 2>&1)"; then
+              echo "${PREFLIGHT_OUT}"
+              FAILURES="$(printf '%s\n' "${PREFLIGHT_OUT}" | grep -E 'PREFLIGHT FAIL|sudo:' | tr '\n' '|' || true)"
+              annotate "Backup preflight failed" "${FAILURES:-preflight exited non-zero}"
+              exit 1
+            fi
+            echo "${PREFLIGHT_OUT}"
+
+            if ! BACKUP_OUT="$(sudo -n env APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/scripts/backup.sh" 2>&1)"; then
+              echo "${BACKUP_OUT}"
+              annotate "Backup failed" "$(printf '%s\n' "${BACKUP_OUT}" | tail -n 4 | tr '\n' '|')"
+              exit 1
+            fi
+            echo "${BACKUP_OUT}"

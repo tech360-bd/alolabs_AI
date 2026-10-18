@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { matchWorkflow } from '@/lib/command-routing';
 import { requireAuth } from '@/lib/api-auth';
 import { parseBody, parseQuery, paginationQuery, buildWhereClause, buildOrderBy, paginatedResponse } from '@/lib/validators';
 
@@ -67,24 +68,17 @@ export async function POST(request: NextRequest) {
 
     const workflows = await db.workflow.findMany({
       where: { status: 'active' },
+      orderBy: { name: 'asc' },
     });
 
-    for (const wf of workflows) {
-      let triggers: string[] = [];
-      try {
-        triggers = JSON.parse(wf.triggers);
-      } catch {
-        // ignore malformed triggers
-      }
-      for (const trigger of triggers) {
-        if (lowerCmd.includes(trigger.toLowerCase())) {
-          matchedWorkflowId = wf.id;
-          matchedWorkflow = wf.name;
-          parsedIntent = `Execute workflow: ${wf.name}`;
-          break;
-        }
-      }
-      if (matchedWorkflowId) break;
+    const bestMatch = matchWorkflow(
+      lowerCmd,
+      workflows.map((wf) => ({ id: wf.id, name: wf.name, triggers: wf.triggers })),
+    );
+    if (bestMatch) {
+      matchedWorkflowId = bestMatch.workflowId;
+      matchedWorkflow = bestMatch.workflowName;
+      parsedIntent = `Execute workflow: ${bestMatch.workflowName}`;
     }
 
     if (!detectedDept) {

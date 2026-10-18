@@ -1,0 +1,105 @@
+{
+  "workflow_id": "website_app_builder",
+  "name": "AI Website/App Builder",
+  "slug": "website-builder",
+  "description": "Prompt-to-website or Bolt.new/Lovable-style app builder",
+  "triggers": [
+    "website builder",
+    "build app",
+    "prompt to app"
+  ],
+  "department": "Software Development",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Software Development Senior Specialist Agent",
+      "action": "parse_requirement",
+      "config": {
+        "instruction": "Complete requirement for the AI Website/App Builder workflow; return the deliverable and its assumptions.",
+        "agentHint": "Prompt Parser Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Prompt Parser Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Software Development Strategic Planning Agent",
+      "action": "plan_architecture",
+      "config": {
+        "instruction": "Create the plan for architecture for the AI Website/App Builder workflow; return the deliverable and its assumptions.",
+        "agentHint": "Architecture Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Architecture Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Software Development Strategic Planning Agent",
+      "action": "design_ui",
+      "config": {
+        "instruction": "Produce the design for UI for the AI Website/App Builder workflow; return the deliverable and its assumptions.",
+        "agentHint": "UI Designer Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "UI Designer Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Software Development Execution Agent",
+      "action": "build_frontend",
+      "config": {
+        "instruction": "Build frontend for the AI Website/App Builder workflow; return the deliverable and its assumptions.",
+        "agentHint": "Frontend Builder Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Frontend Builder Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Software Development Execution Agent",
+      "action": "build_backend",
+      "config": {
+        "instruction": "Build backend for the AI Website/App Builder workflow; return the deliverable and its assumptions.",
+        "agentHint": "Backend Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Backend Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Software Development Execution Agent",
+      "action": "integrate_services",
+      "config": {
+        "instruction": "Integrate services for the AI Website/App Builder workflow; return the deliverable and its assumptions.",
+        "agentHint": "Integration Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Integration Agent"
+        }
+      }
+    },
+    {
+      "step": 7,
+      "agent": "Software Development Process Automation Agent",
+      "action": "create_deployment",
+      "config": {
+        "instruction": "Create deployment for the AI Website/App Builder workflow; return the deliverable and its assumptions.",
+        "agentHint": "Deploy Agent",
+        "original": {
+          "department": "AI Website Builder, Web Clone & Scraper",
+          "agent": "Deploy Agent"
+        }
+      }
+    }
+  ]
+}

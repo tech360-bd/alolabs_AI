@@ -1,0 +1,188 @@
+# ============================================================
+# ALO Labs AgentOS — Inference & Automation Stack
+#
+#   docker compose -f docker-compose.inference.yml up -d
+#   docker compose -f docker-compose.inference.yml --profile models up -d model-pull
+#
+# Services: Next.js (3011), MySQL 8, Qdrant, Ollama, n8n.
+# The production reverse-proxy stack stays in docker-compose.yml; this file is
+# the self-contained topology from the platform specification and binds every
+# service except the app to loopback.
+#
+# Secrets are NOT hardcoded: `${VAR:?message}` makes compose refuse to start
+# until the variable is provided (`.env` next to this file).
+# ============================================================
+
+name: alolabs-inference
+
+services:
+  # ── Next.js application ────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: alolabs-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3011"
+      DATABASE_PROVIDER: mysql
+      DATABASE_URL: mysql://${MYSQL_USER:?set MYSQL_USER}:${MYSQL_PASSWORD:?set MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-alolabs}
+      # Every tier resolves against this gateway (see src/lib/ai-router/model-tiers.ts)
+      LOCAL_INFERENCE_URL: http://ollama:11434/v1
+      LOCAL_ONLY: ${LOCAL_ONLY:-true}
+      QDRANT_URL: http://qdrant:6333
+      N8N_BASE_URL: http://n8n:5678
+    ports:
+      - "3011:3011"
+    volumes:
+      - app_storage:/app/storage
+      - app_backups:/app/backups
+    depends_on:
+      mysql:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3011/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks: [alolabs-net]
+
+  # ── Relational database ────────────────────────────────────
+  mysql:
+    image: mysql:8.4
+    container_name: alolabs-mysql
+    restart: unless-stopped
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-alolabs}
+      MYSQL_USER: ${MYSQL_USER:?set MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [alolabs-net]
+
+  # ── Vector memory / RAG ────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: alolabs-qdrant
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks: [alolabs-net]
+
+  # ── Local inference runtime ────────────────────────────────
+  # Serves the OpenAI-compatible API at /v1. Model ids must match the tier map
+  # (LOCAL_MODEL_* overrides in .env); pull them with the `models` profile.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: alolabs-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    # GPU: uncomment once `nvidia-container-toolkit` is installed and verified.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks: [alolabs-net]
+
+  # One-shot: pulls the tier models. Run explicitly, never on every `up`.
+  model-pull:
+    image: ollama/ollama:latest
+    profiles: ["models"]
+    depends_on:
+      ollama:
+        condition: service_started
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      LOCAL_MODEL_REASONING: ${LOCAL_MODEL_REASONING:-qwen2.5:72b-instruct}
+      LOCAL_MODEL_BALANCED: ${LOCAL_MODEL_BALANCED:-qwen2.5:32b-instruct}
+      LOCAL_MODEL_FAST: ${LOCAL_MODEL_FAST:-qwen2.5:1.5b-instruct}
+      LOCAL_MODEL_CODING: ${LOCAL_MODEL_CODING:-qwen2.5-coder:32b-instruct}
+      LOCAL_MODEL_VISION: ${LOCAL_MODEL_VISION:-qwen2.5vl:7b}
+      LOCAL_MODEL_EMBEDDING: ${LOCAL_MODEL_EMBEDDING:-embeddinggemma:300m}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        for model in "$$LOCAL_MODEL_REASONING" "$$LOCAL_MODEL_BALANCED" "$$LOCAL_MODEL_FAST" \
+                     "$$LOCAL_MODEL_CODING" "$$LOCAL_MODEL_VISION" "$$LOCAL_MODEL_EMBEDDING"; do
+          echo "pulling $$model"
+          ollama pull "$$model"
+        done
+        echo "all tier models present"
+        ollama list
+    networks: [alolabs-net]
+
+  # ── Workflow automation ────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: alolabs-n8n
+    restart: unless-stopped
+    environment:
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_SECURE_COOKIE: "false"
+      GENERIC_TIMEZONE: ${TZ:-Asia/Dhaka}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY}
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "127.0.0.1:5678:5678"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks: [alolabs-net]
+
+volumes:
+  mysql_data:
+  qdrant_data:
+  ollama_models:
+  n8n_data:
+  app_storage:
+  app_backups:
+
+networks:
+  alolabs-net:
+    driver: bridge

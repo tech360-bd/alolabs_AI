@@ -13,6 +13,9 @@ import { getAgentStateManager } from './state';
 import { getAgentHealthMonitor } from './health';
 import { db } from '@/lib/db';
 import { getRouter } from '@/lib/ai-router';
+import { resolveModelForTier } from '@/lib/ai-router/model-tiers';
+import { runToolLoop } from './tool-loop';
+import { parseToolList, toolSchemasFor } from '@/lib/tools';
 import { buildAgentContext } from '@/lib/context-engine';
 import {
   classifyTask, selectModelForTask, retrieveRelevantKnowledge,
@@ -434,7 +437,12 @@ export class AgentExecutionEngine {
       }
 
       const taskClassification = classifyTask(task.input, agent.role, agent.type);
-      const selectedModel = selectModelForTask(taskClassification);
+      // The classifier yields a policy tier; the tier maps to a concrete model
+      // on the local gateway. Passing the tier string straight through (the
+      // previous behaviour) matched no provider model and silently degraded to
+      // "best model of whatever provider was selected".
+      const modelTier = selectModelForTask(taskClassification);
+      const selectedModel = resolveModelForTier(modelTier);
 
       try {
         getEventBus().publish({
@@ -502,11 +510,20 @@ export class AgentExecutionEngine {
 
       const router = getRouter();
       const originalModel = selectedModel;
+
+      // Only tools this agent is explicitly allowed to call are advertised to
+      // the model. Advertising a tool the policy will block wastes a turn and
+      // teaches the model to hallucinate capability it does not have.
+      const allowedToolNames = parseToolList(agent.allowedTools);
+      const forbiddenToolNames = new Set(parseToolList(agent.forbiddenTools));
+      const toolSchemas = toolSchemasFor(allowedToolNames.filter((name) => !forbiddenToolNames.has(name)));
+
       const routerRequest = {
         model: selectedModel,
         messages,
         maxTokens: task.maxTokens ?? 4096,
         temperature: taskClassification.complexity === 'simple' ? 0.3 : 0.7,
+        ...(toolSchemas.length > 0 ? { tools: toolSchemas } : {}),
       };
 
       const routingContext = {
@@ -523,8 +540,9 @@ export class AgentExecutionEngine {
         const routerErrorCode = this.classifyError(routerError);
         if (!FALLBACK_RETRYABLE_ERRORS.has(routerErrorCode)) throw routerError;
 
-        const fallbackModel = MODEL_FALLBACK_CHAIN[originalModel];
-        if (!fallbackModel) throw routerError;
+        const fallbackTier = MODEL_FALLBACK_CHAIN[modelTier];
+        if (!fallbackTier) throw routerError;
+        const fallbackModel = resolveModelForTier(fallbackTier);
         try {
           aiResponse = await router.chat(
             { ...routerRequest, model: fallbackModel },
@@ -551,6 +569,7 @@ export class AgentExecutionEngine {
               taskId,
               agentId: task.agentId,
               originalModel,
+              originalTier: modelTier,
               fallbackModel: aiResponse.model,
               triggerErrorCode: fallbackTriggerError,
               latencyMs: Date.now() - startTime,
@@ -560,6 +579,54 @@ export class AgentExecutionEngine {
             correlationId: taskId,
           }).catch(() => {});
         } catch { /* Event delivery must not block an execution. */ }
+      }
+
+      // If the model asked for tools, execute them and let it continue.
+      let toolLoopSteps = 0;
+      let toolResults: Array<{ toolName: string; ok: boolean; error?: string; blocked?: boolean; durationMs: number }> = [];
+      let offeredTools: string[] = [];
+      if (aiResponse.toolCalls && aiResponse.toolCalls.length > 0 && toolSchemas.length > 0) {
+        const loop = await runToolLoop({
+          chat: (req, company, agentRef, ctx) => router.chat(req, company, agentRef, ctx),
+          request: routerRequest,
+          initialResponse: aiResponse,
+          agent: {
+            agentId: agent.agentId,
+            agentDbId: agent.id,
+            name: agent.name,
+            departmentId: agent.departmentId,
+            allowedTools: agent.allowedTools,
+            forbiddenTools: agent.forbiddenTools,
+          },
+          context: {
+            companyId: task.companyId,
+            ...(task.userId ? { userId: task.userId } : {}),
+            taskId,
+            approvalId: task.approvalId ?? null,
+          },
+          tools: toolSchemas,
+        });
+        aiResponse = loop.response;
+        toolLoopSteps = loop.steps;
+        offeredTools = loop.offeredTools;
+        toolResults = loop.toolResults.map((result) => ({
+          toolName: result.toolName,
+          ok: result.ok,
+          ...(result.error ? { error: result.error } : {}),
+          ...(result.blocked ? { blocked: true } : {}),
+          durationMs: result.durationMs,
+        }));
+      } else if (aiResponse.toolCalls && aiResponse.toolCalls.length > 0 && toolSchemas.length === 0) {
+        // The model tried to call a tool but this agent has none: strip the
+        // calls so the empty content is not persisted as a silent success.
+        aiResponse = {
+          ...aiResponse,
+          content:
+            aiResponse.content?.trim() ||
+            'This agent has no approved tools, so no tool call could be executed for this task.',
+          toolCalls: [],
+          finishReason: 'stop',
+        };
       }
 
       const outputValidation = await validateOutput(aiResponse.content, {
@@ -594,6 +661,8 @@ export class AgentExecutionEngine {
           completionTokens: aiResponse.usage.completionTokens,
           totalTokens: aiResponse.usage.totalTokens,
           ...(modelFallback ? { modelFallback: true, originalModel } : {}),
+          ...(toolLoopSteps > 0 ? { toolLoopSteps, offeredTools } : {}),
+          toolResults,
         },
       };
 
@@ -632,6 +701,8 @@ export class AgentExecutionEngine {
             ragResults: ragContext?.results.length ?? 0,
             promptTokens: aiResponse.usage.promptTokens,
             completionTokens: aiResponse.usage.completionTokens,
+            toolLoopSteps,
+            toolResults,
           }),
         },
       });

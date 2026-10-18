@@ -18,6 +18,8 @@ interface StoredWhatsAppNumber {
   aiEndpoint: string;
   handoverThreshold: number;
   isActive: boolean;
+  /** Tenant that owns the number; used by the shared inbox. */
+  companyId?: string;
   registeredAt: string;
   updatedAt: string;
   metadata?: Record<string, unknown>;
@@ -141,6 +143,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // The number belongs to the tenant of the user registering it. Older
+    // records have no companyId and fall back to the default tenant.
+    const membership = await db.companyUser.findFirst({
+      where: { userId: session.userId },
+      select: { companyId: true },
+    });
+
     const newNumber: StoredWhatsAppNumber = {
       id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substring(2)}`,
       phoneNumberId: body.phoneNumberId,
@@ -152,6 +161,7 @@ export async function POST(request: NextRequest) {
       aiEndpoint: body.aiEndpoint || '',
       handoverThreshold: body.handoverThreshold || 8,
       isActive: true,
+      companyId: membership?.companyId ?? 'default-company',
       registeredAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       metadata: body.metadata,

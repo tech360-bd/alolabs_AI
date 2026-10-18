@@ -1,0 +1,95 @@
+{
+  "workflow_id": "academic_ai",
+  "name": "Academic AI",
+  "slug": "academic-ai",
+  "description": "Study plans, lessons, quizzes, exams, flashcards",
+  "triggers": [
+    "study",
+    "academic",
+    "course",
+    "lesson",
+    "quiz",
+    "exam"
+  ],
+  "department": "Learning & Development",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Learning & Development Strategic Planning Agent",
+      "action": "design_course",
+      "config": {
+        "instruction": "Design the course: modules, learning outcomes, prerequisites and assessment plan.",
+        "agentHint": "Course Designer Agent",
+        "original": {
+          "department": "Study & Academic AI",
+          "agent": "Course Designer Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Learning & Development Execution Agent",
+      "action": "write_lessons",
+      "config": {
+        "instruction": "Write lessons for the Academic AI workflow; return the deliverable and its assumptions.",
+        "agentHint": "Lesson Writer Agent",
+        "original": {
+          "department": "Study & Academic AI",
+          "agent": "Lesson Writer Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Learning & Development Execution Agent",
+      "action": "create_quizzes",
+      "config": {
+        "instruction": "Create quizzes per module with answer keys and difficulty levels.",
+        "agentHint": "Quiz Generator Agent",
+        "original": {
+          "department": "Study & Academic AI",
+          "agent": "Quiz Generator Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Learning & Development Execution Agent",
+      "action": "create_exams",
+      "config": {
+        "instruction": "Create the exam paper with sections, weighting, time limits and a marking scheme.",
+        "agentHint": "Exam Generator Agent",
+        "original": {
+          "department": "Study & Academic AI",
+          "agent": "Exam Generator Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Learning & Development Execution Agent",
+      "action": "create_flashcards",
+      "config": {
+        "instruction": "Create flashcards for each key concept with a prompt and a concise answer.",
+        "agentHint": "Flashcard Agent",
+        "original": {
+          "department": "Study & Academic AI",
+          "agent": "Flashcard Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Learning & Development Execution Agent",
+      "action": "prepare_for_lms",
+      "config": {
+        "instruction": "Package the course for LMS import (sections, activities, completion rules).",
+        "agentHint": "LMS Integration Agent",
+        "original": {
+          "department": "Study & Academic AI",
+          "agent": "LMS Integration Agent"
+        }
+      }
+    }
+  ]
+}

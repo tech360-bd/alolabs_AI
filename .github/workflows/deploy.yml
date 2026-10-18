@@ -135,17 +135,32 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           MIGRATIONS_APPROVED: ${{ inputs.migrations_approved || 'false' }}
+          PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           port: ${{ secrets.PRODUCTION_PORT }}
           command_timeout: 30m
-          envs: MIGRATIONS_APPROVED
+          envs: MIGRATIONS_APPROVED,PRODUCTION_APP_DIR
           script: |
             set -euo pipefail
             TEMP_DIR=/tmp/alo-deploy-${{ github.run_id }}-${{ github.run_attempt }}
             trap 'rm -rf "${TEMP_DIR}"' EXIT
             chmod 700 "${TEMP_DIR}"/*.sh
-            sudo APP_DIR=/opt BRANCH=main SAFETY_SCRIPT_DIR="${TEMP_DIR}" \
+            APP_DIR="${PRODUCTION_APP_DIR:-}"
+            if [ -z "$APP_DIR" ]; then
+              for candidate in /opt /home/aloedu/alolabs_AI; do
+                if [ -f "$candidate/deploy/scripts/backup.sh" ]; then
+                  APP_DIR="$candidate"
+                  break
+                fi
+              done
+            fi
+            if [ -z "$APP_DIR" ]; then
+              echo "ERROR: no application directory found (PRODUCTION_APP_DIR, /opt, /home/aloedu/alolabs_AI)."
+              exit 1
+            fi
+            echo "Application directory: ${APP_DIR}"
+            sudo -n env APP_DIR="${APP_DIR}" BRANCH=main SAFETY_SCRIPT_DIR="${TEMP_DIR}" \
               MIGRATIONS_APPROVED="${MIGRATIONS_APPROVED}" bash "${TEMP_DIR}/deploy.sh"

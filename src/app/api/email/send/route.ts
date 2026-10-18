@@ -3,6 +3,7 @@ import { verifySessionToken } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { SMTPEmailService } from '@/lib/email/smtp';
 import { EmailTrackingService } from '@/lib/email/tracking';
+import { recordTrackingEvent } from '@/lib/email/tracking-store';
 import type { SMTPConfig, EmailMessage, EmailAttachment } from '@/lib/email/types';
 import * as crypto from 'crypto';
 
@@ -132,15 +133,28 @@ export async function POST(request: NextRequest) {
       }),
     );
 
-    // Inject tracking pixel if requested
+    // Inject a hosted tracking pixel if requested. A data-URL pixel cannot
+    // record anything, so refuse instead of pretending tracking is enabled.
     let finalHtml = html || '';
     let trackingMessageId = '';
 
-    if (trackOpens && finalHtml) {
-      trackingMessageId = generateMessageId();
-      const trackingService = new EmailTrackingService();
-      const pixel = trackingService.generateTrackingPixel(trackingMessageId);
-      finalHtml = finalHtml.replace('</body>', `${pixel}</body>`);
+    const trackingService = new EmailTrackingService();
+    if (trackOpens) {
+      if (!trackingService.isConfigured()) {
+        return NextResponse.json(
+          { error: 'Configuration required: EMAIL_TRACKING_SECRET (16+ characters) to enable open tracking' },
+          { status: 400 },
+        );
+      }
+      if (finalHtml) {
+        trackingMessageId = generateMessageId();
+        const baseUrl =
+          process.env.APP_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          new URL(request.url).origin;
+        const pixel = trackingService.generateTrackingPixel(trackingMessageId, baseUrl);
+        finalHtml = finalHtml.replace('</body>', `${pixel}</body>`);
+      }
     }
 
     const messageId = trackingMessageId || generateMessageId();
@@ -178,15 +192,18 @@ export async function POST(request: NextRequest) {
     // Store the sent email record
     await storeSentEmail(accountId, emailMessage, result.messageId);
 
-    // Record tracking delivery if tracking enabled
+    // Record delivery events in AuditLog (durable across restarts).
     if (trackOpens) {
       try {
-        const trackingService = new EmailTrackingService();
         for (const recipient of [...to, ...cc]) {
-          trackingService.recordDelivered(result.messageId, recipient);
+          await recordTrackingEvent({
+            messageId: result.messageId,
+            type: 'delivered',
+            recipient,
+          });
         }
-      } catch {
-        // Non-critical
+      } catch (error) {
+        console.error('Email delivery tracking error:', error);
       }
     }
 

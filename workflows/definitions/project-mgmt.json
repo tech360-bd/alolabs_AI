@@ -1,0 +1,92 @@
+{
+  "workflow_id": "project_management",
+  "name": "Project Management",
+  "slug": "project-mgmt",
+  "description": "Create project plans, track milestones, manage teams",
+  "triggers": [
+    "project",
+    "task management",
+    "timeline"
+  ],
+  "department": "Operations",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Operations Process Automation Agent",
+      "action": "setup_project",
+      "config": {
+        "instruction": "Set up project for the Project Management workflow; return the deliverable and its assumptions.",
+        "agentHint": "Project Manager Agent",
+        "original": {
+          "department": "Project Management",
+          "agent": "Project Manager Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Operations Strategic Planning Agent",
+      "action": "define_scope",
+      "config": {
+        "instruction": "Define scope for the Project Management workflow; return the deliverable and its assumptions.",
+        "agentHint": "Scope Agent",
+        "original": {
+          "department": "Project Management",
+          "agent": "Scope Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Operations Strategic Planning Agent",
+      "action": "create_wbs",
+      "config": {
+        "instruction": "Break the scope into a work breakdown structure with owners and effort estimates.",
+        "agentHint": "Breakdown Agent",
+        "original": {
+          "department": "Project Management",
+          "agent": "Breakdown Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Operations Strategic Planning Agent",
+      "action": "create_schedule",
+      "config": {
+        "instruction": "Create schedule for the Project Management workflow; return the deliverable and its assumptions.",
+        "agentHint": "Schedule Agent",
+        "original": {
+          "department": "Project Management",
+          "agent": "Schedule Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Operations Task Coordinator Agent",
+      "action": "assign_team",
+      "config": {
+        "instruction": "Assign team for the Project Management workflow; return the deliverable and its assumptions.",
+        "agentHint": "Team Agent",
+        "original": {
+          "department": "Project Management",
+          "agent": "Team Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Operations Task Coordinator Agent",
+      "action": "setup_tracking",
+      "config": {
+        "instruction": "Set up tracking for the Project Management workflow; return the deliverable and its assumptions.",
+        "agentHint": "Tracking Agent",
+        "original": {
+          "department": "Project Management",
+          "agent": "Tracking Agent"
+        }
+      }
+    }
+  ]
+}

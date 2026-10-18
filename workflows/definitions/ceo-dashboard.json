@@ -1,0 +1,106 @@
+{
+  "workflow_id": "ceo_dashboard",
+  "name": "CEO Executive Dashboard",
+  "slug": "ceo-dashboard",
+  "description": "Generate executive summary and KPI dashboard",
+  "triggers": [
+    "CEO",
+    "executive",
+    "summary",
+    "KPI"
+  ],
+  "department": "Executive Office",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "Executive Office Data Analyst Agent",
+      "action": "collect_metrics",
+      "config": {
+        "instruction": "Collect the period metrics from each department and normalise definitions.",
+        "agentHint": "Data Collector Agent",
+        "original": {
+          "department": "Executive CEO Control",
+          "agent": "Data Collector Agent"
+        }
+      }
+    },
+    {
+      "step": 2,
+      "agent": "Executive Office Reporting Agent",
+      "action": "finance_summary",
+      "config": {
+        "instruction": "Complete summary for the CEO Executive Dashboard workflow; return the deliverable and its assumptions.",
+        "agentHint": "Finance Agent",
+        "original": {
+          "department": "Executive CEO Control",
+          "agent": "Finance Agent"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "agent": "Executive Office Reporting Agent",
+      "action": "sales_summary",
+      "config": {
+        "instruction": "Complete summary for the CEO Executive Dashboard workflow; return the deliverable and its assumptions.",
+        "agentHint": "Sales Agent",
+        "original": {
+          "department": "Executive CEO Control",
+          "agent": "Sales Agent"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "agent": "Executive Office Reporting Agent",
+      "action": "marketing_summary",
+      "config": {
+        "instruction": "Complete summary for the CEO Executive Dashboard workflow; return the deliverable and its assumptions.",
+        "agentHint": "Marketing Agent",
+        "original": {
+          "department": "Executive CEO Control",
+          "agent": "Marketing Agent"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "agent": "Executive Office Reporting Agent",
+      "action": "ops_summary",
+      "config": {
+        "instruction": "Complete summary for the CEO Executive Dashboard workflow; return the deliverable and its assumptions.",
+        "agentHint": "Operations Agent",
+        "original": {
+          "department": "Executive CEO Control",
+          "agent": "Operations Agent"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "agent": "Executive Office Reporting Agent",
+      "action": "create_dashboard",
+      "config": {
+        "instruction": "Assemble the KPI dashboard with period-over-period comparisons and source links.",
+        "agentHint": "Dashboard Agent",
+        "original": {
+          "department": "Executive CEO Control",
+          "agent": "Dashboard Agent"
+        }
+      }
+    },
+    {
+      "step": 7,
+      "agent": "Executive Office Reporting Agent",
+      "action": "generate_report",
+      "config": {
+        "instruction": "Write the executive report: findings, metrics, risks and recommended actions.",
+        "agentHint": "Report Agent",
+        "original": {
+          "department": "Executive CEO Control",
+          "agent": "Report Agent"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "system": "ALO Labs AgentOS v3.0",
+  "total_workflows": 17,
+  "workflows": [
+    {
+      "id": "digital_marketing_agency",
+      "name": "Digital Marketing Agency",
+      "slug": "digital-marketing"
+    },
+    {
+      "id": "education_agency",
+      "name": "Education Agency",
+      "slug": "education-agency"
+    },
+    {
+      "id": "technology_agency",
+      "name": "Technology Agency",
+      "slug": "tech-agency"
+    },
+    {
+      "id": "crm_saas_builder",
+      "name": "CRM SaaS Builder",
+      "slug": "crm-saas"
+    },
+    {
+      "id": "image_ai_generation",
+      "name": "Image AI Generation",
+      "slug": "image-ai"
+    },
+    {
+      "id": "academic_ai",
+      "name": "Academic AI",
+      "slug": "academic-ai"
+    },
+    {
+      "id": "video_production",
+      "name": "Video Production",
+      "slug": "video-production"
+    },
+    {
+      "id": "music_generation",
+      "name": "Song & Music Generation",
+      "slug": "music-generation"
+    },
+    {
+      "id": "website_app_builder",
+      "name": "AI Website/App Builder",
+      "slug": "website-builder"
+    },
+    {
+      "id": "web_clone_rebuild",
+      "name": "Web Clone / Original Rebuild",
+      "slug": "web-clone"
+    },
+    {
+      "id": "web_scraper",
+      "name": "Website Scraper/Crawler",
+      "slug": "web-scraper"
+    },
+    {
+      "id": "whatsapp_business",
+      "name": "WhatsApp Business",
+      "slug": "whatsapp-business"
+    },
+    {
+      "id": "seo_audit",
+      "name": "SEO Audit & Optimization",
+      "slug": "seo-audit"
+    },
+    {
+      "id": "proposal_factory",
+      "name": "Proposal & Contract Factory",
+      "slug": "proposal-factory"
+    },
+    {
+      "id": "project_management",
+      "name": "Project Management",
+      "slug": "project-mgmt"
+    },
+    {
+      "id": "server_auto_deploy",
+      "name": "Auto Server & Domain Deploy",
+      "slug": "auto-deploy"
+    },
+    {
+      "id": "ceo_dashboard",
+      "name": "CEO Executive Dashboard",
+      "slug": "ceo-dashboard"
+    }
+  ]
+}

@@ -11,6 +11,7 @@
  * each gets a unique router name (`openai-compatible:<config name>`).
  */
 
+import { extractToolCalls } from './tool-calls';
 import type {
   AIModel,
   AIProvider,
@@ -291,6 +292,7 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
           totalTokens: data.usage?.total_tokens ?? 0,
         },
         finishReason: mapFinishReason(choice?.finish_reason),
+        toolCalls: extractToolCalls(choice?.message),
         latencyMs: Date.now() - startTime,
       };
     } finally {
