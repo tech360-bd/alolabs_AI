@@ -24,6 +24,12 @@ const RETRY_JITTER_MAX_MS = 300;
 
 const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 
+/** Combine a task-level cancellation signal with the provider's own hard timeout. */
+export function requestAbortSignal(request: Pick<AIRequest, 'signal'>, timeoutMs: number): AbortSignal {
+  const providerTimeout = AbortSignal.timeout(Math.max(1, timeoutMs));
+  return request.signal ? AbortSignal.any([request.signal, providerTimeout]) : providerTimeout;
+}
+
 // ─── Token Estimation ───────────────────────────────────────────────
 
 /** Rough token estimation (~4 chars per token for English text). */
@@ -56,6 +62,9 @@ function jitteredDelay(attempt: number): number {
 }
 
 function isRetryableError(error: unknown): boolean {
+  if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError' || /aborted|timed out/i.test(error.message))) {
+    return false;
+  }
   if (error instanceof AIRouterError) {
     // Do not repeatedly resend a provider request after an explicit quota/rate-limit response.
     if (error.statusCode === 429) return false;

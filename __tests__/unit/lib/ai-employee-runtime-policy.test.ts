@@ -54,4 +54,13 @@ describe('AI employee runtime policy', () => {
     expect(fakeDb.rows('modelUsageRecord')).toHaveLength(1);
     expect(fakeDb.rows('modelUsageRecord')[0].status).toBe('blocked');
   });
+
+  it('propagates an already-aborted task signal before creating a provider attempt', async () => {
+    seedCompanyAndAgent('active');
+    const controller = new AbortController();
+    const reason = new Error('Agent task exceeded its 1000 ms timeout.');
+    controller.abort(reason);
+    await expect(executeCompanyAIChat(actor, { ...request, signal: controller.signal }, options)).rejects.toBe(reason);
+    expect(fakeDb.rows('modelUsageRecord')).toHaveLength(0);
+  });
 });

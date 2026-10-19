@@ -11,6 +11,7 @@ import type {
 import { DEFAULT_TIMEOUT_MS, MAX_DELEGATION_DEPTH, PRIORITY_WEIGHTS } from './types';
 import { getAgentStateManager } from './state';
 import { getAgentHealthMonitor } from './health';
+import { AgentTaskTimeoutError, createAgentTaskTimeout, throwIfAgentTaskAborted } from './timeout';
 import { db } from '@/lib/db';
 import { agentCompanyScope } from '@/lib/agent-access';
 import type { AIRequest, AIResponse } from '@/lib/ai-router/types';
@@ -40,6 +41,7 @@ const DEFERRED_ROUTING_CODES: ReadonlySet<string> = new Set([
   'TOKEN_BUDGET_EXHAUSTED',
   'RATE_LIMITED_DEFERRED',
   'AUTHORIZED_ROUTE_FAILED',
+  'CANCEL_UNSUPPORTED',
 ]);
 
 interface AIEmployeeExecutionPolicy {
@@ -390,6 +392,7 @@ export class AgentExecutionEngine {
     const startTime = Date.now();
     let slotAcquired = false;
     let agentDbId: string | undefined;
+    let taskTimeout: ReturnType<typeof createAgentTaskTimeout> | undefined;
     const abortController = new AbortController();
     this.abortControllers.set(taskId, abortController);
 
@@ -441,6 +444,7 @@ export class AgentExecutionEngine {
       }
       slotAcquired = true;
       this.stateManager.transition(taskId, 'running', 'Execution started');
+      taskTimeout = createAgentTaskTimeout(task.timeoutMs ?? DEFAULT_TIMEOUT_MS, abortController);
 
       const inputValidation = await validateInput(
         { task: task.input, context: task.context ?? {} },
@@ -695,7 +699,8 @@ export class AgentExecutionEngine {
       let fallbackAttempts = 0;
 
       const callCompanyModel = async (request: AIRequest): Promise<AIResponse> => {
-        const routed = await executeCompanyAIChat(actor, { ...request, model: '' }, {
+        throwIfAgentTaskAborted(abortController.signal);
+        const routed = await executeCompanyAIChat(actor, { ...request, model: '', signal: abortController.signal }, {
           profile: routingProfile,
           dataClassification,
           agentId: agent.id,
@@ -704,6 +709,7 @@ export class AgentExecutionEngine {
           taskId,
           requestId: `${taskId}:model:${++modelCallSequence}`,
         });
+        throwIfAgentTaskAborted(abortController.signal);
         if (routed.fallbackUsed) {
           modelFallback = true;
           fallbackAttempts += Math.max(0, routed.attempts - 1);
@@ -759,6 +765,7 @@ export class AgentExecutionEngine {
             approvalId: task.approvalId ?? null,
           },
           tools: toolSchemas,
+          signal: abortController.signal,
         });
         aiResponse = loop.response;
         toolLoopSteps = loop.steps;
@@ -923,6 +930,55 @@ export class AgentExecutionEngine {
     } catch (error) {
       const latency = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const timeoutError = error instanceof AgentTaskTimeoutError
+        ? error
+        : abortController.signal.reason instanceof AgentTaskTimeoutError
+          ? abortController.signal.reason
+          : null;
+      if (timeoutError) {
+        const message = timeoutError.message;
+        task.error = {
+          code: 'TIMEOUT',
+          message,
+          retryable: false,
+          attempts: 1,
+          maxRetries: 0,
+          lastAttemptAt: new Date(),
+        };
+        if (task.status === 'running') this.stateManager.transition(taskId, 'timed_out', message);
+        this.healthMonitor.recordFailure(task.agentId, latency, message);
+        if (agentDbId) {
+          await db.agentRun.create({
+            data: {
+              id: task.id,
+              agentId: agentDbId,
+              companyId: task.companyId,
+              input: task.input,
+              status: 'timed_out',
+              instanceId: task.instanceId,
+              requestId: task.id,
+              userId: task.userId,
+              priority: task.priority,
+              riskScore: task.riskScore,
+              securityFlags: JSON.stringify(task.securityFlags ?? []),
+              approvalId: task.approvalId,
+              error: 'TIMEOUT',
+              errorMessage: message,
+              durationMs: latency,
+              completedAt: new Date(),
+            },
+          }).catch(() => { /* The in-memory task remains explicitly timed out if persistence fails. */ });
+        }
+        await db.auditLog.create({
+          data: {
+            action: 'agent_execution_timed_out',
+            resource: task.agentId,
+            details: JSON.stringify({ taskId, companyId: task.companyId, timeoutMs: task.timeoutMs, latencyMs: latency }),
+            ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
+          },
+        }).catch(() => {});
+        return this.stateManager.getTask(taskId)!;
+      }
       if (error instanceof CompanyAIError && DEFERRED_ROUTING_CODES.has(error.code)) {
         task.error = {
           code: error.code,
@@ -1048,12 +1104,9 @@ export class AgentExecutionEngine {
 
       return this.stateManager.getTask(taskId)!;
     } finally {
+      taskTimeout?.dispose();
       this.abortControllers.delete(taskId);
-      const currentTask = this.stateManager.getTask(taskId);
-      if (slotAcquired && currentTask &&
-          !['completed', 'failed', 'timed_out'].includes(currentTask.status)) {
-        this.stateManager.releaseSlot(task.companyId);
-      }
+      if (slotAcquired) this.stateManager.releaseSlot(task.companyId);
     }
   }
 

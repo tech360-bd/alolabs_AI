@@ -51,6 +51,12 @@ type ChatFn = (
 
 const DEFAULT_MAX_STEPS = 5;
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  if (signal.reason instanceof Error) throw signal.reason;
+  throw new Error('Agent task was cancelled.');
+}
+
 export async function runToolLoop(params: {
   chat: ChatFn;
   request: AIRequest;
@@ -59,8 +65,9 @@ export async function runToolLoop(params: {
   context: ToolLoopContext;
   tools: AIRequest['tools'];
   maxSteps?: number;
+  signal?: AbortSignal;
 }): Promise<ToolLoopResult> {
-  const { chat, request, agent, context } = params;
+  const { chat, request, agent, context, signal } = params;
   const maxSteps = Math.min(10, Math.max(1, params.maxSteps ?? DEFAULT_MAX_STEPS));
   const permissions = parseAgentPermissions(agent);
   const offeredTools = (params.tools ?? []).map((tool) => tool.function.name);
@@ -71,6 +78,7 @@ export async function runToolLoop(params: {
   const toolResults: ToolExecutionResult[] = [];
 
   while (response.toolCalls && response.toolCalls.length > 0 && steps < maxSteps) {
+    throwIfAborted(signal);
     steps += 1;
 
     messages.push({
@@ -80,6 +88,7 @@ export async function runToolLoop(params: {
     });
 
     for (const call of response.toolCalls) {
+      throwIfAborted(signal);
       const parsed = parseToolArguments(call.function.arguments);
 
       const result: ToolExecutionResult = parsed.ok
@@ -104,6 +113,7 @@ export async function runToolLoop(params: {
             error: parsed.error,
             durationMs: 0,
           };
+      throwIfAborted(signal);
 
       toolResults.push(result);
 

@@ -24,7 +24,7 @@ import type {
   AIEmbeddingResponse,
 } from './types';
 import { AIRouterError } from './types';
-import { BaseAIProvider } from './provider-base';
+import { BaseAIProvider, requestAbortSignal } from './provider-base';
 import { hasExplicitZeroPricing } from './free-models';
 
 // ─── Config ─────────────────────────────────────────────────────────
@@ -226,12 +226,12 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
     };
   }
 
-  private async revalidateFreeModel(modelId: string): Promise<void> {
+  private async revalidateFreeModel(modelId: string, signal?: AbortSignal): Promise<void> {
     if (!this.freeOnly) return;
     // Recheck live upstream pricing at request time. If pricing disappears,
     // becomes nonzero, or cannot be fetched, refuse the call rather than fall
     // back to an unpriced model.
-    const current = await this.fetchRemoteModels();
+    const current = await this.fetchRemoteModels(signal);
     this.supportedModels = current;
     if (!current.some((model) => model.id === modelId)) {
       throw new AIRouterError(
@@ -243,10 +243,10 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
     }
   }
 
-  private async fetchRemoteModels(): Promise<AIModel[]> {
+  private async fetchRemoteModels(signal?: AbortSignal): Promise<AIModel[]> {
     const res = await fetch(`${this.baseUrl}/models`, {
       headers: this.headers(false),
-      signal: AbortSignal.timeout(this.healthTimeoutMs),
+      signal: requestAbortSignal({ signal }, this.healthTimeoutMs),
     });
     if (!res.ok) {
       throw new AIRouterError(
@@ -298,7 +298,7 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
 
   async chatCompletion(request: AIRequest): Promise<AIResponse> {
     this.requireInitialized();
-    await this.revalidateFreeModel(request.model);
+    await this.revalidateFreeModel(request.model, request.signal);
     const release = this.trackConnection();
     const startTime = Date.now();
 
@@ -308,7 +308,7 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
           method: 'POST',
           headers: this.headers(true),
           body: JSON.stringify(this.buildBody(request, false)),
-          signal: AbortSignal.timeout(this.timeoutMs),
+          signal: requestAbortSignal(request, this.timeoutMs),
         });
         if (!res.ok) {
           const errorBody = await res.text().catch(() => '');
@@ -345,14 +345,14 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
 
   async *streamChatCompletion(request: AIRequest): AsyncGenerator<AIStreamChunk> {
     this.requireInitialized();
-    await this.revalidateFreeModel(request.model);
+    await this.revalidateFreeModel(request.model, request.signal);
     const release = this.trackConnection();
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: this.headers(true),
         body: JSON.stringify(this.buildBody(request, true)),
-        signal: AbortSignal.timeout(this.timeoutMs * 2),
+        signal: requestAbortSignal(request, this.timeoutMs * 2),
       });
       if (!response.ok) {
         throw new AIRouterError(

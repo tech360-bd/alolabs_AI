@@ -116,6 +116,12 @@ function quoteSafeJson(value: unknown): string {
   try { return JSON.stringify(value); } catch { return '{}'; }
 }
 
+function throwIfRequestAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  if (signal.reason instanceof Error) throw signal.reason;
+  throw new CompanyAIError('AI request was cancelled before provider completion.', 499, 'REQUEST_CANCELLED');
+}
+
 /** Create a running attempt and its audit event before any provider request. */
 async function startAttempt(input: {
   requestId: string;
@@ -721,12 +727,32 @@ export async function executeCompanyAIChat(
   const inputTokens = estimateTokens(request.messages);
   const requestedOutputTokens = Math.min(request.maxTokens ?? profile.defaultMaxOutputTokens, profile.defaultMaxOutputTokens, 32_768);
   const prepared = await buildPreparedRouting({ actor, options, requiredContextTokens: inputTokens + requestedOutputTokens });
+  throwIfRequestAborted(request.signal);
   const maxOutputTokens = Math.max(1, Math.min(requestedOutputTokens, prepared.policy.maxOutputTokens));
   const effectiveRequest = { ...request, model: request.model ?? '', maxTokens: maxOutputTokens };
   const estimatedTotalTokens = inputTokens + maxOutputTokens;
   await budgetAllows(prepared, actor, options, estimatedTotalTokens);
+  throwIfRequestAborted(request.signal);
 
-  const eligible = orderedChatCandidates(prepared, request, estimatedTotalTokens).slice(0, MAX_ROUTE_ATTEMPTS);
+  const routable = orderedChatCandidates(prepared, request, estimatedTotalTokens);
+  // The bundled Z-AI SDK does not expose an AbortSignal. Timed runtime tasks
+  // must not start uncancellable provider requests (which could outlive a task
+  // and produce unaccounted usage), so route them only to abort-capable adapters.
+  const eligible = routable
+    .filter((candidate) => !request.signal || candidate.routerName !== 'zai-sdk')
+    .slice(0, MAX_ROUTE_ATTEMPTS);
+  if (!eligible.length && request.signal && routable.some((candidate) => candidate.routerName === 'zai-sdk')) {
+    const reason = 'The only authorized route does not support task cancellation; no provider request was started.';
+    await recordDeferred({
+      requestId: prepared.requestId,
+      actor,
+      options,
+      estimatedTokens: estimatedTotalTokens,
+      code: 'CANCEL_UNSUPPORTED',
+      reason,
+    });
+    throw new CompanyAIError(reason, 503, 'CANCEL_UNSUPPORTED', prepared.requestId);
+  }
   if (!eligible.length) await throwDeferred(prepared, actor, options, estimatedTotalTokens, request.model);
 
   const router = await ensureRouterSynced();
@@ -746,7 +772,9 @@ export async function executeCompanyAIChat(
     });
     const startedAt = Date.now();
     try {
+      throwIfRequestAborted(request.signal);
       const response = await router.chat({ ...effectiveRequest, model: candidate.modelId }, actor.companyId, options.agentId, buildContext(candidate, prepared, actor, options, prepared.requestId, 'unknown'));
+      throwIfRequestAborted(request.signal);
       const actualCost = candidate.isLocal || candidate.costPerMillionTokens === 0
         ? 0
         : modelCost(candidate, response.usage.totalTokens || response.usage.promptTokens + response.usage.completionTokens);
@@ -781,6 +809,8 @@ export async function executeCompanyAIChat(
         errorMessage: safeErrorMessage(error),
         rateLimitResponse: code === 'RATE_LIMITED',
       });
+      // Once the task signal is aborted, do not try a fallback provider.
+      throwIfRequestAborted(request.signal);
       if (attemptIndex === eligible.length - 1) break;
     }
   }

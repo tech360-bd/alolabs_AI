@@ -87,6 +87,8 @@ export interface AIRequest {
   maxTokens?: number;
   stream?: boolean;
   tools?: AITool[];
+  /** Runtime cancellation; never serialized into provider request bodies. */
+  signal?: AbortSignal;
 }
 
 export interface AITokenUsage {

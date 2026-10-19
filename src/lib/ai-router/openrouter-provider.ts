@@ -16,7 +16,7 @@ import type {
   AIStreamChunk,
 } from './types';
 import { AIRouterError } from './types';
-import { BaseAIProvider } from './provider-base';
+import { BaseAIProvider, requestAbortSignal } from './provider-base';
 import { hasExplicitZeroPricing } from './free-models';
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -260,10 +260,10 @@ export class OpenRouterProvider extends BaseAIProvider {
 
   // ─── Models ─────────────────────────────────────────────────────
 
-  async listModels(): Promise<AIModel[]> {
+  async listModels(signal?: AbortSignal): Promise<AIModel[]> {
     const response = await fetch(`${this.endpoint}/models`, {
       headers: this.buildHeaders(),
-      signal: AbortSignal.timeout(15_000),
+      signal: requestAbortSignal({ signal }, 15_000),
     });
 
     if (!response.ok) {
@@ -295,7 +295,7 @@ export class OpenRouterProvider extends BaseAIProvider {
 
   async chatCompletion(request: AIRequest): Promise<AIResponse> {
     this.requireInitialized();
-    await this.revalidateFreeModel(request.model);
+    await this.revalidateFreeModel(request.model, request.signal);
     const release = this.trackConnection();
     const startTime = Date.now();
 
@@ -307,7 +307,7 @@ export class OpenRouterProvider extends BaseAIProvider {
           method: 'POST',
           headers: this.buildHeaders(),
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(120_000),
+          signal: requestAbortSignal(request, 120_000),
         });
         if (!res.ok) {
           const errorBody = await res.text().catch(() => '');
@@ -347,7 +347,7 @@ export class OpenRouterProvider extends BaseAIProvider {
 
   async *streamChatCompletion(request: AIRequest): AsyncGenerator<AIStreamChunk> {
     this.requireInitialized();
-    await this.revalidateFreeModel(request.model);
+    await this.revalidateFreeModel(request.model, request.signal);
     const release = this.trackConnection();
 
     try {
@@ -357,7 +357,7 @@ export class OpenRouterProvider extends BaseAIProvider {
         method: 'POST',
         headers: this.buildHeaders(),
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(300_000),
+        signal: requestAbortSignal(request, 300_000),
       });
 
       if (!response.ok) {
@@ -421,9 +421,9 @@ export class OpenRouterProvider extends BaseAIProvider {
 
   // ─── Private Helpers ────────────────────────────────────────────
 
-  private async revalidateFreeModel(modelId: string): Promise<void> {
+  private async revalidateFreeModel(modelId: string, signal?: AbortSignal): Promise<void> {
     if (!this.freeOnly) return;
-    const current = await this.listModels();
+    const current = await this.listModels(signal);
     this.supportedModels = current;
     if (!current.some((model) => model.id === modelId)) {
       throw new AIRouterError(
