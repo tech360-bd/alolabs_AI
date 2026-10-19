@@ -85,6 +85,7 @@ jobs:
           bash deploy/scripts/database-safety-scan.sh .
           bash -n deploy/scripts/database-safety-scan.sh
           bash -n deploy/scripts/backup.sh
+          bash -n .github/scripts/validate-production-secrets.sh
           bash -n deploy/scripts/deploy.sh
       - name: Stage reviewed safety scripts
         run: |
@@ -99,23 +100,29 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  deploy:
-    name: Deploy production
-    needs: quality-and-safety
+  deployment-config:
+    name: Deploy configuration (production bridge)
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Validate required deployment secrets
+      - uses: actions/checkout@v4
+      # Reports every missing or malformed PRODUCTION_* value at once, by name
+      # only. Nothing secret is echoed. Runs as its own job so a configuration
+      # problem is distinguishable from a deployment failure at a glance.
+      - name: Validate required production SSH secrets
         env:
-          HOST: ${{ secrets.PRODUCTION_HOST }}
-          USERNAME: ${{ secrets.PRODUCTION_USER }}
-          SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
-          SSH_PORT: ${{ secrets.PRODUCTION_PORT }}
-        run: |
-          test -n "${HOST}" || { echo 'PRODUCTION_HOST is missing'; exit 1; }
-          test -n "${USERNAME}" || { echo 'PRODUCTION_USER is missing'; exit 1; }
-          test -n "${SSH_KEY}" || { echo 'PRODUCTION_SSH_KEY is missing'; exit 1; }
-          test -n "${SSH_PORT}" || { echo 'PRODUCTION_PORT is missing'; exit 1; }
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_PORT: ${{ secrets.PRODUCTION_PORT }}
+        run: bash .github/scripts/validate-production-secrets.sh
+
+  deploy:
+    name: Deploy production
+    needs: [quality-and-safety, deployment-config]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
       - uses: actions/download-artifact@v4
         with:
           name: production-safety-scripts

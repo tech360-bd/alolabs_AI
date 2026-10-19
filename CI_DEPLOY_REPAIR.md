@@ -167,3 +167,85 @@ Neither of these could be seen before, because CI never reached the test step:
   failure will now carry annotations naming the missing prerequisite.
 - Whether the deploy job succeeds once unblocked. It has never run: it was
   skipped behind the audit gate. Merging to `main` is what exercises it.
+
+---
+
+# Addendum — 2026-10-19: deploy job reached and reported its first real blocker
+
+Run **39247113793** (`Production database-safe deployment`, push of the merge of
+PR #3 to `main`) is the first run where `Deploy production` was not skipped. It
+failed in 5 seconds, before any network activity:
+
+```
+Validate required deployment secrets   failure
+env:
+  HOST:            <- empty
+  USERNAME: ***
+  SSH_KEY: ***
+  SSH_PORT: ***
+PRODUCTION_HOST is missing
+```
+
+The `quality-and-safety` job passed every step in the same run (`npm audit`,
+`prisma generate`, delegate reconciliation, `tsc --noEmit`, full test suite,
+ESLint, `next build`, artifact checks, database-safety scan), so the code gates
+are no longer the blocker — the production bridge is.
+
+## What is and is not known
+
+| Question | Evidence |
+| --- | --- |
+| Is `PRODUCTION_HOST` empty *at the job*? | Yes — `HOST:` printed empty, annotation `PRODUCTION_HOST is missing`. |
+| Are the other three set at the job? | Yes — `USERNAME`, `SSH_KEY`, `SSH_PORT` printed as `***`, and the step exits on the first failing `test`, so those three `test -n` calls passed. |
+| Where are they stored (environment vs repository)? | **Not observable from here.** `GET /repos/.../actions/secrets` and `/actions/variables` return `403 Resource not accessible by integration` for a workflow token. The `production` environment exists (`created_at 2026-10-13`, no protection rules). |
+| Is a value defined but empty? | Most likely. An environment secret/viewer combination that renders as empty in the job means the name resolves to an empty string; an *absent* secret renders the same way, so the two cannot be distinguished from the log alone. Both are fixed the same way. |
+
+## Change made
+
+`.github/scripts/validate-production-secrets.sh` replaces the four `test -n`
+one-liners, and it runs in its own `deployment-config` job that `deploy` now
+`needs` alongside `quality-and-safety`. Rationale:
+
+- **One pass, not four runs.** Every missing or malformed value is listed
+  together with what it should contain.
+- **Shape, not just presence.** A host with `https://` or `:2222`, a trailing
+  newline, a public key, a truncated key, a CRLF key, `user@host` and an
+  out-of-range port are all rejected here rather than inside `scp-action` or
+  `ssh-action`.
+- **Actionable output.** The step summary carries the exact `gh secret set`
+  commands for the `production` environment, and states the shadowing rule that
+  explains an empty value next to three working ones.
+- **No secret material in output.** Only names are printed; values are never
+  echoed, and the test suite asserts that.
+
+The scheduled backup workflow (`.github/workflows/backup.yml`) runs the same
+validation step before its SSH step, so the nightly failure — if it is the same
+cause — now says so instead of failing inside the SSH action.
+
+`__tests__/integration/production-secrets-validation.test.ts` (8 cases) pins the
+behaviour, including a direct replay of `PRODUCTION_HOST`-only-missing.
+
+## Verification performed here
+
+| Check | Result |
+| --- | --- |
+| `bash -n .github/scripts/validate-production-secrets.sh` | clean |
+| Validator: all four valid | exit 0 |
+| Validator: `PRODUCTION_HOST` empty only (the observed run) | exit 1, names only `PRODUCTION_HOST` |
+| Validator: all four empty | exit 1, all four named in one pass |
+| Validator: scheme / `host:port` / trailing newline in host | exit 1 with the specific reason |
+| Validator: public key, truncated key, CRLF key | exit 1 with the specific reason |
+| Validator: port `70000`, `twenty-two` | exit 1 |
+| Validator: IPv6 host | exit 0 |
+| Validator leakage check | no value appears in stdout, annotation or summary |
+| All seven workflow YAML files parse (`PyYAML`) | valid; `deploy` jobs = `quality-and-safety`, `deployment-config`, `deploy` |
+| Backend used for the test file | `vitest` is not installable offline here; the file was executed through a local `describe/it/expect` shim on Node 22 (8/8). It will run under the real runner in CI. |
+
+## Still not verified
+
+- Whether `PRODUCTION_HOST` exists anywhere in the repository settings. The
+  token available to this session cannot read secrets or variables, and the
+  value must be supplied by the operator.
+- Whether the server answers on `PRODUCTION_PORT`, accepts the key, and whether
+  `sudo -n` is configured. These are exactly the checks the deploy job performs
+  once the four values are present.
