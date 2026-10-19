@@ -7,6 +7,7 @@
  */
 
 import { db } from '@/lib/db';
+import { agentCompanyScope } from '@/lib/agent-access';
 import { retrieveRelevantKnowledge } from '@/lib/agent-runtime/pipeline';
 import type { ToolDefinition, ToolContext } from './types';
 import { evaluateArithmetic } from './arithmetic';
@@ -183,7 +184,7 @@ const departmentDirectory: ToolDefinition = {
       where: {
         status: 'active',
         departmentId: department.id,
-        agentCompanyAccess: { some: { companyId: context.companyId } },
+        ...agentCompanyScope(context.companyId, 'execute'),
       },
       take: limit,
       select: { agentId: true, name: true, role: true, type: true, departmentName: true },

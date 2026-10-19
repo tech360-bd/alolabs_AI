@@ -89,7 +89,8 @@ model Department {
   enterpriseSOPs      EnterpriseSOP[]
   promptTemplates     PromptTemplate[]
   knowledgeNodes      KnowledgeNode[]
-  trainingSources     TrainingSource[]
+  trainingSources      TrainingSource[]
+  aiEmployeeIdentities AIEmployeeIdentity[]
   @@index([companyId])
 }
 
@@ -152,9 +153,53 @@ model Agent {
   recoveryEvents         AgentRecoveryEvent[]
   executions             AgentExecution[]
   evaluations            AgentEvaluation[]
+  employeeIdentities     AIEmployeeIdentity[]
 
   @@index([departmentId])
   @@index([companyId, departmentId])
+}
+
+/// Tenant-owned software employee identity, separate from Agent and worker instances.
+/// Provisioning creates records in `provisioned` state only; active status requires
+/// evidence from a completed, quality-checked, company-scoped execution.
+model AIEmployeeIdentity {
+  id                          String   @id @default(cuid())
+  employeeKey                 String
+  companyId                   String
+  departmentId                String
+  agentDbId                   String
+  roleKey                     String
+  title                       String   @db.LongText
+  responsibilities            String   @db.LongText
+  modelPolicy                 String
+  allowedTools                String   @default("[]") @db.LongText
+  permissionProfile           String   @default("{}") @db.LongText
+  memoryScope                 String   @default("{}") @db.LongText
+  resourceLimits              String   @default("{}") @db.LongText
+  approvalPolicy              String   @default("{}") @db.LongText
+  status                      String   @default("provisioned")
+  statusReason                String?  @db.LongText
+  managedBy                   String?
+  planVersion                 String?
+  configurationHash           String
+  supervisorEmployeeKey       String?
+  lastVerifiedAt              DateTime?
+  lastVerificationExecutionId String?  @unique(map: "ai_employee_verification_execution_uniq")
+  createdBy                   String?
+  updatedBy                   String?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  company              Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  department           Department       @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  agent                Agent            @relation(fields: [agentDbId], references: [id], onDelete: Restrict)
+  verificationExecution AgentExecution? @relation("AIEmployeeVerification", fields: [lastVerificationExecutionId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, employeeKey], map: "ai_employee_company_employee_key_uniq")
+  @@unique([companyId, agentDbId], map: "ai_employee_company_agent_uniq")
+  @@index([companyId, departmentId, status], map: "ai_employee_company_department_status_idx")
+  @@index([companyId, status, updatedAt], map: "ai_employee_company_status_updated_idx")
+  @@index([supervisorEmployeeKey], map: "ai_employee_supervisor_idx")
 }
 
 model AgentVersion {
@@ -274,6 +319,7 @@ model Command {
 
 model Task {
   id           String    @id @default(cuid())
+  companyId    String?
   commandId    String?
   title        String
   description  String?   @db.LongText
@@ -289,6 +335,7 @@ model Task {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  company        Company?        @relation(fields: [companyId], references: [id], onDelete: SetNull)
   agent          Agent?          @relation(fields: [agentId], references: [id])
   workflow       Workflow?       @relation(fields: [workflowId], references: [id])
   steps          TaskStep[]
@@ -299,6 +346,7 @@ model Task {
   skillRuns      SkillRun[]
   artifacts      Artifact[]
 
+  @@index([companyId, createdAt])
   @@index([agentId])
   @@index([workflowId])
   @@index([runId])
@@ -709,9 +757,11 @@ model Company {
   companyDomains        CompanyDomain[]
   ipAllowlists          CompanyIpAllowlist[]
   agentAccess           AgentCompanyAccess[]
+  agentUsageSummaries   AgentUsageSummary[]
   skillAccess           SkillCompanyAccess[]
   webhooks              WebhookConfig[]
   workflowRuns          WorkflowRun[]
+  tasks                 Task[]
   companyMemories       CompanyMemory[]
   agentMemories         AgentMemory[]
   brand                 Brand?
@@ -720,6 +770,7 @@ model Company {
   tokenUsages           TokenUsage[]
   agentInstances        AgentInstance[]
   departments           Department[]
+  knowledgeNodes        KnowledgeNode[]
   agents                Agent[]
   agentAlerts           AgentAlert[]
   agentCommunications   AgentCommunication[]
@@ -736,6 +787,17 @@ model Company {
   projects              Project[]
   artifacts             Artifact[]
   providerConfigs       AIProviderConfig[]
+  settings               CompanySettings?
+  budget                 CompanyBudget?
+  invitations            CompanyInvitation[]
+  knowledgeDocuments     CompanyKnowledgeDocument[]
+  modelPermissions       CompanyModelPermission[]
+  routingPolicies        ModelRoutingPolicy[]
+  modelUsageRecords      ModelUsageRecord[]
+  integrationCredentials IntegrationCredential[]
+  auditEvents            AuditEvent[]
+  customRoles            CompanyRole[]
+  aiEmployeeIdentities   AIEmployeeIdentity[]
 }
 
 model CompanyUser {
@@ -748,6 +810,8 @@ model CompanyUser {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, userId])
+  @@index([userId])
+  @@index([companyId, role])
 }
 
 model CompanyApiKey {
@@ -1120,6 +1184,7 @@ model CompanyUsageSummary {
 
 model AgentUsageSummary {
   id              String   @id @default(cuid())
+  companyId       String?
   agentId         String
   period          String   @default("daily")
   totalRuns       Int      @default(0)
@@ -1128,6 +1193,10 @@ model AgentUsageSummary {
   avgRuntimeMs    Int      @default(0)
   totalTokensUsed Int      @default(0)
   calculatedAt    DateTime @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, agentId, period])
 }
 
 model WorkflowUsageSummary {
@@ -2298,6 +2367,7 @@ model PromptTemplate {
 model KnowledgeNode {
   id           String   @id @default(cuid())
   nodeId       String   @unique
+  companyId    String?
   title        String
   type         String // concept, entity, process, rule, skill, tool, document, person, department
   domain       String   @default("enterprise")
@@ -2310,10 +2380,12 @@ model KnowledgeNode {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  company       Company?        @relation(fields: [companyId], references: [id], onDelete: SetNull)
   department    Department?     @relation(fields: [departmentId], references: [id])
   outgoingEdges KnowledgeEdge[] @relation("EdgeFrom")
   incomingEdges KnowledgeEdge[] @relation("EdgeTo")
 
+  @@index([companyId, type, domain])
   @@index([type])
   @@index([domain])
   @@index([departmentId])
@@ -3232,7 +3304,8 @@ model AgentExecution {
   approval       Approval?            @relation(fields: [approvalId], references: [id], onDelete: SetNull)
   agentRun       AgentRun?            @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
   messages       AgentMessage[]
-  recoveryEvents AgentRecoveryEvent[]
+  recoveryEvents       AgentRecoveryEvent[]
+  employeeVerification AIEmployeeIdentity? @relation("AIEmployeeVerification")
 
   @@index([instanceId, createdAt])
   @@index([assignedAgentId, createdAt])
@@ -3390,6 +3463,8 @@ model AIProviderConfig {
   keyFingerprint      String?
   models              String    @default("[]") @db.LongText // JSON array of { id, capabilities, contextLength, costPerMillionTokens }
   isEnabled           Boolean   @default(true)
+  isLocal             Boolean   @default(false)
+  fallbackEligible    Boolean   @default(false)
   priority            Int       @default(100)
   timeoutMs           Int       @default(60000)
   maxRetries          Int       @default(2)
@@ -3401,7 +3476,11 @@ model AIProviderConfig {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company             Company?                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  verifications       AIProviderVerification[]
+  quotaSnapshots      ProviderQuotaSnapshot[]
+  companyPermissions  CompanyModelPermission[]
+  modelUsageRecords   ModelUsageRecord[]
 
   @@unique([companyId, name])
   @@index([provider])
@@ -3436,6 +3515,273 @@ model ModelRoutingDecision {
   @@index([runId])
   @@index([companyId, createdAt])
   @@index([selectedProvider])
+}
+
+/// Tenant branding and data-processing controls. External processing is off by default.
+model CompanySettings {
+  id                              String   @id @default(cuid())
+  companyId                       String   @unique
+  logoUrl                         String?  @db.LongText
+  primaryColor                    String   @default("#003ABC")
+  locale                          String   @default("en")
+  timezone                        String   @default("Asia/Dhaka")
+  externalDataProcessingApproved  Boolean  @default(false)
+  confidentialDataExternalAllowed Boolean  @default(false)
+  dataProcessingPolicyUrl         String?  @db.LongText
+  settings                        String   @default("{}") @db.LongText
+  updatedBy                       String?
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+/// Paid use is an explicit platform decision; defaults intentionally prohibit it.
+model CompanyBudget {
+  id                 String   @id @default(cuid())
+  companyId          String   @unique
+  monthlyTokenBudget Int      @default(1000000)
+  dailyTokenBudget   Int      @default(50000)
+  maxPaidBudgetUsd   Float    @default(0)
+  paidApiAllowed     Boolean  @default(false)
+  autoBillingEnabled Boolean  @default(false)
+  updatedBy          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+/// Per-tenant role catalogue. CompanyUser.role remains the membership's stable role key.
+model CompanyRole {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String?  @db.LongText
+  permissions String   @default("[]") @db.LongText
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name], map: "company_role_name_uniq")
+  @@index([companyId], map: "company_role_company_idx")
+}
+
+/// Invitation tokens are stored as hashes; the raw token is returned once to the inviter.
+model CompanyInvitation {
+  id        String    @id @default(cuid())
+  companyId String
+  email     String
+  name      String?
+  role      String   @default("employee")
+  tokenHash String   @unique
+  expiresAt DateTime
+  invitedBy String?
+  acceptedAt DateTime?
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, acceptedAt], map: "company_invite_company_accepted_idx")
+  @@index([email], map: "company_invite_email_idx")
+}
+
+/// Company-private knowledge text. Every read/write is scoped by companyId.
+model CompanyKnowledgeDocument {
+  id             String   @id @default(cuid())
+  companyId      String
+  title          String
+  content        String   @db.LongText
+  mimeType       String   @default("text/plain")
+  classification String   @default("confidential")
+  uploadedBy     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt], map: "company_knowledge_company_created_idx")
+}
+
+/// Explicit per-model grants for shared/global provider configurations.
+model CompanyModelPermission {
+  id               String   @id @default(cuid())
+  companyId        String
+  providerConfigId String
+  modelId          String
+  isAllowed        Boolean  @default(false)
+  allowPaid        Boolean  @default(false)
+  grantedBy        String?
+  createdAt        DateTime @default(now())
+
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  providerConfig AIProviderConfig @relation(fields: [providerConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, providerConfigId, modelId], map: "company_model_permission_uniq")
+  @@index([companyId, isAllowed], map: "company_model_permission_company_allowed_idx")
+}
+
+/// Company-specific capability routing policy. Missing rows resolve to safe defaults.
+model ModelRoutingPolicy {
+  id                       String   @id @default(cuid())
+  companyId                String?
+  profile                  String
+  allowedProviderConfigIds String   @default("[]") @db.LongText
+  preferLocal              Boolean  @default(true)
+  allowVerifiedFree        Boolean  @default(true)
+  allowPaid                Boolean  @default(false)
+  externalDataAllowed      Boolean  @default(false)
+  fallbackBehavior         String   @default("defer")
+  maxOutputTokens          Int      @default(4096)
+  updatedBy                String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, profile], map: "model_routing_policy_company_profile_uniq")
+  @@index([companyId, profile], map: "model_routing_policy_company_profile_idx")
+}
+
+/// Dated human-reviewed provider facts. No provider is considered free until
+/// a current record cites its official documentation.
+model AIProviderVerification {
+  id                         String   @id @default(cuid())
+  providerConfigId           String
+  officialDocsUrl            String?  @db.LongText
+  verifiedAt                 DateTime @default(now())
+  freeTierEligibility        String   @default("unknown")
+  verifiedModels             String   @default("[]") @db.LongText
+  pricingEvidenceUrl         String?  @db.LongText
+  pricingVerifiedAt          DateTime?
+  verifiedModelCosts         String   @default("[]") @db.LongText
+  commercialUse              String   @default("unknown")
+  rateLimitRequestsPerMinute Int?
+  rateLimitTokensPerMinute   Int?
+  dailyQuotaTokens           Int?
+  monthlyQuotaTokens         Int?
+  quotaPeriod                String   @default("unknown")
+  apiCompatibility           String   @default("unknown")
+  dataRetention              String   @default("unknown")
+  billingBehavior            String   @default("unknown")
+  authenticationRequirements String   @default("unknown")
+  notes                      String?  @db.LongText
+  verifiedBy                 String?
+  createdAt                  DateTime @default(now())
+
+  providerConfig AIProviderConfig @relation(fields: [providerConfigId], references: [id], onDelete: Cascade)
+
+  @@index([providerConfigId, verifiedAt], map: "ai_provider_verification_config_date_idx")
+}
+
+/// Quota facts and provider-reported balances are separate from local estimates.
+model ProviderQuotaSnapshot {
+  id                    String   @id @default(cuid())
+  providerConfigId      String
+  quotaKind             String   @default("unknown")
+  quotaPeriod           String   @default("unknown")
+  limitRequests         Int?
+  limitTokens           Int?
+  remainingRequests     Int?
+  remainingTokens       Int?
+  estimatedUsedRequests Int?
+  estimatedUsedTokens   Int?
+  resetAt               DateTime?
+  capturedAt            DateTime @default(now())
+  officialSource        String?  @db.LongText
+  notes                 String?  @db.LongText
+  recordedBy            String?
+  createdAt             DateTime @default(now())
+
+  providerConfig AIProviderConfig @relation(fields: [providerConfigId], references: [id], onDelete: Cascade)
+
+  @@index([providerConfigId, capturedAt], map: "provider_quota_config_captured_idx")
+  @@index([quotaKind, capturedAt], map: "provider_quota_kind_captured_idx")
+}
+
+/// Per-attempt usage and execution ledger; provider-reported usage is preserved as such.
+model ModelUsageRecord {
+  id                      String    @id @default(cuid())
+  requestId               String?
+  correlationId           String?
+  companyId               String?
+  departmentId            String?
+  userId                  String?
+  agentId                 String?
+  workflowId              String?
+  providerConfigId        String?
+  provider                String?
+  model                   String?
+  profile                 String    @default("free_general")
+  status                  String    @default("running")
+  inputTokens             Int       @default(0)
+  outputTokens            Int       @default(0)
+  totalTokens             Int       @default(0)
+  usageSource             String    @default("unknown")
+  estimatedCostUsd        Float?
+  confirmedCostUsd        Float?
+  providerReportedCostUsd Float?
+  latencyMs               Int?
+  rateLimitResponse       Boolean   @default(false)
+  errorCode               String?
+  errorMessage            String?   @db.LongText
+  createdAt               DateTime  @default(now())
+  completedAt             DateTime?
+
+  company        Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  providerConfig AIProviderConfig? @relation(fields: [providerConfigId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt], map: "model_usage_company_created_idx")
+  @@index([departmentId, createdAt], map: "model_usage_department_created_idx")
+  @@index([userId, createdAt], map: "model_usage_user_created_idx")
+  @@index([agentId, createdAt], map: "model_usage_agent_created_idx")
+  @@index([workflowId, createdAt], map: "model_usage_workflow_created_idx")
+  @@index([provider, model, createdAt], map: "model_usage_provider_model_created_idx")
+  @@index([correlationId], map: "model_usage_correlation_idx")
+}
+
+/// Company-scoped integration credentials are encrypted at rest and only expose metadata.
+model IntegrationCredential {
+  id                String    @id @default(cuid())
+  companyId         String
+  integrationType   String
+  name              String
+  baseUrl           String?   @db.LongText
+  encryptedSecret   String?   @db.LongText
+  secretFingerprint String?
+  settings          String    @default("{}") @db.LongText
+  status            String    @default("configured")
+  createdBy         String?
+  lastVerifiedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, integrationType, name], map: "integration_credential_tenant_type_name_uniq")
+  @@index([companyId, integrationType], map: "integration_credential_company_type_idx")
+}
+
+/// Append-only administrative/security trail. No secret or prompt bodies belong here.
+model AuditEvent {
+  id          String   @id @default(cuid())
+  companyId   String?
+  actorUserId String?
+  action      String
+  resource    String
+  resourceId  String?
+  requestId   String?
+  details     String   @default("{}") @db.LongText
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt], map: "audit_event_company_created_idx")
+  @@index([actorUserId, createdAt], map: "audit_event_actor_created_idx")
+  @@index([action, createdAt], map: "audit_event_action_created_idx")
 }
 
 /// Backup ledger. A backup is only "verified" after its checksums were

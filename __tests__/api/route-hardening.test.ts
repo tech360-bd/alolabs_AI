@@ -457,9 +457,13 @@ describe('agent execution', () => {
     const res = await call(await agentRuntime.POST(request({ agentId: 'agent-of-b', task: 'do it' })));
     expect(res.status).toBe(404);
     expect(mocks.execute).not.toHaveBeenCalled();
-    expect(mocks.agent.findFirst.mock.calls[0][0].where).toEqual({
+    expect(mocks.agent.findFirst.mock.calls[0][0].where).toMatchObject({
       agentId: 'agent-of-b',
-      agentCompanyAccess: { some: { companyId: TENANT_A } },
+      status: 'active',
+      OR: [
+        { companyId: TENANT_A },
+        { agentCompanyAccess: { some: { companyId: TENANT_A, accessLevel: { in: ['execute', 'full'] } } } },
+      ],
     });
   });
 

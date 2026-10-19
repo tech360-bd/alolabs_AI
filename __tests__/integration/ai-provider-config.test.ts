@@ -200,6 +200,8 @@ describe('AI provider configuration (real DB + real HTTP)', () => {
       const response = await router.chat(
         { model: 'confirmed-free-model', messages: [{ role: 'user', content: 'free-only route' }] },
         companyA.id,
+        undefined,
+        { allowVerifiedFree: true, allowedProviderNames: [providerName], allowedModelIds: ['confirmed-free-model'] },
       );
       expect(response.content).toBe('pong');
       expect(router.getProviderSummaries().find((summary) => summary.provider === providerName)?.models)

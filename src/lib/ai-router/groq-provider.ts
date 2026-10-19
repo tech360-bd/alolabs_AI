@@ -15,7 +15,7 @@ import type {
   AIStreamChunk,
 } from './types';
 import { AIRouterError } from './types';
-import { BaseAIProvider } from './provider-base';
+import { BaseAIProvider, requestAbortSignal } from './provider-base';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -277,7 +277,7 @@ export class GroqProvider extends BaseAIProvider {
             Authorization: `Bearer ${this.apiKey}`,
           },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(120_000),
+          signal: requestAbortSignal(request, 120_000),
         });
         if (!res.ok) {
           const errorBody = await res.text().catch(() => '');
@@ -341,7 +341,7 @@ export class GroqProvider extends BaseAIProvider {
           Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(300_000),
+        signal: requestAbortSignal(request, 300_000),
       });
 
       if (!response.ok) {

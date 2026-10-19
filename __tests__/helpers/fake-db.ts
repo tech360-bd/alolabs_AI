@@ -249,7 +249,11 @@ export function createFakeDb(): FakeDb {
               return async ({ where }: any) =>
                 [...store(model).values()].filter((r) => matchesWhere(r, where)).length;
             case 'aggregate':
-              return async () => ({ _count: { _all: store(model).size } });
+              return async () => ({
+                _count: { _all: store(model).size },
+                _sum: { totalTokens: 0, estimatedCostUsd: 0 },
+                _avg: { durationMs: 0 },
+              });
             default:
               throw new Error(`FakeDb: unsupported method ${model}.${method}`);
           }

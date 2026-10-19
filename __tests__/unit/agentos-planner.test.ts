@@ -8,9 +8,9 @@ import { fakeDb, resetAgentOsMocks } from '../helpers/fake-db';
 vi.mock('@/lib/db', () => ({ db: fakeDb.db }));
 
 /** Router stub: configurable chat behaviour per test. */
-const chat = vi.fn();
-vi.mock('@/lib/ai-router', () => ({
-  getRouter: () => ({ chat }),
+const { chat } = vi.hoisted(() => ({ chat: vi.fn() }));
+vi.mock('@/lib/multi-tenant-ai/service', () => ({
+  executeCompanyAIChat: chat,
 }));
 
 import { planObjective, heuristicPlan, extractJsonObject } from '@/lib/runs/planner';
@@ -71,15 +71,18 @@ describe('heuristicPlan', () => {
 describe('planObjective', () => {
   it('uses the LLM plan when the router returns valid JSON', async () => {
     chat.mockResolvedValue({
-      content: JSON.stringify({
-        reasoning: 'needs research then writing',
-        steps: [
-          { title: 'Research universities', description: 'Find and rank UK universities.', agent: 'researcher', skills: ['web-research'], tools: ['web_search'] },
-          { title: 'Write report', description: 'Write the counselor report.', agent: 'writer', dependsOn: ['Research universities'] },
-        ],
-      }),
-      model: 'stub',
-      usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+      response: {
+        content: JSON.stringify({
+          reasoning: 'needs research then writing',
+          steps: [
+            { title: 'Research universities', description: 'Find and rank UK universities.', agent: 'researcher', skills: ['web-research'], tools: ['web_search'] },
+            { title: 'Write report', description: 'Write the counselor report.', agent: 'writer', dependsOn: ['Research universities'] },
+          ],
+        }),
+        model: 'stub',
+        usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+      },
+      requestId: 'request-1', provider: 'test-provider', profile: 'free_reasoning', estimatedCostUsd: 0, attempts: 1, fallbackUsed: false,
     });
 
     const plan = await planObjective('Research UK universities and write a report.', 'company-1');
@@ -97,7 +100,10 @@ describe('planObjective', () => {
   });
 
   it('falls back to the heuristic plan when the LLM returns invalid JSON', async () => {
-    chat.mockResolvedValue({ content: 'I cannot produce JSON right now.', model: 'stub' });
+    chat.mockResolvedValue({
+      response: { content: 'I cannot produce JSON right now.', model: 'stub' },
+      requestId: 'request-2', provider: 'test-provider', profile: 'free_reasoning', estimatedCostUsd: 0, attempts: 1, fallbackUsed: false,
+    });
 
     const plan = await planObjective('Research UK universities.', 'company-1');
     expect(plan.strategy).toBe('heuristic');

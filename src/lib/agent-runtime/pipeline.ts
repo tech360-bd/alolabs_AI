@@ -132,6 +132,8 @@ export async function retrieveRelevantKnowledge(
   companyId?: string,
 ): Promise<RAGContext> {
   const startTime = Date.now();
+  if (!companyId) return { query: task, results: [], totalFound: 0, durationMs: 0 };
+  const tenantDepartment = await db.department.findFirst({ where: { id: departmentId, companyId }, select: { id: true } });
 
   try {
     const ragResult = await hybridSearch(task, {
@@ -167,27 +169,23 @@ export async function retrieveRelevantKnowledge(
   const knowledgeNodes = await db.knowledgeNode.findMany({
     where: {
       AND: [
-        { OR: [{ departmentId: null }, { departmentId }] },
+        {
+          OR: [
+            { companyId },
+            { companyId: null, source: 'public' },
+            ...(tenantDepartment ? [{ department: { is: { id: tenantDepartment.id, companyId } } }] : []),
+          ],
+        },
+        { OR: [{ departmentId: null }, ...(tenantDepartment ? [{ departmentId: tenantDepartment.id }] : [])] },
         ...(keywords.length > 0 ? [{ OR: keywordConditions }] : []),
-        ...(companyId ? [{ metadata: { contains: companyId } }] : []),
       ],
     },
     select: { title: true, content: true, confidence: true, metadata: true },
     orderBy: { confidence: 'desc' },
-    take: companyId ? maxResults * 10 : maxResults,
+    take: maxResults * 10,
   });
 
-  const scopedKnowledgeNodes = companyId
-    ? knowledgeNodes.filter((node) => {
-        try {
-          const metadata: unknown = JSON.parse(node.metadata);
-          return typeof metadata === 'object' && metadata !== null &&
-            'companyId' in metadata && metadata.companyId === companyId;
-        } catch {
-          return false;
-        }
-      }).slice(0, maxResults)
-    : knowledgeNodes;
+  const scopedKnowledgeNodes = knowledgeNodes.slice(0, maxResults);
 
   return {
     query: task,

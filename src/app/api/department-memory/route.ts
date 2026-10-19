@@ -25,8 +25,9 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'department.memory',
   model: 'departmentMemory',
   label: 'DepartmentMemory',
-  // This table has no tenant column of its own — see the security report.
+  // Department memory inherits tenant ownership through its department.
   tenantField: null,
+  ownership: { delegate: 'department', fk: 'departmentId', relation: 'department' },
   createSchema,
   updateSchema,
   searchFields: ['category', 'content'],

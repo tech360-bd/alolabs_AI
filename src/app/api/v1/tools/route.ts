@@ -12,12 +12,14 @@ import { db } from '@/lib/db';
 export const GET = v1Handler(async ({ identity }, request) => {
   const { limit, offset } = v1Pagination(request);
   const toolName = request.nextUrl.searchParams.get('tool') ?? undefined;
-  const tenantAgents = await db.agent.findMany({
-    where: { agentCompanyAccess: { some: { companyId: identity.companyId } } },
+  // ToolRun has no tenant column; derive a strict tenant boundary from its
+  // required business-task parent and omit legacy or detached runs.
+  const tenantTasks = await db.task.findMany({
+    where: { companyId: identity.companyId },
     select: { id: true },
   });
   const where = {
-    agentId: { in: tenantAgents.map((a) => a.id) },
+    taskId: { in: tenantTasks.map((task) => task.id) },
     ...(toolName ? { toolName } : {}),
   };
 

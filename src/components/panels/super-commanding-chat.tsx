@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useAppStore } from '@/store/app'
 
 interface ChatMessage {
   id: string
@@ -59,6 +60,7 @@ const AGENT_BG_COLORS = [
 ]
 
 export default function SuperCommandingChat() {
+  const token = useAppStore((state) => state.token)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -73,7 +75,7 @@ export default function SuperCommandingChat() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    fetch('/api/companies')
+    fetch('/api/companies', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then((r) => r.json())
       .then((res) => {
         const list = (res.data || []).map((c: { id: string; name: string; slug: string; webCrmConnected: boolean }) => ({
@@ -83,7 +85,7 @@ export default function SuperCommandingChat() {
       })
       .catch(() => {})
       .finally(() => setInitialLoading(false))
-  }, [])
+  }, [token])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -119,7 +121,7 @@ export default function SuperCommandingChat() {
     try {
       const res = await fetch('/api/super-chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           message: msgText,
           sessionId: 'super-admin-chat',
@@ -170,7 +172,7 @@ export default function SuperCommandingChat() {
   const clearChat = async () => {
     setMessages([])
     try {
-      await fetch('/api/super-chat?sessionId=super-admin-chat', { method: 'DELETE' })
+      await fetch('/api/super-chat?sessionId=super-admin-chat', { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} })
     } catch { /* ignore */ }
   }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
+import { agentCompanyScope } from '@/lib/agent-access'
 import { requireCompanyAuth } from '@/lib/api-auth'
 import { uploadSource } from '@/lib/training'
 
@@ -59,8 +60,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (parsed.data.agentId) {
-      const access = await db.agentCompanyAccess.findFirst({
-        where: { agentId: parsed.data.agentId, companyId: user.companyId },
+      const access = await db.agent.findFirst({
+        where: { id: parsed.data.agentId, status: 'active', ...agentCompanyScope(user.companyId, 'execute') },
         select: { id: true },
       })
       if (!access) {

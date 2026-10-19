@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCompanyAuth } from '@/lib/api-auth';
+import { CompanyAIError } from '@/lib/multi-tenant-ai/service';
 import {
   generate,
   listJobs,
@@ -11,11 +12,10 @@ import {
 /**
  * /api/media/generate
  *
- * POST → run a real image / speech / video generation and persist the job.
+ * POST → validate and defer until the central router has a company-authorized,
+ * verified media-generation capability. A legacy environment API key is not
+ * sufficient authorization to send company data or incur spend.
  * GET  → the caller's company's most recent jobs.
- *
- * Without a configured provider the POST returns 503 with the exact variables
- * that are missing. It never fabricates an asset.
  */
 
 export async function POST(request: NextRequest) {
@@ -33,9 +33,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const job = await generate(input, { companyId: user.companyId, userId: user.userId });
+    const job = await generate(input, { companyId: user.companyId, userId: user.userId, role: user.companyRole ?? user.role });
     return NextResponse.json({ job }, { status: job.status === 'failed' ? 502 : 201 });
   } catch (error) {
+    if (error instanceof CompanyAIError) {
+      return NextResponse.json({ error: error.message, code: error.code, requestId: error.requestId }, { status: error.status });
+    }
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
       return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }

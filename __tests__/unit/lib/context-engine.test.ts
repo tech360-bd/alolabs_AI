@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
     knowledgeNode: { findMany: vi.fn() },
     agentMemory: { findMany: vi.fn() },
     companyMemory: { findMany: vi.fn() },
+    departmentMemory: { findMany: vi.fn() },
   },
 }))
 
@@ -54,6 +55,7 @@ beforeEach(() => {
   mocks.db.knowledgeNode.findMany.mockResolvedValue([])
   mocks.db.agentMemory.findMany.mockResolvedValue([])
   mocks.db.companyMemory.findMany.mockResolvedValue([])
+  mocks.db.departmentMemory.findMany.mockResolvedValue([])
 })
 
 describe('Agent context assembly', () => {
@@ -98,7 +100,7 @@ describe('Agent context assembly', () => {
     const context = await buildAgentContext({
       agentId: 'AGENT-0001',
       companyId: currentCompany,
-      task: 'Review the application requirements.',
+      task: 'Review the application requirements, tenant department SOP, explicit tenant node, and public reference.',
     })
 
     expect(context.systemPrompt).toContain('Tenant department SOP')
@@ -114,7 +116,7 @@ describe('Agent context assembly', () => {
 
   it('loads department SOPs only from the verified tenant department', async () => {
     mocks.db.enterpriseSOP.findMany.mockResolvedValue([
-      { title: 'Tenant SOP', steps: '[\"Check source\"]', checklist: '[]', departmentId: 'dept-education' },
+      { title: 'Application requirements SOP', category: 'admissions', description: 'Review the application requirements.', steps: '[\"Check source\"]', checklist: '[]', departmentId: 'dept-education' },
     ])
 
     const context = await buildAgentContext({
@@ -123,11 +125,11 @@ describe('Agent context assembly', () => {
       task: 'Review the application requirements.',
     })
 
-    expect(mocks.db.enterpriseSOP.findMany).toHaveBeenCalledWith({
-      where: { isActive: true, status: 'active', departmentId: 'dept-education' },
-      take: 5,
-    })
-    expect(context.systemPrompt).toContain('Tenant SOP')
+    expect(mocks.db.enterpriseSOP.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ isActive: true, status: 'active', departmentId: 'dept-education' }),
+      take: 50,
+    }))
+    expect(context.systemPrompt).toContain('Application requirements SOP')
   })
 
   it('does not load or expose unowned SOPs or owner-department description for a shared agent', async () => {
@@ -160,7 +162,7 @@ describe('Agent context assembly', () => {
     })
 
     const knowledgeWhere = mocks.db.knowledgeNode.findMany.mock.calls[0][0].where
-    expect(knowledgeWhere.OR).not.toContainEqual({ departmentId: 'dept-education' })
+    expect(knowledgeWhere.AND[0].OR).not.toContainEqual({ companyId: null, departmentId: 'dept-education' })
     expect(mocks.db.enterpriseSOP.findMany).not.toHaveBeenCalled()
     const ruleWhere = mocks.db.constitutionalRule.findMany.mock.calls[0][0].where.AND[0].OR
     expect(ruleWhere).not.toContainEqual({ departmentId: 'dept-education' })

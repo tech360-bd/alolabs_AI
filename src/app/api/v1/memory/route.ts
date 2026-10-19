@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { v1Handler, v1Body, v1Pagination, V1Error } from '@/lib/v1';
 import { db } from '@/lib/db';
 import { getMemory, storeMemory } from '@/lib/memory';
+import { agentCompanyScope } from '@/lib/agent-access';
 
 /**
  * /api/v1/memory — agent memory (GET: read, POST: write).
@@ -18,13 +19,12 @@ export const GET = v1Handler(async ({ identity }, request) => {
   if (agentId) {
     const owned = await db.agent.findFirst({
       where: {
-        OR: [{ id: agentId }, { agentId }],
-        agentCompanyAccess: { some: { companyId: identity.companyId } },
+        AND: [{ OR: [{ id: agentId }, { agentId }] }, agentCompanyScope(identity.companyId, 'view')],
       },
-      select: { id: true },
+      select: { id: true, agentId: true },
     });
     if (!owned) throw new V1Error('Agent not found', 404, 'NOT_FOUND');
-    const entries = (await getMemory(agentId, type as never))
+    const entries = (await getMemory(owned.agentId, type as never))
       .filter((entry) => entry.companyId === identity.companyId)
       .filter((entry) => entry.scope !== 'private' || entry.userId === identity.userId);
     return { agentId, entries: entries.slice(0, limit), total: entries.length };
@@ -61,15 +61,14 @@ export const POST = v1Handler(async ({ identity }, request) => {
 
   const agent = await db.agent.findFirst({
     where: {
-      OR: [{ id: parsed.data.agentId }, { agentId: parsed.data.agentId }],
-      agentCompanyAccess: { some: { companyId: identity.companyId } },
+      AND: [{ OR: [{ id: parsed.data.agentId }, { agentId: parsed.data.agentId }] }, agentCompanyScope(identity.companyId, 'execute')],
     },
-    select: { id: true },
+    select: { id: true, agentId: true },
   });
   if (!agent) throw new V1Error('Agent not found', 404, 'NOT_FOUND');
   if (parsed.data.scope === 'global') throw new V1Error('Global memory writes are not permitted', 403, 'FORBIDDEN');
   const entry = await storeMemory(
-    parsed.data.agentId,
+    agent.agentId,
     parsed.data.key,
     parsed.data.content,
     {

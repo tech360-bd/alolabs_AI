@@ -55,7 +55,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Training source is attached to a different agent', success: false }, { status: 409 })
     }
 
-    const result = await evaluateTraining(parsed.data.sourceId, parsed.data.agentId)
+    const result = await evaluateTraining(parsed.data.sourceId, parsed.data.agentId, {
+      companyId: user.companyId,
+      userId: user.userId,
+      role: user.role,
+    })
     return NextResponse.json(result, { status: result.success ? 200 : 503 })
   } catch (error: unknown) {
     return errorResponse(error)

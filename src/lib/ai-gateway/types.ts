@@ -31,7 +31,7 @@ export interface AIGatewayResponse {
   };
   finishReason: string;
   latencyMs: number;
-  costUsd: number;
+  costUsd: number | null;
   routedBy: string;
   fallbackUsed: boolean;
   originalModel?: string;
@@ -41,8 +41,8 @@ export interface AIGatewayRouteResult {
   provider: string;
   model: string;
   reason: string;
-  estimatedLatencyMs: number;
-  estimatedCostPerMillion: number;
+  estimatedLatencyMs?: number;
+  estimatedCostPerMillion?: number;
 }
 
 export interface AIGatewayBatchRequest {

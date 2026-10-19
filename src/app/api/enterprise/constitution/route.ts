@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requireRole } from '@/lib/api-auth';
+import { requireCompanyAuth } from '@/lib/api-auth';
 import { db } from '@/lib/db';
 import { z } from 'zod';
 
@@ -21,7 +21,7 @@ const CreateRuleSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth();
+    const user = await requireCompanyAuth();
 
     const { searchParams } = new URL(request.url);
     const domain = searchParams.get('domain') || 'constitution';
@@ -31,6 +31,11 @@ export async function GET(request: NextRequest) {
     const where = {
       type: 'rule',
       domain,
+      OR: [
+        { companyId: user.companyId },
+        { companyId: null, source: 'public' },
+        { department: { is: { companyId: user.companyId } } },
+      ],
     };
 
     const [rules, total] = await Promise.all([
@@ -61,9 +66,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ rules: mapped, total, page, limit });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     console.error('Enterprise constitution GET error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -71,7 +75,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireRole('admin', 'super_admin');
+    const user = await requireCompanyAuth();
+    if (user.role !== 'super_admin' && !['owner', 'admin'].includes(user.companyRole ?? '')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const body = await request.json();
     const parsed = CreateRuleSchema.safeParse(body);
@@ -83,21 +90,38 @@ export async function POST(request: NextRequest) {
     }
 
     const { title, content, domain = 'constitution', departmentId, priority } = parsed.data;
+    if (departmentId) {
+      const department = await db.department.findFirst({ where: { id: departmentId, companyId: user.companyId }, select: { id: true } });
+      if (!department) return NextResponse.json({ error: 'Department not found in this company' }, { status: 404 });
+    }
 
     const nodeId = `rule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    const rule = await db.knowledgeNode.create({
-      data: {
-        nodeId,
-        title,
-        type: 'rule',
-        domain,
-        content,
-        departmentId: departmentId || null,
-        metadata: JSON.stringify({ priority: priority || 'medium' }),
-        confidence: 1.0,
-        source: 'manual',
-      },
+    const rule = await db.$transaction(async (transaction) => {
+      const created = await transaction.knowledgeNode.create({
+        data: {
+          nodeId,
+          companyId: user.companyId,
+          title,
+          type: 'rule',
+          domain,
+          content,
+          departmentId: departmentId || null,
+          metadata: JSON.stringify({ priority: priority || 'medium' }),
+          confidence: 1.0,
+          source: 'manual',
+        },
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: user.userId,
+          companyId: user.companyId,
+          action: 'company.knowledge_rule.create',
+          resource: 'knowledge-node',
+          resourceId: created.id,
+          details: JSON.stringify({ domain, departmentId: departmentId ?? null, priority: priority || 'medium' }),
+        },
+      });
+      return created;
     });
 
     return NextResponse.json({
@@ -110,12 +134,8 @@ export async function POST(request: NextRequest) {
       },
     }, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    if (error instanceof Error && error.message === 'Forbidden') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     console.error('Enterprise constitution POST error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

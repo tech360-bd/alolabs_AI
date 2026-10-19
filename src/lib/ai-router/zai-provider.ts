@@ -245,6 +245,14 @@ export class ZAIProvider extends BaseAIProvider {
 
   async chatCompletion(request: AIRequest): Promise<AIResponse> {
     this.requireInitialized();
+    if (request.signal) {
+      throw new AIRouterError(
+        'Z-AI SDK adapter does not support abortable task requests; use an abort-capable route.',
+        'zai-sdk',
+        503,
+        false,
+      );
+    }
     if (!this.client) {
       throw new AIRouterError('Z-AI SDK client not initialized', 'zai-sdk');
     }

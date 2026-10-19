@@ -8,6 +8,7 @@ import {
   resolveMediaProvider,
   validateGenerationInput,
 } from '@/lib/media-generation/requests';
+import { transcribe } from '@/lib/media-generation/transcribe';
 
 const config = {
   provider: 'test',
@@ -104,6 +105,14 @@ describe('request builders', () => {
   it('clamps video duration to 1–60 seconds', () => {
     expect((buildVideoRequest(config, { prompt: 'x', durationSeconds: 600 }).body as { duration_seconds: number }).duration_seconds).toBe(60);
     expect((buildVideoRequest(config, { prompt: 'x', durationSeconds: 0 }).body as { duration_seconds: number }).duration_seconds).toBe(1);
+  });
+});
+
+describe('transcribe provider execution', () => {
+  it('fails closed instead of making a direct provider request', async () => {
+    await expect(
+      transcribe(config, { buffer: Buffer.from('audio'), filename: 'audio.mp3' }),
+    ).rejects.toThrow(/Direct transcription provider calls are disabled/);
   });
 });
 

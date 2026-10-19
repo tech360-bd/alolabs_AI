@@ -50,7 +50,17 @@ vi.mock('@/lib/orchestrator', () => ({ getOrchestrator: () => ({ routeTask }) })
 vi.mock('@/lib/agent-runtime', () => ({ getExecutionEngine: () => ({ execute: stubExecute }) }));
 vi.mock('@/lib/memory', () => ({ getMemoryStore: () => ({ addEpisodic: vi.fn(async () => ({})) }) }));
 vi.mock('@/lib/event-bus', () => ({ getEventBus: () => ({ publish: vi.fn(async () => ({})), subscribe: () => () => {}, getHistory: () => [] }) }));
-vi.mock('@/lib/ai-router', () => ({ getRouter: () => ({ chat: repairChat }) }));
+vi.mock('@/lib/multi-tenant-ai/service', () => ({
+  executeCompanyAIChat: () => repairChat().then((response) => ({
+    response,
+    requestId: 'resume-test-qc',
+    provider: 'stub-provider',
+    profile: 'free_general',
+    estimatedCostUsd: 0,
+    attempts: 1,
+    fallbackUsed: false,
+  })),
+}));
 
 const PLAN = {
   strategy: 'llm' as const,
@@ -74,7 +84,7 @@ describe('resumable AgentOS runs (real database)', () => {
     queue = await import('@/lib/job-queue');
     const company = await seedCompany(real.db, 'Resume Co');
     companyId = company.id;
-    await seedAgent(real.db, 'AGENT-RESUME-0001');
+    await seedAgent(real.db, 'AGENT-RESUME-0001', { companyId });
   }, 90_000);
 
   afterAll(async () => {

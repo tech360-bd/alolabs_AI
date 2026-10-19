@@ -14,7 +14,7 @@ import type {
   AIStreamChunk,
 } from './types';
 import { AIRouterError } from './types';
-import { BaseAIProvider } from './provider-base';
+import { BaseAIProvider, requestAbortSignal } from './provider-base';
 
 // ─── Model Definitions ──────────────────────────────────────────────
 
@@ -205,7 +205,7 @@ export class LlamaProvider extends BaseAIProvider {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(ollamaReq),
-          signal: AbortSignal.timeout(120_000),
+          signal: requestAbortSignal(request, 120_000),
         });
         if (!res.ok) {
           const errorBody = await res.text().catch(() => '');

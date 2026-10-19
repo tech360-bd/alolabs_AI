@@ -10,13 +10,15 @@ import type {
   AIRequest,
   AIResponse,
   AIStreamChunk,
+  AIEmbeddingRequest,
+  AIEmbeddingResponse,
   AIProviderHealth,
   AITokenUsageRecord,
   AIRouteDecision,
   AILoadBalanceConfig,
   AICapability,
 } from './types';
-import { isLocalProviderName, localOnlyEnabled } from './model-tiers';
+import { localOnlyEnabled } from './model-tiers';
 import {
   AIRouterError,
   AICircuitOpenError,
@@ -46,6 +48,8 @@ interface ProviderEntry {
   weight: number;
   /** Tenant that owns this provider; undefined = shared/global. */
   companyId?: string;
+  /** A provider is local only when configured/registered as such by the server. */
+  isLocal: boolean;
   /** Last failed initialize() — retried only after INIT_RETRY_MS. */
   initFailedAt?: number;
   initError?: string;
@@ -55,13 +59,36 @@ export interface RegisterProviderOptions {
   weight?: number;
   /** Restrict the provider to one tenant. Requests from other tenants never see it. */
   companyId?: string;
+  /** Trusted server-side classification; never accept this from a browser request. */
+  isLocal?: boolean;
 }
 
-/** Caller-supplied context so routing decisions can be tied to a run/task. */
+/**
+ * Caller-supplied execution context. Permission flags are server-only policy
+ * decisions; callers must never copy them from a request body.
+ */
 export interface AIRequestContext {
   runId?: string;
   taskId?: string;
   taskType?: string;
+  requestId?: string;
+  userId?: string;
+  workflowId?: string;
+  departmentId?: string;
+  profile?: string;
+  providerConfigId?: string;
+  usageSource?: 'provider_reported' | 'locally_estimated' | 'unknown';
+  usageManagedExternally?: boolean;
+  dataClassification?: string;
+  allowedProviderNames?: string[];
+  allowedModelIds?: string[];
+  /** Paid providers are excluded unless the server explicitly authorizes this request. */
+  allowPaid?: boolean;
+  /** Verified free-tier providers are excluded unless their quota has been checked. */
+  allowVerifiedFree?: boolean;
+  preferLocal?: boolean;
+  /** Central company policy performs separately audited failover; disable router-internal retries. */
+  allowFailover?: boolean;
 }
 
 /** One routing decision (success or failure), handed to the decision recorder. */
@@ -140,6 +167,7 @@ export class AIRouter {
       rrIndex: 0,
       weight: weight ?? 1,
       companyId: options.companyId,
+      isLocal: options.isLocal ?? false,
     });
   }
 
@@ -196,17 +224,21 @@ export class AIRouter {
    * Pick the best provider and model for a given request.
    * Considers: explicit model → capability matching → strategy → cost.
    */
-  route(request: AIRequest, companyId?: string): AIRouteDecision {
-    const available = this.getAvailableProviders(companyId);
+  route(request: AIRequest, companyId?: string, context: AIRequestContext = {}): AIRouteDecision {
+    const available = this.getAvailableProviders(companyId, context);
 
     if (available.length === 0) {
       throw new AIProviderUnavailableError(
         'ollama',
-        'No providers are available. All circuits are open or no providers registered.',
+        'No providers are available under the current company permissions, quota and billing policy.',
       );
     }
 
-    // If a specific model is requested, find the provider that has it
+    if (request.model && context.allowedModelIds && !context.allowedModelIds.includes(request.model)) {
+      throw new AIModelNotFoundError(request.model);
+    }
+
+    // If a specific model is requested, find the provider that has it.
     if (request.model) {
       const direct = this.findProviderForModel(request.model, available);
       if (direct) {
@@ -214,26 +246,22 @@ export class AIRouter {
       }
     }
 
-    // Filter providers by capability matching (e.g., streaming, function-calling)
+    // Filter providers by capability matching (e.g., streaming, function-calling).
     const capable = this.filterByCapabilities(available, request);
-    const candidates = capable.length > 0 ? capable : available;
+    let candidates = capable.length > 0 ? capable : available;
+    if (context.preferLocal) {
+      candidates = [...candidates].sort((a, b) => Number(b.isLocal) - Number(a.isLocal));
+    }
 
-    // Apply load-balance strategy
+    // Apply load-balance strategy within the already-authorized candidate set.
     const selected = this.selectProviderByStrategy(candidates);
+    const model = this.selectBestModel(selected.provider, request, context.allowedModelIds);
 
-    // Pick the best model from the selected provider
-    const model = this.selectBestModel(selected.provider, request);
-
-    // Determine route reason based on strategy
     let reason: AIRouteDecision['reason'] = 'quality';
     if (this.loadBalanceConfig.strategy === 'least-connections') reason = 'speed';
     if (model.costPerMillionTokens !== undefined) reason = 'cost';
 
-    return {
-      provider: selected.provider.name,
-      model: model.id,
-      reason,
-    };
+    return { provider: selected.provider.name, model: model.id, reason };
   }
 
   // ─── Chat Completion ────────────────────────────────────────────
@@ -248,7 +276,7 @@ export class AIRouter {
     await this.ensureProvidersInitialized();
 
     const startTime = Date.now();
-    const candidates = this.getAvailableProviders(companyId).map((e) => e.provider.name as string);
+    const candidates = this.getAvailableProviders(companyId, context).map((e) => e.provider.name as string);
     const base = {
       requestedModel: request.model,
       candidates,
@@ -259,7 +287,7 @@ export class AIRouter {
 
     let decision: AIRouteDecision;
     try {
-      decision = this.route(request, companyId);
+      decision = this.route(request, companyId, context);
     } catch (err) {
       this.emitDecision({
         ...base,
@@ -310,6 +338,7 @@ export class AIRouter {
       });
       this.emitDecision({
         ...base,
+        context: { ...context, usageSource: response.usageSource ?? context?.usageSource },
         selectedProvider: decision.provider,
         selectedModel: response.model || decision.model,
         reason: decision.reason,
@@ -331,8 +360,8 @@ export class AIRouter {
 
       // Attempt failover on circuit-open, provider-unavailable, or retryable errors
       const isRetryable = err instanceof AIRouterError && err.retryable;
-      if (err instanceof AICircuitOpenError || err instanceof AIProviderUnavailableError || isRetryable) {
-        const fallback = await this.attemptFailover(request, decision.provider, companyId, agentId, entry.provider.freeOnly);
+      if (context?.allowFailover !== false && (err instanceof AICircuitOpenError || err instanceof AIProviderUnavailableError || isRetryable)) {
+        const fallback = await this.attemptFailover(request, decision.provider, companyId, agentId, entry.provider.freeOnly, context);
         if (fallback) {
           this.emitDecision({
             ...base,
@@ -410,64 +439,161 @@ export class AIRouter {
     return ((promptTokens + completionTokens) / 1_000_000) * model.costPerMillionTokens;
   }
 
-  // ─── Streaming Chat Completion ──────────────────────────────────
+  // ─── Embeddings ─────────────────────────────────────────────────
 
-  async *streamChat(request: AIRequest, companyId?: string, agentId?: string): AsyncGenerator<AIStreamChunk> {
-    // Auto-initialize any registered but uninitialized providers
+  async createEmbeddings(
+    request: AIEmbeddingRequest,
+    companyId?: string,
+    agentId?: string,
+    context: AIRequestContext = {},
+  ): Promise<AIEmbeddingResponse> {
     await this.ensureProvidersInitialized();
-
-    const decision = this.route(request, companyId);
-    const entry = this.providers.get(decision.provider);
-
-    if (!entry) {
-      throw new AIProviderUnavailableError(decision.provider);
+    const startTime = Date.now();
+    const available = this.getAvailableProviders(companyId, context).filter((entry) =>
+      (!context.allowedModelIds || context.allowedModelIds.includes(request.model)) &&
+      entry.provider.supportedModels.some((model) => model.id === request.model && model.capabilities.includes('embedding')),
+    );
+    const candidates = available.map((entry) => entry.provider.name as string);
+    const base = { requestedModel: request.model, candidates, companyId, agentId, context };
+    if (!available.length) {
+      const error = new AIModelNotFoundError(request.model);
+      this.emitDecision({
+        ...base, selectedProvider: null, selectedModel: null, reason: 'no-embedding-provider', attempts: 0,
+        fallbackFrom: null, success: false, errorCode: errorCodeOf(error), errorMessage: errorMessageOf(error),
+        latencyMs: Date.now() - startTime, promptTokens: null, completionTokens: null, costUsd: null,
+      });
+      throw error;
     }
-
-    if (entry.health.circuitOpen) {
-      throw new AICircuitOpenError(decision.provider, entry.health.circuitOpenUntil!);
-    }
-
-    let promptTokens = this.estimatePromptTokens(request);
+    const localCandidates = available.filter((entry) => entry.isLocal);
+    const selected = this.selectProviderByStrategy(context.preferLocal && localCandidates.length ? localCandidates : available);
+    const model = selected.provider.findModel(request.model);
+    if (!model) throw new AIModelNotFoundError(request.model, selected.provider.name);
 
     try {
+      const response = await selected.provider.createEmbeddings(request);
+      const latencyMs = Date.now() - startTime;
+      this.recordLatency(selected, latencyMs);
+      this.recordSuccess(selected);
+      this.recordUsage({
+        provider: selected.provider.name,
+        model: response.model,
+        promptTokens: response.usage.promptTokens,
+        completionTokens: 0,
+        companyId,
+        agentId,
+        timestamp: new Date(),
+      });
+      this.emitDecision({
+        ...base, context: { ...context, usageSource: response.usageSource ?? context.usageSource }, selectedProvider: selected.provider.name, selectedModel: response.model, reason: 'capability',
+        attempts: 1, fallbackFrom: null, success: true, errorCode: null, errorMessage: null,
+        latencyMs, promptTokens: response.usage.promptTokens, completionTokens: 0,
+        costUsd: this.estimateCost(selected, response.model, response.usage.promptTokens, 0),
+      });
+      return response;
+    } catch (err) {
+      this.recordFailure(selected);
+      this.handleCircuitBreaker(selected);
+      this.emitDecision({
+        ...base, selectedProvider: selected.provider.name, selectedModel: request.model, reason: 'capability',
+        attempts: 1, fallbackFrom: null, success: false, errorCode: errorCodeOf(err), errorMessage: errorMessageOf(err),
+        latencyMs: Date.now() - startTime, promptTokens: null, completionTokens: null, costUsd: null,
+      });
+      throw err;
+    }
+  }
+
+  // ─── Streaming Chat Completion ──────────────────────────────────
+
+  async *streamChat(
+    request: AIRequest,
+    companyId?: string,
+    agentId?: string,
+    context: AIRequestContext = {},
+  ): AsyncGenerator<AIStreamChunk> {
+    await this.ensureProvidersInitialized();
+    const startTime = Date.now();
+    const candidates = this.getAvailableProviders(companyId, context).map((entry) => entry.provider.name as string);
+    const base = { requestedModel: request.model, candidates, companyId, agentId, context };
+
+    let decision: AIRouteDecision;
+    try {
+      decision = this.route(request, companyId, context);
+    } catch (err) {
+      this.emitDecision({
+        ...base,
+        selectedProvider: null,
+        selectedModel: null,
+        reason: 'no-provider',
+        attempts: 0,
+        fallbackFrom: null,
+        success: false,
+        errorCode: errorCodeOf(err),
+        errorMessage: errorMessageOf(err),
+        latencyMs: Date.now() - startTime,
+        promptTokens: null,
+        completionTokens: null,
+        costUsd: null,
+      });
+      throw err;
+    }
+
+    const entry = this.providers.get(decision.provider);
+    if (!entry) throw new AIProviderUnavailableError(decision.provider);
+    if (entry.health.circuitOpen) throw new AICircuitOpenError(decision.provider, entry.health.circuitOpenUntil!);
+
+    const promptTokens = this.estimatePromptTokens(request);
+    let completionTokens = 0;
+    try {
       const routedRequest: AIRequest = { ...request, model: decision.model };
-      const startTime = Date.now();
-      let completionTokens = 0;
-
       for await (const chunk of entry.provider.streamChatCompletion(routedRequest)) {
-        if (chunk.content) {
-          completionTokens += Math.ceil(chunk.content.length / 4);
-        }
+        if (chunk.content) completionTokens += Math.ceil(chunk.content.length / 4);
         yield chunk;
-
-        if (chunk.finishReason) {
-          this.recordUsage({
-            provider: decision.provider,
-            model: chunk.model || decision.model,
-            promptTokens,
-            completionTokens,
-            companyId,
-            agentId,
-            timestamp: new Date(),
-          });
-        }
       }
-
-      this.recordLatency(entry, Date.now() - startTime);
+      const latencyMs = Date.now() - startTime;
+      this.recordLatency(entry, latencyMs);
       this.recordSuccess(entry);
+      this.recordUsage({
+        provider: decision.provider,
+        model: decision.model,
+        promptTokens,
+        completionTokens,
+        companyId,
+        agentId,
+        timestamp: new Date(),
+      });
+      this.emitDecision({
+        ...base,
+        selectedProvider: decision.provider,
+        selectedModel: decision.model,
+        reason: decision.reason,
+        attempts: 1,
+        fallbackFrom: null,
+        success: true,
+        errorCode: null,
+        errorMessage: null,
+        latencyMs,
+        promptTokens,
+        completionTokens,
+        costUsd: this.estimateCost(entry, decision.model, promptTokens, completionTokens),
+      });
     } catch (err) {
       this.recordFailure(entry);
       this.handleCircuitBreaker(entry);
-
-      // Attempt failover streaming
-      if (err instanceof AICircuitOpenError || err instanceof AIProviderUnavailableError) {
-        const fallbackStream = this.attemptStreamFailover(request, decision.provider, companyId, agentId, entry.provider.freeOnly);
-        if (fallbackStream) {
-          yield* fallbackStream;
-          return;
-        }
-      }
-
+      this.emitDecision({
+        ...base,
+        selectedProvider: decision.provider,
+        selectedModel: decision.model,
+        reason: decision.reason,
+        attempts: 1,
+        fallbackFrom: null,
+        success: false,
+        errorCode: errorCodeOf(err),
+        errorMessage: errorMessageOf(err),
+        latencyMs: Date.now() - startTime,
+        promptTokens,
+        completionTokens,
+        costUsd: null,
+      });
       throw err;
     }
   }
@@ -587,8 +713,10 @@ export class AIRouter {
     }
   }
 
-  private selectBestModel(provider: BaseAIProvider, request: AIRequest): AIModel {
-    const models = provider.supportedModels;
+  private selectBestModel(provider: BaseAIProvider, request: AIRequest, allowedModelIds?: string[]): AIModel {
+    const models = allowedModelIds
+      ? provider.supportedModels.filter((model) => allowedModelIds.includes(model.id))
+      : provider.supportedModels;
     if (models.length === 0) {
       throw new AIModelNotFoundError('any', provider.name);
     }
@@ -618,21 +746,34 @@ export class AIRouter {
     companyId?: string,
     agentId?: string,
     freeOnlyOnly = false,
+    context: AIRequestContext = {},
   ): Promise<{ response: AIResponse; provider: AIProvider; attempts: number } | null> {
-    const available = this.getAvailableProviders(companyId).filter(
-      (entry) => entry.provider.name !== failedProvider && (!freeOnlyOnly || entry.provider.freeOnly),
+    const allowedModels = context.allowedModelIds ? new Set(context.allowedModelIds) : null;
+    const requiredCapabilities: AICapability[] = ['chat'];
+    if (request.stream) requiredCapabilities.push('streaming');
+    if (request.tools?.length) requiredCapabilities.push('function-calling');
+    const available = this.getAvailableProviders(companyId, context).filter((entry) =>
+      entry.provider.name !== failedProvider &&
+      (!freeOnlyOnly || entry.provider.freeOnly) &&
+      entry.provider.supportedModels.some((model) =>
+        (!allowedModels || allowedModels.has(model.id)) &&
+        requiredCapabilities.every((capability) => model.capabilities.includes(capability)),
+      ),
     );
 
     let attempts = 0;
     for (const entry of available) {
       attempts++;
       try {
-        // Prefer the same model if the fallback provider serves it; otherwise its first model.
-        const sameModel = entry.provider.findModel(request.model)?.id;
-        const routedRequest: AIRequest = {
-          ...request,
-          model: sameModel ?? entry.provider.supportedModels[0]?.id ?? request.model,
-        };
+        // Restrict the fallback model to the server-authorized set. Preserve the
+        // requested model where possible, otherwise use only an eligible model.
+        const eligibleModels = entry.provider.supportedModels.filter((model) =>
+          (!allowedModels || allowedModels.has(model.id)) &&
+          requiredCapabilities.every((capability) => model.capabilities.includes(capability)),
+        );
+        const fallbackModel = eligibleModels.find((model) => model.id === request.model) ?? eligibleModels[0];
+        if (!fallbackModel) continue;
+        const routedRequest: AIRequest = { ...request, model: fallbackModel.id };
         const response = await entry.provider.chatCompletion(routedRequest);
 
         this.recordSuccess(entry);
@@ -659,60 +800,6 @@ export class AIRouter {
     }
 
     return null;
-  }
-
-  private attemptStreamFailover(
-    request: AIRequest,
-    failedProvider: AIProvider,
-    companyId?: string,
-    agentId?: string,
-    freeOnlyOnly = false,
-  ): AsyncGenerator<AIStreamChunk> | null {
-    const available = this.getAvailableProviders(companyId).filter(
-      (entry) => entry.provider.name !== failedProvider && (!freeOnlyOnly || entry.provider.freeOnly),
-    );
-
-    if (available.length === 0) return null;
-
-    // Return the first available provider's stream generator
-    const entry = available[0];
-    const modelId = entry.provider.supportedModels[0]?.id ?? request.model;
-    // We need to return an async generator, so we create a wrapper
-    // Using arrow function to preserve `this` context
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const router = this;
-    const generate = async function* (this: void): AsyncGenerator<AIStreamChunk> {
-      const routedRequest: AIRequest = { ...request, model: modelId };
-      let completionTokens = 0;
-      const promptTokens = router.estimatePromptTokens(request);
-
-      try {
-        for await (const chunk of entry.provider.streamChatCompletion(routedRequest)) {
-          if (chunk.content) {
-            completionTokens += Math.ceil(chunk.content.length / 4);
-          }
-          yield chunk;
-
-          if (chunk.finishReason) {
-            router.recordUsage({
-              provider: entry.provider.name,
-              model: chunk.model || modelId,
-              promptTokens,
-              completionTokens,
-              companyId,
-              agentId,
-              timestamp: new Date(),
-            });
-          }
-        }
-        router.recordSuccess(entry);
-      } catch {
-        router.recordFailure(entry);
-        router.handleCircuitBreaker(entry);
-      }
-    };
-
-    return generate();
   }
 
   // ─── Private: Provider Helpers ──────────────────────────────────
@@ -745,20 +832,28 @@ export class AIRouter {
     );
   }
 
-  /** Providers usable for a request: shared ones plus the tenant's own. */
-  private getAvailableProviders(companyId?: string): ProviderEntry[] {
-    // LOCAL_ONLY (on by default once a local endpoint is configured) removes
-    // commercial providers from the candidate set entirely, so a task cannot
-    // silently bill a paid API. If nothing local is available the router throws
-    // instead of falling back to a paid provider.
+  /** Providers usable for a request: local by default, all others need explicit server policy. */
+  private getAvailableProviders(companyId?: string, context: AIRequestContext = {}): ProviderEntry[] {
+    const allowedNames = context.allowedProviderNames ? new Set(context.allowedProviderNames) : null;
+    const allowedModels = context.allowedModelIds ? new Set(context.allowedModelIds) : null;
     const localOnly = localOnlyEnabled();
-    return Array.from(this.providers.values()).filter(
-      (e) =>
-        !e.health.circuitOpen &&
-        e.provider.initialized &&
-        (e.companyId === undefined || e.companyId === companyId) &&
-        (!localOnly || isLocalProviderName(e.provider.name)),
-    );
+
+    return Array.from(this.providers.values()).filter((entry) => {
+      const isLocal = entry.isLocal;
+      const explicitlyAllowed = allowedNames?.has(entry.provider.name) ?? false;
+      const permittedByBilling = isLocal ||
+        (context.allowPaid === true && explicitlyAllowed) ||
+        (context.allowVerifiedFree === true && (entry.provider.freeOnly || explicitlyAllowed));
+      const hasAllowedModel = !allowedModels || entry.provider.supportedModels.some((model) => allowedModels.has(model.id));
+
+      return !entry.health.circuitOpen &&
+        entry.provider.initialized &&
+        (entry.companyId === undefined || entry.companyId === companyId) &&
+        (!allowedNames || explicitlyAllowed) &&
+        (!localOnly || isLocal) &&
+        permittedByBilling &&
+        hasAllowedModel;
+    });
   }
 
   /** Public, read-only view used by health/settings endpoints. */
@@ -768,6 +863,7 @@ export class AIRouter {
     initialized: boolean;
     circuitOpen: boolean;
     initError?: string;
+    isLocal: boolean;
     models: string[];
   }> {
     return Array.from(this.providers.values()).map((e) => ({
@@ -776,6 +872,7 @@ export class AIRouter {
       initialized: e.provider.initialized,
       circuitOpen: e.health.circuitOpen,
       initError: e.initError,
+      isLocal: e.isLocal,
       models: e.provider.supportedModels.map((m) => m.id),
     }));
   }

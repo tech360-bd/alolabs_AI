@@ -6,6 +6,7 @@
 
 import { db } from './db';
 import type { Prisma } from '@prisma/client';
+import { executeCompanyAIEmbeddings, type CompanyAIActor } from './multi-tenant-ai/service';
 import { searchPoints, upsertPoints, createCollection, isQdrantConnected } from './qdrant';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -116,68 +117,40 @@ export function chunkText(
 
 // ─── Embedding Generation ─────────────────────────────────────────────────────
 
-const configuredVectorDimensions = Number(process.env.EMBEDDING_DIMENSIONS);
-const VECTOR_DIMENSIONS = Number.isSafeInteger(configuredVectorDimensions) && configuredVectorDimensions > 0
-  ? configuredVectorDimensions
-  : 1536;
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Generate a real vector from the configured OpenAI-compatible embedding provider. */
-export async function generateEmbedding(text: string): Promise<number[]> {
-  const embeddingApi = process.env.EMBEDDING_API_URL;
-  const embeddingKey = process.env.EMBEDDING_API_KEY;
-  if (!embeddingApi || !embeddingKey) {
-    throw new Error('Embedding provider is not configured');
-  }
+/** Generate a tenant-authorized vector through the central policy router. */
+export async function generateEmbedding(text: string, actor: CompanyAIActor): Promise<number[]> {
+  if (!actor.companyId || !actor.userId) throw new Error('Company and actor identity are required for embeddings');
   if (!text.trim()) throw new Error('Cannot generate an embedding for empty text');
-
-  let response: Response;
-  try {
-    response = await fetch(embeddingApi, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${embeddingKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
-        input: text,
-        dimensions: VECTOR_DIMENSIONS,
-      }),
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch {
-    throw new Error('Embedding provider request failed');
-  }
-
-  if (!response.ok) throw new Error(`Embedding provider returned HTTP ${response.status}`);
-
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new Error('Embedding provider returned invalid JSON');
-  }
-  if (!isRecord(payload) || !Array.isArray(payload.data) || !isRecord(payload.data[0])) {
-    throw new Error('Embedding provider response did not contain a vector');
-  }
-
-  const rawVector = payload.data[0].embedding;
-  if (!Array.isArray(rawVector)) throw new Error('Embedding provider response did not contain a vector');
-  const vector = rawVector.filter((value): value is number =>
-    typeof value === 'number' && Number.isFinite(value),
+  const result = await executeCompanyAIEmbeddings(
+    actor,
+    { model: '', input: text },
+    { dataClassification: 'confidential' },
   );
-  if (vector.length !== rawVector.length || vector.length !== VECTOR_DIMENSIONS) {
-    throw new Error(`Embedding provider returned an invalid vector dimension; expected ${VECTOR_DIMENSIONS}`);
+  const vector = result.response.data[0]?.embedding;
+  if (!vector?.length || vector.some((value) => !Number.isFinite(value))) {
+    throw new Error('Authorized embedding model returned an invalid vector');
   }
   return vector;
 }
 
-export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  return Promise.all(texts.map((text) => generateEmbedding(text)));
+export async function generateEmbeddings(texts: string[], actor: CompanyAIActor): Promise<number[][]> {
+  if (texts.length === 0) return [];
+  if (texts.length > 100) throw new Error('Embedding batches may contain at most 100 texts');
+  if (texts.some((text) => !text.trim())) throw new Error('Embedding batch contains empty text');
+  const result = await executeCompanyAIEmbeddings(
+    actor,
+    { model: '', input: texts },
+    { dataClassification: 'confidential' },
+  );
+  const ordered = [...result.response.data].sort((left, right) => left.index - right.index);
+  if (ordered.length !== texts.length || ordered.some((item) => !item.embedding.length || item.embedding.some((value) => !Number.isFinite(value)))) {
+    throw new Error('Authorized embedding model returned an incomplete or invalid batch');
+  }
+  return ordered.map((item) => item.embedding);
 }
 
 // ─── Document Ingestion ───────────────────────────────────────────────────────
@@ -188,6 +161,7 @@ export async function ingestDocument(
   content: string,
   options?: {
     companyId?: string;
+    actor?: CompanyAIActor;
     source?: string;
     classification?: string;
     chunkSize?: number;
@@ -206,8 +180,9 @@ export async function ingestDocument(
     if (document.collectionId !== collectionId) throw new Error('Document does not belong to the requested collection');
 
     const companyId = options?.companyId ?? document.companyId ?? collection.companyId ?? undefined;
-    if (document.companyId && companyId !== document.companyId) throw new Error('Document company scope mismatch');
-    if (collection.companyId && companyId !== collection.companyId) throw new Error('Collection company scope mismatch');
+    if (!companyId) throw new Error('Company scope is required for document ingestion');
+    if (document.companyId !== companyId || collection.companyId !== companyId) throw new Error('Document and collection must belong to the selected company');
+    if (options?.actor && options.actor.companyId !== companyId) throw new Error('Embedding actor company scope mismatch');
 
     const textChunks = chunkText(content, {
       chunkSize: options?.chunkSize,
@@ -224,8 +199,9 @@ export async function ingestDocument(
     }
 
     const shouldEmbed = options?.generateEmbeddings !== false;
+    if (shouldEmbed && !options?.actor) throw new Error('Authenticated company actor is required for embeddings');
     const embeddings = shouldEmbed
-      ? await generateEmbeddings(textChunks.map((chunk) => chunk.content))
+      ? await generateEmbeddings(textChunks.map((chunk) => chunk.content), options!.actor!)
       : [];
     if (shouldEmbed && embeddings.length !== textChunks.length) {
       throw new Error('Embedding provider returned a different number of vectors than requested');
@@ -323,11 +299,13 @@ export async function hybridSearch(
   },
 ): Promise<QueryResult> {
   const startedAt = Date.now();
-  const limit = Math.min(Math.max(options?.limit ?? 5, 1), 50);
-  const vectorWeight = Math.max(options?.vectorWeight ?? 0.7, 0);
-  const keywordWeight = Math.max(options?.keywordWeight ?? 0.3, 0);
+  if (!options?.companyId) throw new Error('Company scope is required for RAG search');
+  const companyId = options.companyId;
+  const limit = Math.min(Math.max(options.limit ?? 5, 1), 50);
+  const vectorWeight = Math.max(options.vectorWeight ?? 0.7, 0);
+  const keywordWeight = Math.max(options.keywordWeight ?? 0.3, 0);
   const collectionWhere: Prisma.RagCollectionWhereInput = {
-    ...(options?.companyId ? { companyId: options.companyId } : {}),
+    companyId,
     ...(options?.collectionId ? { id: options.collectionId } : {}),
     ...(options?.collectionName ? { name: options.collectionName } : {}),
   };
@@ -342,7 +320,7 @@ export async function hybridSearch(
     : collections;
 
   const chunkWhere: Prisma.RagChunkWhereInput = {
-    ...(options?.companyId ? { companyId: options.companyId } : {}),
+    companyId,
     ...(options?.collectionId || options?.collectionName
       ? { document: { is: { collectionId: { in: collectionIds } } } }
       : {}),
@@ -374,13 +352,16 @@ export async function hybridSearch(
   }
 
   const vectorScores = new Map<string, number>();
-  const embeddingProviderConfigured = Boolean(process.env.EMBEDDING_API_URL && process.env.EMBEDDING_API_KEY);
-  if (embeddingProviderConfigured && collectionNames.length > 0 && vectorWeight > 0) {
+  if (collectionNames.length > 0 && vectorWeight > 0) {
     try {
-      const queryVector = await generateEmbedding(query);
+      const queryVector = await generateEmbedding(query, {
+        companyId,
+        userId: options.userId ?? 'system:rag-search',
+        role: 'system',
+      });
       const vectorMatches = await Promise.all(collectionNames.map((collection) =>
         searchPoints(collection.name, queryVector, limit * 2, {
-          ...(options?.companyId ? { companyId: options.companyId } : {}),
+          companyId,
           collectionId: collection.id,
         }),
       ));
@@ -456,8 +437,8 @@ export async function hybridSearch(
   const durationMs = Date.now() - startedAt;
   const ragQuery = await db.ragQuery.create({
     data: {
-      companyId: options?.companyId ?? null,
-      userId: options?.userId ?? null,
+      companyId,
+      userId: options.userId ?? null,
       query,
       collectionId: options?.collectionId ?? null,
       resultCount: sortedResults.length,
@@ -474,7 +455,7 @@ export async function hybridSearch(
   await db.ragAnswer.create({
     data: {
       queryId: ragQuery.id,
-      companyId: options?.companyId ?? null,
+      companyId,
       content: answerContent,
       chunks: JSON.stringify(sortedResults.map((result) => result.id)),
       confidence: 0,

@@ -15,7 +15,7 @@ export const POST = v1Handler(async ({ identity }, request) => {
   const withChat = ['1', 'true'].includes(request.nextUrl.searchParams.get('chat') ?? '');
   try {
     return await testProviderConfig(
-      { userId: identity.userId, role: identity.role, companyId: identity.companyId },
+      { userId: identity.userId, role: identity.role === 'super_admin' ? identity.role : identity.companyRole ?? identity.role, companyId: identity.companyId },
       id,
       { withChat },
     );

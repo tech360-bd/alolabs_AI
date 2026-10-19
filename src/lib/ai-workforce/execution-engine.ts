@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { db } from '@/lib/db'
+import { AGENT_EXECUTION_ACCESS_LEVELS } from '@/lib/agent-access'
 import { getExecutionEngine } from '@/lib/agent-runtime'
 import type { TaskPriority } from '@/lib/agent-runtime/types'
 import type { Prisma } from '@prisma/client'
@@ -58,14 +59,20 @@ export async function executeAgentPipeline(
 
   const instance = await db.agentInstance.findFirst({
     where: { id: instanceId, companyId: context.companyId, status: 'active' },
-    include: { agent: { select: { id: true, agentId: true, name: true } } },
+    include: { agent: { select: { id: true, agentId: true, name: true, companyId: true } } },
   })
   if (!instance) throw new Error('Active agent instance not found')
 
-  const access = await db.agentCompanyAccess.findFirst({
-    where: { agentId: instance.agentId, companyId: context.companyId },
-    select: { id: true },
-  })
+  const access = instance.agent.companyId === context.companyId
+    ? true
+    : await db.agentCompanyAccess.findFirst({
+      where: {
+        agentId: instance.agentId,
+        companyId: context.companyId,
+        accessLevel: { in: [...AGENT_EXECUTION_ACCESS_LEVELS] },
+      },
+      select: { id: true },
+    })
   if (!access) throw new Error('Agent access has been revoked for this company')
 
   let execution: Awaited<ReturnType<typeof db.agentExecution.create>>

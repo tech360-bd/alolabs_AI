@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
+import { agentCompanyScope } from '@/lib/agent-access'
 import { requireCompanyAuth } from '@/lib/api-auth'
 import {
   parseQuery,
@@ -60,8 +61,8 @@ export async function POST(request: NextRequest) {
     const parsed = CreateSchema.safeParse(await request.json())
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
-    const access = await db.agentCompanyAccess.findFirst({
-      where: { agentId: parsed.data.agentId, companyId: user.companyId, agent: { status: 'active' } },
+    const access = await db.agent.findFirst({
+      where: { id: parsed.data.agentId, status: 'active', ...agentCompanyScope(user.companyId, 'execute') },
       select: { id: true },
     })
     if (!access) return NextResponse.json({ error: 'Agent is not available to this company' }, { status: 404 })

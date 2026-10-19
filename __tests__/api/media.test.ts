@@ -6,9 +6,11 @@ class MockNextRequest {
   private _body: Record<string, unknown>;
   private _headersMap: Record<string, string>;
   public url: string;
+  public nextUrl: URL;
 
   constructor(url: string, body: Record<string, unknown> = {}, headers: Record<string, string> = {}) {
     this.url = url;
+    this.nextUrl = new URL(url);
     this._body = body;
     this._headersMap = headers;
   }
@@ -53,7 +55,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/api-auth', () => ({
-  requireAuth: vi.fn().mockResolvedValue({ userId: 'user-1', role: 'admin' }),
+  requireCompanyAuth: vi.fn().mockResolvedValue({ userId: 'user-1', role: 'admin', companyRole: 'admin', companyId: 'company-1' }),
 }));
 
 import { GET as MEDIA_GET, DELETE as MEDIA_DELETE } from '@/app/api/media/route';
@@ -79,6 +81,7 @@ describe('GET /api/media', () => {
           tags: ['nature'],
           thumbnailUrl: null,
           uploadedBy: 'user-1',
+          companyId: 'company-1',
           createdAt: '2025-01-15T00:00:00Z',
           updatedAt: '2025-01-15T00:00:00Z',
         }),
@@ -122,6 +125,19 @@ describe('DELETE /api/media', () => {
     vi.clearAllMocks();
   });
 
+  it('does not delete a file owned by another company', async () => {
+    mockSettingsFindUnique.mockResolvedValue({
+      key: 'media:file:file-foreign',
+      value: JSON.stringify({ id: 'file-foreign', companyId: 'company-2' }),
+    });
+    const req = new MockNextRequest('http://localhost/api/media', { ids: ['file-foreign'] });
+    const response = await MEDIA_DELETE(req as any);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.data.deleted).toBe(0);
+    expect(mockSettingsDelete).not.toHaveBeenCalled();
+  });
+
   it('should return 400 when ids array is missing', async () => {
     const req = new MockNextRequest('http://localhost/api/media', {});
     const response = await MEDIA_DELETE(req as any);
@@ -129,6 +145,10 @@ describe('DELETE /api/media', () => {
   });
 
   it('should delete files by ids', async () => {
+    mockSettingsFindUnique.mockImplementation(({ where }: { where: { key: string } }) => {
+      const id = where.key.replace('media:file:', '');
+      return Promise.resolve({ key: where.key, value: JSON.stringify({ id, companyId: 'company-1' }) });
+    });
     mockSettingsDelete.mockResolvedValue({});
     const req = new MockNextRequest('http://localhost/api/media', { ids: ['file-1', 'file-2'] });
     const response = await MEDIA_DELETE(req as any);

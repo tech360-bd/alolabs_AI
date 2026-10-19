@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireCompanyAuth } from '@/lib/api-auth'
 import { db } from '@/lib/db'
+import { agentCompanyScope } from '@/lib/agent-access'
 import { isKnowledgeVisibleToCompany } from '@/lib/tenant-knowledge'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -22,7 +23,7 @@ export async function GET() {
         orderBy: { sortOrder: 'asc' },
       }),
       db.agent.findMany({
-        where: { agentCompanyAccess: { some: { companyId } } },
+        where: agentCompanyScope(companyId, 'view'),
         select: { id: true, agentId: true, status: true, departmentId: true },
       }),
     ])

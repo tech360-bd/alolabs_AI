@@ -180,3 +180,119 @@ describe('AI Provider Health Checks', () => {
     expect(health.isHealthy).toBe(false);
   });
 });
+
+// ─── Authorization-Bounded Router Failover ─────────────────────────
+
+describe('AI Router policy-bound failover', () => {
+  it('does not start an internal retry when the central policy owns failover', async () => {
+    const { AIRouter } = await import('@/lib/ai-router/router');
+    const { BaseAIProvider } = await import('@/lib/ai-router/provider-base');
+    const { AIRouterError } = await import('@/lib/ai-router/types');
+
+    class MockProvider extends BaseAIProvider {
+      readonly name = 'ollama' as const;
+      supportedModels = [{
+        id: 'local-model', name: 'Local', provider: 'ollama' as const, family: 'custom' as const,
+        parameters: {}, contextLength: 8192, capabilities: ['chat' as const],
+      }];
+      readonly complete = vi.fn(async () => {
+        throw new AIRouterError('temporary provider failure', 'ollama', 503, true);
+      });
+      async initialize() { this._initialized = true; }
+      async chatCompletion(request: import('@/lib/ai-router/types').AIRequest) { return this.complete(request) as never; }
+      async *streamChatCompletion() { return; }
+      async healthCheck() {
+        return { provider: this.name, isHealthy: true, latencyMs: 0, errorRate: 0, lastCheck: new Date(), consecutiveFailures: 0, circuitOpen: false };
+      }
+      async listModels() { return this.supportedModels; }
+    }
+    class FallbackProvider extends BaseAIProvider {
+      readonly name = 'ollama-llama' as const;
+      supportedModels = [{
+        id: 'local-model', name: 'Local', provider: 'ollama-llama' as const, family: 'custom' as const,
+        parameters: {}, contextLength: 8192, capabilities: ['chat' as const],
+      }];
+      readonly complete = vi.fn(async (request: import('@/lib/ai-router/types').AIRequest) => ({
+        id: 'fallback-id', content: 'fallback', model: request.model,
+        usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+        finishReason: 'stop' as const, latencyMs: 1,
+      }));
+      async initialize() { this._initialized = true; }
+      async chatCompletion(request: import('@/lib/ai-router/types').AIRequest) { return this.complete(request); }
+      async *streamChatCompletion() { return; }
+      async healthCheck() {
+        return { provider: this.name, isHealthy: true, latencyMs: 0, errorRate: 0, lastCheck: new Date(), consecutiveFailures: 0, circuitOpen: false };
+      }
+      async listModels() { return this.supportedModels; }
+    }
+
+    const router = new AIRouter();
+    const primary = new MockProvider();
+    const fallback = new FallbackProvider();
+    router.registerProvider(primary, { isLocal: true });
+    router.registerProvider(fallback, { isLocal: true });
+
+    await expect(router.chat(
+      { model: 'local-model', messages: [{ role: 'user', content: 'hello' }] },
+      'company-a',
+      undefined,
+      { allowFailover: false },
+    )).rejects.toThrow('temporary provider failure');
+    expect(fallback.complete).not.toHaveBeenCalled();
+    await router.destroy();
+  });
+
+  it('never chooses a router fallback model outside the server-authorized model set', async () => {
+    const { AIRouter } = await import('@/lib/ai-router/router');
+    const { BaseAIProvider } = await import('@/lib/ai-router/provider-base');
+    const { AIRouterError } = await import('@/lib/ai-router/types');
+
+    const mkModel = (id: string, provider: 'ollama' | 'ollama-llama') => ({
+      id, name: id, provider, family: 'custom' as const, parameters: {}, contextLength: 8192,
+      capabilities: ['chat' as const],
+    });
+    class Primary extends BaseAIProvider {
+      readonly name = 'ollama' as const;
+      supportedModels = [mkModel('allowed-model', this.name)];
+      async initialize() { this._initialized = true; }
+      async chatCompletion() { throw new AIRouterError('temporary provider failure', this.name, 503, true); }
+      async *streamChatCompletion() { return; }
+      async healthCheck() { return { provider: this.name, isHealthy: true, latencyMs: 0, errorRate: 0, lastCheck: new Date(), consecutiveFailures: 0, circuitOpen: false }; }
+      async listModels() { return this.supportedModels; }
+    }
+    class Fallback extends BaseAIProvider {
+      readonly name = 'ollama-llama' as const;
+      supportedModels = [mkModel('forbidden-model', this.name), mkModel('allowed-model', this.name)];
+      readonly complete = vi.fn(async (request: import('@/lib/ai-router/types').AIRequest) => ({
+        id: 'fallback-id', content: 'fallback', model: request.model,
+        usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+        finishReason: 'stop' as const, latencyMs: 1,
+      }));
+      async initialize() { this._initialized = true; }
+      async chatCompletion(request: import('@/lib/ai-router/types').AIRequest) { return this.complete(request); }
+      async *streamChatCompletion() { return; }
+      async healthCheck() { return { provider: this.name, isHealthy: true, latencyMs: 0, errorRate: 0, lastCheck: new Date(), consecutiveFailures: 0, circuitOpen: false }; }
+      async listModels() { return this.supportedModels; }
+    }
+
+    const router = new AIRouter();
+    const primary = new Primary();
+    const fallback = new Fallback();
+    router.registerProvider(primary, { isLocal: true });
+    router.registerProvider(fallback, { isLocal: true });
+
+    const result = await router.chat(
+      { model: '', messages: [{ role: 'user', content: 'hello' }] },
+      'company-a',
+      undefined,
+      {
+        allowFailover: true,
+        allowedProviderNames: ['ollama', 'ollama-llama'],
+        allowedModelIds: ['allowed-model'],
+      },
+    );
+    expect(result.model).toBe('allowed-model');
+    expect(fallback.complete).toHaveBeenCalledWith(expect.objectContaining({ model: 'allowed-model' }));
+    await router.destroy();
+  });
+});

@@ -10,21 +10,14 @@ export const GET = v1Handler(async ({ identity }, request) => {
   const status = request.nextUrl.searchParams.get('status') ?? undefined;
   const agentId = request.nextUrl.searchParams.get('agentId') ?? undefined;
 
-  // Task has no companyId column. Scope through its agent's access grant
-  // and the requesting user's ownership; service API keys cannot enumerate
-  // unscoped historical tasks until the schema carries a tenant key.
+  // Task carries companyId; do not infer tenant ownership from a shared agent.
   if (identity.kind === 'apiKey') {
     throw new V1Error('Task listing requires a user session', 403, 'FORBIDDEN');
   }
-  const agents = await db.agent.findMany({
-    where: { agentCompanyAccess: { some: { companyId: identity.companyId } } },
-    select: { id: true },
-  });
   const where = {
+    companyId: identity.companyId,
     userId: identity.userId,
-    agentId: agentId && agents.some((a) => a.id === agentId)
-      ? agentId
-      : { in: agentId ? [] : agents.map((a) => a.id) },
+    ...(agentId ? { agentId } : {}),
     ...(status ? { status } : {}),
   };
 

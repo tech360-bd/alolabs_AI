@@ -37,6 +37,7 @@ beforeAll(() => {
 });
 
 import { createRun, executeRun } from '@/lib/runs';
+import { getAgentStateManager } from '@/lib/agent-runtime/state';
 import { isConfigurationError, configurationRequiredMessage } from '@/lib/qc';
 
 const PLAN = {
@@ -57,6 +58,9 @@ const PLAN = {
 
 beforeEach(() => {
   resetAgentOsMocks();
+  fakeDb.db.company.create({
+    data: { id: 'company-1', slug: 'company-1', name: 'Test Company', status: 'active', paidApiAllowed: false },
+  });
   fakeDb.db.agent.create({
     data: { id: 'db-agent-1', agentId: 'AGENT-0001', name: 'Research Agent', status: 'active' },
   });
@@ -80,6 +84,7 @@ describe('AgentOS run pipeline (no provider configured)', () => {
     expect(run.status).toBe('failed');
     expect(run.error).toBeTruthy();
     expect(run.error.toLowerCase()).toContain('configuration required');
+    expect(getAgentStateManager().getResourceUsage('company-1').activeExecutions).toBe(0);
     // The failure is NOT presented as success anywhere
     expect(run.summary).not.toMatch(/completed \d+\/\d+ steps\. deliverable assembled/i);
 

@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { AloLabsLogo, Mark } from '@/components/brand/alo-logo'
+import CompanySwitcher from './company-switcher'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type EnterpriseView =
@@ -25,6 +26,7 @@ export type EnterpriseView =
   | 'enterprise-overview'
   | 'department-hub'
   | 'ai-employees'
+  | 'ai-employee-governance'
   | 'constitution-engine'
   | 'sop-system'
   | 'knowledge-graph'
@@ -42,6 +44,7 @@ export type EnterpriseView =
   | 'event-bus'
   | 'api-gateway'
   | 'ai-providers'
+  | 'super-admin-ai'
   | 'mcp-integration'
   | 'data-lake'
   | 'observability'
@@ -144,6 +147,7 @@ const navGroups: NavGroup[] = [
     label: 'Workforce',
     items: [
       { id: 'ai-workforce', name: 'AI Workforce', icon: Bot },
+      { id: 'ai-employee-governance', name: 'Employee Governance', icon: ShieldCheck },
       { id: 'agent-intelligence', name: 'Agent Intelligence', icon: Brain },
       { id: 'self-learning', name: 'Self-Learning', icon: TrendingUp },
     ],
@@ -172,6 +176,7 @@ const navGroups: NavGroup[] = [
     items: [
       { id: 'api-gateway', name: 'API Gateway', icon: Globe },
       { id: 'ai-providers', name: 'AI Providers', icon: Cpu },
+      { id: 'super-admin-ai', name: 'Super Admin AI Control Plane', icon: ShieldCheck },
       { id: 'mcp-integration', name: 'MCP Integration', icon: Server },
       { id: 'data-lake', name: 'Data Lake', icon: HardDrive },
       { id: 'observability', name: 'Observability', icon: Eye },
@@ -204,6 +209,7 @@ const panelMap: Record<EnterpriseView, React.LazyExoticComponent<React.Component
   'enterprise-overview': lazy(() => import('./panels/enterprise-overview')),
   'department-hub': lazy(() => import('./panels/department-hub')),
   'ai-employees': lazy(() => import('./panels/ai-employees')),
+  'ai-employee-governance': lazy(() => import('./panels/ai-employee-governance')),
   'constitution-engine': lazy(() => import('./panels/constitution-engine')),
   'sop-system': lazy(() => import('./panels/sop-system')),
   'knowledge-graph': lazy(() => import('./panels/knowledge-graph')),
@@ -221,6 +227,7 @@ const panelMap: Record<EnterpriseView, React.LazyExoticComponent<React.Component
   'event-bus': lazy(() => import('./panels/event-bus')),
   'api-gateway': lazy(() => import('./panels/api-gateway')),
   'ai-providers': lazy(() => import('./panels/ai-providers')),
+  'super-admin-ai': lazy(() => import('./panels/super-admin-ai-control-plane')),
   'mcp-integration': lazy(() => import('./panels/mcp-integration')),
   'data-lake': lazy(() => import('./panels/data-lake')),
   'observability': lazy(() => import('./panels/observability')),
@@ -430,6 +437,7 @@ export default function EnterpriseShell() {
             </div>
 
             <div className="flex items-center gap-2">
+              <CompanySwitcher />
               {/* Health indicator */}
               <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30">
                 <Activity className="h-3 w-3 text-emerald-500" />

@@ -20,9 +20,11 @@ import type {
   AIResponse,
   AIStreamChunk,
   AICapability,
+  AIEmbeddingRequest,
+  AIEmbeddingResponse,
 } from './types';
 import { AIRouterError } from './types';
-import { BaseAIProvider } from './provider-base';
+import { BaseAIProvider, requestAbortSignal } from './provider-base';
 import { hasExplicitZeroPricing } from './free-models';
 
 // ─── Config ─────────────────────────────────────────────────────────
@@ -59,9 +61,11 @@ export interface OpenAICompatibleProviderConfig {
 
 // ─── Wire types ─────────────────────────────────────────────────────
 
+type WireContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+
 interface WireMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
+  content: string | WireContentPart[];
   tool_call_id?: string;
   name?: string;
 }
@@ -222,12 +226,12 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
     };
   }
 
-  private async revalidateFreeModel(modelId: string): Promise<void> {
+  private async revalidateFreeModel(modelId: string, signal?: AbortSignal): Promise<void> {
     if (!this.freeOnly) return;
     // Recheck live upstream pricing at request time. If pricing disappears,
     // becomes nonzero, or cannot be fetched, refuse the call rather than fall
     // back to an unpriced model.
-    const current = await this.fetchRemoteModels();
+    const current = await this.fetchRemoteModels(signal);
     this.supportedModels = current;
     if (!current.some((model) => model.id === modelId)) {
       throw new AIRouterError(
@@ -239,10 +243,10 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
     }
   }
 
-  private async fetchRemoteModels(): Promise<AIModel[]> {
+  private async fetchRemoteModels(signal?: AbortSignal): Promise<AIModel[]> {
     const res = await fetch(`${this.baseUrl}/models`, {
       headers: this.headers(false),
-      signal: AbortSignal.timeout(this.healthTimeoutMs),
+      signal: requestAbortSignal({ signal }, this.healthTimeoutMs),
     });
     if (!res.ok) {
       throw new AIRouterError(
@@ -294,7 +298,7 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
 
   async chatCompletion(request: AIRequest): Promise<AIResponse> {
     this.requireInitialized();
-    await this.revalidateFreeModel(request.model);
+    await this.revalidateFreeModel(request.model, request.signal);
     const release = this.trackConnection();
     const startTime = Date.now();
 
@@ -304,7 +308,7 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
           method: 'POST',
           headers: this.headers(true),
           body: JSON.stringify(this.buildBody(request, false)),
-          signal: AbortSignal.timeout(this.timeoutMs),
+          signal: requestAbortSignal(request, this.timeoutMs),
         });
         if (!res.ok) {
           const errorBody = await res.text().catch(() => '');
@@ -329,6 +333,7 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
           completionTokens: data.usage?.completion_tokens ?? 0,
           totalTokens: data.usage?.total_tokens ?? 0,
         },
+        usageSource: data.usage ? 'provider_reported' : 'locally_estimated',
         finishReason: mapFinishReason(choice?.finish_reason),
         toolCalls: extractToolCalls(choice?.message),
         latencyMs: Date.now() - startTime,
@@ -340,14 +345,14 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
 
   async *streamChatCompletion(request: AIRequest): AsyncGenerator<AIStreamChunk> {
     this.requireInitialized();
-    await this.revalidateFreeModel(request.model);
+    await this.revalidateFreeModel(request.model, request.signal);
     const release = this.trackConnection();
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: this.headers(true),
         body: JSON.stringify(this.buildBody(request, true)),
-        signal: AbortSignal.timeout(this.timeoutMs * 2),
+        signal: requestAbortSignal(request, this.timeoutMs * 2),
       });
       if (!response.ok) {
         throw new AIRouterError(
@@ -366,6 +371,60 @@ export class OpenAICompatibleProvider extends BaseAIProvider {
           finishReason: choice?.finish_reason ? mapFinishReason(choice.finish_reason) : undefined,
         };
       }
+    } finally {
+      release();
+    }
+  }
+
+  async createEmbeddings(request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
+    this.requireInitialized();
+    await this.revalidateFreeModel(request.model);
+    const model = this.findModel(request.model);
+    if (!model || !model.capabilities.includes('embedding')) {
+      throw new AIRouterError(`Model "${request.model}" is not configured for embeddings.`, this.name, 400, false);
+    }
+    const release = this.trackConnection();
+    try {
+      const response = await this.withRetry(async () => {
+        const res = await fetch(`${this.baseUrl}/embeddings`, {
+          method: 'POST',
+          headers: this.headers(true),
+          body: JSON.stringify({ model: request.model, input: request.input }),
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
+        if (!res.ok) {
+          const errorBody = await res.text().catch(() => '');
+          throw new AIRouterError(
+            `${this.label} embeddings error (${res.status}): ${redactSecrets(errorBody.slice(0, 500), this.apiKey)}`,
+            this.name,
+            res.status,
+            this.isRetryableStatus(res.status),
+          );
+        }
+        return res;
+      });
+      const payload = await response.json() as {
+        id?: string;
+        model?: string;
+        data?: Array<{ index?: number; embedding?: unknown }>;
+        usage?: { prompt_tokens?: number; total_tokens?: number };
+      };
+      const data = (payload.data ?? []).flatMap((item, index) => {
+        if (!Array.isArray(item.embedding) || !item.embedding.every((value) => typeof value === 'number' && Number.isFinite(value))) return [];
+        return [{ index: item.index ?? index, embedding: item.embedding as number[] }];
+      });
+      const inputs = Array.isArray(request.input) ? request.input : [request.input];
+      const estimatedTokens = Math.ceil(inputs.reduce((total, input) => total + input.length, 0) / 4);
+      return {
+        id: payload.id,
+        model: payload.model ?? request.model,
+        data,
+        usage: {
+          promptTokens: payload.usage?.prompt_tokens ?? estimatedTokens,
+          totalTokens: payload.usage?.total_tokens ?? estimatedTokens,
+        },
+        usageSource: payload.usage ? 'provider_reported' : 'locally_estimated',
+      };
     } finally {
       release();
     }

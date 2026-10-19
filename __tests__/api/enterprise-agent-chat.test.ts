@@ -104,10 +104,18 @@ describe('POST /api/enterprise/agent-chat', () => {
     })
 
     expect(mocks.db.agent.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({
+      where: {
         agentId: 'agent-1',
-        agentCompanyAccess: { some: { companyId: 'company-1' } },
-      }),
+        status: 'active',
+        OR: [
+          { companyId: 'company-1' },
+          {
+            agentCompanyAccess: {
+              some: { companyId: 'company-1', accessLevel: { in: ['execute', 'full'] } },
+            },
+          },
+        ],
+      },
     }))
     expect(mocks.db.conversation.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'conversation-1', companyId: 'company-1', userId: 'user-1' },

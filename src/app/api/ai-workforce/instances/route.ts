@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
+import { agentCompanyScope } from '@/lib/agent-access'
 import { requireCompanyAuth } from '@/lib/api-auth'
 import type { Prisma } from '@prisma/client'
 
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
       where: {
         id: parsed.data.agentId,
         status: 'active',
-        agentCompanyAccess: { some: { companyId: user.companyId } },
+        ...agentCompanyScope(user.companyId, 'execute'),
       },
       select: { id: true },
     })

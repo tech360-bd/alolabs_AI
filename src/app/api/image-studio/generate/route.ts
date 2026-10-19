@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCompanyAuth } from '@/lib/api-auth';
+import { CompanyAIError } from '@/lib/multi-tenant-ai/service';
 import { generate, validateGenerationInput } from '@/lib/media-generation';
 
 /**
  * POST /api/image-studio/generate
  *
- * Thin, real wrapper around the media-generation subsystem (image kind).
- * Returns `{ url, job }` so the existing Image Studio page can render the
- * produced asset without a second round-trip.
+ * Validates an image request and records it as deferred through central
+ * company policy. No provider is called until image-generation capability,
+ * authorization, pricing, and budget checks are centrally verified.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     // provider honours would silently do nothing.
     const prompt = body.style ? `${input.prompt}. Style: ${String(body.style).slice(0, 40)}` : input.prompt;
 
-    const job = await generate({ ...input, prompt }, { companyId: user.companyId, userId: user.userId });
+    const job = await generate({ ...input, prompt }, { companyId: user.companyId, userId: user.userId, role: user.companyRole ?? user.role });
     const url = job.assets[0]?.url ?? null;
 
     if (job.status === 'failed') {
@@ -34,6 +35,9 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ url, image: url, job }, { status: 201 });
   } catch (error) {
+    if (error instanceof CompanyAIError) {
+      return NextResponse.json({ error: error.message, code: error.code, requestId: error.requestId }, { status: error.status });
+    }
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
       return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }

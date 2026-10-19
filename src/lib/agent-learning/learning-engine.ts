@@ -1,10 +1,12 @@
 import { db } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
+import { agentCompanyScope } from '@/lib/agent-access';
 import { ProtectiveFilter } from './protective-filter';
-import { EvolutionTracker } from './evolution-tracker';
-import { EVOLUTION_LEVELS, SAFETY_LEVELS } from './index';
+import { SAFETY_LEVELS } from './index';
 
 interface LearningInput {
   agentId: string;
+  actorUserId: string;
   companyId: string;
   triggerType: 'task_completion' | 'feedback' | 'scheduled' | 'manual' | 'cross_agent';
   triggerDetail?: string;
@@ -20,6 +22,9 @@ interface LearningInput {
 interface LearningResult {
   sessionId: string;
   knowledgeCreated: number;
+  candidateCount: number;
+  verified: false;
+  status: 'pending_review' | 'no_candidate';
   confidenceDelta: number;
   newLevel?: number;
   newLevelName?: string;
@@ -29,57 +34,71 @@ interface LearningResult {
   blockedCount: number;
 }
 
+function parseStringList(value: string | null | undefined): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value || '[]');
+    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export class LearningEngine {
   private protectiveFilter: ProtectiveFilter;
-  private evolutionTracker: EvolutionTracker;
 
   constructor() {
     this.protectiveFilter = new ProtectiveFilter();
-    this.evolutionTracker = new EvolutionTracker();
   }
 
   /**
-   * Main learning loop: extract knowledge from a task completion or feedback,
-   * filter through protective mode, store verified knowledge, update evolution.
+   * Create unverified, company-scoped learning candidates. Candidates do not
+   * enter runtime context or change maturity until an authorized human review.
    */
   async learn(input: LearningInput): Promise<LearningResult> {
+    return db.$transaction((transaction) => this.learnInTransaction(input, transaction));
+  }
+
+  private async learnInTransaction(input: LearningInput, transaction: Prisma.TransactionClient): Promise<LearningResult> {
     const startTime = Date.now();
 
-    const access = await db.agentCompanyAccess.findFirst({
-      where: { agentId: input.agentId, companyId: input.companyId },
+    const access = await transaction.agent.findFirst({
+      where: { id: input.agentId, ...agentCompanyScope(input.companyId, 'execute') },
       select: { id: true },
     })
-    if (!access) throw new Error('Agent is not available to this company')
+    if (!access) throw new Error('Agent is not executable by this company')
 
     // 1. Get current knowledge count for this company and agent
-    const knowledgeBefore = await db.agentMemory.count({ where: { agentId: input.agentId, companyId: input.companyId } });
+    const knowledgeBefore = await transaction.agentMemory.count({ where: { agentId: input.agentId, companyId: input.companyId } });
 
     // 2. Get protective mode config
-    const protective = await db.agentProtectiveMode.findUnique({
+    const protective = await transaction.agentProtectiveMode.findUnique({
       where: { agentId: input.agentId },
     });
 
     if (protective && !protective.enabled) {
-      return this.createSession(input, knowledgeBefore, knowledgeBefore, [], [], 0, startTime);
+      return this.createSession(transaction, input, knowledgeBefore, knowledgeBefore, [], [], 0, startTime);
     }
 
-    // 3. Check daily knowledge limit
-    if (protective) {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayCount = await db.agentMemory.count({
-        where: { agentId: input.agentId, companyId: input.companyId, createdAt: { gte: todayStart } },
-      });
-      if (todayCount >= protective.maxKnowledgePerDay) {
-        return this.createSession(input, knowledgeBefore, knowledgeBefore, [], ['Daily knowledge limit reached'], 0, startTime);
-      }
+    // 3. Enforce a conservative daily candidate limit even when no explicit
+    // protective-mode row has been provisioned yet.
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayCount = await transaction.agentMemory.count({
+      where: { agentId: input.agentId, companyId: input.companyId, createdAt: { gte: todayStart } },
+    });
+    const maxKnowledgePerDay = protective?.maxKnowledgePerDay ?? 50;
+    if (todayCount >= maxKnowledgePerDay) {
+      return this.createSession(transaction, input, knowledgeBefore, knowledgeBefore, [], ['Daily candidate limit reached'], 0, startTime);
     }
 
     // 4. Extract knowledge from input
     const rawInsights = await this.extractInsights(input);
-    const rawCorrections = input.corrections || [];
+    const rawCorrections = [
+      ...(input.corrections || []),
+      ...(input.wasSuccess === false && input.error ? [`Error pattern: ${input.error.substring(0, 200)}`] : []),
+    ];
 
-    // 5. Filter through protective mode
+    // 5. Filter every candidate (including failure diagnostics) before storage.
     const allContent = [...rawInsights, ...rawCorrections];
     const configuredSafetyLevel = protective?.safetyLevel;
     const safetyLevel = SAFETY_LEVELS.find((level) => level === configuredSafetyLevel) ?? 'strict';
@@ -89,8 +108,8 @@ export class LearningEngine {
       allContent,
       safetyLevel,
       learningScope,
-      protective?.allowedDomains ? JSON.parse(protective.allowedDomains) : [],
-      protective?.blockedPatterns ? JSON.parse(protective.blockedPatterns) : [],
+      parseStringList(protective?.allowedDomains),
+      parseStringList(protective?.blockedPatterns),
     );
 
     const blockedCount = allContent.length - filteredContent.length;
@@ -101,7 +120,7 @@ export class LearningEngine {
     let knowledgeCreated = 0;
     for (const insight of safeInsights) {
       const category = this.categorize(insight, input);
-      await db.agentMemory.create({
+      await transaction.agentMemory.create({
         data: {
           agentId: input.agentId,
           companyId: input.companyId,
@@ -117,7 +136,7 @@ export class LearningEngine {
     }
 
     for (const correction of safeCorrections) {
-      await db.agentMemory.create({
+      await transaction.agentMemory.create({
         data: {
           agentId: input.agentId,
           companyId: input.companyId,
@@ -132,41 +151,19 @@ export class LearningEngine {
       knowledgeCreated++;
     }
 
-    // 7. If task failed, extract error patterns
-    if (input.wasSuccess === false && input.error) {
-      const errorPattern = `Error pattern: ${input.error.substring(0, 200)}`;
-      await db.agentMemory.create({
-        data: {
-          agentId: input.agentId,
-          companyId: input.companyId,
-          category: 'correction',
-          content: errorPattern,
-          source: 'experience',
-          confidence: 0.4,
-          temperature: 'hot',
-          tags: JSON.stringify(['error', 'pattern']),
-        },
-      });
-      knowledgeCreated++;
-    }
-
-    // 8. Update evolution
+    // 7. Unverified candidates never change an agent's maturity/evolution state.
     const knowledgeAfter = knowledgeBefore + knowledgeCreated;
-    const evolutionUpdate = await this.evolutionTracker.updateEvolution(
-      input.agentId,
-      knowledgeCreated,
-      input.wasSuccess !== false,
-    );
 
-    // 9. Record violation if content was blocked
+    // 8. Record violation if content was blocked
     if (blockedCount > 0 && protective) {
-      await db.agentProtectiveMode.update({
+      await transaction.agentProtectiveMode.update({
         where: { agentId: input.agentId },
         data: { violationCount: { increment: 1 }, lastViolationAt: new Date() },
       });
     }
 
     return this.createSession(
+      transaction,
       input,
       knowledgeBefore,
       knowledgeAfter,
@@ -174,7 +171,6 @@ export class LearningEngine {
       safeCorrections,
       blockedCount,
       startTime,
-      evolutionUpdate,
     );
   }
 
@@ -183,7 +179,7 @@ export class LearningEngine {
    */
   async getTopKnowledge(agentId: string, companyId: string, limit = 20): Promise<string[]> {
     const knowledge = await db.agentMemory.findMany({
-      where: { agentId, companyId, confidence: { gte: 0.4 } },
+      where: { agentId, companyId, isVerified: true, confidence: { gte: 0.4 } },
       orderBy: [{ confidence: 'desc' }, { useCount: 'desc' }],
       take: limit,
       select: { content: true, category: true, confidence: true },
@@ -197,6 +193,7 @@ export class LearningEngine {
   async reinforceKnowledge(knowledgeId: string, companyId: string, success: boolean): Promise<void> {
     const existing = await db.agentMemory.findFirst({ where: { id: knowledgeId, companyId } })
     if (!existing) throw new Error('Knowledge entry not found for this company')
+    if (!existing.isVerified) throw new Error('Only human-verified knowledge can be reinforced')
     const update = success
       ? { useCount: { increment: 1 }, successCount: { increment: 1 } }
       : { useCount: { increment: 1 }, failCount: { increment: 1 } };
@@ -287,6 +284,7 @@ export class LearningEngine {
   }
 
   private async createSession(
+    transaction: Prisma.TransactionClient,
     input: LearningInput,
     knowledgeBefore: number,
     knowledgeAfter: number,
@@ -294,9 +292,8 @@ export class LearningEngine {
     corrections: string[],
     blockedCount: number,
     startTime: number,
-    evolutionUpdate?: { newLevel?: number; newLevelName?: string; maturityDelta: number },
   ): Promise<LearningResult> {
-    const session = await db.agentLearningSession.create({
+    const session = await transaction.agentLearningSession.create({
       data: {
         agentId: input.agentId,
         companyId: input.companyId,
@@ -308,18 +305,36 @@ export class LearningEngine {
         insights: JSON.stringify(insights),
         corrections: JSON.stringify(corrections),
         durationMs: Date.now() - startTime,
-        status: 'completed',
+        status: knowledgeAfter > knowledgeBefore ? 'pending_review' : 'no_candidate',
         completedAt: new Date(),
+      },
+    });
+    await transaction.auditEvent.create({
+      data: {
+        actorUserId: input.actorUserId,
+        companyId: input.companyId,
+        action: 'agent_learning.session.create',
+        resource: 'agent-learning-session',
+        resourceId: session.id,
+        details: JSON.stringify({
+          agentId: input.agentId,
+          triggerType: input.triggerType,
+          sourceRunId: input.agentRunId ?? null,
+          candidateCount: knowledgeAfter - knowledgeBefore,
+          verified: false,
+          status: knowledgeAfter > knowledgeBefore ? 'pending_review' : 'no_candidate',
+        }),
       },
     });
 
     return {
       sessionId: session.id,
       knowledgeCreated: knowledgeAfter - knowledgeBefore,
+      candidateCount: knowledgeAfter - knowledgeBefore,
+      verified: false,
+      status: knowledgeAfter > knowledgeBefore ? 'pending_review' : 'no_candidate',
       confidenceDelta: 0,
-      newLevel: evolutionUpdate?.newLevel,
-      newLevelName: evolutionUpdate?.newLevelName,
-      maturityDelta: evolutionUpdate?.maturityDelta || 0,
+      maturityDelta: 0,
       insightsExtracted: insights,
       correctionsApplied: corrections,
       blockedCount,

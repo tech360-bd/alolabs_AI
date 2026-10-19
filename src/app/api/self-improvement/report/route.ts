@@ -1,14 +1,14 @@
 import { db } from '@/lib/db'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { requireRole } from '@/lib/api-auth'
 
-export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+export async function GET() {
+  try {
+    await requireRole('super_admin')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unauthorized'
+    return NextResponse.json({ error: message }, { status: message === 'Forbidden' ? 403 : 401 })
+  }
   try {
     const [totalLearningReports, totalSuggestions, totalImprovements] = await Promise.all([
       db.learningReport.count(),

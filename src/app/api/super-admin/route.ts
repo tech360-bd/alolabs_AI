@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole } from '@/lib/api-auth';
+import { writeAuditEvent } from '@/lib/audit-events';
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest) {
       take: 5,
     });
 
+    await writeAuditEvent({ actorUserId: user.userId, action: 'super_admin.dashboard.read', resource: 'super-admin-dashboard' });
     return NextResponse.json({
       systemOverview: {
         agents: agentsCount,
@@ -490,6 +492,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
 
+    await writeAuditEvent({
+      actorUserId: user.userId,
+      action: `super_admin.${String(action)}`,
+      resource: 'super-admin-action',
+      resourceId: String(action),
+      details: { action: String(action), completed: true },
+    });
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {

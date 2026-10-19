@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCompanyAuth } from '@/lib/api-auth';
+import { CompanyAIError } from '@/lib/multi-tenant-ai/service';
 import { generate, validateGenerationInput } from '@/lib/media-generation';
 
 /**
  * POST /api/video-studio/generate
  *
- * Real video job submission. The provider is selected through
- * MEDIA_VIDEO_ENDPOINT; asynchronous providers must return `{ id }` and the
- * job stays `processing` until MEDIA_VIDEO_STATUS_ENDPOINT reports a result.
+ * Validates a video request and records it as deferred until a centrally
+ * verified, company-authorized media capability is available. Legacy provider
+ * environment keys do not authorize external calls.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
       ...(body.style ? { style: body.style } : {}),
     });
 
-    const job = await generate(input, { companyId: user.companyId, userId: user.userId });
+    const job = await generate(input, { companyId: user.companyId, userId: user.userId, role: user.companyRole ?? user.role });
     const url = job.assets[0]?.url ?? null;
 
     if (job.status === 'failed') {
@@ -35,6 +36,9 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof CompanyAIError) {
+      return NextResponse.json({ error: error.message, code: error.code, requestId: error.requestId }, { status: error.status });
+    }
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
       return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }

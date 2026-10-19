@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCompanyAuth } from '@/lib/api-auth';
+import { CompanyAIError } from '@/lib/multi-tenant-ai/service';
 import { generate, validateGenerationInput } from '@/lib/media-generation';
 
 const STYLE_INSTRUCTIONS: Record<string, string> = {
@@ -12,9 +13,9 @@ const STYLE_INSTRUCTIONS: Record<string, string> = {
 /**
  * POST /api/avatar-voice/generate-voice
  *
- * Voice-over generation (speech kind). The selected style is passed to the
- * provider as delivery instructions — providers that ignore `instructions`
- * still return audio, so this degrades to a plain voice rather than failing.
+ * Voice-over request validation (speech kind). Consent is required and the
+ * request remains deferred until a governed speech-generation capability is
+ * available; no provider is called based on environment configuration alone.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
         ...input,
         ...(STYLE_INSTRUCTIONS[style] ? { instructions: STYLE_INSTRUCTIONS[style] } : {}),
       },
-      { companyId: user.companyId, userId: user.userId },
+      { companyId: user.companyId, userId: user.userId, role: user.companyRole ?? user.role },
     );
     const url = job.assets[0]?.url ?? null;
 
@@ -50,6 +51,9 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ url, audio: url, jobId: job.id, job }, { status: 201 });
   } catch (error) {
+    if (error instanceof CompanyAIError) {
+      return NextResponse.json({ error: error.message, code: error.code, requestId: error.requestId }, { status: error.status });
+    }
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
       return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }

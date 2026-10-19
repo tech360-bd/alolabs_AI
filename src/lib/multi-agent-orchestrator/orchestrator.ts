@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { executeAgentPipeline } from '@/lib/ai-workforce/execution-engine';
 import { db } from '@/lib/db';
+import { agentCompanyScope } from '@/lib/agent-access';
 import { getEventBus } from '@/lib/event-bus';
 import type {
   OrchestrationTask,
@@ -286,7 +287,7 @@ export class MultiAgentOrchestrator {
       where: {
         agentId: { in: requestedAgentIds },
         status: 'active',
-        agentCompanyAccess: { some: { companyId: task.companyId } },
+        ...agentCompanyScope(task.companyId, 'execute'),
       },
       select: { id: true, agentId: true },
     });
@@ -1069,7 +1070,7 @@ ${producerResult.content}`;
         where: {
           agentId: step.agentId,
           status: 'active',
-          agentCompanyAccess: { some: { companyId: task.companyId } },
+          ...agentCompanyScope(task.companyId, 'execute'),
         },
         select: { id: true },
       });
@@ -1415,7 +1416,7 @@ ${producerResult.content}`;
       where: {
         ...departmentFilter,
         status: 'active',
-        agentCompanyAccess: { some: { companyId: task.companyId } },
+        ...agentCompanyScope(task.companyId, 'execute'),
       },
       take: 1,
     });
@@ -1424,7 +1425,7 @@ ${producerResult.content}`;
     const fallback = await db.agent.findFirst({
       where: {
         status: 'active',
-        agentCompanyAccess: { some: { companyId: task.companyId } },
+        ...agentCompanyScope(task.companyId, 'execute'),
       },
     });
     if (!fallback) throw new Error('No active company-accessible agents available for delegation');
@@ -1517,7 +1518,7 @@ ${producerResult.content}`;
         ...departmentFilter,
         status: 'active',
         agentId: { not: failedAgentId },
-        agentCompanyAccess: { some: { companyId: task.companyId } },
+        ...agentCompanyScope(task.companyId, 'execute'),
       },
       take: 1,
     });
@@ -1527,7 +1528,7 @@ ${producerResult.content}`;
       where: {
         status: 'active',
         agentId: { not: failedAgentId },
-        agentCompanyAccess: { some: { companyId: task.companyId } },
+        ...agentCompanyScope(task.companyId, 'execute'),
       },
     });
     return fallback?.agentId ?? null;
@@ -1558,7 +1559,7 @@ ${producerResult.content}`;
       where: {
         ...departmentFilter,
         status: 'active',
-        agentCompanyAccess: { some: { companyId: params.companyId } },
+        ...agentCompanyScope(params.companyId, 'execute'),
       },
       take: maxSubtasks,
     });
@@ -1567,7 +1568,7 @@ ${producerResult.content}`;
       agents = await db.agent.findMany({
         where: {
           status: 'active',
-          agentCompanyAccess: { some: { companyId: params.companyId } },
+          ...agentCompanyScope(params.companyId, 'execute'),
         },
         take: maxSubtasks,
       });
@@ -1605,7 +1606,7 @@ ${producerResult.content}`;
       where: {
         ...departmentFilter,
         status: 'active',
-        agentCompanyAccess: { some: { companyId: params.companyId } },
+        ...agentCompanyScope(params.companyId, 'execute'),
       },
       select: { agentId: true, allowedSkills: true },
     });

@@ -67,7 +67,7 @@ describe('workforce runtime tool bindings', () => {
     expect(result.agents).toEqual([])
   })
 
-  it('lists only active agents with explicit access in the matched tenant department', async () => {
+  it('lists only active agents owned by or explicitly executable from the matched tenant department', async () => {
     mocks.db.department.findFirst.mockResolvedValue({ id: 'dept-current' })
     mocks.db.agent.findMany.mockResolvedValue([
       { agentId: 'AGENT-0001', name: 'Tenant Agent', role: 'specialist', type: 'specialized', departmentName: 'Operations' },
@@ -82,7 +82,10 @@ describe('workforce runtime tool bindings', () => {
       where: {
         status: 'active',
         departmentId: 'dept-current',
-        agentCompanyAccess: { some: { companyId } },
+        OR: [
+          { companyId },
+          { agentCompanyAccess: { some: { companyId, accessLevel: { in: ['execute', 'full'] } } } },
+        ],
       },
       take: 10,
       select: { agentId: true, name: true, role: true, type: true, departmentName: true },

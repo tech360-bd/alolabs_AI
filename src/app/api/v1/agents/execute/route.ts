@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getExecutionEngine } from '@/lib/agent-runtime';
 import { db } from '@/lib/db';
+import { agentCompanyScope } from '@/lib/agent-access';
 import { jsonResponse, notFound, secureRoute } from '@/lib/api/secure-route';
 
 /**
@@ -32,7 +33,7 @@ export const POST = secureRoute(
     const { agentId, task, maxTokens, timeoutMs } = context.body;
 
     const agent = await db.agent.findFirst({
-      where: { agentId, agentCompanyAccess: { some: { companyId: context.companyId } } },
+      where: { agentId, ...agentCompanyScope(context.companyId, 'execute') },
       select: { id: true },
     });
     if (!agent) throw notFound('Agent not found');

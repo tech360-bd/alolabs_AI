@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { v1Handler, v1Body, V1Error } from '@/lib/v1';
 import { db } from '@/lib/db';
+import { agentCompanyScope } from '@/lib/agent-access';
 import { getExecutionEngine } from '@/lib/agent-runtime';
 
 /**
@@ -28,9 +29,11 @@ export const POST = v1Handler(async ({ identity }, request) => {
 
   const agent = await db.agent.findFirst({
     where: {
-      OR: [{ agentId: agentIdParam }, { id: agentIdParam }],
-      status: 'active',
-      agentCompanyAccess: { some: { companyId: identity.companyId } },
+      AND: [
+        { OR: [{ agentId: agentIdParam }, { id: agentIdParam }] },
+        { status: 'active' },
+        agentCompanyScope(identity.companyId, 'execute'),
+      ],
     },
     select: { id: true, agentId: true, name: true },
   });
@@ -50,6 +53,9 @@ export const POST = v1Handler(async ({ identity }, request) => {
     timeoutMs: parsed.data.timeoutMs,
   });
 
+  if (result.status === 'paused' && result.error) {
+    throw new V1Error(`AI execution deferred (${result.error.code}): ${result.error.message}`, 503, 'AI_DEFERRED');
+  }
   if (result.status === 'failed' || !result.result) {
     throw new V1Error(result.error?.message ?? 'Agent execution failed', 502, 'EXECUTION_FAILED');
   }

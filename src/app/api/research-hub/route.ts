@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAuth } from '@/lib/api-auth';
+import { requireCompanyAuth } from '@/lib/api-auth';
+import { CompanyAIError, executeCompanyAIChat } from '@/lib/multi-tenant-ai/service';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 function paginate<T>(items: T[], page: number, limit: number) {
@@ -13,9 +14,9 @@ function paginate<T>(items: T[], page: number, limit: number) {
   };
 }
 
-async function loadRecords(prefix: string) {
+async function loadRecords(companyId: string) {
   const records = await db.settings.findMany({
-    where: { key: { startsWith: prefix } },
+    where: { key: { startsWith: `research_hub:${companyId}:` } },
     orderBy: { createdAt: 'desc' },
   });
   const results: Record<string, unknown>[] = [];
@@ -84,7 +85,7 @@ function filterByDateRange(
 // ── GET ─────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth();
+    const user = await requireCompanyAuth();
 
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
     const dateTo = searchParams.get('dateTo');
     const search = searchParams.get('search');
 
-    const allRecords = await loadRecords('research_hub:');
+    const allRecords = await loadRecords(user.companyId);
 
     const papers = allRecords.filter((r) => r._type === 'paper_analysis');
     const gaps = allRecords.filter((r) => r._type === 'gap');
@@ -174,6 +175,9 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (error instanceof Error && error.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Company context required' }, { status: 403 });
+    }
     console.error('Research Hub GET error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -182,7 +186,7 @@ export async function GET(request: NextRequest) {
 // ── POST ────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = await requireCompanyAuth();
     const body = await request.json();
     const { action, ...payload } = body as { action: string; [key: string]: unknown };
 
@@ -205,6 +209,7 @@ export async function POST(request: NextRequest) {
 
       const projectData = {
         _type: 'project' as const,
+        companyId: user.companyId,
         id: `proj-${Date.now()}`,
         name: name.trim(),
         description: description || '',
@@ -222,7 +227,7 @@ export async function POST(request: NextRequest) {
       };
 
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const key = `research_hub:project:${slug}`;
+      const key = `research_hub:${user.companyId}:project:${slug}`;
 
       await db.settings.upsert({
         where: { key },
@@ -249,6 +254,7 @@ export async function POST(request: NextRequest) {
 
       const analysisData = {
         _type: 'paper_analysis' as const,
+        companyId: user.companyId,
         id: `pa-${Date.now()}`,
         title: title.trim(),
         abstract: abstract || '',
@@ -263,7 +269,7 @@ export async function POST(request: NextRequest) {
       };
 
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-      const key = `research_hub:paper_analysis:${slug}`;
+      const key = `research_hub:${user.companyId}:paper_analysis:${slug}`;
 
       await db.settings.upsert({
         where: { key },
@@ -294,6 +300,7 @@ export async function POST(request: NextRequest) {
 
       const gapData = {
         _type: 'gap' as const,
+        companyId: user.companyId,
         id: `gap-${Date.now()}`,
         title: title.trim(),
         description: description || '',
@@ -307,7 +314,7 @@ export async function POST(request: NextRequest) {
       };
 
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-      const key = `research_hub:gap:${slug}`;
+      const key = `research_hub:${user.companyId}:gap:${slug}`;
 
       await db.settings.upsert({
         where: { key },
@@ -336,6 +343,7 @@ export async function POST(request: NextRequest) {
 
       const proposalData = {
         _type: 'proposal' as const,
+        companyId: user.companyId,
         id: `prop-${Date.now()}`,
         title: title.trim(),
         abstract: proposalAbstract || '',
@@ -350,7 +358,7 @@ export async function POST(request: NextRequest) {
       };
 
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-      const key = `research_hub:proposal:${slug}`;
+      const key = `research_hub:${user.companyId}:proposal:${slug}`;
 
       await db.settings.upsert({
         where: { key },
@@ -374,21 +382,26 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const { aiRouter } = await import('@/lib/ai-router');
         const sectionLabel = section ? ` for the "${section}" section` : '';
         const typeLabel = type === 'proposal' ? 'research proposal' : 'research';
         const prompt = `Generate ${typeLabel} content${sectionLabel} about: ${topic}. Respond with only the content, no preamble or explanation.`;
 
-        const response = await aiRouter.chat({
-          model: 'default',
-          messages: [{ role: 'user', content: prompt }],
-          maxTokens: 2000,
-        });
+        const { response } = await executeCompanyAIChat(
+          { companyId: user.companyId, userId: user.userId, role: user.role },
+          {
+            model: '',
+            messages: [{ role: 'user', content: prompt }],
+            maxTokens: 2000,
+          },
+          { profile: 'free_reasoning', dataClassification: 'confidential' },
+        );
 
         return NextResponse.json({ success: true, content: response.content });
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        return NextResponse.json({ error: `AI generation failed: ${errorMsg}` }, { status: 502 });
+        if (err instanceof CompanyAIError) {
+          return NextResponse.json({ error: 'AI generation deferred', code: err.code, requestId: err.requestId }, { status: err.status });
+        }
+        return NextResponse.json({ error: 'AI generation failed' }, { status: 502 });
       }
     }
 
@@ -400,6 +413,9 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Company context required' }, { status: 403 });
     }
     console.error('Research Hub POST error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

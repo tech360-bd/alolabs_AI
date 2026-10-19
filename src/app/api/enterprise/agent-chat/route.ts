@@ -5,6 +5,7 @@ import { loadConversationHistory, persistConversationMessages } from '@/lib/agen
 import { buildConversationMessages } from '@/lib/agent-runtime/pipeline'
 import { executeAgentPipeline } from '@/lib/ai-workforce/execution-engine'
 import { db } from '@/lib/db'
+import { agentCompanyScope } from '@/lib/agent-access'
 import { randomUUID } from 'node:crypto'
 
 const AgentChatSchema = z.object({
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       where: {
         agentId,
         status: 'active',
-        agentCompanyAccess: { some: { companyId: user.companyId } },
+        ...agentCompanyScope(user.companyId, 'execute'),
       },
       select: { id: true, agentId: true, name: true, departmentId: true },
     })

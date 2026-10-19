@@ -1,198 +1,152 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db } from '@/lib/db';
-import ZAI from 'z-ai-web-dev-sdk';
+import { agentCompanyScope } from '@/lib/agent-access';
+import { requireRole } from '@/lib/api-auth';
+import { checkEndpointLimit } from '@/lib/security/rate-limiter';
+import { writeAuditEvent } from '@/lib/audit-events';
+import { CompanyAIError, executeCompanyAIChat } from '@/lib/multi-tenant-ai/service';
+import type { AIRequest } from '@/lib/ai-router/types';
 
-// In-memory conversation history per session
-const conversations = new Map<string, Array<{ role: string; content: string }>>();
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
+export const dynamic = 'force-dynamic';
 
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
+const conversations = new Map<string, Array<{ role: 'user' | 'assistant'; content: string }>>();
+
+const SYSTEM_PROMPT = `You are the ALO Labs Super Admin command-center assistant. You may help plan and explain work, but this chat endpoint does not dispatch agents or execute operational actions. Never claim that tasks, broadcasts, CRM changes, security scans, or other real-world operations have been performed. Clearly distinguish recommendations from actions that require a separate approved workflow. Treat company data as confidential.`;
+
+const MessageSchema = z.object({
+  message: z.string().trim().min(1).max(20_000),
+  sessionId: z.string().trim().min(1).max(120).default('default'),
+  targetDepartment: z.string().trim().max(191).optional().nullable(),
+  targetCompany: z.string().trim().max(191).optional().nullable(),
+  broadcast: z.boolean().default(false),
+}).strict();
+
+function authError(error: unknown) {
+  if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  return null;
 }
 
-const SYSTEM_PROMPT = `You are the collective voice of AI agents in the ALO Labs Agent Hub. You respond as if multiple specialized AI agents are working together.
+async function resolveCompany(actorCompanyId: string | undefined, target: string | null | undefined) {
+  if (target) {
+    return db.company.findFirst({ where: { OR: [{ id: target }, { slug: target }] } });
+  }
+  if (actorCompanyId) {
+    const selected = await db.company.findUnique({ where: { id: actorCompanyId } });
+    if (selected) return selected;
+  }
+  return db.company.findUnique({ where: { slug: 'alo-labs' } });
+}
 
-Rules:
-- You are a Super Admin's AI workforce commander
-- When given a command, respond as if agents have already executed it
-- Include specific agent names in your responses
-- Mention departments the agents belong to
-- Be concise but show real work being done
-- Format responses with clear sections
-- Use bullet points for lists
-- Always end with a status summary
-- Respond in a professional but energetic tone
-- Never say "as an AI" or "I'm an AI" - you ARE the agents`;
+async function getAvailableAgents(companyId: string, department?: string | null) {
+  const agents = await db.agent.findMany({
+    where: {
+      status: 'active',
+      ...agentCompanyScope(companyId, 'view'),
+      ...(department ? { departmentName: department } : {}),
+    },
+    select: { id: true, name: true, departmentName: true, type: true },
+    take: 5,
+    orderBy: { createdAt: 'asc' },
+  });
+  return agents.map((agent) => ({
+    agentId: agent.id,
+    name: agent.name || agent.type || 'Unnamed Agent',
+    department: agent.departmentName || 'General',
+    status: 'available',
+    message: 'Available in this company. This chat did not dispatch or execute the agent.',
+  }));
+}
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  let actor: Awaited<ReturnType<typeof requireRole>>;
+  try { actor = await requireRole('super_admin'); }
+  catch (error) { return authError(error) ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
+
+  const rateLimit = await checkEndpointLimit('/api/super-chat', actor.userId);
+  if (!rateLimit.allowed) return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+
+  let parsed;
+  try { parsed = MessageSchema.safeParse(await request.json()); }
+  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }); }
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
   try {
-    const body = await request.json();
-    const { message, sessionId = 'default', targetDepartment, targetCompany, broadcast } = body;
+    const company = await resolveCompany(actor.companyId, parsed.data.targetCompany);
+    if (!company) return NextResponse.json({ error: 'Target company not found' }, { status: 404 });
+    if (company.status !== 'active') return NextResponse.json({ error: 'Target company is not active' }, { status: 403 });
 
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json({ error: 'message is required' }, { status: 400 });
-    }
-
-    // Get or create conversation history
-    let history = conversations.get(sessionId) || [
-      { role: 'assistant', content: SYSTEM_PROMPT },
+    const historyKey = `${actor.userId}:${company.id}:${parsed.data.sessionId}`;
+    const history = conversations.get(historyKey) ?? [];
+    const contextPrefix = [
+      `[Company scope: ${company.name}]`,
+      parsed.data.targetDepartment ? `[Department: ${parsed.data.targetDepartment}]` : '',
+      parsed.data.broadcast ? '[Broadcast requested; do not perform a broadcast in this chat.]' : '',
+    ].filter(Boolean).join(' ');
+    const messages: AIRequest['messages'] = [
+      { role: 'system' as const, content: `${SYSTEM_PROMPT}\nCompany: ${company.name} (${company.slug}).` },
+      ...history.slice(-18),
+      { role: 'user' as const, content: `${contextPrefix}\n${parsed.data.message}` },
     ];
 
-    // Build context prefix for targeted messages
-    let contextPrefix = '';
-    if (targetCompany) {
-      contextPrefix += `[Command directed to company: ${targetCompany}] `;
-    }
-    if (targetDepartment) {
-      contextPrefix += `[Targeting department: ${targetDepartment}] `;
-    }
-    if (broadcast) {
-      contextPrefix += '[BROADCAST to all agents] ';
-    }
-
-    // Add user message
-    history.push({
-      role: 'user',
-      content: contextPrefix + message,
-    });
-
-    // Trim history to last 20 messages (keep system prompt)
-    if (history.length > 21) {
-      history = [history[0], ...history.slice(-20)];
-    }
-
-    // Call LLM
-    const zai = await getZAI();
-    const completion = await zai.chat.completions.create({
-      messages: history as Array<{ role: 'user' | 'assistant'; content: string }>,
-      thinking: { type: 'disabled' },
-    });
-
-    const aiResponse = completion.choices[0]?.message?.content || 'Agents are processing...';
-
-    // Add AI response to history
-    history.push({
-      role: 'assistant',
-      content: aiResponse,
-    });
-
-    // Save history
-    conversations.set(sessionId, history);
-
-    // Create audit log
-    await db.auditLog.create({
-      data: {
-        userId: session.userId,
-        action: 'super_chat_message',
-        resource: 'super_admin',
-        details: JSON.stringify({
-          message: message.substring(0, 200),
-          targetCompany: targetCompany || null,
-          targetDepartment: targetDepartment || null,
-          broadcast: !!broadcast,
-          responseLength: aiResponse.length,
-        }),
+    await writeAuditEvent({
+      actorUserId: actor.userId,
+      companyId: company.id,
+      action: 'super_admin.chat.request',
+      resource: 'super-chat',
+      details: {
+        targetDepartment: parsed.data.targetDepartment ?? null,
+        broadcastRequested: parsed.data.broadcast,
+        sessionId: parsed.data.sessionId,
+        messageLength: parsed.data.message.length,
       },
     });
 
-    // Create command record for tracking
-    const command = await db.command.create({
-      data: {
-        rawCommand: `[CHAT] ${message.substring(0, 200)}`,
-        parsedIntent: `Super Admin chat command`,
-        detectedDept: targetDepartment || null,
-        status: 'completed',
-      },
-    });
+    const result = await executeCompanyAIChat(
+      { companyId: company.id, userId: actor.userId, role: actor.role },
+      { model: '', messages, maxTokens: 2048, temperature: 0.3 },
+      { profile: 'free_general', dataClassification: 'confidential' },
+    );
 
-    // Fetch real agent data from the database for the response
-    const respondingAgents = await getRespondingAgents(message, targetDepartment);
+    conversations.set(historyKey, [
+      ...history.slice(-18),
+      { role: 'user' as const, content: `${contextPrefix}\n${parsed.data.message}` },
+      { role: 'assistant' as const, content: result.response.content },
+    ].slice(-20));
 
+    const agents = await getAvailableAgents(company.id, parsed.data.targetDepartment);
     return NextResponse.json({
       success: true,
-      response: aiResponse,
-      commandId: command.id,
-      agents: respondingAgents,
+      response: result.response.content,
+      requestId: result.requestId,
+      provider: result.provider,
+      model: result.response.model,
+      company: { id: company.id, name: company.name, slug: company.slug },
+      broadcastExecuted: false,
+      agents,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: unknown) {
-    console.error('Super Chat POST error:', error);
+  } catch (error) {
+    if (error instanceof CompanyAIError) {
+      return NextResponse.json({ error: error.message, code: error.code, requestId: error.requestId }, { status: error.status });
+    }
+    const response = authError(error);
+    if (response) return response;
+    console.error('[Super Chat] Request failed:', error);
     return NextResponse.json({ error: 'Failed to process message' }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-  try {
-    const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get('sessionId') || 'default';
-    conversations.delete(sessionId);
-    return NextResponse.json({ success: true, message: 'Conversation cleared' });
-  } catch {
-    return NextResponse.json({ error: 'Failed to clear' }, { status: 500 });
+  let actor: Awaited<ReturnType<typeof requireRole>>;
+  try { actor = await requireRole('super_admin'); }
+  catch (error) { return authError(error) ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
+  const sessionId = request.nextUrl.searchParams.get('sessionId') || 'default';
+  const suffix = `:${sessionId}`;
+  for (const key of conversations.keys()) {
+    if (key.startsWith(`${actor.userId}:`) && key.endsWith(suffix)) conversations.delete(key);
   }
-}
-
-/**
- * Fetch real agents from the database and return a subset as "responding agents".
- * This provides real agent IDs, names, and department data instead of hardcoded profiles.
- */
-async function getRespondingAgents(
-  _message: string,
-  targetDepartment?: string | null
-): Promise<Array<{ agentId: string; name: string; department: string; status: string; message: string }>> {
-  try {
-    const where: Record<string, unknown> = { status: 'active' };
-    if (targetDepartment) {
-      where.departmentName = targetDepartment;
-    }
-
-    const agents = await db.agent.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        departmentName: true,
-        type: true,
-      },
-      take: 5,
-      orderBy: { createdAt: 'asc' },
-    });
-
-    if (agents.length === 0) {
-      return [{
-        agentId: 'SYSTEM',
-        name: 'System',
-        department: 'Core',
-        status: 'completed',
-        message: 'Command processed. No active agents found in the target scope.',
-      }];
-    }
-
-    return agents.map((agent) => ({
-      agentId: agent.id,
-      name: agent.name || agent.type || 'Unnamed Agent',
-      department: agent.departmentName || 'General',
-      status: 'completed',
-      message: `Task acknowledged by ${agent.name || agent.type}.`,
-    }));
-  } catch {
-    return [];
-  }
+  await writeAuditEvent({ actorUserId: actor.userId, action: 'super_admin.chat.clear', resource: 'super-chat', details: { sessionId } });
+  return NextResponse.json({ success: true, message: 'Conversation cleared' });
 }
