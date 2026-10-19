@@ -17,6 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - uses: actions/checkout@v4
+      # Same gate as the deploy workflow: a scheduled run with no usable
+      # credentials fails here, by name, instead of inside the SSH action.
+      - name: Validate required production SSH secrets
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_PORT: ${{ secrets.PRODUCTION_PORT }}
+        run: bash .github/scripts/validate-production-secrets.sh
       - name: Run verified server-side backup
         uses: appleboy/ssh-action@v1
         env:
