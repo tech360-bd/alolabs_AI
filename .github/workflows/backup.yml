@@ -37,7 +37,6 @@ jobs:
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           port: ${{ secrets.PRODUCTION_PORT }}
           command_timeout: 30m
-          script_stop: true
           envs: PRODUCTION_APP_DIR
           script: |
             set -euo pipefail
