@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
+import { agentCompanyScope } from '@/lib/agent-access'
 import { requireCompanyAuth } from '@/lib/api-auth'
 import type { Prisma } from '@prisma/client'
 
@@ -67,8 +68,8 @@ export async function POST(req: NextRequest) {
       }
       agentId = instance.agentId
     } else if (agentId) {
-      const access = await db.agentCompanyAccess.findFirst({
-        where: { agentId, companyId: user.companyId },
+      const access = await db.agent.findFirst({
+        where: { id: agentId, status: 'active', ...agentCompanyScope(user.companyId, 'execute') },
         select: { id: true },
       })
       if (!access) {

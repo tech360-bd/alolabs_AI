@@ -29,7 +29,7 @@ function requireSession(identity: { kind: string }): void {
 
 export const GET = v1Handler(async ({ identity }, request) => {
   const id = idFrom(request);
-  const configs = await listProviderConfigs({ userId: identity.userId, role: identity.role, companyId: identity.companyId });
+  const configs = await listProviderConfigs({ userId: identity.userId, role: identity.role === 'super_admin' ? identity.role : identity.companyRole ?? identity.role, companyId: identity.companyId });
   const config = configs.find((c) => c.id === id);
   if (!config) throw new V1Error('Provider config not found', 404, 'NOT_FOUND');
   return config;
@@ -45,7 +45,7 @@ export const PATCH = v1Handler(async ({ identity }, request) => {
   }
   try {
     return await updateProviderConfig(
-      { userId: identity.userId, role: identity.role, companyId: identity.companyId },
+      { userId: identity.userId, role: identity.role === 'super_admin' ? identity.role : identity.companyRole ?? identity.role, companyId: identity.companyId },
       id,
       parsed.data,
     );
@@ -58,7 +58,7 @@ export const DELETE = v1Handler(async ({ identity }, request) => {
   requireSession(identity);
   const id = idFrom(request);
   try {
-    await deleteProviderConfig({ userId: identity.userId, role: identity.role, companyId: identity.companyId }, id);
+    await deleteProviderConfig({ userId: identity.userId, role: identity.role === 'super_admin' ? identity.role : identity.companyRole ?? identity.role, companyId: identity.companyId }, id);
     return { deleted: true, id };
   } catch (err) {
     rethrow(err);

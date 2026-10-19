@@ -74,7 +74,12 @@ describe('GET /api/enterprise/stats', () => {
     expect(mocks.auth).toHaveBeenCalledOnce()
     expect(mocks.db.department.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { companyId } }))
     expect(mocks.db.agent.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { agentCompanyAccess: { some: { companyId } } },
+      where: {
+        OR: [
+          { companyId },
+          { agentCompanyAccess: { some: { companyId, accessLevel: { in: ['read', 'write', 'execute', 'full'] } } } },
+        ],
+      },
     }))
     expect(mocks.db.enterpriseSOP.count).toHaveBeenCalledWith({
       where: { isActive: true, status: 'active', departmentId: { in: ['dept-current'] } },

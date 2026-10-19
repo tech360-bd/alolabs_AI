@@ -54,6 +54,8 @@ export { AIRouter } from './router';
 // ─── Singleton ──────────────────────────────────────────────────────
 import { AIRouter } from './router';
 import type { RoutingDecisionRecord } from './router';
+import { randomUUID } from 'node:crypto';
+import { writeAuditEvent } from '../audit-events';
 import {
   registerEnvironmentProviders,
   syncRouterWithProviderConfigs,
@@ -95,9 +97,14 @@ function installDecisionRecorder(): void {
   if (decisionRecorderInstalled) return;
   decisionRecorderInstalled = true;
   aiRouter.setDecisionRecorder(async (record: RoutingDecisionRecord) => {
+    const requestId = record.context?.requestId ?? `ai_${randomUUID()}`;
+    const correlationId = record.context?.requestId ?? record.context?.runId ?? requestId;
+    const inputTokens = record.promptTokens ?? 0;
+    const outputTokens = record.completionTokens ?? 0;
+    const usageStatus = record.success ? 'success' : 'failure';
     try {
       const { db } = await import('../db');
-      await db.modelRoutingDecision.create({
+      const writes: Promise<unknown>[] = [db.modelRoutingDecision.create({
         data: {
           runId: record.context?.runId ?? null,
           taskId: record.context?.taskId ?? null,
@@ -119,9 +126,58 @@ function installDecisionRecorder(): void {
           completionTokens: record.completionTokens,
           costUsd: record.costUsd,
         },
+      })];
+      if (!record.context?.usageManagedExternally) {
+        writes.push(db.modelUsageRecord.create({
+          data: {
+            requestId,
+            correlationId,
+            companyId: record.companyId ?? null,
+            departmentId: record.context?.departmentId ?? null,
+            userId: record.context?.userId ?? null,
+            agentId: record.agentId ?? null,
+            workflowId: record.context?.workflowId ?? null,
+            providerConfigId: record.context?.providerConfigId ?? null,
+            provider: record.selectedProvider,
+            model: record.selectedModel,
+            profile: record.context?.profile ?? 'free_general',
+            status: usageStatus,
+            inputTokens,
+            outputTokens,
+            totalTokens: inputTokens + outputTokens,
+            usageSource: record.context?.usageSource ?? (record.promptTokens === null || record.completionTokens === null ? 'unknown' : 'provider_reported'),
+            estimatedCostUsd: record.costUsd,
+            latencyMs: Math.round(record.latencyMs),
+            rateLimitResponse: record.errorCode === 'RATE_LIMITED',
+            errorCode: record.errorCode,
+            errorMessage: record.success ? null : (record.errorMessage?.slice(0, 500) ?? null),
+            completedAt: new Date(),
+          },
+        }));
+      }
+      await Promise.all(writes);
+      await writeAuditEvent({
+        actorUserId: record.context?.userId ?? null,
+        companyId: record.companyId ?? null,
+        action: 'ai.model_execution',
+        resource: 'model-routing',
+        resourceId: requestId,
+        requestId,
+        details: {
+          correlationId,
+          provider: record.selectedProvider,
+          model: record.selectedModel,
+          profile: record.context?.profile ?? 'free_general',
+          status: usageStatus,
+          inputTokens,
+          outputTokens,
+          latencyMs: Math.round(record.latencyMs),
+          errorCode: record.errorCode,
+        },
       });
     } catch {
-      // Observability must never break a request.
+      // Router diagnostics are best-effort for legacy internal callers.
+      // The company gateway pre-persists a running ledger entry before any provider call.
     }
   });
 }

@@ -16,3 +16,7 @@ export type { WorkforceStore, ProvisionReport, StoredAgent, StoredDepartment, Ag
 export { verifyWorkforce } from './verify';
 export type { VerifyReport, VerifyCheck } from './verify';
 export { createPrismaWorkforceStore } from './prisma-store';
+export { buildAIEmployeePlan, aiEmployeeBusinessKey, provisionAIEmployeeIdentities, verifyAIEmployeeIdentities, AI_EMPLOYEE_STATUSES, AI_EMPLOYEE_MANAGED_BY } from './employee-identities';
+export type { AIEmployeeSpec, AIEmployeeStatus, AIEmployeeStore, AIEmployeeProvisionReport, AIEmployeeVerificationReport, AIEmployeeVerificationRecord } from './employee-identities';
+export { createPrismaAIEmployeeStore } from './prisma-employee-store';
+export { transitionAIEmployeeStatus, AIEmployeeLifecycleError } from './employee-lifecycle';

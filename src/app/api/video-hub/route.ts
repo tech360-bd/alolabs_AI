@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAuth } from '@/lib/api-auth';
+import { requireCompanyAuth } from '@/lib/api-auth';
+import { CompanyAIError, deferCompanyAIMedia } from '@/lib/multi-tenant-ai/service';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 function paginate<T>(items: T[], page: number, limit: number) {
@@ -70,7 +71,7 @@ function filterBySearch(
 // ── GET ─────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth();
+    const user = await requireCompanyAuth();
 
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
     const style = searchParams.get('style');
     const search = searchParams.get('search');
 
-    const allRecords = await loadRecords('video_hub:');
+    const allRecords = await loadRecords(`video_hub:${user.companyId}:`);
 
     const projects = allRecords.filter((r) => r._type === 'video_project');
     const avatars = allRecords.filter((r) => r._type === 'avatar');
@@ -125,18 +126,21 @@ export async function GET(request: NextRequest) {
       renderingVideos,
       draftVideos,
       totalViews,
-      totalDuration: '0m',
-      avgRenderTime: '0 min',
+      totalDuration: null,
+      avgRenderTime: null,
       subtitleLanguages: new Set(subtitles.map((s) => s.language as string)).size,
       totalSubtitles: subtitles.length,
     };
 
     // Voice sync config (defaults, populated from DB records if available)
     const voiceSync = {
-      currentModel: 'kokoro-v1',
+      available: false,
+      status: 'unavailable',
+      reason: 'No centrally verified voice-sync engine is configured.',
+      currentModel: null,
       availableModels: [],
-      syncAccuracy: 0,
-      avgProcessingTime: '0s per minute of video',
+      syncAccuracy: null,
+      avgProcessingTime: null,
       supportedLanguages: [],
       recentSyncs: [],
     };
@@ -152,8 +156,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, data });
   } catch (error: unknown) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof CompanyAIError) {
+      return NextResponse.json({ error: error.message, code: error.code, requestId: error.requestId }, { status: error.status });
+    }
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }
     console.error('Video Hub GET error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -163,7 +170,7 @@ export async function GET(request: NextRequest) {
 // ── POST ────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = await requireCompanyAuth();
     const body = await request.json();
     const { action, ...payload } = body as { action: string; [key: string]: unknown };
 
@@ -201,10 +208,11 @@ export async function POST(request: NextRequest) {
         language: language || 'en-US',
         subtitles: [] as string[],
         createdBy: user.userId,
+        companyId: user.companyId,
       };
 
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-      const key = `video_hub:project:${slug}`;
+      const key = `video_hub:${user.companyId}:project:${slug}`;
 
       await db.settings.upsert({
         where: { key },
@@ -217,103 +225,41 @@ export async function POST(request: NextRequest) {
 
     // ── Action: generate_avatar ─────────────────────────────────────
     if (action === 'generate_avatar') {
-      const { name, type: avatarType, resolution, fps, style, backgroundColor, expressions, presenterId, gender } = payload as {
-        name: string;
-        type?: string;
-        resolution?: string;
-        fps?: number;
-        style?: string;
-        backgroundColor?: string;
-        expressions?: string[];
-        presenterId?: string;
-        gender?: string;
-      };
-
-      if (!name || typeof name !== 'string' || name.trim().length === 0) {
-        return NextResponse.json({ error: 'Avatar name is required' }, { status: 400 });
-      }
-
-      const validTypes = ['upper-body', 'full-body', 'portrait'];
-      const validResolutions = ['720p', '1080p', '2K', '4K'];
-      const defaultExpressions = ['neutral', 'smile', 'thinking', 'serious'];
-
-      const avatarData = {
-        _type: 'avatar' as const,
-        id: `av-${Date.now()}`,
-        name: name.trim(),
-        type: validTypes.includes(avatarType || '') ? avatarType : 'upper-body',
-        resolution: validResolutions.includes(resolution || '') ? resolution : '1080p',
-        fps: fps && fps > 0 && fps <= 120 ? fps : 30,
-        presenterId: presenterId || null,
-        status: 'training',
-        style: style || 'professional',
-        backgroundColor: backgroundColor || '#f5f5f5',
-        expressions: expressions && expressions.length > 0 ? expressions : defaultExpressions,
-        gender: gender || 'neutral',
-        createdAt: new Date().toISOString(),
-        estimatedReady: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-        createdBy: user.userId,
-      };
-
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-      const key = `video_hub:avatar:${slug}`;
-
-      await db.settings.upsert({
-        where: { key },
-        update: { value: JSON.stringify(avatarData), type: 'json', updatedAt: new Date() },
-        create: { key, value: JSON.stringify(avatarData), type: 'json' },
-      });
-
-      return NextResponse.json({ success: true, data: avatarData });
+      return NextResponse.json({
+        error: 'Avatar generation is unavailable because no centrally verified media capability is configured.',
+        code: 'MEDIA_CAPABILITY_UNAVAILABLE',
+      }, { status: 503 });
     }
 
     // ── Action: start_subtitle_generation ───────────────────────────
     if (action === 'start_subtitle_generation') {
-      const { projectId, language: subLanguage, subType } = payload as {
-        projectId: string;
-        language?: string;
-        subType?: string;
-      };
+      const { projectId } = payload as { projectId: string; };
 
       if (!projectId || typeof projectId !== 'string') {
         return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
       }
 
       // Verify project exists in DB
-      const dbRecord = await db.settings.findFirst({
-        where: { key: { startsWith: 'video_hub:project:' } },
+      const projectRecords: Array<{ value: string }> = await db.settings.findMany({
+        where: { key: { startsWith: `video_hub:${user.companyId}:project:` } },
       });
-      if (!dbRecord) {
+      const projectExists = projectRecords.some((record) => {
+        try {
+          const project = JSON.parse(record.value) as { id?: string; companyId?: string };
+          return project.id === projectId && project.companyId === user.companyId;
+        } catch {
+          return false;
+        }
+      });
+      if (!projectExists) {
         return NextResponse.json({ error: `Project ${projectId} not found` }, { status: 404 });
       }
 
-      const validSubTypes = ['auto-generated', 'translated', 'manual'];
-      const subtitleType = validSubTypes.includes(subType || '') ? subType : 'auto-generated';
-
-      const subtitleData = {
-        _type: 'subtitle' as const,
-        id: `sub-${Date.now()}`,
-        projectId,
-        language: subLanguage || 'en',
-        type: subtitleType,
-        accuracy: 0,
-        wordCount: 0,
-        duration: '0:00',
-        status: 'pending',
-        createdAt: null,
-        requestedBy: user.userId,
-        requestedAt: new Date().toISOString(),
-      };
-
-      const key = `video_hub:subtitle:${projectId}:${subLanguage || 'en'}`;
-
-      await db.settings.upsert({
-        where: { key },
-        update: { value: JSON.stringify(subtitleData), type: 'json', updatedAt: new Date() },
-        create: { key, value: JSON.stringify(subtitleData), type: 'json' },
+      await deferCompanyAIMedia({
+        actor: { companyId: user.companyId, userId: user.userId, role: user.companyRole ?? user.role },
+        kind: 'transcription',
+        estimatedTokens: 1,
       });
-
-      return NextResponse.json({ success: true, data: subtitleData });
     }
 
     // ── Action: create_presenter ────────────────────────────────────
@@ -342,10 +288,11 @@ export async function POST(request: NextRequest) {
         thumbnailUrl: null,
         createdAt: new Date().toISOString(),
         createdBy: user.userId,
+        companyId: user.companyId,
       };
 
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-      const key = `video_hub:presenter:${slug}`;
+      const key = `video_hub:${user.companyId}:presenter:${slug}`;
 
       await db.settings.upsert({
         where: { key },
@@ -362,8 +309,11 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   } catch (error: unknown) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof CompanyAIError) {
+      return NextResponse.json({ error: error.message, code: error.code, requestId: error.requestId }, { status: error.status });
+    }
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }
     console.error('Video Hub POST error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -1,8 +1,8 @@
 /**
  * AI Gateway
- * ALO Labs AIOS — Production gateway that wraps the AI Router with
- * validation, cost tracking, latency measurement, usage persistence,
- * and structured error handling.
+ * ALO Labs AIOS — Gateway adapter that validates requests and delegates all
+ * model execution, policy enforcement, usage tracking and auditing to the
+ * company-scoped multi-tenant AI service.
  */
 
 import type {
@@ -15,13 +15,20 @@ import type {
   AIGatewayError,
 } from './types';
 import { getRouter, ensureRouterSynced } from '@/lib/ai-router';
-import type { AIRequest, AIMessage, AIRouteDecision, AIModel, AIProviderHealth } from '@/lib/ai-router';
+import type { AIRequest, AIMessage, AIModel } from '@/lib/ai-router';
 import {
   AIRouterError,
   AIProviderUnavailableError,
   AIModelNotFoundError,
   AICircuitOpenError,
 } from '@/lib/ai-router';
+import {
+  CompanyAIError,
+  executeCompanyAIChat,
+  streamCompanyAIChat,
+  previewCompanyAIRoute,
+} from '@/lib/multi-tenant-ai/service';
+import type { CompanyAIActor, CompanyAIRequestOptions } from '@/lib/multi-tenant-ai/service';
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
@@ -50,6 +57,9 @@ function makeErrorResult<T = never>(requestId: string, code: string, message: st
 
 /** Convert an unknown error into a safe, non-exposing error object. */
 function safeError<T = never>(err: unknown, requestId: string): AIGatewayAPIResult<T> {
+  if (err instanceof CompanyAIError) {
+    return makeErrorResult(requestId, err.code, err.message);
+  }
   if (err instanceof AIModelNotFoundError) {
     return makeErrorResult(requestId, 'MODEL_NOT_FOUND', `Requested model is not available.`);
   }
@@ -66,68 +76,6 @@ function safeError<T = never>(err: unknown, requestId: string): AIGatewayAPIResu
     return makeErrorResult(requestId, 'VALIDATION_ERROR', err.message);
   }
   return makeErrorResult(requestId, 'INTERNAL_ERROR', `An unexpected error occurred. Please try again.`);
-}
-
-// ─── Provider Detection ────────────────────────────────────────────
-
-/** Determine the provider name from a model ID by checking the router's registered providers. */
-function determineProvider(modelId: string, router: ReturnType<typeof getRouter>): string {
-  for (const providerName of router.getRegisteredProviders()) {
-    const provider = router.getProvider(providerName);
-    if (provider?.supportedModels.some((m) => m.id === modelId)) {
-      return providerName;
-    }
-  }
-  // Fallback: infer from model name
-  const id = modelId.toLowerCase();
-  if (id.includes('glm')) return 'zai-sdk';
-  if (id.includes('deepseek')) return 'deepseek';
-  if (id.includes('mistral') || id.includes('mixtral')) return 'mistral';
-  if (id.includes('qwen')) return 'qwen';
-  if (id.includes('llama') || id.includes('codellama')) return 'ollama-llama';
-  if (id.includes('gemma')) return 'ollama-gemma';
-  if (id.includes('phi')) return 'ollama-phi';
-  if (id.includes('groq')) return 'groq';
-  return 'unknown';
-}
-
-// ─── Cost Estimation ───────────────────────────────────────────────
-
-/** Approximate cost per million tokens by model family. */
-const COST_PER_MILLION: Record<string, number> = {
-  'glm-4-plus': 1.4,
-  'glm-4-flash': 0.1,
-  'glm-4-air': 0.5,
-  'glm-4-airx': 1.0,
-  'glm-4-long': 0.5,
-  'glm-4v-plus': 1.4,
-  'gpt-4o': 5.0,
-  'gpt-4o-mini': 0.6,
-  'gpt-3.5-turbo': 0.5,
-  'claude-3-opus': 15.0,
-  'claude-3-sonnet': 3.0,
-  'claude-3-haiku': 0.25,
-  'deepseek-chat': 0.27,
-  'deepseek-reasoner': 0.55,
-  'llama-3.1-405b': 0.8,
-  'llama-3.1-70b': 0.39,
-  'llama-3.1-8b': 0.06,
-  'mixtral-8x7b': 0.24,
-  'gemini-1.5-pro': 3.5,
-  'gemini-1.5-flash': 0.075,
-};
-
-function getCostPerMillion(modelId: string): number {
-  const id = modelId.toLowerCase();
-  for (const [key, cost] of Object.entries(COST_PER_MILLION)) {
-    if (id.includes(key)) return cost;
-  }
-  return 2.0; // default estimate
-}
-
-function estimateCostUsd(model: string, totalTokens: number): number {
-  const cpm = getCostPerMillion(model);
-  return (totalTokens / 1_000_000) * cpm;
 }
 
 // ─── Validation ────────────────────────────────────────────────────
@@ -176,159 +124,118 @@ function toAIRequest(req: AIGatewayRequest, modelOverride?: string): AIRequest {
     messages: toAIMessages(req.messages),
     temperature: req.temperature,
     maxTokens: req.maxTokens,
+    stream: req.stream,
     tools: req.tools as AIRequest['tools'],
   };
 }
 
-// ─── Best-effort DB usage tracking ─────────────────────────────────
-
-async function persistUsageToDb(
-  provider: string,
-  model: string,
-  promptTokens: number,
-  completionTokens: number,
-  costUsd: number,
-  companyId?: string,
-  agentId?: string,
-  userId?: string,
-  requestId?: string,
-): Promise<void> {
-  try {
-    const { db } = await import('@/lib/db');
-    // Use dynamic model access — will no-op if table doesn't exist
-    const prisma = db as unknown as Record<string, unknown>;
-    const createFn = (prisma as Record<string, unknown>).aiUsage as
-      | ((args: Record<string, unknown>) => Promise<unknown>)
-      | undefined;
-    if (typeof createFn === 'function') {
-      await createFn({
-        data: {
-          provider,
-          model,
-          promptTokens,
-          completionTokens,
-          totalTokens: promptTokens + completionTokens,
-          costUsd,
-          companyId,
-          agentId,
-          userId,
-          requestId,
-          createdAt: new Date(),
-        },
-      });
-    }
-  } catch {
-    // Best-effort — do not let DB errors affect the response
+function authorizedActor(req: AIGatewayRequest, actor: CompanyAIActor): CompanyAIActor {
+  if (!actor?.companyId || !actor.userId || !actor.role) throw new CompanyAIError('An authenticated company actor is required.', 401, 'UNAUTHENTICATED');
+  if (req.companyId && req.companyId !== actor.companyId) {
+    throw new CompanyAIError('Request company does not match the authenticated company.', 403, 'FORBIDDEN');
   }
+  if (req.userId && req.userId !== actor.userId) {
+    throw new CompanyAIError('Request user does not match the authenticated user.', 403, 'FORBIDDEN');
+  }
+  return actor;
+}
+
+function routingProfile(req: AIGatewayRequest): CompanyAIRequestOptions['profile'] {
+  switch (req.taskType) {
+    case 'fast': return 'local_fast';
+    case 'coding': return 'free_coding';
+    case 'reasoning': return 'free_reasoning';
+    case 'vision': return 'free_vision';
+    case 'balanced':
+    default: return 'free_general';
+  }
+}
+
+function companyAIOptions(req: AIGatewayRequest, requestId: string): CompanyAIRequestOptions {
+  return {
+    profile: routingProfile(req),
+    dataClassification: 'confidential',
+    ...(req.agentId ? { agentId: req.agentId } : {}),
+    ...(req.departmentId ? { departmentId: req.departmentId } : {}),
+    maxTokens: req.maxTokens,
+    requestId,
+  };
 }
 
 // ─── AI Gateway ────────────────────────────────────────────────────
 
 export class AIGateway {
-  /** Non-streaming chat completion through the AI Router. */
+  /** Non-streaming completion through the company-scoped, audited AI service. */
   static async chat(
     req: AIGatewayRequest,
+    actor: CompanyAIActor,
   ): Promise<AIGatewayAPIResult<AIGatewayResponse>> {
     const requestId = generateRequestId();
 
     try {
       validateGatewayRequest(req);
-      const router = await ensureRouterSynced();
-      const aiReq = toAIRequest(req);
-
-      const startTime = Date.now();
-      const response = await router.chat(aiReq, req.companyId, req.agentId, { taskType: 'gateway.chat' });
-      const latencyMs = Date.now() - startTime;
-
-      const totalTokens = response.usage.promptTokens + response.usage.completionTokens;
-      const costUsd = estimateCostUsd(response.model, totalTokens);
-
-      // Determine actual provider from the model name or router state
-      const decisionProvider = determineProvider(response.model, router);
-
-      // Best-effort DB persistence
-      persistUsageToDb(
-        decisionProvider,
-        response.model,
-        response.usage.promptTokens,
-        response.usage.completionTokens,
-        costUsd,
-        req.companyId,
-        req.agentId,
-        req.userId,
-        requestId,
-      ).catch(() => {});
-
+      const trustedActor = authorizedActor(req, actor);
+      const startedAt = Date.now();
+      const result = await executeCompanyAIChat(
+        trustedActor,
+        toAIRequest(req),
+        companyAIOptions(req, requestId),
+      );
+      const response = result.response;
       const gatewayResponse: AIGatewayResponse = {
         id: response.id,
         content: response.content,
         model: response.model,
-        provider: decisionProvider,
+        provider: result.provider,
         usage: response.usage,
         finishReason: response.finishReason,
-        latencyMs,
-        costUsd,
-        routedBy: 'ai-router',
-        fallbackUsed: false,
+        latencyMs: Date.now() - startedAt,
+        costUsd: result.estimatedCostUsd,
+        routedBy: 'company-ai-service',
+        fallbackUsed: result.fallbackUsed,
         originalModel: req.model,
       };
-
-      return makeResult(gatewayResponse, requestId);
+      return makeResult(gatewayResponse, result.requestId || requestId);
     } catch (err) {
       return safeError(err, requestId);
     }
   }
 
-  /** Streaming chat completion — returns an async generator of SSE-formatted strings. */
+  /** Streaming completion through the company-scoped AI service. */
   static async *stream(
     req: AIGatewayRequest,
+    actor: CompanyAIActor,
   ): AsyncGenerator<string> {
     const requestId = generateRequestId();
-
-    // Send initial metadata event
-    yield `event: metadata\ndata: ${JSON.stringify({ requestId, model: req.model || 'auto' })}\n\n`;
+    let totalContent = '';
+    const startTime = Date.now();
 
     try {
       validateGatewayRequest(req);
-      const router = await ensureRouterSynced();
-      const aiReq = toAIRequest(req);
-
-      const startTime = Date.now();
-      let totalContent = '';
-      let finishReason = '';
-      let model = req.model || 'auto';
-
-      for await (const chunk of router.streamChat(aiReq, req.companyId, req.agentId)) {
-        if (chunk.content) {
-          totalContent += chunk.content;
-        }
-        if (chunk.model) {
-          model = chunk.model;
-        }
-        if (chunk.finishReason) {
-          finishReason = chunk.finishReason;
-        }
-
+      const trustedActor = authorizedActor(req, actor);
+      yield `event: metadata\ndata: ${JSON.stringify({ requestId, model: req.model || 'auto', profile: routingProfile(req) })}\n\n`;
+      for await (const chunk of streamCompanyAIChat(
+        trustedActor,
+        toAIRequest(req),
+        { ...companyAIOptions(req, requestId), maxTokens: req.maxTokens },
+      )) {
+        if (chunk.content) totalContent += chunk.content;
         const payload = JSON.stringify({
           id: chunk.id,
           content: chunk.content || '',
-          model: chunk.model || model,
+          model: chunk.model || req.model || 'auto',
           finishReason: chunk.finishReason || null,
         });
         yield `data: ${payload}\n\n`;
       }
-
-      const latencyMs = Date.now() - startTime;
-      const estimatedTokens = Math.ceil(totalContent.length / 4);
-      const costUsd = estimateCostUsd(model, estimatedTokens);
-
-      // Final usage event
-      yield `event: done\ndata: ${JSON.stringify({ latencyMs, estimatedCompletionTokens: estimatedTokens, costUsd, finishReason })}\n\n`;
+      yield `event: done\ndata: ${JSON.stringify({ latencyMs: Date.now() - startTime, estimatedCompletionTokens: Math.ceil(totalContent.length / 4), estimatedCostUsd: null, usageSource: 'locally_estimated' })}\n\n`;
     } catch (err) {
       let code = 'INTERNAL_ERROR';
       let message = 'An unexpected error occurred during streaming.';
-
-      if (err instanceof AIModelNotFoundError) {
+      if (err instanceof CompanyAIError) {
+        code = err.code;
+        message = err.message;
+      } else if (err instanceof AIModelNotFoundError) {
         code = 'MODEL_NOT_FOUND';
         message = 'Requested model is not available.';
       } else if (err instanceof AICircuitOpenError || err instanceof AIProviderUnavailableError) {
@@ -341,7 +248,6 @@ export class AIGateway {
         code = 'VALIDATION_ERROR';
         message = err.message;
       }
-
       yield `event: error\ndata: ${JSON.stringify({ requestId, code, message })}\n\n`;
     }
   }
@@ -349,31 +255,30 @@ export class AIGateway {
   /** Dry-run routing — returns the routing decision without executing. */
   static async route(
     req: AIGatewayRequest,
+    actor: CompanyAIActor,
   ): Promise<AIGatewayAPIResult<AIGatewayRouteResult>> {
     const requestId = generateRequestId();
 
     try {
       validateGatewayRequest(req);
-      const router = await ensureRouterSynced();
-      const aiReq = toAIRequest(req);
-
-      const decision: AIRouteDecision = router.route(aiReq, req.companyId);
-
-      // Find the model details for cost/latency estimates
-      const provider = router.getProvider(decision.provider);
-      const modelInfo: AIModel | undefined = provider?.supportedModels.find(
-        (m) => m.id === decision.model,
+      const trustedActor = authorizedActor(req, actor);
+      const preview = await previewCompanyAIRoute(
+        trustedActor,
+        toAIRequest(req),
+        companyAIOptions(req, requestId),
       );
-
+      if (!preview.available || !preview.selected) {
+        throw new CompanyAIError(preview.reason || 'No authorized model is currently available.', 503, 'NO_AUTHORIZED_MODEL', preview.requestId);
+      }
       const result: AIGatewayRouteResult = {
-        provider: decision.provider,
-        model: decision.model,
-        reason: decision.reason,
-        estimatedLatencyMs: 800,
-        estimatedCostPerMillion: modelInfo?.costPerMillionTokens ?? getCostPerMillion(decision.model),
+        provider: preview.selected.provider,
+        model: preview.selected.model,
+        reason: preview.selected.routeKind,
+        ...(preview.selected.estimatedCostPerMillion !== undefined
+          ? { estimatedCostPerMillion: preview.selected.estimatedCostPerMillion }
+          : {}),
       };
-
-      return makeResult(result, requestId);
+      return makeResult(result, preview.requestId || requestId);
     } catch (err) {
       return safeError(err, requestId);
     }
@@ -382,6 +287,7 @@ export class AIGateway {
   /** Batch — execute multiple requests sequentially, return all results. */
   static async batch(
     batchReq: AIGatewayBatchRequest,
+    actor: CompanyAIActor,
   ): Promise<AIGatewayAPIResult<AIGatewayResponse[]>> {
     const requestId = generateRequestId();
 
@@ -396,7 +302,7 @@ export class AIGateway {
       const results: AIGatewayResponse[] = [];
 
       for (const req of batchReq.requests) {
-        const result = await AIGateway.chat(req);
+        const result = await AIGateway.chat(req, actor);
         if (!result.success || !result.data) {
           return makeErrorResult(
             requestId,
@@ -416,6 +322,7 @@ export class AIGateway {
   /** Parallel — execute multiple requests concurrently, aggregate results. */
   static async parallel(
     parReq: AIGatewayParallelRequest,
+    actor: CompanyAIActor,
   ): Promise<AIGatewayAPIResult<AIGatewayResponse[]>> {
     const requestId = generateRequestId();
 
@@ -431,7 +338,7 @@ export class AIGateway {
 
       // Execute all requests concurrently
       const results = await Promise.all(
-        parReq.requests.map((req) => AIGateway.chat(req)),
+        parReq.requests.map((req) => AIGateway.chat(req, actor)),
       );
 
       // Filter successful results

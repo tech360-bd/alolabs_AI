@@ -5,8 +5,9 @@
  *   POST {base}/audio/transcriptions  (multipart: file, model, language, prompt)
  *   response_format=verbose_json → { text, language, segments: [{ start, end, text }] }
  *
- * Pure helpers live here (request shape + subtitle formatting) so they can be
- * unit-tested without network access; `transcribe` performs the call.
+ * Pure helpers live here (request shape + subtitle formatting). Direct
+ * provider execution is disabled until media is governed by the central
+ * company-scoped AI policy.
  */
 
 import type { MediaProviderConfig } from './requests';
@@ -108,41 +109,8 @@ export function normaliseSegments(raw: unknown): TranscriptSegment[] {
 }
 
 export async function transcribe(
-  config: MediaProviderConfig,
-  options: TranscriptionOptions,
+  _config: MediaProviderConfig,
+  _options: TranscriptionOptions,
 ): Promise<TranscriptResult> {
-  const request = buildTranscriptionRequest(config, options);
-  const response = await fetch(request.url, {
-    method: 'POST',
-    headers: request.headers,
-    body: request.body,
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    let message = text.slice(0, 300) || `HTTP ${response.status}`;
-    try {
-      const parsed = JSON.parse(text) as { error?: { message?: string } | string };
-      if (typeof parsed.error === 'string') message = parsed.error;
-      else if (parsed.error?.message) message = parsed.error.message;
-    } catch {
-      // keep the raw text
-    }
-    throw new Error(`Transcription provider error: ${message}`);
-  }
-
-  const payload = (await response.json()) as {
-    text?: string;
-    language?: string;
-    segments?: unknown;
-  };
-  const segments = normaliseSegments(payload.segments);
-
-  return {
-    text: (payload.text ?? segments.map((segment) => segment.text).join(' ')).trim(),
-    language: payload.language ?? null,
-    segments,
-    srt: formatSrt(segments),
-    vtt: formatVtt(segments),
-  };
+  throw new Error('Direct transcription provider calls are disabled; use the company-scoped central AI policy service.');
 }

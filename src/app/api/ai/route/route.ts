@@ -1,28 +1,41 @@
-/**
- * POST /api/ai/route
- * ALO Labs AIOS — Dry-run routing decision (no execution).
- */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { AIGateway } from '@/lib/ai-gateway/gateway';
-import type { AIGatewayRequest } from '@/lib/ai-gateway/types';
-import { requireAuth } from '@/lib/api-auth';
+import { z } from 'zod';
+import { requireCompanyAuth } from '@/lib/api-auth';
+import { MODEL_ROUTING_PROFILES } from '@/lib/multi-tenant-ai/policy';
+import { previewCompanyAIRoute, CompanyAIError } from '@/lib/multi-tenant-ai/service';
+
+const RequestSchema = z.object({
+  messages: z.array(z.object({ role: z.enum(['system', 'user', 'assistant', 'tool']), content: z.string().max(200_000) })).min(1).max(100),
+  model: z.string().trim().min(1).max(200).optional(),
+  profile: z.enum(MODEL_ROUTING_PROFILES).default('free_general'),
+  agentId: z.string().min(1).optional(),
+  departmentId: z.string().min(1).optional(),
+  maxTokens: z.number().int().min(1).max(128_000).optional(),
+  tools: z.array(z.object({ type: z.literal('function'), function: z.object({ name: z.string().min(1).max(100), description: z.string().max(2000).optional(), parameters: z.record(z.string(), z.unknown()).optional() }) })).max(32).optional(),
+  dataClassification: z.enum(['confidential', 'restricted']).optional(),
+});
 
 export async function POST(request: NextRequest) {
+  let user: Awaited<ReturnType<typeof requireCompanyAuth>>;
+  try { user = await requireCompanyAuth(); }
+  catch (error) {
+    const message = error instanceof Error ? error.message : 'Unauthorized';
+    return NextResponse.json({ error: message }, { status: message === 'Forbidden' ? 403 : 401 });
+  }
+  let parsed;
+  try { parsed = RequestSchema.safeParse(await request.json()); }
+  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }); }
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   try {
-    const user = await requireAuth();
-    const body: AIGatewayRequest = await request.json();
-    const result = await AIGateway.route(body);
-    return NextResponse.json(result, { status: result.success ? 200 : (result.error?.code === 'VALIDATION_ERROR' ? 400 : 502) });
+    const result = await previewCompanyAIRoute(
+      { companyId: user.companyId, userId: user.userId, role: user.role },
+      { model: parsed.data.model ?? '', messages: parsed.data.messages, maxTokens: parsed.data.maxTokens, tools: parsed.data.tools },
+      { profile: parsed.data.profile, agentId: parsed.data.agentId, departmentId: parsed.data.departmentId, dataClassification: parsed.data.dataClassification },
+    );
+    return NextResponse.json({ success: result.available, data: result, timestamp: new Date().toISOString(), requestId: result.requestId }, { status: result.available ? 200 : 503 });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    return NextResponse.json({
-      success: false,
-      error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred.' },
-      timestamp: new Date().toISOString(),
-      requestId: 'err-unknown',
-    }, { status: 500 });
+    if (error instanceof CompanyAIError) return NextResponse.json({ success: false, error: { code: error.code, message: error.message }, requestId: error.requestId }, { status: error.status });
+    console.error('[AI Route Preview] Failed:', error);
+    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Routing preview failed.' } }, { status: 500 });
   }
 }

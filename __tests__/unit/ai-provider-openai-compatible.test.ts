@@ -228,7 +228,7 @@ describe('AIRouter with configured providers', () => {
       { model: 'test-model-a', messages: [{ role: 'user', content: 'route me' }] },
       'company-a',
       'agent-1',
-      { runId: 'run-1', taskType: 'unit' },
+      { runId: 'run-1', taskType: 'unit', allowPaid: true, allowedProviderNames: ['openai-compatible:broken', 'openai-compatible:healthy'], allowedModelIds: ['test-model-a'] },
     );
     expect(response.content).toBe('echo:route me');
 
@@ -237,7 +237,7 @@ describe('AIRouter with configured providers', () => {
     expect(d.success).toBe(true);
     expect(d.requestedModel).toBe('test-model-a');
     expect(d.companyId).toBe('company-a');
-    expect(d.context).toEqual({ runId: 'run-1', taskType: 'unit' });
+    expect(d.context).toMatchObject({ runId: 'run-1', taskType: 'unit', allowPaid: true, allowedModelIds: ['test-model-a'] });
     expect(d.candidates).toEqual(expect.arrayContaining(['openai-compatible:broken', 'openai-compatible:healthy']));
     if (d.fallbackFrom) {
       expect(d.fallbackFrom).toBe('openai-compatible:broken');
@@ -264,7 +264,12 @@ describe('AIRouter with configured providers', () => {
     ).rejects.toThrow(/No providers are available/);
     expect(decisions[0]).toMatchObject({ success: false, errorCode: 'PROVIDER_UNAVAILABLE', selectedProvider: null, companyId: 'company-a' });
 
-    const ok = await router.chat({ model: 'test-model-a', messages: [{ role: 'user', content: 'y' }] }, 'company-b');
+    const ok = await router.chat(
+      { model: 'test-model-a', messages: [{ role: 'user', content: 'y' }] },
+      'company-b',
+      undefined,
+      { allowPaid: true, allowedProviderNames: ['openai-compatible:b-only'], allowedModelIds: ['test-model-a'] },
+    );
     expect(ok.content).toBe('echo:y');
     expect(router.getProviderTenant('openai-compatible:b-only')).toBe('company-b');
   });

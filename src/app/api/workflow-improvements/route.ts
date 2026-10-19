@@ -2,34 +2,33 @@ import { z } from 'zod';
 import { secureCrud } from '@/lib/api/secure-crud';
 
 /**
- * workflow.improvements — authenticated, authorised, audited and rate limited.
- *
- * Replaces a hand-written route that verified a session token inline but
- * applied no role check and no tenant scope to the queries below.
+ * Legacy improvement requests are global because WorkflowImprovementRequest
+ * has no tenant key. Until tenant attribution is migrated, every operation is
+ * restricted to Super Admin; company users must not see cross-company rows.
  */
-
 const createSchema = z.object({
-  workflowId: z.string().optional(),
-  title: z.string().min(1),
-  description: z.string().optional(),
-  status: z.string().default('pending'),
-});
+  workflowId: z.string().min(1).max(191).optional().nullable(),
+  title: z.string().trim().min(1).max(255),
+  description: z.string().trim().max(10_000).optional().nullable(),
+  status: z.literal('pending').default('pending'),
+}).strict();
 
 const updateSchema = z.object({
-  workflowId: z.string().nullable().optional(),
-  title: z.string().min(1).optional(),
-  description: z.string().optional(),
-  status: z.string().optional(),
-});
+  workflowId: z.string().min(1).max(191).optional().nullable(),
+  title: z.string().trim().min(1).max(255).optional(),
+  description: z.string().trim().max(10_000).optional().nullable(),
+  status: z.enum(['pending', 'approved', 'rejected', 'implemented']).optional(),
+}).strict();
 
 export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'workflow.improvements',
   model: 'workflowImprovementRequest',
   label: 'WorkflowImprovementRequest',
-  // This table has no tenant column of its own — see the security report.
   tenantField: null,
+  requireTenant: false,
+  roles: ['super_admin'],
+  writeRoles: ['super_admin'],
   createSchema,
   updateSchema,
   searchFields: ['title', 'description'],
-  writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
 });

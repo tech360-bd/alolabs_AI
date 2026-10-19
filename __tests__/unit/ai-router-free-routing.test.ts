@@ -104,7 +104,7 @@ describe('AIRouter free-only routing', () => {
     router.registerProvider(paid)
     router.registerProvider(free)
 
-    expect(router.route(request)).toEqual({
+    expect(router.route(request, undefined, { allowVerifiedFree: true })).toEqual({
       provider: 'openrouter-free',
       model: 'shared-model',
       reason: 'quality',
@@ -134,7 +134,7 @@ describe('AIRouter free-only routing', () => {
     router.registerProvider(primaryFree)
     router.registerProvider(fallbackFree)
 
-    const response = await router.chat(request)
+    const response = await router.chat(request, undefined, undefined, { allowVerifiedFree: true })
 
     expect(response.content).toBe('served-by:openai-compatible:free-backup')
     expect(primaryFree.calls).toEqual(['shared-model'])

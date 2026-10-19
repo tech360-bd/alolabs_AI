@@ -64,12 +64,16 @@ export async function createRealDb(label = 'alo-realdb'): Promise<RealDb> {
 }
 
 /** Creates (or reuses) a department and an agent with the given business key. */
-export async function seedAgent(db: PrismaClient, agentId: string, overrides: { name?: string; department?: string } = {}) {
-  const departmentSlug = overrides.department ?? 'qa';
+export async function seedAgent(db: PrismaClient, agentId: string, overrides: { name?: string; department?: string; companyId?: string } = {}) {
+  const departmentSlug = overrides.department ?? (overrides.companyId ? `qa-${overrides.companyId}` : 'qa');
   const department = await db.department.upsert({
     where: { slug: departmentSlug },
     update: {},
-    create: { name: departmentSlug.toUpperCase(), slug: departmentSlug },
+    create: {
+      name: departmentSlug.toUpperCase(),
+      slug: departmentSlug,
+      ...(overrides.companyId ? { companyId: overrides.companyId } : {}),
+    },
   });
   return db.agent.upsert({
     where: { agentId },
@@ -81,6 +85,7 @@ export async function seedAgent(db: PrismaClient, agentId: string, overrides: { 
       departmentId: department.id,
       departmentName: department.name,
       purpose: `Test agent ${agentId}`,
+      ...(overrides.companyId ? { companyId: overrides.companyId } : {}),
     },
   });
 }

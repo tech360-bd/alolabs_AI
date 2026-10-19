@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getExecutionEngine } from '@/lib/agent-runtime';
 import { db } from '@/lib/db';
+import { agentCompanyScope } from '@/lib/agent-access';
 import { jsonResponse, notFound, secureRoute } from '@/lib/api/secure-route';
 
 /**
@@ -42,7 +43,11 @@ export const POST = secureRoute(
     // Tenant-scoped lookup: an agent that is not shared with this company is
     // indistinguishable from one that does not exist.
     const agent = await db.agent.findFirst({
-      where: { agentId, agentCompanyAccess: { some: { companyId: context.companyId } } },
+      where: {
+        agentId,
+        status: 'active',
+        ...agentCompanyScope(context.companyId, 'execute'),
+      },
       select: { id: true },
     });
     if (!agent) throw notFound('Agent not found');
@@ -62,6 +67,17 @@ export const POST = secureRoute(
       mode,
     });
 
+    if (result.status === 'paused' && result.error) {
+      return jsonResponse({
+        success: false,
+        error: {
+          code: 'AI_DEFERRED',
+          routingCode: result.error.code,
+          message: result.error.message,
+        },
+        data: result,
+      }, context.requestId, 503);
+    }
     return jsonResponse({ success: true, data: result }, context.requestId);
   },
 );

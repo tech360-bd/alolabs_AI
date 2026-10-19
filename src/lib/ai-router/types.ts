@@ -23,7 +23,7 @@ export type AIProvider =
 
 export type AIModelFamily = 'glm' | 'qwen' | 'deepseek' | 'llama' | 'gemma' | 'phi' | 'mistral' | 'codestral' | 'command-r' | 'yi' | 'starcoder' | 'custom';
 
-export type AICapability = 'chat' | 'streaming' | 'function-calling' | 'vision' | 'json-mode' | 'embedding' | 'code-generation' | 'reasoning' | 'audio';
+export type AICapability = 'chat' | 'streaming' | 'function-calling' | 'vision' | 'json-mode' | 'embedding' | 'code-generation' | 'reasoning' | 'audio' | 'translation';
 
 export interface AIModelParameters {
   temperature?: number;
@@ -53,6 +53,8 @@ export interface AIModel {
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  /** Server-resolved image data URLs for models with explicit vision capability. */
+  imageUrls?: string[];
   toolCallId?: string;
   name?: string;
   /** Assistant turn only: the calls the model asked for. */
@@ -93,11 +95,25 @@ export interface AITokenUsage {
   totalTokens: number;
 }
 
+export interface AIEmbeddingRequest {
+  model: string;
+  input: string | string[];
+}
+
+export interface AIEmbeddingResponse {
+  id?: string;
+  model: string;
+  data: Array<{ index: number; embedding: number[] }>;
+  usage: { promptTokens: number; totalTokens: number };
+  usageSource?: 'provider_reported' | 'locally_estimated' | 'unknown';
+}
+
 export interface AIResponse {
   id: string;
   content: string;
   model: string;
   usage: AITokenUsage;
+  usageSource?: 'provider_reported' | 'locally_estimated' | 'unknown';
   finishReason: 'stop' | 'length' | 'tool-calls' | 'content-filter' | 'error';
   latencyMs: number;
   /** Present when the model requested tools. Never silently dropped. */

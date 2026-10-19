@@ -22,7 +22,8 @@ import type { TaskClassification } from '@/lib/agent-runtime/pipeline';
 import { getAgentHealthMonitor } from '@/lib/agent-runtime/health';
 import { getEventBus, EventTypes } from '@/lib/event-bus';
 import type { DomainEvent } from '@/lib/event-bus';
-import { getRouter } from '@/lib/ai-router';
+import { executeCompanyAIChat } from '@/lib/multi-tenant-ai/service';
+import { agentCompanyScope } from '@/lib/agent-access';
 
 // ─── Types ─────────────────────────────────────────────────────────────
 
@@ -275,7 +276,7 @@ export class UnifiedOrchestrator {
 
     // Step 1: Find candidate agents from DB
     const agents = await db.agent.findMany({
-      where: { status: 'active', agentCompanyAccess: { some: { companyId } } },
+      where: { status: 'active', ...agentCompanyScope(companyId, 'execute') },
       select: {
         agentId: true,
         name: true,
@@ -409,7 +410,7 @@ export class UnifiedOrchestrator {
         where: {
           agentId: params.preferredAgentId,
           status: 'active',
-          agentCompanyAccess: { some: { companyId } },
+          ...agentCompanyScope(companyId, 'execute'),
         },
         select: {
           agentId: true, name: true, role: true, type: true,
@@ -802,7 +803,7 @@ export class UnifiedOrchestrator {
 
     // Step 1: Get the active agents available to this company.
     const agents = await db.agent.findMany({
-      where: { status: 'active', agentCompanyAccess: { some: { companyId } } },
+      where: { status: 'active', ...agentCompanyScope(companyId, 'execute') },
       select: {
         agentId: true, name: true, role: true, type: true,
         departmentName: true, departmentId: true, purpose: true, allowedSkills: true,
@@ -952,10 +953,10 @@ export class UnifiedOrchestrator {
     if (fulfilledContributions.length > 0) {
       try {
         const synthesisPrompt = this.buildSynthesisPrompt(params.task, fulfilledContributions);
-        const router = getRouter();
-        const synthesisResponse = await router.chat(
+        const { response: synthesisResponse } = await executeCompanyAIChat(
+          { companyId, userId: params.userId, role: 'system' },
           {
-            model: 'reasoning',
+            model: '',
             messages: [
               { role: 'system', content: 'You are a synthesis specialist. Combine multiple expert perspectives into a single coherent, comprehensive response. Preserve all key insights and attribute them to their source department.' },
               { role: 'user', content: synthesisPrompt },
@@ -963,8 +964,7 @@ export class UnifiedOrchestrator {
             maxTokens: 4096,
             temperature: 0.5,
           },
-          companyId,
-          'orchestrator',
+          { profile: 'free_reasoning', dataClassification: 'confidential', requestId: `collaboration:${companyId}:${Date.now()}` },
         );
         synthesizedContent = synthesisResponse.content;
         synthesisModel = synthesisResponse.model;
@@ -977,7 +977,7 @@ export class UnifiedOrchestrator {
         synthesizedContent = fulfilledContributions
           .map(c => `### ${c.departmentName} (${c.agentName})\n${c.result}`)
           .join('\n\n');
-        synthesisModel = 'fallback';
+        synthesisModel = 'deterministic-concatenation';
         const knownConfidences = fulfilledContributions.flatMap((contribution) => typeof contribution.confidence === 'number' ? [contribution.confidence] : []);
         synthesisConfidence = knownConfidences.length > 0
           ? knownConfidences.reduce((sum, confidence) => sum + confidence, 0) / knownConfidences.length
@@ -1092,7 +1092,7 @@ export class UnifiedOrchestrator {
 
   /** Get company-scoped orchestrator stats. */
   async getStats(companyId: string) {
-    const availableToCompany = { agentCompanyAccess: { some: { companyId } } };
+    const availableToCompany = agentCompanyScope(companyId, 'view');
     const [totalAgents, activeAgents, totalConversations, totalMessages, recentRuns] = await Promise.all([
       db.agent.count({ where: availableToCompany }),
       db.agent.count({ where: { ...availableToCompany, status: 'active' } }),
@@ -1146,7 +1146,7 @@ export class UnifiedOrchestrator {
    */
   private async isMultiDepartmentTask(task: string, companyId: string): Promise<boolean> {
     const agents = await db.agent.findMany({
-      where: { status: 'active', agentCompanyAccess: { some: { companyId } } },
+      where: { status: 'active', ...agentCompanyScope(companyId, 'execute') },
       select: { departmentName: true, purpose: true, agentId: true },
     });
 
@@ -1204,7 +1204,7 @@ export class UnifiedOrchestrator {
       countsByDatabaseId.set(run.agentId, (countsByDatabaseId.get(run.agentId) ?? 0) + 1)
     }
     const agents = await db.agent.findMany({
-      where: { id: { in: [...countsByDatabaseId.keys()] }, agentCompanyAccess: { some: { companyId } } },
+      where: { id: { in: [...countsByDatabaseId.keys()] }, ...agentCompanyScope(companyId, 'execute') },
       select: { id: true, agentId: true },
     })
     return new Map(agents.map((agent) => [agent.agentId, countsByDatabaseId.get(agent.id) ?? 0]))
@@ -1329,7 +1329,7 @@ export class UnifiedOrchestrator {
       where: {
         agentId: params.preferredAgentId,
         status: 'active',
-        agentCompanyAccess: { some: { companyId: params.companyId } },
+        ...agentCompanyScope(params.companyId, 'execute'),
       },
       select: {
         agentId: true, name: true, role: true, type: true,

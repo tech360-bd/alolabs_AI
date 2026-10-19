@@ -16,6 +16,7 @@
  */
 
 import type { AICapability } from './types';
+import { isTrustedLocalInferenceEndpoint } from '../ai-provider-catalog';
 
 export type ModelTier = 'reasoning' | 'balanced' | 'fast' | 'coding' | 'vision' | 'embedding';
 
@@ -179,15 +180,22 @@ export function localOnlyEnabled(env: NodeJS.ProcessEnv = process.env): boolean 
   return isLocalInferenceConfigured(env);
 }
 
-const BUILT_IN_LOCAL_PROVIDERS = ['ollama', `openai-compatible:${LOCAL_GATEWAY_PROVIDER_ID}`];
-
-/** Extra local provider names, comma-separated, for self-hosted proxies. */
+/** Provider names are considered local only when their configured endpoint is a trusted private target. */
 export function localProviderNames(env: NodeJS.ProcessEnv = process.env): string[] {
-  const extra = (env.LOCAL_PROVIDER_NAMES ?? '')
-    .split(',')
-    .map((name) => name.trim())
-    .filter(Boolean);
-  return [...new Set([...BUILT_IN_LOCAL_PROVIDERS, ...extra])];
+  const names: string[] = [];
+  const ollamaEndpoint = env.OLLAMA_BASE_URL || env.OLLAMA_HOST || 'http://localhost:11434';
+  const normalisedOllama = /^https?:\/\//i.test(ollamaEndpoint) ? ollamaEndpoint : `http://${ollamaEndpoint}`;
+  if (isTrustedLocalInferenceEndpoint(normalisedOllama)) names.push('ollama');
+  const gatewayIsTrusted = isLocalInferenceConfigured(env) && isTrustedLocalInferenceEndpoint(localGatewayBaseUrl(env));
+  if (gatewayIsTrusted) {
+    names.push(`openai-compatible:${LOCAL_GATEWAY_PROVIDER_ID}`);
+    const configuredAliases = (env.LOCAL_PROVIDER_NAMES ?? '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter((name) => /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/.test(name));
+    names.push(...configuredAliases);
+  }
+  return names;
 }
 
 export function isLocalProviderName(

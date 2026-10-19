@@ -11,6 +11,8 @@ import type {
   AIStreamChunk,
   AIProviderHealth,
   AIMessage,
+  AIEmbeddingRequest,
+  AIEmbeddingResponse,
 } from './types';
 import { AIRouterError } from './types';
 
@@ -34,7 +36,7 @@ function estimateMessagesTokens(messages: AIMessage[]): number {
   // Every message has ~4 tokens of overhead (role, delimiters)
   const perMessageOverhead = 4;
   const messageTokens = messages.reduce(
-    (sum, msg) => sum + estimateTokens(msg.content) + perMessageOverhead,
+    (sum, msg) => sum + estimateTokens(msg.content) + (msg.imageUrls?.length ?? 0) * 1024 + perMessageOverhead,
     0,
   );
   // System prompt usually gets a small additional overhead
@@ -55,6 +57,8 @@ function jitteredDelay(attempt: number): number {
 
 function isRetryableError(error: unknown): boolean {
   if (error instanceof AIRouterError) {
+    // Do not repeatedly resend a provider request after an explicit quota/rate-limit response.
+    if (error.statusCode === 429) return false;
     return error.retryable;
   }
   if (error instanceof Error) {
@@ -91,6 +95,11 @@ export abstract class BaseAIProvider {
 
   /** List all models available on this provider. */
   abstract listModels(): Promise<AIModel[]>;
+
+  /** Optional embeddings support; adapters without a compatible endpoint fail closed. */
+  async createEmbeddings(_request: AIEmbeddingRequest): Promise<AIEmbeddingResponse> {
+    throw new AIRouterError('This provider adapter does not support embeddings.', this.name, 400, false);
+  }
 
   /** Graceful teardown. Override for provider-specific cleanup. */
   async disconnect(): Promise<void> {

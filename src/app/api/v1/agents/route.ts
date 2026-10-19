@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { v1Handler, v1Body, v1Pagination, V1Error } from '@/lib/v1';
 import { db } from '@/lib/db';
+import { agentCompanyScope } from '@/lib/agent-access';
 
 /**
  * /api/v1/agents — list agents available to the tenant (GET) or register one (POST).
@@ -13,7 +14,7 @@ export const GET = v1Handler(async ({ identity }, request) => {
 
   const where = {
     status,
-    agentCompanyAccess: { some: { companyId: identity.companyId } },
+    ...agentCompanyScope(identity.companyId, 'view'),
     ...(departmentId ? { departmentId } : {}),
   };
 
@@ -53,6 +54,12 @@ export const POST = v1Handler(async ({ identity }, request) => {
     throw new V1Error('Validation failed: ' + parsed.error.issues.map((i) => i.message).join('; '), 400, 'VALIDATION_ERROR');
   }
 
+  const department = await db.department.findFirst({
+    where: { id: parsed.data.departmentId, companyId: identity.companyId },
+    select: { id: true, name: true },
+  });
+  if (!department) throw new V1Error('Department not found for this company', 404, 'NOT_FOUND');
+
   const { randomUUID } = await import('node:crypto');
   const agentId = `AGENT-${randomUUID().slice(0, 4).toUpperCase()}`;
   const agent = await db.agent.create({
@@ -62,8 +69,9 @@ export const POST = v1Handler(async ({ identity }, request) => {
       name: parsed.data.name,
       slug: parsed.data.slug,
       departmentId: parsed.data.departmentId,
-      departmentName: parsed.data.departmentName,
+      departmentName: department.name,
       purpose: parsed.data.purpose,
+      companyId: identity.companyId,
       role: parsed.data.role ?? 'specialist',
       type: parsed.data.type ?? 'specialist',
       allowedSkills: JSON.stringify(parsed.data.allowedSkills ?? []),

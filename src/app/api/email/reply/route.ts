@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/auth';
+import { requireCompanyAuth } from '@/lib/api-auth';
+import { executeCompanyAIChat, CompanyAIError } from '@/lib/multi-tenant-ai/service';
+import { randomUUID } from 'node:crypto';
 import { db } from '@/lib/db';
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -24,45 +26,6 @@ interface AIReplyResult {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
-
-async function authenticate(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return null;
-  return verifySessionToken(token);
-}
-
-async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
-  // Try to use the AI router endpoint internally
-  const aiEndpoint = process.env.AI_ROUTE_ENDPOINT || 'http://localhost:3000/api/llm/route';
-
-  try {
-    const response = await fetch(aiEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: process.env.AI_REPLY_MODEL || 'deepseek-chat',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.6,
-        maxTokens: 2048,
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
-
-    if (!response.ok) {
-      throw new Error(`AI endpoint returned ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.content || data.choices?.[0]?.message?.content || data.text || '';
-  } catch (err) {
-    console.error('AI call failed:', err);
-    throw new Error('AI service unavailable. Please try again later.');
-  }
-}
 
 function buildReplySystemPrompt(tone: string): string {
   const toneInstructions: Record<string, string> = {
@@ -139,8 +102,7 @@ function textToSimpleHtml(text: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await authenticate(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const user = await requireCompanyAuth();
 
     const body = await request.json();
     const {
@@ -189,7 +151,20 @@ export async function POST(request: NextRequest) {
 
     // Call AI
     const systemPrompt = buildReplySystemPrompt(tone);
-    const aiResponse = await callAI(systemPrompt, userPrompt);
+    const { response: completion } = await executeCompanyAIChat(
+      { companyId: user.companyId, userId: user.userId, role: user.companyRole ?? user.role },
+      {
+        model: '',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.6,
+        maxTokens: 2048,
+      },
+      { profile: 'free_general', dataClassification: 'confidential', requestId: `email-reply:${randomUUID()}` },
+    );
+    const aiResponse = completion.content;
 
     // Parse the response
     const { replyText, leads } = parseReplyAndLeads(aiResponse);
@@ -220,7 +195,7 @@ export async function POST(request: NextRequest) {
     for (const lead of leads) {
       if (lead.confidence !== 'low' && lead.email) {
         try {
-          const contactKey = `crm:auto-lead:${lead.email}`;
+          const contactKey = `company:${user.companyId}:crm:auto-lead:${lead.email.trim().toLowerCase()}`;
           await db.settings.upsert({
             where: { key: contactKey },
             update: { value: JSON.stringify({ ...lead, source: 'email-reply', updatedAt: new Date().toISOString() }), updatedAt: new Date() },
@@ -241,8 +216,14 @@ export async function POST(request: NextRequest) {
       data: result,
     });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('AI service unavailable')) {
-      return NextResponse.json({ error: error.message }, { status: 503 });
+    if (error instanceof CompanyAIError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     console.error('Email reply POST error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

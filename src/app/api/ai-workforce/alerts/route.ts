@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
+import { agentCompanyScope } from '@/lib/agent-access'
 import { requireCompanyAuth } from '@/lib/api-auth'
 
 const CreateAlertSchema = z.object({
@@ -62,8 +63,8 @@ export async function POST(req: NextRequest) {
       }
       agentId = instance.agentId
     } else if (agentId) {
-      const access = await db.agentCompanyAccess.findFirst({
-        where: { agentId, companyId: user.companyId },
+      const access = await db.agent.findFirst({
+        where: { id: agentId, status: 'active', ...agentCompanyScope(user.companyId, 'execute') },
         select: { id: true },
       })
       if (!access) {

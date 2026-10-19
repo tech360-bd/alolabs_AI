@@ -40,14 +40,18 @@ export async function getAuthUser(): Promise<AuthenticatedUser | null> {
     let companyId: string | undefined
 
     if (requestedCompanyId) {
-      if (!memberships.some((membership) => membership.companyId === requestedCompanyId)) return null
+      const isMember = memberships.some((membership) => membership.companyId === requestedCompanyId)
+      if (!isMember && user.role !== 'super_admin') return null
+      const selectedCompany = await db.company.findUnique({ where: { id: requestedCompanyId }, select: { id: true } })
+      if (!selectedCompany) return null
       companyId = requestedCompanyId
     } else if (requestedCompanySlug) {
       const selectedCompany = await db.company.findUnique({
         where: { slug: requestedCompanySlug },
         select: { id: true },
       })
-      if (!selectedCompany || !memberships.some((membership) => membership.companyId === selectedCompany.id)) return null
+      const isMember = selectedCompany && memberships.some((membership) => membership.companyId === selectedCompany.id)
+      if (!selectedCompany || (!isMember && user.role !== 'super_admin')) return null
       companyId = selectedCompany.id
     } else if (memberships.length === 1) {
       companyId = memberships[0].companyId
@@ -88,6 +92,16 @@ export async function requireCompanyRole(...roles: string[]): Promise<Authentica
   const companyRole = user.companyRole
   if (!companyRole || !roles.includes(companyRole)) throw new Error('Forbidden')
   return { ...user, companyRole }
+}
+
+export function canManageCompany(user: Pick<AuthenticatedUser, 'role' | 'companyRole'>): boolean {
+  return user.role === 'super_admin' || user.companyRole === 'owner' || user.companyRole === 'admin'
+}
+
+export async function requireCompanyAdmin(): Promise<AuthenticatedUser & { companyId: string }> {
+  const user = await requireCompanyAuth()
+  if (!canManageCompany(user)) throw new Error('Forbidden')
+  return user
 }
 
 export async function requireRole(...roles: string[]): Promise<AuthenticatedUser> {

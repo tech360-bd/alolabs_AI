@@ -13,7 +13,8 @@
 
 import { randomUUID } from 'node:crypto';
 import { db } from '@/lib/db';
-import { getRouter } from '@/lib/ai-router';
+import { agentCompanyScope } from '@/lib/agent-access';
+import { executeCompanyAIChat } from '@/lib/multi-tenant-ai/service';
 import { validateExecution, type ValidationResult } from '@/lib/agent-runtime/pipeline';
 import type { AIRequest } from '@/lib/ai-router/types';
 
@@ -42,7 +43,11 @@ export function isConfigurationError(error: unknown): boolean {
     message.includes('no providers are available') ||
     message.includes('not configured') ||
     message.includes('provider was removed') ||
-    message.includes('all providers failed')
+    message.includes('all providers failed') ||
+    message.includes('no model is currently authorized') ||
+    message.includes('no authorized model') ||
+    message.includes('provider free-tier status is unknown') ||
+    message.includes('external data processing is not approved')
   );
 }
 
@@ -107,17 +112,15 @@ export async function repairOutput(params: {
   output: string;
   issues: string[];
   systemPrompt?: string;
-  model?: string;
-  companyId?: string;
-  agentId?: string;
+  companyId: string;
+  agentDbId?: string;
   attempt: number;
   /** Observability: ties the routing decision to the run/task being repaired. */
   runId?: string;
   taskId?: string;
 }): Promise<RepairResult> {
-  const router = getRouter();
   const request: AIRequest = {
-    model: params.model ?? 'balanced',
+    model: '',
     messages: [
       {
         role: 'system',
@@ -146,11 +149,30 @@ export async function repairOutput(params: {
     temperature: 0.3,
   };
 
-  const response = await router.chat(request, params.companyId, params.agentId, {
-    runId: params.runId,
-    taskId: params.taskId,
-    taskType: 'qc.repair',
-  });
+  const agent = params.agentDbId
+    ? await db.agent.findFirst({
+        where: {
+          id: params.agentDbId,
+          ...agentCompanyScope(params.companyId, 'execute'),
+        },
+        select: { id: true, departmentId: true, department: { select: { companyId: true } } },
+      })
+    : null;
+  if (params.agentDbId && !agent) throw new Error('Agent is not available to this company for QC repair');
+
+  const { response } = await executeCompanyAIChat(
+    { companyId: params.companyId, userId: 'system:qc-repair', role: 'system' },
+    request,
+    {
+      profile: 'free_general',
+      dataClassification: 'confidential',
+      ...(agent ? { agentId: agent.id } : {}),
+      ...(agent?.department?.companyId === params.companyId ? { departmentId: agent.departmentId } : {}),
+      ...(params.runId ? { runId: params.runId } : {}),
+      ...(params.taskId ? { taskId: params.taskId } : {}),
+      requestId: `${params.runId ?? params.taskId ?? 'qc'}:repair:${params.attempt}:${randomUUID()}`,
+    },
+  );
   return {
     repaired: response.content,
     model: response.model,

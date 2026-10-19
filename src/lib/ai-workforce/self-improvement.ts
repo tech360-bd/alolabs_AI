@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { agentCompanyScope } from '@/lib/agent-access'
 import type { Prisma } from '@prisma/client'
 
 export type OptimizationType = 'prompt' | 'workflow' | 'planning' | 'skill_selection' | 'tool_selection'
@@ -113,17 +114,11 @@ export async function proposeOptimization(data: {
   companyId: string
   proposedBy: string
 }) {
-  const agent = await db.agent.findUnique({
-    where: { id: data.agentId },
+  const agent = await db.agent.findFirst({
+    where: { id: data.agentId, ...agentCompanyScope(data.companyId, 'execute') },
     select: { id: true, purpose: true, allowedSkills: true, allowedTools: true, workflowSteps: true },
   })
   if (!agent) throw new Error('Agent not found')
-
-  const access = await db.agentCompanyAccess.findFirst({
-    where: { agentId: agent.id, companyId: data.companyId },
-    select: { id: true },
-  })
-  if (!access) throw new Error('Agent is not available to this company')
 
   const currentConfig = getConfigForTarget(agent, data.type)
   const proposal = await db.agentImprovementProposal.create({

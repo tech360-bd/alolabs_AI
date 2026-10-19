@@ -11,7 +11,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
     const user = await requireCompanyAuth();
     const { id } = await context.params;
 
-    const job = await getJob(decodeURIComponent(id));
+    const job = await getJob(decodeURIComponent(id), user.companyId);
     if (!job || job.companyId !== user.companyId) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }

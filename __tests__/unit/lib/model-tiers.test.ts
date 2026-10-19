@@ -100,14 +100,14 @@ describe('local inference configuration', () => {
 
   it('classifies local providers without matching paid ones', () => {
     expect(isLocalProviderName('ollama', env())).toBe(true);
-    expect(isLocalProviderName('openai-compatible:local-gateway', env())).toBe(true);
+    expect(isLocalProviderName('openai-compatible:local-gateway', env({ LOCAL_INFERENCE_ENABLED: 'true' }))).toBe(true);
     expect(isLocalProviderName('qwen', env())).toBe(false);
     expect(isLocalProviderName('openrouter', env())).toBe(false);
     expect(isLocalProviderName('openai-compatible:default', env())).toBe(false);
   });
 
   it('accepts extra local provider names for self-hosted proxies', () => {
-    const custom = env({ LOCAL_PROVIDER_NAMES: 'litellm, my-vllm' });
+    const custom = env({ LOCAL_INFERENCE_URL: 'http://127.0.0.1:20128/v1', LOCAL_PROVIDER_NAMES: 'litellm, my-vllm' });
     expect(isLocalProviderName('litellm', custom)).toBe(true);
     expect(isLocalProviderName('my-vllm', custom)).toBe(true);
     expect(isLocalProviderName('groq', custom)).toBe(false);

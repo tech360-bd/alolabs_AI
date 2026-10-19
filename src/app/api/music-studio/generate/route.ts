@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCompanyAuth } from '@/lib/api-auth';
+import { CompanyAIError } from '@/lib/multi-tenant-ai/service';
 import { generate, validateGenerationInput } from '@/lib/media-generation';
 
 /**
  * POST /api/music-studio/generate
  *
- * Submits a real music job to the provider configured through
- * MEDIA_MUSIC_ENDPOINT. Synchronous providers return the URL immediately;
- * asynchronous ones return a job id that /api/music-studio/tracks exposes
- * until the provider finishes (polling is done by /api/media/generate/jobs/[id]
- * or on the next generation call).
+ * Validates a music request and defers it through the central company policy
+ * until a verified, authorized music-generation capability is available.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +24,7 @@ export async function POST(request: NextRequest) {
       ...(body.lyrics ? { lyrics: String(body.lyrics) } : {}),
     });
 
-    const job = await generate(input, { companyId: user.companyId, userId: user.userId });
+    const job = await generate(input, { companyId: user.companyId, userId: user.userId, role: user.companyRole ?? user.role });
     const url = job.assets[0]?.url ?? null;
 
     if (job.status === 'failed') {
@@ -37,6 +35,9 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof CompanyAIError) {
+      return NextResponse.json({ error: error.message, code: error.code, requestId: error.requestId }, { status: error.status });
+    }
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
       return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }
@@ -52,12 +53,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  // The studio page lists via /api/music-studio/tracks; this endpoint only
-  // documents the capability so operators can probe it.
   return NextResponse.json({
     kind: 'music',
-    configured: Boolean(process.env.MEDIA_MUSIC_ENDPOINT),
-    requiredEnv: ['MEDIA_API_KEY', 'MEDIA_MUSIC_ENDPOINT'],
-    optionalEnv: ['MEDIA_MUSIC_STATUS_ENDPOINT', 'MEDIA_MUSIC_MODEL'],
+    available: false,
+    status: 'unavailable',
+    reason: 'No centrally verified, company-authorized music-generation capability is configured.',
   });
 }

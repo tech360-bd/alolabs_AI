@@ -1,182 +1,125 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { requireCompanyAuth } from '@/lib/api-auth';
 
 interface MediaFile {
-  id: string
-  name: string
-  url: string
-  size: number
-  type: string
-  mimeType: string
-  folder: string
-  tags: string[]
-  thumbnailUrl: string | null
-  uploadedBy: string
-  createdAt: string
-  updatedAt: string
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+  mimeType: string;
+  folder: string;
+  tags: string[];
+  thumbnailUrl: string | null;
+  uploadedBy: string;
+  companyId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-async function getAllMediaFiles(): Promise<MediaFile[]> {
-  const records = await db.settings.findMany({
-    where: {
-      key: { startsWith: 'media:file:' },
-    },
-  })
-
-  const files: MediaFile[] = []
-  for (const record of records) {
-    try {
-      const parsed = JSON.parse(record.value) as MediaFile
-      files.push(parsed)
-    } catch {
-      // skip malformed records
-    }
+function readFile(value: string): MediaFile | null {
+  try {
+    const parsed = JSON.parse(value) as Partial<MediaFile>;
+    if (typeof parsed.id !== 'string' || typeof parsed.companyId !== 'string') return null;
+    return parsed as MediaFile;
+  } catch {
+    return null;
   }
-
-  return files.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  )
 }
 
-// GET: List media files with pagination, search, folder filter
+async function getCompanyMediaFiles(companyId: string): Promise<MediaFile[]> {
+  const records = await db.settings.findMany({ where: { key: { startsWith: 'media:file:' } } });
+  return records.flatMap((record) => {
+    const file = readFile(record.value);
+    return file?.companyId === companyId ? [file] : [];
+  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+function errorResponse(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Internal server error';
+  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500;
+  return NextResponse.json({ error: status === 500 ? 'Internal server error' : message }, { status });
+}
+
+// GET: List only media owned by the authenticated company.
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth()
+    const user = await requireCompanyAuth();
+    const page = Math.max(1, Number.parseInt(request.nextUrl.searchParams.get('page') || '1', 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(request.nextUrl.searchParams.get('limit') || '24', 10) || 24));
+    const search = (request.nextUrl.searchParams.get('search') || '').toLowerCase();
+    const folder = request.nextUrl.searchParams.get('folder') || '';
+    const type = request.nextUrl.searchParams.get('type') || '';
+    let files = await getCompanyMediaFiles(user.companyId);
 
-    const { searchParams } = new URL(request.url)
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '24', 10)))
-    const search = searchParams.get('search') || ''
-    const folder = searchParams.get('folder') || ''
-    const type = searchParams.get('type') || ''
-
-    let files = await getAllMediaFiles()
-
-    // Filter by folder
     if (folder && folder !== 'all') {
-      if (['image', 'video', 'document'].includes(folder)) {
-        files = files.filter((f) => f.type === folder)
-      } else {
-        files = files.filter((f) => f.folder === folder)
-      }
+      files = ['image', 'video', 'document'].includes(folder)
+        ? files.filter((file) => file.type === folder)
+        : files.filter((file) => file.folder === folder);
     }
+    if (type && type !== 'all') files = files.filter((file) => file.type === type);
+    if (search) files = files.filter((file) => file.name.toLowerCase().includes(search) || file.tags.some((tag) => tag.toLowerCase().includes(search)));
 
-    // Filter by type
-    if (type && type !== 'all') {
-      files = files.filter((f) => f.type === type)
-    }
-
-    // Search by name and tags
-    if (search) {
-      const q = search.toLowerCase()
-      files = files.filter(
-        (f) =>
-          f.name.toLowerCase().includes(q) ||
-          f.tags.some((t) => t.toLowerCase().includes(q))
-      )
-    }
-
-    const total = files.length
-    const totalPages = Math.max(1, Math.ceil(total / limit))
-    const start = (page - 1) * limit
-    const paginatedFiles = files.slice(start, start + limit)
-
-    return NextResponse.json({
-      data: paginatedFiles,
-      total,
-      page,
-      limit,
-      totalPages,
-    })
-  } catch (error: unknown) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    console.error('Media GET error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const total = files.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    return NextResponse.json({ data: files.slice((page - 1) * limit, page * limit), total, page, limit, totalPages });
+  } catch (error) {
+    return errorResponse(error);
   }
 }
 
-// DELETE: Delete media files
+// DELETE: Delete only records owned by this company.
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await requireAuth()
-    const body = await request.json()
-    const { ids } = body as { ids?: string[] }
-
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json({ error: 'ids array is required' }, { status: 400 })
+    const user = await requireCompanyAuth();
+    const body = await request.json();
+    const ids = body && typeof body === 'object' ? (body as { ids?: unknown }).ids : undefined;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100 || !ids.every((id) => typeof id === 'string')) {
+      return NextResponse.json({ error: 'ids must be a non-empty string array with at most 100 entries' }, { status: 400 });
     }
-
-    let deleted = 0
-    for (const id of ids) {
-      try {
-        await db.settings.delete({
-          where: { key: `media:file:${id}` },
-        })
-        deleted++
-      } catch {
-        // skip if not found
-      }
+    let deleted = 0;
+    for (const id of ids as string[]) {
+      const setting = await db.settings.findUnique({ where: { key: `media:file:${id}` } });
+      const file = setting ? readFile(setting.value) : null;
+      if (!setting || file?.companyId !== user.companyId) continue;
+      await db.settings.delete({ where: { key: setting.key } });
+      deleted++;
     }
-
-    return NextResponse.json({
-      data: { deleted, ids },
-      message: `Deleted ${deleted} file(s)`,
-    })
-  } catch (error: unknown) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    console.error('Media DELETE error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ data: { deleted, ids }, message: `Deleted ${deleted} file(s)` });
+  } catch (error) {
+    return errorResponse(error);
   }
 }
 
-// PUT: Update media files (move to folder, add tags)
+// PUT: Update tags or folder only for records owned by this company.
 export async function PUT(request: NextRequest) {
   try {
-    await requireAuth()
-    const body = await request.json()
-    const { ids, folder, tags } = body as { ids?: string[]; folder?: string; tags?: string[] }
-
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json({ error: 'ids array is required' }, { status: 400 })
+    const user = await requireCompanyAuth();
+    const body = await request.json();
+    const data = body && typeof body === 'object' ? body as { ids?: unknown; folder?: unknown; tags?: unknown } : {};
+    if (!Array.isArray(data.ids) || data.ids.length === 0 || data.ids.length > 100 || !data.ids.every((id) => typeof id === 'string')) {
+      return NextResponse.json({ error: 'ids must be a non-empty string array with at most 100 entries' }, { status: 400 });
+    }
+    if (data.folder !== undefined && (typeof data.folder !== 'string' || data.folder.length > 64)) return NextResponse.json({ error: 'Invalid folder' }, { status: 400 });
+    if (data.tags !== undefined && (!Array.isArray(data.tags) || data.tags.length > 50 || !data.tags.every((tag) => typeof tag === 'string' && tag.length <= 40))) {
+      return NextResponse.json({ error: 'Invalid tags' }, { status: 400 });
     }
 
-    let updated = 0
-    for (const id of ids) {
-      try {
-        const record = await db.settings.findUnique({
-          where: { key: `media:file:${id}` },
-        })
-        if (!record) continue
-
-        const fileData = JSON.parse(record.value) as Record<string, unknown>
-        if (folder) fileData.folder = folder
-        if (tags) fileData.tags = [...new Set([...((fileData.tags as string[]) || []), ...tags])]
-        fileData.updatedAt = new Date().toISOString()
-
-        await db.settings.update({
-          where: { key: `media:file:${id}` },
-          data: { value: JSON.stringify(fileData) },
-        })
-        updated++
-      } catch {
-        // skip errors
-      }
+    let updated = 0;
+    for (const id of data.ids as string[]) {
+      const setting = await db.settings.findUnique({ where: { key: `media:file:${id}` } });
+      const file = setting ? readFile(setting.value) : null;
+      if (!setting || !file || file.companyId !== user.companyId) continue;
+      const nextFile = { ...file };
+      if (typeof data.folder === 'string') nextFile.folder = data.folder;
+      if (Array.isArray(data.tags)) nextFile.tags = [...new Set([...file.tags, ...(data.tags as string[])])];
+      nextFile.updatedAt = new Date().toISOString();
+      await db.settings.update({ where: { key: setting.key }, data: { value: JSON.stringify(nextFile) } });
+      updated++;
     }
-
-    return NextResponse.json({
-      data: { updated, ids },
-      message: `Updated ${updated} file(s)`,
-    })
-  } catch (error: unknown) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    console.error('Media PUT error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ data: { updated, ids: data.ids }, message: `Updated ${updated} file(s)` });
+  } catch (error) {
+    return errorResponse(error);
   }
 }

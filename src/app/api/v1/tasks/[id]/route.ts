@@ -11,7 +11,7 @@ export const GET = v1Handler(async ({ identity }, request) => {
     where: {
       id,
       userId: identity.userId,
-      agent: { agentCompanyAccess: { some: { companyId: identity.companyId } } },
+      companyId: identity.companyId,
     },
     select: { id: true },
   });

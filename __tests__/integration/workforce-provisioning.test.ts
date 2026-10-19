@@ -20,8 +20,9 @@ const root = process.cwd();
 const tsxCli = join(root, 'node_modules/tsx/dist/cli.mjs');
 const provisionScript = join(root, 'scripts/provision-workforce.ts');
 const activationScript = join(root, 'scripts/activate-workforce.ts');
+const employeeIdentityScript = join(root, 'scripts/provision-ai-employee-identities.ts');
 
-type ReportDoc = { provision?: any; verify?: any; totals?: any; scope?: any; agents?: any[] };
+type ReportDoc = { provision?: any; verify?: any; provisioning?: any; verification?: any; totals?: any; scope?: any; agents?: any[] };
 
 function runScript(env: NodeJS.ProcessEnv, script: string, ...args: string[]) {
   const result = spawnSync(process.execPath, [tsxCli, script, ...args], {
@@ -36,6 +37,10 @@ function runScript(env: NodeJS.ProcessEnv, script: string, ...args: string[]) {
 
 function runCli(env: NodeJS.ProcessEnv, ...args: string[]) {
   return runScript(env, provisionScript, ...args);
+}
+
+function runEmployeeCli(env: NodeJS.ProcessEnv, ...args: string[]) {
+  return runScript(env, employeeIdentityScript, ...args);
 }
 
 /** The CLI prints one or more concatenated JSON documents; read them all. */
@@ -92,6 +97,7 @@ describe('workforce provisioning (real SQLite database)', () => {
   let db: PrismaClient;
   let workforce: typeof import('@/lib/workforce');
   let store: WorkforceStore;
+  let employeeStore: import('@/lib/workforce/employee-identities').AIEmployeeStore;
   let registry: DepartmentConfig[];
 
   beforeAll(async () => {
@@ -100,6 +106,7 @@ describe('workforce provisioning (real SQLite database)', () => {
     workforce = await import('@/lib/workforce');
     const { createPrismaWorkforceStore } = await import('@/lib/workforce/prisma-store');
     store = createPrismaWorkforceStore(db);
+    employeeStore = workforce.createPrismaAIEmployeeStore(db);
     const { getDepartmentRegistry } = await import('@/lib/department-registry');
     registry = getDepartmentRegistry().getAllDepartments();
   }, 120_000);
@@ -125,6 +132,78 @@ describe('workforce provisioning (real SQLite database)', () => {
     expect(await db.agent.count({ where: { companyId: tenant!.id } })).toBe(2000);
     expect(await db.department.count({ where: { companyId: tenant!.id } })).toBe(100);
   }, 120_000);
+
+  it('adds exactly 2,000 persistent employee identities idempotently without creating model workers', async () => {
+    const workforcePlan = plan();
+    const employeePlan = workforce.buildAIEmployeePlan(workforcePlan.agents);
+    const tenant = await db.company.findUnique({ where: { slug: 'alo-labs' }, select: { id: true } });
+    expect(tenant).not.toBeNull();
+    const agentCountBefore = await db.agent.count({ where: { companyId: tenant!.id } });
+    const cliDryRun = runEmployeeCli({ ...real.env, PRISMA_SQLITE_ADAPTER: '1' }, '--dry-run');
+    expect(cliDryRun.status, cliDryRun.stderr).toBe(0);
+    expect(cliDryRun.docs[0].provisioning).toMatchObject({ dryRun: true, employees: { created: 2000 } });
+
+    const dryRun = await workforce.provisionAIEmployeeIdentities(employeeStore, tenant!.id, employeePlan, { dryRun: true });
+    expect(dryRun.ok).toBe(true);
+    expect(dryRun.employees).toMatchObject({ created: 2000, updated: 0, unchanged: 0 });
+    expect(await db.aIEmployeeIdentity.count({ where: { companyId: tenant!.id } })).toBe(0);
+
+    const applied = await workforce.provisionAIEmployeeIdentities(employeeStore, tenant!.id, employeePlan);
+    expect(applied.ok).toBe(true);
+    expect(applied.employees).toMatchObject({ created: 2000, updated: 0, unchanged: 0 });
+    expect(await db.aIEmployeeIdentity.count({ where: { companyId: tenant!.id } })).toBe(2000);
+    expect(await db.agent.count({ where: { companyId: tenant!.id } })).toBe(agentCountBefore);
+    expect(await db.agentExecution.count()).toBe(0);
+    expect(await db.agentRun.count()).toBe(0);
+
+    const rows = await employeeStore.listEmployees(tenant!.id);
+    const verification = workforce.verifyAIEmployeeIdentities(employeePlan, rows, tenant!.id);
+    expect(verification.ok).toBe(true);
+    expect(verification.counts).toMatchObject({ identities: 2000, provisioned: 2000, active: 0, tested: 0 });
+    const cliVerify = runEmployeeCli({ ...real.env, PRISMA_SQLITE_ADAPTER: '1' }, '--verify');
+    expect(cliVerify.status, cliVerify.stderr).toBe(0);
+    expect(cliVerify.docs[0].verification).toMatchObject({ ok: true, counts: { identities: 2000, provisioned: 2000 } });
+
+    const rerun = await workforce.provisionAIEmployeeIdentities(employeeStore, tenant!.id, employeePlan);
+    expect(rerun.ok).toBe(true);
+    expect(rerun.employees).toMatchObject({ created: 0, updated: 0, unchanged: 2000 });
+    expect(await db.aIEmployeeIdentity.count({ where: { companyId: tenant!.id } })).toBe(2000);
+  }, 180_000);
+
+  it('keeps lifecycle changes gated by Super Admin approval and attributable execution evidence', async () => {
+    const tenant = await db.company.findUnique({ where: { slug: 'alo-labs' }, select: { id: true } });
+    const identity = await db.aIEmployeeIdentity.findUnique({ where: { companyId_employeeKey: { companyId: tenant!.id, employeeKey: 'AIEMP-0001' } } });
+    expect(identity?.status).toBe('provisioned');
+    const auditCount = await db.auditEvent.count({ where: { companyId: tenant!.id, action: { startsWith: 'ai_employee.' } } });
+
+    await expect(workforce.transitionAIEmployeeStatus({
+      companyId: tenant!.id,
+      employeeId: identity!.id,
+      actor: { userId: 'company-admin', role: 'user', companyRole: 'admin' },
+      status: 'active',
+      reason: 'Attempt activation',
+    })).rejects.toMatchObject({ status: 403, code: 'SUPER_ADMIN_REQUIRED' });
+
+    await expect(workforce.transitionAIEmployeeStatus({
+      companyId: tenant!.id,
+      employeeId: identity!.id,
+      actor: { userId: 'super-admin', role: 'super_admin' },
+      status: 'active',
+      reason: 'Attempt before testing',
+    })).rejects.toMatchObject({ status: 409, code: 'TEST_REQUIRED' });
+
+    await expect(workforce.transitionAIEmployeeStatus({
+      companyId: tenant!.id,
+      employeeId: identity!.id,
+      actor: { userId: 'company-admin', role: 'user', companyRole: 'admin' },
+      status: 'tested',
+      reason: 'Evidence must be real',
+      verificationExecutionId: 'nonexistent-execution',
+    })).rejects.toMatchObject({ status: 422, code: 'INVALID_EXECUTION_EVIDENCE' });
+
+    expect((await db.aIEmployeeIdentity.findUnique({ where: { id: identity!.id } }))?.status).toBe('provisioned');
+    expect(await db.auditEvent.count({ where: { companyId: tenant!.id, action: { startsWith: 'ai_employee.' } } })).toBe(auditCount);
+  }, 60_000);
 
   it('gives every agent a unique business key, a department, a provisioned lifecycle and full configuration', async () => {
     const agents = await db.agent.findMany({ include: { department: true } });
@@ -315,4 +394,120 @@ describe('workforce provisioning (real SQLite database)', () => {
     expect(report.agents!.find((agent) => agent.agentId === 'AGENT-0001')!.runs)
       .toMatchObject({ total: 1, completed: 1 });
   }, 300_000);
+
+  it('requires company-scoped model usage plus successful reviews before Super Admin activation', async () => {
+    const tenant = await db.company.findUnique({ where: { slug: 'alo-labs' }, select: { id: true } });
+    const partnerCompany = await db.company.findUnique({ where: { slug: 'partner-co' }, select: { id: true } });
+    const identity = await db.aIEmployeeIdentity.findUnique({ where: { companyId_employeeKey: { companyId: tenant!.id, employeeKey: 'AIEMP-0001' } } });
+    const agent = await db.agent.findUnique({ where: { id: identity!.agentDbId } });
+    const startedAt = new Date(Date.now() - 5_000);
+    const completedAt = new Date(Date.now() + 5_000);
+    const review = JSON.stringify({ securityValidationPassed: true, heuristicValidationPassed: true });
+    const instance = await db.agentInstance.create({
+      data: { agentId: agent!.id, companyId: tenant!.id, status: 'active', healthStatus: 'healthy' },
+    });
+    const run = await db.agentRun.create({
+      data: {
+        id: 'fixture-run-aiemp-0001',
+        agentId: agent!.id,
+        companyId: tenant!.id,
+        instanceId: instance.id,
+        status: 'completed',
+        input: 'Synthetic test fixture; not a live inference claim.',
+        output: 'Synthetic test fixture output.',
+        model: 'fixture-local-model',
+        reviewResult: review,
+        createdAt: startedAt,
+        completedAt,
+      },
+    });
+    const execution = await db.agentExecution.create({
+      data: {
+        requestId: 'fixture-execution-aiemp-0001',
+        instanceId: instance.id,
+        companyId: tenant!.id,
+        assignedAgentId: agent!.id,
+        agentRunId: run.id,
+        input: 'Synthetic test fixture; not a live inference claim.',
+        status: 'completed',
+        executionOutput: 'Synthetic test fixture output.',
+        reviewResult: review,
+        startedAt,
+        completedAt,
+      },
+    });
+
+    await db.modelUsageRecord.create({
+      data: {
+        companyId: partnerCompany!.id,
+        agentId: agent!.id,
+        model: 'fixture-local-model',
+        requestId: `${run.id}:model:1`,
+        profile: 'free_general',
+        status: 'success',
+        inputTokens: 10,
+        outputTokens: 32,
+        totalTokens: 42,
+        usageSource: 'locally_estimated',
+        createdAt: new Date(startedAt.getTime() + 1_000),
+      },
+    });
+    await expect(workforce.transitionAIEmployeeStatus({
+      companyId: tenant!.id,
+      employeeId: identity!.id,
+      actor: { userId: 'company-admin', role: 'user', companyRole: 'admin' },
+      status: 'tested',
+      reason: 'Foreign-company usage must not satisfy the evidence gate.',
+      verificationExecutionId: execution.id,
+    })).rejects.toMatchObject({ status: 422, code: 'MODEL_USAGE_EVIDENCE_MISSING' });
+
+    await db.modelUsageRecord.create({
+      data: {
+        companyId: tenant!.id,
+        agentId: agent!.id,
+        model: 'fixture-local-model',
+        requestId: `${run.id}:model:1`,
+        profile: 'free_general',
+        status: 'success',
+        inputTokens: 10,
+        outputTokens: 32,
+        totalTokens: 42,
+        usageSource: 'locally_estimated',
+        createdAt: new Date(startedAt.getTime() + 2_000),
+      },
+    });
+    const tested = await workforce.transitionAIEmployeeStatus({
+      companyId: tenant!.id,
+      employeeId: identity!.id,
+      actor: { userId: 'company-admin', role: 'user', companyRole: 'admin' },
+      status: 'tested',
+      reason: 'Synthetic test fixture; validates evidence correlation only.',
+      verificationExecutionId: execution.id,
+    });
+    expect(tested.status).toBe('tested');
+
+    await expect(workforce.transitionAIEmployeeStatus({
+      companyId: tenant!.id,
+      employeeId: identity!.id,
+      actor: { userId: 'company-admin', role: 'user', companyRole: 'admin' },
+      status: 'active',
+      reason: 'Company admins may not activate.',
+    })).rejects.toMatchObject({ status: 403, code: 'SUPER_ADMIN_REQUIRED' });
+    const active = await workforce.transitionAIEmployeeStatus({
+      companyId: tenant!.id,
+      employeeId: identity!.id,
+      actor: { userId: 'super-admin', role: 'super_admin' },
+      status: 'active',
+      reason: 'Synthetic test fixture; Super Admin approval is explicit.',
+    });
+    expect(active.status).toBe('active');
+
+    const verification = workforce.verifyAIEmployeeIdentities(
+      workforce.buildAIEmployeePlan(plan().agents),
+      await employeeStore.listEmployees(tenant!.id),
+      tenant!.id,
+    );
+    expect(verification.ok).toBe(true);
+    expect(verification.counts.active).toBe(1);
+  }, 120_000);
 });

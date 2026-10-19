@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
       parsed.data.content,
       {
         companyId: user.companyId,
+        actor: { companyId: user.companyId, userId: user.userId, role: user.role },
         ...(parsed.data.source ? { source: parsed.data.source } : {}),
         ...(parsed.data.classification ? { classification: parsed.data.classification } : {}),
         ...(parsed.data.chunkSize ? { chunkSize: parsed.data.chunkSize } : {}),

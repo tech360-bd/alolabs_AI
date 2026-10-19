@@ -21,7 +21,7 @@ function rethrow(err: unknown): never {
 }
 
 export const GET = v1Handler(async ({ identity }) => {
-  const actor = { userId: identity.userId, role: identity.role, companyId: identity.companyId };
+  const actor = { userId: identity.userId, role: identity.role === 'super_admin' ? identity.role : identity.companyRole ?? identity.role, companyId: identity.companyId };
   const [configs, router] = await Promise.all([listProviderConfigs(actor), ensureRouterSynced()]);
   const runtime = router
     .getProviderSummaries()
@@ -52,7 +52,7 @@ export const POST = v1Handler(async ({ identity }, request) => {
   }
   try {
     return await createProviderConfig(
-      { userId: identity.userId, role: identity.role, companyId: identity.companyId },
+      { userId: identity.userId, role: identity.role === 'super_admin' ? identity.role : identity.companyRole ?? identity.role, companyId: identity.companyId },
       parsed.data,
     );
   } catch (err) {

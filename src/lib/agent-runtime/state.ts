@@ -140,7 +140,9 @@ export class AgentStateManager {
     if (to === 'running') task.startedAt = task.startedAt ?? new Date();
     if (to === 'completed' || to === 'failed' || to === 'timed_out') {
       task.completedAt = new Date();
-      this.store.decrementActive(task.companyId);
+      // Slot accounting is owned by execute()'s acquire/finally-release pair.
+      // Decrementing here as well double-released terminal runs and could let
+      // later work exceed the configured company concurrency ceiling.
     }
 
     this.store.recordTransition({
@@ -167,14 +169,15 @@ export class AgentStateManager {
   }
 
   /** Acquire an execution slot. Returns true if under limits. */
-  acquireSlot(agentId: string, companyId: string): boolean {
+  acquireSlot(agentId: string, companyId: string, employeeMaxConcurrentTasks?: number): boolean {
     const activeByCompany = this.store.getActiveCount(companyId);
     if (activeByCompany >= this.limits.maxConcurrentPerCompany) return false;
 
     const agentActive = this.store.byAgent(agentId).filter(
       (t) => t.status === 'running' || t.status === 'waiting_approval',
     ).length;
-    if (agentActive >= this.limits.maxConcurrentPerAgent) return false;
+    const perAgentLimit = Math.min(this.limits.maxConcurrentPerAgent, employeeMaxConcurrentTasks ?? this.limits.maxConcurrentPerAgent);
+    if (agentActive >= perAgentLimit) return false;
 
     this.store.incrementActive(companyId);
     return true;
@@ -186,13 +189,14 @@ export class AgentStateManager {
   }
 
   /** Check if an agent can accept more work */
-  canExecute(agentId: string, companyId: string): boolean {
+  canExecute(agentId: string, companyId: string, employeeMaxConcurrentTasks?: number): boolean {
     const usage = this.store.getResourceUsage(companyId);
     if (usage.activeExecutions >= this.limits.maxConcurrentPerCompany) return false;
     const agentRunning = this.store.byAgent(agentId).filter(
       (t) => t.status === 'running',
     ).length;
-    if (agentRunning >= this.limits.maxConcurrentPerAgent) return false;
+    const perAgentLimit = Math.min(this.limits.maxConcurrentPerAgent, employeeMaxConcurrentTasks ?? this.limits.maxConcurrentPerAgent);
+    if (agentRunning >= perAgentLimit) return false;
     return true;
   }
 
@@ -318,11 +322,10 @@ export class AgentStateManager {
         recovered.push(task);
       }
 
-      // Rebuild active execution counts from recovered tasks
+      // Only recovered work in an active model/tool call consumes a slot.
+      // Human approvals are durable checkpoints, not active executions.
       for (const task of recovered) {
-        if (task.status === 'running' || task.status === 'waiting_approval') {
-          this.store.incrementActive(task.companyId);
-        }
+        if (task.status === 'running') this.store.incrementActive(task.companyId);
       }
 
       this.initialized = true;

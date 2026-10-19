@@ -52,6 +52,8 @@ export interface AgentTask {
   approvedBy?: string;
   maxTokens?: number;
   timeoutMs?: number;
+  employeeMaxConcurrentTasks?: number;
+  employeeIdentityRequired?: boolean;
   result?: ExecutionResult;
   error?: ExecutionError;
   tokenUsage?: TokenUsage;

@@ -24,6 +24,8 @@ import {
 } from './provider-registry';
 import { ensureRouterSynced } from './index';
 import { isFieldEncryptionConfigured } from '../security/field-encryption';
+import { defaultProviderBaseUrl, isLocalProviderKind, isTrustedLocalProviderConfig } from '../ai-provider-catalog';
+import { writeAuditEvent } from '../audit-events';
 
 // ─── Validation ─────────────────────────────────────────────────────
 
@@ -48,8 +50,12 @@ const BaseUrlSchema = z
     // addresses can run a reverse proxy. Loopback stays allowed for local
     // runtimes such as Ollama / LM Studio / vLLM.
     try {
-      const host = new URL(u).hostname;
-      return !/^169\.254\./.test(host) && host !== 'metadata.google.internal';
+      const url = new URL(u);
+      const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+      if (url.username || url.password || url.search || url.hash) return false;
+      if (host === 'metadata.google.internal' || host.endsWith('.metadata.google.internal')) return false;
+      if (host.startsWith('169.254.') || host === '::' || host.startsWith('fe80:') || host.startsWith('ff')) return false;
+      return true;
     } catch {
       return false;
     }
@@ -66,6 +72,8 @@ export const ProviderCreateSchema = z.object({
   apiKey: z.string().min(8).max(4000).optional(),
   models: z.array(ModelSchema).max(100).optional(),
   isEnabled: z.boolean().optional(),
+  isLocal: z.boolean().optional(),
+  fallbackEligible: z.boolean().optional(),
   priority: z.number().int().min(0).max(1000).optional(),
   timeoutMs: z.number().int().min(1000).max(600_000).optional(),
   maxRetries: z.number().int().min(0).max(10).optional(),
@@ -93,7 +101,7 @@ export class ProviderAdminError extends Error {
   }
 }
 
-const ADMIN_ROLES = new Set(['admin', 'super_admin']);
+const ADMIN_ROLES = new Set(['owner', 'admin', 'super_admin']);
 
 function requireAdmin(actor: ProviderActor): void {
   if (!ADMIN_ROLES.has(actor.role)) {
@@ -112,11 +120,11 @@ function requireKeyStorage(): void {
 }
 
 function needsBaseUrl(provider: string): boolean {
-  return provider === 'openai-compatible' || provider === 'openai-compatible-free';
+  return provider !== 'zai-sdk' && !defaultProviderBaseUrl(provider);
 }
 
 function needsApiKey(provider: string): boolean {
-  return !['ollama', 'zai-sdk'].includes(provider);
+  return !isLocalProviderKind(provider) && provider !== 'custom-self-hosted' && provider !== 'zai-sdk';
 }
 
 // ─── Queries ────────────────────────────────────────────────────────
@@ -130,9 +138,16 @@ export async function listProviderConfigs(actor: ProviderActor): Promise<Provide
   return rows.map(describeProviderConfig);
 }
 
+export async function listAllProviderConfigs(actor: ProviderActor): Promise<ProviderConfigView[]> {
+  if (actor.role !== 'super_admin') throw new ProviderAdminError('Only a super administrator may list platform providers', 403, 'FORBIDDEN');
+  const rows = (await db.aIProviderConfig.findMany({ orderBy: [{ companyId: 'asc' }, { priority: 'asc' }, { createdAt: 'asc' }] })) as ProviderConfigRecord[];
+  return rows.map(describeProviderConfig);
+}
+
 async function loadOwned(id: string, actor: ProviderActor): Promise<ProviderConfigRecord> {
   const row = (await db.aIProviderConfig.findUnique({ where: { id } })) as ProviderConfigRecord | null;
   if (!row) throw new ProviderAdminError('Provider config not found', 404, 'NOT_FOUND');
+  if (actor.role === 'super_admin') return row;
   if (row.companyId === null) {
     if (actor.role !== 'super_admin') {
       // Tenants can see shared providers but never change them.
@@ -161,6 +176,14 @@ export async function createProviderConfig(actor: ProviderActor, input: Provider
   if (needsApiKey(input.provider) && !input.apiKey) {
     throw new ProviderAdminError(`${input.provider} requires an apiKey`, 400, 'VALIDATION_ERROR');
   }
+  if (input.isLocal === true && !isLocalProviderKind(input.provider) && input.provider !== 'custom-self-hosted') {
+    throw new ProviderAdminError('Only local inference adapters may be marked as local.', 400, 'VALIDATION_ERROR');
+  }
+  const localEndpoint = isLocalProviderKind(input.provider) || (input.provider === 'custom-self-hosted' && input.isLocal === true);
+  const effectiveBaseUrl = input.baseUrl ?? defaultProviderBaseUrl(input.provider);
+  if (localEndpoint && !isTrustedLocalProviderConfig(input.provider, effectiveBaseUrl, input.isLocal)) {
+    throw new ProviderAdminError('Local inference endpoints must use a loopback or private-network IP address.', 400, 'UNTRUSTED_LOCAL_ENDPOINT');
+  }
   let sealed: { encryptedApiKey: string; keyFingerprint: string } | null = null;
   if (input.apiKey) {
     requireKeyStorage();
@@ -180,6 +203,8 @@ export async function createProviderConfig(actor: ProviderActor, input: Provider
       keyFingerprint: sealed?.keyFingerprint ?? null,
       models: JSON.stringify(parseModelCatalogue(input.models ?? [])),
       isEnabled: input.isEnabled ?? true,
+      isLocal: isLocalProviderKind(input.provider) || (input.provider === 'custom-self-hosted' && input.isLocal === true),
+      fallbackEligible: input.fallbackEligible ?? false,
       priority: input.priority ?? 100,
       timeoutMs: input.timeoutMs ?? 60_000,
       maxRetries: input.maxRetries ?? 2,
@@ -213,6 +238,7 @@ export async function updateProviderConfig(
   if (input.baseUrl !== undefined) data.baseUrl = input.baseUrl;
   if (input.models !== undefined) data.models = JSON.stringify(parseModelCatalogue(input.models));
   if (input.isEnabled !== undefined) data.isEnabled = input.isEnabled;
+  if (input.fallbackEligible !== undefined) data.fallbackEligible = input.fallbackEligible;
   if (input.priority !== undefined) data.priority = input.priority;
   if (input.timeoutMs !== undefined) data.timeoutMs = input.timeoutMs;
   if (input.maxRetries !== undefined) data.maxRetries = input.maxRetries;
@@ -227,7 +253,16 @@ export async function updateProviderConfig(
   }
 
   const provider = (data.provider as string | undefined) ?? row.provider;
-  const baseUrl = (data.baseUrl as string | null | undefined) ?? row.baseUrl;
+  const baseUrl = (data.baseUrl as string | null | undefined) ?? row.baseUrl ?? defaultProviderBaseUrl(provider) ?? null;
+  const requestedLocal = input.isLocal ?? row.isLocal;
+  if (input.isLocal === true && !isLocalProviderKind(provider) && provider !== 'custom-self-hosted') {
+    throw new ProviderAdminError('Only local inference adapters may be marked as local.', 400, 'VALIDATION_ERROR');
+  }
+  const isLocal = isLocalProviderKind(provider) || (provider === 'custom-self-hosted' && requestedLocal);
+  if (isLocal && !isTrustedLocalProviderConfig(provider, baseUrl, requestedLocal)) {
+    throw new ProviderAdminError('Local inference endpoints must use a loopback or private-network IP address.', 400, 'UNTRUSTED_LOCAL_ENDPOINT');
+  }
+  if (input.isLocal !== undefined || input.provider !== undefined || input.baseUrl !== undefined) data.isLocal = isLocal;
   const hasKey = 'encryptedApiKey' in data ? Boolean(data.encryptedApiKey) : Boolean(row.encryptedApiKey);
   if (needsBaseUrl(provider) && !baseUrl) {
     throw new ProviderAdminError(`${provider} requires a baseUrl`, 400, 'VALIDATION_ERROR');
@@ -286,6 +321,9 @@ export async function testProviderConfig(
 ): Promise<ProviderTestResult> {
   requireAdmin(actor);
   const row = await loadOwned(id, actor);
+  if (options.withChat && !isTrustedLocalProviderConfig(row.provider, row.baseUrl, row.isLocal)) {
+    throw new ProviderAdminError('External model calls are disabled in provider connectivity tests; use a policy-authorized company request.', 403, 'PAID_TEST_BLOCKED');
+  }
   const testedAt = new Date();
   let result: ProviderTestResult;
 
@@ -415,14 +453,20 @@ export async function routingDecisionSummary(actor: ProviderActor, sinceHours = 
 // ─── Audit ──────────────────────────────────────────────────────────
 
 async function audit(actor: ProviderActor, action: string, details: Record<string, unknown>): Promise<void> {
-  await db.auditLog
-    .create({
-      data: {
-        userId: actor.userId,
-        action,
-        resource: 'ai-providers',
-        details: JSON.stringify({ ...details, companyId: actor.companyId }),
-      },
-    })
-    .catch(() => undefined);
+  await db.auditLog.create({
+    data: {
+      userId: actor.userId,
+      action,
+      resource: 'ai-providers',
+      details: JSON.stringify({ ...details, companyId: actor.companyId }),
+    },
+  }).catch(() => undefined);
+  await writeAuditEvent({
+    actorUserId: actor.userId,
+    companyId: actor.companyId || null,
+    action,
+    resource: 'ai-provider-config',
+    resourceId: typeof details.id === 'string' ? details.id : null,
+    details,
+  });
 }

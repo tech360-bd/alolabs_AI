@@ -6,6 +6,8 @@
 
 import { BaseWorker } from './worker';
 import type { WorkerJob, WorkerConfig, WorkerType } from './types';
+import { executeCompanyAIChat, CompanyAIError } from '@/lib/multi-tenant-ai/service';
+import type { ModelRoutingProfile } from '@/lib/multi-tenant-ai/policy';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // AI Worker
@@ -17,45 +19,76 @@ export class AIWorker extends BaseWorker {
   }
 
   async process(job: WorkerJob): Promise<Record<string, unknown>> {
-    const { action, model, messages, temperature, maxTokens } = job.payload as {
-      action: string;
-      model?: string;
-      messages?: Array<{ role: string; content: string }>;
-      temperature?: number;
-      maxTokens?: number;
-    };
+    const payload = job.payload;
+    const action = typeof payload.action === 'string' ? payload.action : '';
+    if (action !== 'chat' && action !== 'completion') {
+      throw new Error(`Unknown AI action: ${action || '(missing)'}`);
+    }
 
-    switch (action) {
-      case 'chat':
-      case 'completion': {
-        // Delegate to the AI router / LLM route
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-        const response = await fetch(`${baseUrl}/api/llm/route`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: model ?? 'default',
-            messages: messages ?? [],
-            temperature: temperature ?? 0.7,
-            maxTokens: maxTokens ?? 2048,
-          }),
-        });
+    const companyId = typeof payload.companyId === 'string' ? payload.companyId : '';
+    const userId = typeof payload.userId === 'string' ? payload.userId : '';
+    const role = typeof payload.role === 'string' ? payload.role : '';
+    if (!companyId || !userId || !role) {
+      throw new Error('AI worker job requires an authenticated companyId, userId, and role');
+    }
 
-        if (!response.ok) {
-          const text = await response.text().catch(() => 'Unknown error');
-          throw new Error(`AI request failed (${response.status}): ${text}`);
-        }
-
-        const data = await response.json();
-        return {
-          completion: data.content ?? data.message ?? data,
-          model: data.model ?? model,
-          usage: data.usage ?? null,
-        };
+    const rawMessages = payload.messages;
+    if (!Array.isArray(rawMessages) || rawMessages.length === 0 || rawMessages.length > 100) {
+      throw new Error('AI worker job requires 1 to 100 messages');
+    }
+    const allowedRoles = new Set(['system', 'user', 'assistant', 'tool']);
+    const messages = rawMessages.map((message) => {
+      if (!message || typeof message !== 'object' || Array.isArray(message)) {
+        throw new Error('AI worker message is invalid');
       }
+      const record = message as Record<string, unknown>;
+      if (typeof record.role !== 'string' || !allowedRoles.has(record.role) || typeof record.content !== 'string') {
+        throw new Error('AI worker message requires a valid role and text content');
+      }
+      return { role: record.role as 'system' | 'user' | 'assistant' | 'tool', content: record.content };
+    });
 
-      default:
-        throw new Error(`Unknown AI action: ${action}`);
+    const taskType = typeof payload.taskType === 'string' ? payload.taskType : 'balanced';
+    const profileByTask: Record<string, ModelRoutingProfile> = {
+      fast: 'local_fast',
+      coding: 'free_coding',
+      reasoning: 'free_reasoning',
+      vision: 'free_vision',
+      balanced: 'free_general',
+    };
+    const profile = profileByTask[taskType] ?? 'free_general';
+    const model = typeof payload.model === 'string' ? payload.model : '';
+    const temperature = typeof payload.temperature === 'number' ? Math.min(2, Math.max(0, payload.temperature)) : 0.7;
+    const maxTokens = typeof payload.maxTokens === 'number' ? Math.min(128_000, Math.max(1, Math.floor(payload.maxTokens))) : 2048;
+    const agentId = typeof payload.agentId === 'string' ? payload.agentId : undefined;
+    const departmentId = typeof payload.departmentId === 'string' ? payload.departmentId : undefined;
+
+    try {
+      const result = await executeCompanyAIChat(
+        { companyId, userId, role },
+        { model, messages, temperature, maxTokens },
+        {
+          profile,
+          dataClassification: 'confidential',
+          ...(agentId ? { agentId } : {}),
+          ...(departmentId ? { departmentId } : {}),
+          requestId: `worker:${job.id}`,
+        },
+      );
+      return {
+        completion: result.response.content,
+        model: result.response.model,
+        provider: result.provider,
+        usage: result.response.usage,
+        usageSource: result.response.usageSource ?? 'unknown',
+        requestId: result.requestId,
+        estimatedCostUsd: result.estimatedCostUsd,
+        attempts: result.attempts,
+        fallbackUsed: result.fallbackUsed,
+      };
+    } catch (error) {
+      if (error instanceof CompanyAIError) throw new Error(`AI worker deferred (${error.code}): ${error.message}`);
+      throw error;
     }
   }
 }

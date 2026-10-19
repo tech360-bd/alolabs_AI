@@ -26,6 +26,7 @@ import { OpenRouterProvider } from './openrouter-provider';
 import { OllamaProvider } from './ollama-provider';
 import { ZAIProvider } from './zai-provider';
 import { decryptField, encryptField, fingerprint, isEncryptedField } from '../security/field-encryption';
+import { defaultProviderBaseUrl, isLocalProviderKind, isTrustedLocalInferenceEndpoint, isTrustedLocalProviderConfig } from '../ai-provider-catalog';
 import {
   gatewayModelCatalog,
   isLocalInferenceConfigured,
@@ -46,6 +47,14 @@ export const CONFIGURABLE_PROVIDER_KINDS = [
   'qwen',
   'openrouter',
   'ollama',
+  'llama-cpp',
+  'huggingface',
+  'github-models',
+  'cerebras',
+  'gemini',
+  'cloudflare-workers-ai',
+  'cohere',
+  'custom-self-hosted',
   'zai-sdk',
 ] as const;
 export type ConfigurableProviderKind = (typeof CONFIGURABLE_PROVIDER_KINDS)[number];
@@ -61,6 +70,8 @@ export interface ProviderConfigRecord {
   keyFingerprint: string | null;
   models: string;
   isEnabled: boolean;
+  isLocal: boolean;
+  fallbackEligible: boolean;
   priority: number;
   timeoutMs: number;
   maxRetries: number;
@@ -85,6 +96,8 @@ export interface ProviderConfigView {
   freeOnly: boolean;
   models: OpenAICompatibleModelConfig[];
   isEnabled: boolean;
+  isLocal: boolean;
+  fallbackEligible: boolean;
   priority: number;
   timeoutMs: number;
   maxRetries: number;
@@ -103,7 +116,7 @@ export interface ProviderConfigDb {
 }
 
 const VALID_CAPABILITIES: AICapability[] = [
-  'chat', 'streaming', 'function-calling', 'vision', 'json-mode', 'embedding', 'code-generation', 'reasoning', 'audio',
+  'chat', 'streaming', 'function-calling', 'vision', 'json-mode', 'embedding', 'code-generation', 'reasoning', 'audio', 'translation',
 ];
 
 // ─── Model catalogue parsing ────────────────────────────────────────
@@ -160,11 +173,12 @@ function openApiKey(record: Pick<ProviderConfigRecord, 'encryptedApiKey' | 'name
 
 /** Router-facing name for a config row: unique per (tenant, name) for OpenAI-compatible endpoints. */
 export function routerNameForConfig(record: Pick<ProviderConfigRecord, 'provider' | 'name' | 'companyId'>): AIProvider {
-  if (record.provider === 'openai-compatible' || record.provider === 'openai-compatible-free') {
-    const scope = record.companyId ? `${record.companyId}.${record.name}` : record.name;
-    return openAICompatibleProviderName(scope);
-  }
-  return record.provider as AIProvider;
+  if (record.provider === 'zai-sdk') return 'zai-sdk';
+  // Every configured endpoint receives a unique router identity, including
+  // vendor-specific APIs. This prevents one tenant's credentials or endpoint
+  // from replacing another tenant's config with the same provider kind.
+  const scope = record.companyId ? `${record.companyId}.${record.name}` : record.name;
+  return openAICompatibleProviderName(scope);
 }
 
 // ─── Instance construction ──────────────────────────────────────────
@@ -172,42 +186,26 @@ export function routerNameForConfig(record: Pick<ProviderConfigRecord, 'provider
 export function buildProviderFromConfig(record: ProviderConfigRecord): BaseAIProvider {
   const apiKey = openApiKey(record);
   const models = parseModelCatalogue(record.models);
-  const endpoint = record.baseUrl ?? undefined;
+  const endpoint = record.baseUrl ?? defaultProviderBaseUrl(record.provider);
+  const claimsLocal = record.isLocal || isLocalProviderKind(record.provider);
+  const trustedLocal = isTrustedLocalProviderConfig(record.provider, endpoint, record.isLocal);
+  if (claimsLocal && !trustedLocal) throw new Error(`Provider config "${record.name}" has an untrusted local endpoint.`);
 
-  switch (record.provider as ConfigurableProviderKind) {
-    case 'openai-compatible':
-    case 'openai-compatible-free': {
-      if (!endpoint) throw new Error(`Provider config "${record.name}" needs a baseUrl.`);
-      const scope = record.companyId ? `${record.companyId}.${record.name}` : record.name;
-      return new OpenAICompatibleProvider({
-        id: scope,
-        label: record.name,
-        baseUrl: endpoint,
-        apiKey,
-        models,
-        timeoutMs: record.timeoutMs,
-        freeOnly: record.provider === 'openai-compatible-free',
-      });
-    }
-    case 'groq':
-      return new GroqProvider({ endpoint, apiKey });
-    case 'deepseek':
-      return new DeepSeekProvider({ endpoint, apiKey });
-    case 'mistral':
-      return new MistralProvider({ endpoint, apiKey });
-    case 'qwen':
-      return new QwenProvider({ endpoint, apiKey });
-    case 'openrouter':
-      return new OpenRouterProvider({ endpoint, apiKey });
-    case 'openrouter-free':
-      return new OpenRouterProvider({ endpoint, apiKey, providerName: 'openrouter-free', freeOnly: true });
-    case 'ollama':
-      return new OllamaProvider(endpoint);
-    case 'zai-sdk':
-      return new ZAIProvider();
-    default:
-      throw new Error(`Unknown provider kind "${record.provider}".`);
-  }
+  if (record.provider === 'zai-sdk') return new ZAIProvider();
+  if (!endpoint) throw new Error(`Provider config "${record.name}" needs a baseUrl.`);
+
+  const scope = record.companyId ? `${record.companyId}.${record.name}` : record.name;
+  const freeOnly = record.provider === 'openrouter-free' || record.provider === 'openai-compatible-free';
+  return new OpenAICompatibleProvider({
+    id: scope,
+    label: record.name,
+    baseUrl: endpoint,
+    apiKey,
+    models,
+    timeoutMs: record.timeoutMs,
+    freeOnly,
+    defaultContextLength: 32_768,
+  });
 }
 
 /** Secret-free serialisation for APIs and UI. */
@@ -224,6 +222,8 @@ export function describeProviderConfig(record: ProviderConfigRecord): ProviderCo
     freeOnly: record.provider === 'openrouter-free' || record.provider === 'openai-compatible-free',
     models: parseModelCatalogue(record.models),
     isEnabled: record.isEnabled,
+    isLocal: isTrustedLocalProviderConfig(record.provider, record.baseUrl, record.isLocal),
+    fallbackEligible: record.fallbackEligible,
     priority: record.priority,
     timeoutMs: record.timeoutMs,
     maxRetries: record.maxRetries,
@@ -242,6 +242,7 @@ export interface EnvironmentProviderSpec {
   name: AIProvider;
   create: () => BaseAIProvider;
   source: string;
+  isLocal?: boolean;
 }
 
 function csv(value: string | undefined): string[] {
@@ -249,6 +250,10 @@ function csv(value: string | undefined): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function normaliseOllamaEndpoint(value: string): string {
+  return /^https?:\/\//i.test(value) ? value : `http://${value}`;
 }
 
 /**
@@ -262,10 +267,11 @@ export function providersFromEnvironment(env: NodeJS.ProcessEnv = process.env): 
   // protocol, so Ollama (`ollama serve`, /v1), vLLM and any local proxy on
   // LOCAL_INFERENCE_URL share one adapter. Models are the six tier targets,
   // declared statically so routing by exact id never depends on /models.
-  if (isLocalInferenceConfigured(env)) {
+  if (isLocalInferenceConfigured(env) && isTrustedLocalInferenceEndpoint(localGatewayBaseUrl(env))) {
     specs.push({
       name: `openai-compatible:${LOCAL_GATEWAY_PROVIDER_ID}`,
       source: 'LOCAL_INFERENCE_URL',
+      isLocal: true,
       create: () =>
         new OpenAICompatibleProvider({
           id: LOCAL_GATEWAY_PROVIDER_ID,
@@ -300,11 +306,13 @@ export function providersFromEnvironment(env: NodeJS.ProcessEnv = process.env): 
   if (env.MISTRAL_API_KEY) specs.push({ name: 'mistral', source: 'MISTRAL_API_KEY', create: () => new MistralProvider() });
   if (env.QWEN_API_KEY) specs.push({ name: 'qwen', source: 'QWEN_API_KEY', create: () => new QwenProvider() });
   if (env.OPENROUTER_API_KEY) specs.push({ name: 'openrouter', source: 'OPENROUTER_API_KEY', create: () => new OpenRouterProvider() });
-  if (env.OLLAMA_BASE_URL || env.OLLAMA_HOST) {
+  const ollamaEndpoint = env.OLLAMA_BASE_URL || env.OLLAMA_HOST;
+  if (ollamaEndpoint && isTrustedLocalInferenceEndpoint(normaliseOllamaEndpoint(ollamaEndpoint))) {
     specs.push({
       name: 'ollama',
       source: 'OLLAMA_BASE_URL',
-      create: () => new OllamaProvider(env.OLLAMA_BASE_URL || env.OLLAMA_HOST),
+      isLocal: true,
+      create: () => new OllamaProvider(normaliseOllamaEndpoint(ollamaEndpoint)),
     });
   }
   // The Z-AI SDK reads its own `.z-ai-config`; keep the historical default
@@ -339,7 +347,7 @@ export function registerEnvironmentProviders(router: AIRouter, env: NodeJS.Proce
   for (const spec of providersFromEnvironment(env)) {
     if (router.getProvider(spec.name)) continue;
     try {
-      router.registerProvider(spec.create());
+      router.registerProvider(spec.create(), { isLocal: spec.isLocal ?? false });
       added.push(spec.name);
     } catch {
       // constructor failures (bad URL etc.) are surfaced by health endpoints
@@ -391,7 +399,11 @@ export async function syncRouterWithProviderConfigs(
       if (router.getProvider(name as AIProvider)) {
         router.removeProvider(name as AIProvider); // replace env/previous instance with the configured one
       }
-      router.registerProvider(instance, { weight: Math.max(1, 1000 - row.priority), companyId: row.companyId ?? undefined });
+      router.registerProvider(instance, {
+        weight: Math.max(1, 1000 - row.priority),
+        companyId: row.companyId ?? undefined,
+        isLocal: isTrustedLocalProviderConfig(row.provider, row.baseUrl, row.isLocal),
+      });
       managedByDb.add(name);
       result.registered.push(name);
     } catch (err) {

@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { agentCompanyScope } from '@/lib/agent-access';
 import crypto from 'crypto';
-import ZAI from 'z-ai-web-dev-sdk';
-
-let _zai: ZAI | null = null;
-async function getZAI(): Promise<ZAI> {
-  if (!_zai) _zai = await ZAI.create();
-  return _zai;
-}
+import { executeCompanyAIChat } from '@/lib/multi-tenant-ai/service';
+import type { ModelRoutingProfile } from '@/lib/multi-tenant-ai/policy';
 
 // ── In-memory rate limit counters ──────────────────────────────────────
 const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
@@ -213,6 +209,10 @@ async function findMatchingSkills(inputStr: string, companyId: string): Promise<
   const allSkills = await db.skill.findMany({
     where: {
       status: { in: ['approved', 'private'] },
+      OR: [
+        { status: 'approved', skillCompanyAccess: { none: {} } },
+        { skillCompanyAccess: { some: { companyId } } },
+      ],
     },
     select: {
       id: true,
@@ -519,9 +519,15 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
     return NextResponse.json({ error: `Company is not active (status: ${company.status})` }, { status: 403 });
   }
 
-  // Resolve user from header
-  const userId = request.headers.get('x-alo-user-id');
-  const user = userId ? await db.user.findUnique({ where: { id: userId } }) : null;
+  // The optional attribution header is not authority: verify active account and tenant membership.
+  const requestedUserId = request.headers.get('x-alo-user-id');
+  const requestedUser = requestedUserId ? await db.user.findUnique({ where: { id: requestedUserId } }) : null;
+  const requestedMembership = requestedUser?.isActive
+    ? await db.companyUser.findUnique({ where: { companyId_userId: { companyId: company.id, userId: requestedUser.id } }, select: { role: true } })
+    : null;
+  const user = requestedMembership ? requestedUser : null;
+  const apiActorUserId = user?.id ?? keyRecord.createdBy ?? `company-api-key:${keyRecord.id}`;
+  const apiActorRole = requestedMembership?.role ?? 'api_key';
 
   // 3. Validate scopes
   const keyScopes: string[] = JSON.parse(keyRecord.scopes);
@@ -623,6 +629,7 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
   // Check for pending approvals
   const pendingApproval = await db.approval.findFirst({
     where: {
+      companyId: company.id,
       status: 'pending',
       OR: [
         { type: 'deployment' },
@@ -639,21 +646,19 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
   let executionTarget: { type: string; name: string; id: string };
 
   if (agentId && typeof agentId === 'string') {
-    const agent = await db.agent.findUnique({ where: { id: agentId } });
-    if (!agent) {
-      return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
-    }
-    if (agent.status !== 'active') {
-      return NextResponse.json({ error: 'Agent is not active' }, { status: 403 });
-    }
+    const agent = await db.agent.findFirst({
+      where: { id: agentId, status: 'active', ...agentCompanyScope(company.id, 'execute') },
+    });
+    if (!agent) return NextResponse.json({ error: 'Agent not found or not executable by this company' }, { status: 404 });
     executionTarget = { type: 'agent', name: agent.name, id: agent.id };
   } else if (workflowId && typeof workflowId === 'string') {
     const workflow = await db.workflow.findUnique({ where: { id: workflowId } });
-    if (!workflow) {
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
-    }
-    if (workflow.status !== 'active') {
-      return NextResponse.json({ error: 'Workflow is not active' }, { status: 403 });
+    if (!workflow) return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
+    if (workflow.status !== 'active') return NextResponse.json({ error: 'Workflow is not active' }, { status: 403 });
+    let allowedWorkflows: string[] = [];
+    try { allowedWorkflows = JSON.parse(company.allowedWorkflows || '[]') as string[]; } catch { allowedWorkflows = []; }
+    if (!allowedWorkflows.includes(workflow.id) && !allowedWorkflows.includes(workflow.slug) && !allowedWorkflows.includes(workflow.name)) {
+      return NextResponse.json({ error: 'Workflow is not allowed for this company' }, { status: 403 });
     }
     executionTarget = { type: 'workflow', name: workflow.name, id: workflow.id };
   } else {
@@ -663,7 +668,18 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
 
   // ── Step 8b: Intent Detection & Auto-Routing ──────────────────────
   const detectedIntent = detectIntent(inputStr);
-  const selectedModel = detectedIntent.model;
+  const profileByIntent: Record<IntentCategory, ModelRoutingProfile> = {
+    general_chat: 'free_general',
+    data_query: 'free_general',
+    content_generation: 'free_general',
+    code_assistance: 'free_coding',
+    document_analysis: 'free_general',
+    research: 'free_reasoning',
+    translation: 'free_translation',
+    summarization: 'free_general',
+  };
+  const selectedProfile = profileByIntent[detectedIntent.category];
+  let selectedModel = 'auto';
 
   // ── Step 8c: Skill Inline Execution ───────────────────────────────
   const matchedSkills = await findMatchingSkills(inputStr, company.id);
@@ -682,15 +698,20 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
           : `${skill.name}:\n${skill.content}`;
 
         // We do a quick LLM call per skill to generate contextual knowledge
-        const skillResponse = await (await getZAI()).chat.completions.create({
-          messages: [
-            { role: 'system', content: `You are a skill execution engine. Given the skill definition and user context, produce a concise knowledge summary that will help answer the user's request. Keep it focused and actionable.` },
-            { role: 'user', content: `Skill Definition:\n${skillPrompt}\n\nUser Request:\n${inputStr}\n\nProduce a concise knowledge summary for this skill in the context of the user request.` },
-          ],
-          model: selectedModel,
-        });
+        const skillResponse = await executeCompanyAIChat(
+          { companyId: company.id, userId: apiActorUserId, role: apiActorRole },
+          {
+            model: '',
+            messages: [
+              { role: 'system', content: 'You are a skill execution engine. Given the skill definition and user context, produce a concise knowledge summary that will help answer the user request. Keep it focused and actionable.' },
+              { role: 'user', content: `Skill Definition:\n${skillPrompt}\n\nUser Request:\n${inputStr}\n\nProduce a concise knowledge summary for this skill in the context of the user request.` },
+            ],
+            maxTokens: 512,
+          },
+          { profile: selectedProfile },
+        );
 
-        const skillOutput = typeof skillResponse === 'string' ? skillResponse : JSON.stringify(skillResponse);
+        const skillOutput = skillResponse.response.content;
         skillParts.push(`[Skill: ${skill.name}]\n${skillOutput}`);
         skillExecutionDetails.push({
           skillId: skill.id,
@@ -741,6 +762,8 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
         data: {
           agentId: executionTarget.id,
           agentName: executionTarget.name,
+          companyId: company.id,
+          userId: user?.id ?? null,
           status: 'running',
           input: inputStr,
         },
@@ -752,15 +775,21 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
     const userMessage = typeof input === 'object' ? JSON.stringify(input) : String(input);
     const systemPrompt = `You are ${executionTarget.name}, operating within the ALO Labs Agent Hub for company: ${company.name}. Process the user request according to your designated role.${skillContext}`;
 
-    const response = await (await getZAI()).chat.completions.create({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      model: selectedModel,
-    });
+    const modelResult = await executeCompanyAIChat(
+      { companyId: company.id, userId: apiActorUserId, role: apiActorRole },
+      {
+        model: '',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        maxTokens: 4096,
+      },
+      { profile: selectedProfile, agentId: executionTarget.type === 'agent' ? executionTarget.id : undefined, workflowId: executionTarget.type === 'workflow' ? executionTarget.id : undefined },
+    );
 
-    runOutput = typeof response === 'string' ? response : JSON.stringify(response);
+    selectedModel = modelResult.response.model;
+    runOutput = modelResult.response.content;
 
     // ── Step 8d: Output Schema Validation ───────────────────────────
     // Determine if the caller expects JSON output
@@ -770,16 +799,21 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
     if (!validation.valid) {
       // Retry once with a corrective prompt
       try {
-        const correctiveResponse = await (await getZAI()).chat.completions.create({
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
-            { role: 'assistant', content: runOutput },
-            { role: 'user', content: 'Your previous response was expected to be valid JSON but failed to parse. Please re-generate your response as properly formatted JSON only, with no extra text before or after the JSON object/array.' },
-          ],
-          model: selectedModel,
-        });
-        const correctiveOutput = typeof correctiveResponse === 'string' ? correctiveResponse : JSON.stringify(correctiveResponse);
+        const correctiveResponse = await executeCompanyAIChat(
+          { companyId: company.id, userId: apiActorUserId, role: apiActorRole },
+          {
+            model: '',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userMessage },
+              { role: 'assistant', content: runOutput },
+              { role: 'user', content: 'Your previous response was expected to be valid JSON but failed to parse. Please re-generate your response as properly formatted JSON only, with no extra text before or after the JSON object/array.' },
+            ],
+            maxTokens: 4096,
+          },
+          { profile: selectedProfile, agentId: executionTarget.type === 'agent' ? executionTarget.id : undefined, workflowId: executionTarget.type === 'workflow' ? executionTarget.id : undefined },
+        );
+        const correctiveOutput = correctiveResponse.response.content;
         const retryValidation = validateOutputSchema(correctiveOutput, expectJson);
 
         if (retryValidation.valid) {
@@ -839,6 +873,7 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
   // Create a Task record for step logs and output storage
   const task = await db.task.create({
     data: {
+      companyId: company.id,
       title: `${executionTarget.name} - Gateway Run`,
       status: 'completed',
       workflowId: executionTarget.type === 'workflow' ? executionTarget.id : null,
@@ -857,7 +892,7 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
         stepNumber: 1,
         agentId: typeof agentId === 'string' ? agentId : null,
         action: 'llm_execution',
-        input: JSON.stringify(body),
+        input: inputStr,
         output: runOutput ? runOutput.substring(0, 10000) : null,
         status: 'completed',
         startedAt: new Date(startTime),
@@ -886,7 +921,7 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
   // Update agent usage summary
   if (agentId) {
     const existingAgentUsage = await db.agentUsageSummary.findFirst({
-      where: { agentId, period: periodLabel },
+      where: { companyId: company.id, agentId, period: periodLabel },
     });
     if (existingAgentUsage) {
       await db.agentUsageSummary.update({
@@ -895,7 +930,7 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
       });
     } else {
       await db.agentUsageSummary.create({
-        data: { agentId: agentId as string, period: periodLabel, totalRuns: 1, successCount: 1, failureCount: 0, avgRuntimeMs: elapsed, totalTokensUsed: tokensUsed },
+        data: { companyId: company.id, agentId: agentId as string, period: periodLabel, totalRuns: 1, successCount: 1, failureCount: 0, avgRuntimeMs: elapsed, totalTokensUsed: tokensUsed },
       });
     }
   }

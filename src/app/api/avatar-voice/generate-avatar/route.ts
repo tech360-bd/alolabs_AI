@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCompanyAuth } from '@/lib/api-auth';
+import { CompanyAIError } from '@/lib/multi-tenant-ai/service';
 import { generate, validateGenerationInput } from '@/lib/media-generation';
 
 /**
  * POST /api/avatar-voice/generate-avatar
  *
- * Avatar image generation (image kind). `consent` is enforced: the page
- * requires the user to confirm they have the right to use the depicted
- * person, and we refuse rather than silently generating a likeness without
- * that acknowledgement.
+ * Avatar image request validation (image kind). `consent` is required for
+ * likeness-related requests. The request is deferred because no governed media
+ * generation capability is currently configured.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       ? `${input.prompt}. Presenter style: ${String(body.voiceStyle).slice(0, 40)}. Portrait avatar.`
       : `${input.prompt}. Portrait avatar.`;
 
-    const job = await generate({ ...input, prompt }, { companyId: user.companyId, userId: user.userId });
+    const job = await generate({ ...input, prompt }, { companyId: user.companyId, userId: user.userId, role: user.companyRole ?? user.role });
     const url = job.assets[0]?.url ?? null;
 
     if (job.status === 'failed') {
@@ -41,6 +41,9 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ url, image: url, jobId: job.id, job }, { status: 201 });
   } catch (error) {
+    if (error instanceof CompanyAIError) {
+      return NextResponse.json({ error: error.message, code: error.code, requestId: error.requestId }, { status: error.status });
+    }
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
       return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }

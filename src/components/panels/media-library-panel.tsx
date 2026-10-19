@@ -50,6 +50,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import { useAppStore } from '@/store/app'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -185,6 +186,7 @@ function FolderItem({
 // ─── Main Panel ──────────────────────────────────────────────────────────────
 
 export default function MediaLibraryPanel() {
+  const token = useAppStore((state) => state.token)
 
   // State
   const [files, setFiles] = useState<MediaFile[]>([])
@@ -237,7 +239,7 @@ export default function MediaLibraryPanel() {
 
   const fetchFolders = useCallback(async () => {
     try {
-      const res = await fetch('/api/media/folders')
+      const res = await fetch('/api/media/folders', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       if (res.ok) {
         const json = await res.json()
         setFolders(json.data || [])
@@ -311,6 +313,7 @@ export default function MediaLibraryPanel() {
 
         const res = await fetch('/api/media/upload', {
           method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
           body: formData,
         })
 
@@ -415,8 +418,8 @@ export default function MediaLibraryPanel() {
     try {
       const res = await fetch('/api/media/ai-tag', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: file.id, url: file.url }),
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ fileId: file.id }),
       })
       if (res.ok) {
         const json = await res.json()

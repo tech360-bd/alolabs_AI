@@ -1,53 +1,137 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/api-auth';
-import { db } from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { requireRole } from '@/lib/api-auth'
+import { db } from '@/lib/db'
 
-const defaults = {
-  enabled: true, safetyLevel: 'standard', blockedPatterns: [], allowedDomains: [],
-  maxKnowledgePerDay: 50, maxConfidence: 0.95, requireVerification: true,
-  autoFilterToxic: true, learningScope: 'task_domain', dataRetentionDays: 90,
+const DEFAULTS = {
+  enabled: true,
+  safetyLevel: 'standard',
+  blockedPatterns: [] as string[],
+  allowedDomains: [] as string[],
+  maxKnowledgePerDay: 50,
+  maxConfidence: 0.95,
+  requireVerification: true,
+  autoFilterToxic: true,
+  learningScope: 'task_domain',
+  dataRetentionDays: 90,
   violationCount: 0,
-};
-function readConfig(value: string) {
-  try { return { ...defaults, ...((JSON.parse(value) as Record<string, unknown>).protectiveMode as object ?? {}) }; }
-  catch { return defaults; }
+}
+
+const UpdateSchema = z.object({
+  agentId: z.string().min(1),
+  enabled: z.boolean().optional(),
+  safetyLevel: z.enum(['minimal', 'standard', 'strict', 'maximum']).optional(),
+  blockedPatterns: z.array(z.string().trim().min(1).max(500)).max(100).optional(),
+  allowedDomains: z.array(z.string().trim().min(1).max(253)).max(100).optional(),
+  maxKnowledgePerDay: z.number().int().min(0).max(10_000).optional(),
+  maxConfidence: z.number().min(0).max(1).optional(),
+  requireVerification: z.boolean().optional(),
+  autoFilterToxic: z.boolean().optional(),
+  learningScope: z.enum(['task_domain', 'cross_domain', 'open', 'restricted']).optional(),
+  dataRetentionDays: z.number().int().min(1).max(3650).optional(),
+}).strict()
+
+function parseStringArray(value: string | null | undefined): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value || '[]')
+    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function serializeMode(mode: Record<string, unknown> | null, agent: { id: string; agentId: string; name: string; departmentName: string }) {
+  return {
+    agentId: agent.id,
+    agent: { agentId: agent.agentId, name: agent.name, departmentName: agent.departmentName },
+    ...DEFAULTS,
+    ...(mode ?? {}),
+    blockedPatterns: parseStringArray(typeof mode?.blockedPatterns === 'string' ? mode.blockedPatterns : undefined),
+    allowedDomains: parseStringArray(typeof mode?.allowedDomains === 'string' ? mode.allowedDomains : undefined),
+  }
+}
+
+function errorResponse(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Internal server error'
+  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500
+  return NextResponse.json({ error: message }, { status })
 }
 
 export async function GET(req: NextRequest) {
   try {
-    await requireAuth();
-    const agentId = new URL(req.url).searchParams.get('agentId');
+    await requireRole('super_admin')
+    const agentId = req.nextUrl.searchParams.get('agentId')
     if (agentId) {
-      const agent = await db.agent.findUnique({ where: { id: agentId }, select: { agentId: true, name: true, departmentName: true, selfImprovement: true } });
-      if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
-      return NextResponse.json({ data: { agentId, agent: { agentId: agent.agentId, name: agent.name, departmentName: agent.departmentName }, ...readConfig(agent.selfImprovement) } });
+      const agent = await db.agent.findUnique({
+        where: { id: agentId },
+        select: { id: true, agentId: true, name: true, departmentName: true },
+      })
+      if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+      const mode = await db.agentProtectiveMode.findUnique({ where: { agentId } })
+      return NextResponse.json({ data: serializeMode(mode as unknown as Record<string, unknown> | null, agent) })
     }
-    const agents = await db.agent.findMany({ where: { status: 'active' }, take: 50, select: { id: true, agentId: true, name: true, departmentName: true, selfImprovement: true } });
-    const data = agents.map((agent) => ({ agentId: agent.id, agent: { agentId: agent.agentId, name: agent.name, departmentName: agent.departmentName }, ...readConfig(agent.selfImprovement) }));
-    const violations = data.map((item) => Number(item.violationCount) || 0);
-    return NextResponse.json({ data, stats: { total: data.length, disabledAgents: data.filter((item) => !item.enabled).length, highViolationCount: violations.filter((count) => count >= 5).length, avgViolationCount: violations.length ? violations.reduce((a, b) => a + b, 0) / violations.length : 0 } });
+
+    const agents = await db.agent.findMany({
+      where: { status: 'active' },
+      take: 100,
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true, agentId: true, name: true, departmentName: true },
+    })
+    const modes = agents.length
+      ? await db.agentProtectiveMode.findMany({ where: { agentId: { in: agents.map((agent) => agent.id) } } })
+      : []
+    const modeByAgent = new Map(modes.map((mode) => [mode.agentId, mode]))
+    const data = agents.map((agent) => serializeMode(modeByAgent.get(agent.id) as unknown as Record<string, unknown> | undefined ?? null, agent))
+    const violations = data.map((item) => Number(item.violationCount) || 0)
+    return NextResponse.json({
+      data,
+      stats: {
+        listedAgents: data.length,
+        configuredAgents: modes.length,
+        enabledConfiguredAgents: modes.filter((mode) => mode.enabled).length,
+        recordedViolations: violations.reduce((sum, value) => sum + value, 0),
+      },
+      limited: true,
+    })
   } catch (error: unknown) {
-    if (error instanceof Error && error.message.includes('Unauthorized')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return errorResponse(error)
   }
 }
 
 export async function PUT(req: NextRequest) {
   try {
-    await requireAuth();
-    const body = await req.json();
-    if (!body.agentId) return NextResponse.json({ error: 'agentId required' }, { status: 400 });
-    const agent = await db.agent.findUnique({ where: { id: body.agentId }, select: { selfImprovement: true } });
-    if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
-    let root: Record<string, unknown> = {};
-    try { root = JSON.parse(agent.selfImprovement) as Record<string, unknown>; } catch { root = {}; }
-    const allowed = ['enabled','safetyLevel','blockedPatterns','allowedDomains','maxKnowledgePerDay','maxConfidence','requireVerification','autoFilterToxic','learningScope','dataRetentionDays'];
-    const changes = Object.fromEntries(allowed.filter((key) => body[key] !== undefined).map((key) => [key, body[key]]));
-    const protectiveMode = { ...readConfig(agent.selfImprovement), ...changes };
-    await db.agent.update({ where: { id: body.agentId }, data: { selfImprovement: JSON.stringify({ ...root, protectiveMode }) } });
-    return NextResponse.json({ data: { agentId: body.agentId, ...protectiveMode } });
+    const user = await requireRole('super_admin')
+    const parsed = UpdateSchema.safeParse(await req.json())
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    const { agentId, ...changes } = parsed.data
+    const agent = await db.agent.findUnique({ where: { id: agentId }, select: { id: true, agentId: true, name: true, departmentName: true } })
+    if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+
+    const { blockedPatterns, allowedDomains, ...scalarChanges } = changes
+    const data = {
+      ...scalarChanges,
+      ...(blockedPatterns !== undefined ? { blockedPatterns: JSON.stringify(blockedPatterns) } : {}),
+      ...(allowedDomains !== undefined ? { allowedDomains: JSON.stringify(allowedDomains) } : {}),
+    }
+    const mode = await db.$transaction(async (transaction) => {
+      const updated = await transaction.agentProtectiveMode.upsert({
+        where: { agentId },
+        create: { agentId, ...data },
+        update: data,
+      })
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: user.userId,
+          action: 'agent_protective_mode.update',
+          resource: 'agent-protective-mode',
+          resourceId: updated.id,
+          details: JSON.stringify({ agentId, changedFields: Object.keys(changes) }),
+        },
+      })
+      return updated
+    })
+    return NextResponse.json({ data: serializeMode(mode as unknown as Record<string, unknown>, agent) })
   } catch (error: unknown) {
-    if (error instanceof Error && error.message.includes('Unauthorized')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return errorResponse(error)
   }
 }

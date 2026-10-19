@@ -57,6 +57,9 @@ const PLAN = {
 
 beforeEach(() => {
   resetAgentOsMocks();
+  fakeDb.db.company.create({
+    data: { id: 'company-1', slug: 'company-1', name: 'Test Company', status: 'active', paidApiAllowed: false },
+  });
   fakeDb.db.agent.create({
     data: { id: 'db-agent-1', agentId: 'AGENT-0001', name: 'Research Agent', status: 'active' },
   });

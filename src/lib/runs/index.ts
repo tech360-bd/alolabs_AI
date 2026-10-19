@@ -25,6 +25,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { db } from '@/lib/db';
+import { agentCompanyScope } from '@/lib/agent-access';
 import { getEventBus } from '@/lib/event-bus';
 import { getOrchestrator } from '@/lib/orchestrator';
 import { getExecutionEngine } from '@/lib/agent-runtime';
@@ -680,7 +681,10 @@ export async function executeRun(runId: string, options?: { plan?: PlanResult })
           `${step.title}. ${step.description}${step.agentHint ? ` (needs a ${step.agentHint} specialist)` : ''}`,
           companyId,
         );
-        const agentRecord = await db.agent.findUnique({ where: { agentId: routing.selectedAgent.agentId }, select: { id: true } });
+        const agentRecord = await db.agent.findFirst({
+          where: { agentId: routing.selectedAgent.agentId, ...agentCompanyScope(companyId, 'execute') },
+          select: { id: true },
+        });
         if (agentRecord) {
           selectedAgent = {
             agentId: routing.selectedAgent.agentId,
@@ -938,9 +942,8 @@ async function executeStepWithQC(params: {
           taskInput: stepInput,
           output: lastOutput,
           issues: gate.issues,
-          model: lastModel,
           companyId,
-          agentId: selectedAgent.agentId,
+          agentDbId: selectedAgent.dbId,
           attempt: repairAttempts,
           runId,
         });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
+import { agentCompanyScope } from '@/lib/agent-access'
 import { requireCompanyAuth } from '@/lib/api-auth'
 
 const CommunicationSchema = z.object({
@@ -72,8 +73,8 @@ export async function POST(req: NextRequest) {
       }
       fromAgentId = instance.agentId
     } else if (fromAgentId) {
-      const access = await db.agentCompanyAccess.findFirst({
-        where: { agentId: fromAgentId, companyId: user.companyId },
+      const access = await db.agent.findFirst({
+        where: { id: fromAgentId, status: 'active', ...agentCompanyScope(user.companyId, 'execute') },
         select: { id: true },
       })
       if (!access) return NextResponse.json({ error: 'Sender agent is not available to this company', success: false }, { status: 404 })
@@ -90,8 +91,8 @@ export async function POST(req: NextRequest) {
       }
       toAgentId = instance.agentId
     } else if (toAgentId) {
-      const access = await db.agentCompanyAccess.findFirst({
-        where: { agentId: toAgentId, companyId: user.companyId },
+      const access = await db.agent.findFirst({
+        where: { id: toAgentId, status: 'active', ...agentCompanyScope(user.companyId, 'execute') },
         select: { id: true },
       })
       if (!access) return NextResponse.json({ error: 'Recipient agent is not available to this company', success: false }, { status: 404 })

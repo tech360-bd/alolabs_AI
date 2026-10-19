@@ -19,6 +19,7 @@ export interface V1Identity {
   kind: 'session' | 'apiKey';
   userId: string;
   role: string;
+  companyRole?: string;
   email: string;
   name: string;
   companyId: string;
@@ -43,7 +44,7 @@ async function identityFromSession(token: string): Promise<V1Identity | null> {
   // user's first membership (v1 session identity is single-tenant by design).
   const membership = await db.companyUser.findFirst({
     where: { userId: user.id },
-    select: { companyId: true },
+    select: { companyId: true, role: true },
     orderBy: { createdAt: 'asc' },
   });
   if (!membership) return null;
@@ -52,6 +53,7 @@ async function identityFromSession(token: string): Promise<V1Identity | null> {
     kind: 'session',
     userId: user.id,
     role: user.role,
+    companyRole: membership.role,
     email: user.email,
     name: user.name,
     companyId: membership.companyId,

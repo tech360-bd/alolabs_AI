@@ -16,8 +16,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { getRouter } from '@/lib/ai-router';
 import type { AIRequest } from '@/lib/ai-router/types';
+import { executeCompanyAIChat } from '@/lib/multi-tenant-ai/service';
 import { isConfigurationError } from '@/lib/qc';
 
 export interface PlanStep {
@@ -205,9 +205,8 @@ export async function planObjective(
   options?: { preferredModel?: string; runId?: string },
 ): Promise<PlanResult> {
   try {
-    const router = getRouter();
     const request: AIRequest = {
-      model: options?.preferredModel ?? 'reasoning',
+      model: '', // Routing selects a permitted model from the reasoning capability profile.
       messages: [
         { role: 'system', content: PLANNING_SYSTEM_PROMPT },
         { role: 'user', content: `OBJECTIVE: ${objective}` },
@@ -215,10 +214,15 @@ export async function planObjective(
       maxTokens: 2048,
       temperature: 0.2,
     };
-    const response = await router.chat(request, companyId, 'master-orchestrator', {
-      runId: options?.runId,
-      taskType: 'run.plan',
-    });
+    const { response } = await executeCompanyAIChat(
+      { companyId, userId: 'system:run-planner', role: 'system' },
+      request,
+      {
+        profile: 'free_reasoning',
+        dataClassification: 'confidential',
+        ...(options?.runId ? { runId: options.runId, requestId: `${options.runId}:planner` } : {}),
+      },
+    );
     const parsed = extractJsonObject(response.content);
     if (parsed) {
       const plan = normalizeLlmPlan(parsed);

@@ -12,33 +12,136 @@ import { DEFAULT_TIMEOUT_MS, MAX_DELEGATION_DEPTH, PRIORITY_WEIGHTS } from './ty
 import { getAgentStateManager } from './state';
 import { getAgentHealthMonitor } from './health';
 import { db } from '@/lib/db';
-import { getRouter } from '@/lib/ai-router';
-import { resolveModelForTier } from '@/lib/ai-router/model-tiers';
+import { agentCompanyScope } from '@/lib/agent-access';
+import type { AIRequest, AIResponse } from '@/lib/ai-router/types';
+import { executeCompanyAIChat, CompanyAIError, type CompanyAIActor } from '@/lib/multi-tenant-ai/service';
+import type { ModelRoutingProfile } from '@/lib/multi-tenant-ai/policy';
 import { runToolLoop } from './tool-loop';
 import { parseToolList, toolSchemasFor } from '@/lib/tools';
 import { buildAgentContext, buildMinimalAgentSystemPrompt } from '@/lib/context-engine';
 import {
-  classifyTask, selectModelForTask, retrieveRelevantKnowledge,
+  classifyTask, retrieveRelevantKnowledge,
   validateExecution, storeExecutionMemory, buildRAGContextSection,
 } from './pipeline';
 import { getEventBus } from '@/lib/event-bus';
 import { validateInput, validateOutput } from '@/lib/ai-security/validator';
 
-// ─── Model Fallback Constants ────────────────────────────────────────
+// ─── Shared routing policy ──────────────────────────────────────────
 
-/** Error codes eligible for model fallback self-healing */
-export const FALLBACK_RETRYABLE_ERRORS: ReadonlySet<string> = new Set([
-  'CIRCUIT_OPEN',
-  'TIMEOUT',
-  'RATE_LIMITED',
+/**
+ * Fail-closed routing outcomes are retained as deferred tasks, not reported as
+ * successful or converted into an implicit paid-model fallback.
+ */
+const DEFERRED_ROUTING_CODES: ReadonlySet<string> = new Set([
+  'NO_AUTHORIZED_MODEL',
+  'QUOTA_UNKNOWN_OR_EXHAUSTED',
+  'FREE_TIER_STATUS_UNKNOWN',
+  'EXTERNAL_DATA_NOT_AUTHORIZED',
+  'TOKEN_BUDGET_EXHAUSTED',
+  'RATE_LIMITED_DEFERRED',
+  'AUTHORIZED_ROUTE_FAILED',
 ]);
 
-/** Model fallback chain: reasoning → balanced → fast → coding */
-export const MODEL_FALLBACK_CHAIN: Readonly<Record<string, string>> = {
-  'reasoning': 'balanced',
-  'balanced': 'fast',
-  'fast': 'coding',
-};
+interface AIEmployeeExecutionPolicy {
+  status: 'provisioned' | 'tested' | 'active';
+  allowedTools: string[];
+  forbiddenTools: string[];
+  maxConcurrentTasks: number;
+  maxTokensPerTask: number;
+  dailyTokenBudget: number;
+  timeoutSeconds: number;
+}
+
+function parsePolicyRecord(value: string | null | undefined): Record<string, unknown> | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+function parsePolicyStringList(value: string | null | undefined): string[] | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function boundedPolicyInteger(value: unknown, name: string, minimum: number, maximum: number): number {
+  if (!Number.isInteger(value) || (value as number) < minimum || (value as number) > maximum) {
+    throw new Error(`AI employee ${name} policy is invalid; execution is blocked.`);
+  }
+  return value as number;
+}
+
+/**
+ * Resolve identity controls independently from model selection. Missing table
+ * (pre-migration rollout) preserves legacy behavior; once the table exists,
+ * malformed rows and suspended/retired identities fail closed.
+ */
+async function loadAIEmployeeExecutionPolicy(companyId: string, agentDbId: string, agentDepartmentId: string): Promise<AIEmployeeExecutionPolicy | null> {
+  let row: {
+    departmentId: string;
+    status: string;
+    allowedTools: string;
+    permissionProfile: string;
+    resourceLimits: string;
+  } | null;
+  try {
+    row = await db.aIEmployeeIdentity.findFirst({
+      where: { companyId, agentDbId },
+      select: { departmentId: true, status: true, allowedTools: true, permissionProfile: true, resourceLimits: true },
+    });
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === 'P2021') return null;
+    throw error;
+  }
+  if (!row) return null;
+  if (row.departmentId !== agentDepartmentId) throw new Error('AI employee department assignment is inconsistent; execution is blocked.');
+  if (row.status === 'suspended' || row.status === 'retired') throw new Error(`AI employee identity is ${row.status}; execution is blocked.`);
+  if (row.status !== 'provisioned' && row.status !== 'tested' && row.status !== 'active') {
+    throw new Error('AI employee lifecycle status is invalid; execution is blocked.');
+  }
+
+  const allowedTools = parsePolicyStringList(row.allowedTools);
+  const profile = parsePolicyRecord(row.permissionProfile);
+  const resourceLimits = parsePolicyRecord(row.resourceLimits);
+  if (!allowedTools || !profile || !resourceLimits) throw new Error('AI employee permissions or resource policy is malformed; execution is blocked.');
+  const profileForbidden = profile.forbiddenTools;
+  if (!Array.isArray(profileForbidden) || !profileForbidden.every((tool) => typeof tool === 'string')) {
+    throw new Error('AI employee forbidden-tool policy is malformed; execution is blocked.');
+  }
+
+  return {
+    status: row.status,
+    allowedTools,
+    forbiddenTools: profileForbidden as string[],
+    maxConcurrentTasks: boundedPolicyInteger(resourceLimits.maxConcurrentTasks, 'concurrency', 1, 5),
+    maxTokensPerTask: boundedPolicyInteger(resourceLimits.maxTokensPerTask, 'token limit', 1, 32_768),
+    dailyTokenBudget: boundedPolicyInteger(resourceLimits.dailyTokenBudget, 'daily token budget', 1, 10_000_000),
+    timeoutSeconds: boundedPolicyInteger(resourceLimits.timeoutSeconds, 'timeout', 1, 3_600),
+  };
+}
+
+/** Keep task capability/complexity separate from a provider/model identity. */
+export function routingProfileForTask(classification: ReturnType<typeof classifyTask>): ModelRoutingProfile {
+  switch (classification.suggestedModelTier) {
+    case 'coding': return 'free_coding';
+    case 'reasoning': return 'free_reasoning';
+    case 'vision': return 'free_vision';
+    // RAG/search tasks still need a chat completion here; embeddings are routed
+    // separately by the RAG service through the free_embeddings profile.
+    case 'embedding':
+    case 'fast':
+    case 'balanced':
+    default: return 'free_general';
+  }
+}
 
 // ─── Execution Queue (priority-sorted) ─────────────────────────────
 
@@ -64,6 +167,11 @@ class PriorityQueue {
     return this.queue.shift();
   }
 
+  dequeueEligible(isEligible: (task: AgentTask) => boolean): AgentTask | undefined {
+    const index = this.queue.findIndex(isEligible);
+    return index >= 0 ? this.queue.splice(index, 1)[0] : undefined;
+  }
+
   remove(taskId: string): void {
     this.queue = this.queue.filter(t => t.id !== taskId);
   }
@@ -87,7 +195,7 @@ export class AgentExecutionEngine {
   private stateManager: ReturnType<typeof getAgentStateManager>;
   private healthMonitor: ReturnType<typeof getAgentHealthMonitor>;
   private queue = new PriorityQueue();
-  private processing = false;
+  private processingTaskIds = new Set<string>();
   private delegationDepth = new Map<string, number>(); // taskId -> depth
   private abortControllers = new Map<string, AbortController>();
   private dispatchTimer: ReturnType<typeof setInterval> | null = null;
@@ -128,11 +236,12 @@ export class AgentExecutionEngine {
       where: {
         agentId: params.agentId,
         status: 'active',
-        agentCompanyAccess: { some: { companyId: params.companyId } },
+        ...agentCompanyScope(params.companyId, 'execute'),
       },
-      select: { id: true },
+      select: { id: true, departmentId: true },
     })
     if (!agent) throw new Error('Agent is not active or available to this company')
+    const employeePolicy = await loadAIEmployeeExecutionPolicy(params.companyId, agent.id, agent.departmentId)
 
     if (params.userId && params.userId !== 'anonymous') {
       const membership = await db.companyUser.findUnique({
@@ -172,8 +281,14 @@ export class AgentExecutionEngine {
       context: params.context,
       systemPrompt: params.systemPrompt,
       tools: params.tools,
-      maxTokens: params.maxTokens,
-      timeoutMs: params.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      maxTokens: employeePolicy
+        ? Math.max(1, Math.min(employeePolicy.maxTokensPerTask, Number.isFinite(params.maxTokens) ? Math.floor(params.maxTokens!) : employeePolicy.maxTokensPerTask))
+        : params.maxTokens,
+      timeoutMs: employeePolicy
+        ? Math.max(1, Math.min(params.timeoutMs ?? DEFAULT_TIMEOUT_MS, employeePolicy.timeoutSeconds * 1000))
+        : params.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      employeeMaxConcurrentTasks: employeePolicy?.maxConcurrentTasks,
+      employeeIdentityRequired: employeePolicy !== null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -244,7 +359,8 @@ export class AgentExecutionEngine {
     return {
       queueDepth: this.queue.size,
       activeTasks: this.stateManager.getActiveTasks().length,
-      processing: this.processing,
+      processing: this.processingTaskIds.size > 0,
+      processingCount: this.processingTaskIds.size,
     };
   }
 
@@ -278,18 +394,6 @@ export class AgentExecutionEngine {
     this.abortControllers.set(taskId, abortController);
 
     try {
-      if (!this.stateManager.canExecute(task.agentId, task.companyId) ||
-          !this.stateManager.acquireSlot(task.agentId, task.companyId)) {
-        if (task.status === 'created') {
-          this.stateManager.transition(taskId, 'ready', 'At capacity; requeued');
-          this.queue.enqueue(this.stateManager.getTask(taskId)!);
-          return this.stateManager.getTask(taskId)!;
-        }
-        throw new Error('Execution capacity is unavailable');
-      }
-      slotAcquired = true;
-      this.stateManager.transition(taskId, 'running', 'Execution started');
-
       if (task.userId && task.userId !== 'anonymous') {
         const membership = await db.companyUser.findUnique({
           where: { companyId_userId: { companyId: task.companyId, userId: task.userId } },
@@ -304,13 +408,39 @@ export class AgentExecutionEngine {
         where: {
           agentId: task.agentId,
           status: 'active',
-          agentCompanyAccess: { some: { companyId: task.companyId } },
+          ...agentCompanyScope(task.companyId, 'execute'),
         },
+        include: { department: { select: { companyId: true } } },
       });
       if (!agent) {
         throw new Error(`Active agent ${task.agentId} is not available to this company`);
       }
       agentDbId = agent.id;
+      const employeePolicy = await loadAIEmployeeExecutionPolicy(task.companyId, agent.id, agent.departmentId);
+      if (task.employeeIdentityRequired && !employeePolicy) {
+        throw new Error('AI employee identity was removed while the task was queued; execution is blocked.');
+      }
+      task.maxTokens = employeePolicy
+        ? Math.max(1, Math.min(employeePolicy.maxTokensPerTask, task.maxTokens ?? employeePolicy.maxTokensPerTask))
+        : task.maxTokens;
+      task.timeoutMs = employeePolicy
+        ? Math.max(1, Math.min(task.timeoutMs ?? DEFAULT_TIMEOUT_MS, employeePolicy.timeoutSeconds * 1000))
+        : task.timeoutMs;
+      task.employeeMaxConcurrentTasks = employeePolicy?.maxConcurrentTasks;
+
+      if (!this.stateManager.canExecute(task.agentId, task.companyId, employeePolicy?.maxConcurrentTasks ?? task.employeeMaxConcurrentTasks) ||
+          !this.stateManager.acquireSlot(task.agentId, task.companyId, employeePolicy?.maxConcurrentTasks ?? task.employeeMaxConcurrentTasks)) {
+        if (task.status === 'created') {
+          this.stateManager.transition(taskId, 'ready', 'At capacity; requeued');
+        }
+        if (task.status === 'ready') {
+          this.queue.enqueue(this.stateManager.getTask(taskId)!);
+          return this.stateManager.getTask(taskId)!;
+        }
+        throw new Error('Execution capacity is unavailable');
+      }
+      slotAcquired = true;
+      this.stateManager.transition(taskId, 'running', 'Execution started');
 
       const inputValidation = await validateInput(
         { task: task.input, context: task.context ?? {} },
@@ -453,12 +583,10 @@ export class AgentExecutionEngine {
       }
 
       const taskClassification = classifyTask(task.input, agent.role, agent.type);
-      // The classifier yields a policy tier; the tier maps to a concrete model
-      // on the local gateway. Passing the tier string straight through (the
-      // previous behaviour) matched no provider model and silently degraded to
-      // "best model of whatever provider was selected".
-      const modelTier = selectModelForTask(taskClassification);
-      const selectedModel = resolveModelForTier(modelTier);
+      const routingProfile = routingProfileForTask(taskClassification);
+      const tenantDepartmentId = agent.department?.companyId === task.companyId
+        ? agent.departmentId
+        : undefined;
 
       try {
         getEventBus().publish({
@@ -530,95 +658,99 @@ export class AgentExecutionEngine {
         });
       }
 
-      const router = getRouter();
-      const originalModel = selectedModel;
-
       // Only tools this agent is explicitly allowed to call are advertised to
       // the model. Advertising a tool the policy will block wastes a turn and
       // teaches the model to hallucinate capability it does not have.
       const allowedToolNames = parseToolList(agent.allowedTools);
-      const forbiddenToolNames = new Set(parseToolList(agent.forbiddenTools));
-      const toolSchemas = toolSchemasFor(allowedToolNames.filter((name) => !forbiddenToolNames.has(name)));
+      const forbiddenToolNames = new Set([
+        ...parseToolList(agent.forbiddenTools),
+        ...(employeePolicy?.forbiddenTools ?? []),
+      ]);
+      const identityToolLimit = employeePolicy
+        ? new Set(employeePolicy.status === 'active' ? employeePolicy.allowedTools : [])
+        : null;
+      const effectiveAllowedTools = allowedToolNames.filter((name) =>
+        !forbiddenToolNames.has(name) && (!identityToolLimit || identityToolLimit.has(name)),
+      );
+      const toolSchemas = toolSchemasFor(effectiveAllowedTools);
 
-      const routerRequest = {
-        model: selectedModel,
+      const routerRequest: AIRequest = {
+        model: '', // capability profile chooses the model; never treat a tier label as a model ID
         messages,
         maxTokens: task.maxTokens ?? 4096,
         temperature: taskClassification.complexity === 'simple' ? 0.3 : 0.7,
         ...(toolSchemas.length > 0 ? { tools: toolSchemas } : {}),
       };
-
-      const routingContext = {
-        taskId,
-        runId: typeof task.context?.runId === 'string' ? task.context.runId : undefined,
-        taskType: `agent.task.${taskClassification.complexity}`,
+      const actor: CompanyAIActor = {
+        companyId: task.companyId,
+        userId: task.userId && task.userId !== 'anonymous' ? task.userId : 'system:agent-runtime',
+        role: 'system',
       };
-      let aiResponse;
+      const runId = typeof task.context?.runId === 'string' ? task.context.runId : undefined;
+      const dataClassification = task.riskLevel === 'critical' || task.riskLevel === 'high'
+        ? 'restricted' as const
+        : 'confidential' as const;
+      let modelCallSequence = 0;
       let modelFallback = false;
-      let fallbackTriggerError: string | undefined;
-      try {
-        aiResponse = await router.chat(routerRequest, task.companyId, task.agentId, routingContext);
-      } catch (routerError) {
-        const routerErrorCode = this.classifyError(routerError);
-        if (!FALLBACK_RETRYABLE_ERRORS.has(routerErrorCode)) throw routerError;
+      let fallbackAttempts = 0;
 
-        const fallbackTier = MODEL_FALLBACK_CHAIN[modelTier];
-        if (!fallbackTier) throw routerError;
-        const fallbackModel = resolveModelForTier(fallbackTier);
-        try {
-          aiResponse = await router.chat(
-            { ...routerRequest, model: fallbackModel },
-            task.companyId,
-            task.agentId,
-            routingContext,
-          );
+      const callCompanyModel = async (request: AIRequest): Promise<AIResponse> => {
+        const routed = await executeCompanyAIChat(actor, { ...request, model: '' }, {
+          profile: routingProfile,
+          dataClassification,
+          agentId: agent.id,
+          ...(tenantDepartmentId ? { departmentId: tenantDepartmentId } : {}),
+          ...(runId ? { runId } : {}),
+          taskId,
+          requestId: `${taskId}:model:${++modelCallSequence}`,
+        });
+        if (routed.fallbackUsed) {
           modelFallback = true;
-          fallbackTriggerError = routerErrorCode;
-        } catch {
-          throw routerError;
+          fallbackAttempts += Math.max(0, routed.attempts - 1);
+          try {
+            getEventBus().publish({
+              id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              type: 'agent.task.self_healed',
+              source: task.agentId,
+              companyId: task.companyId,
+              ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
+              data: {
+                taskId,
+                agentId: task.agentId,
+                profile: routingProfile,
+                selectedModel: routed.response.model,
+                attempts: routed.attempts,
+                fallbackAttempts: routed.attempts - 1,
+                latencyMs: Date.now() - startTime,
+              },
+              priority: 'high',
+              timestamp: new Date(),
+              correlationId: taskId,
+            }).catch(() => {});
+          } catch { /* Event delivery must not block an execution. */ }
         }
-      }
+        return routed.response;
+      };
 
-      if (modelFallback) {
-        try {
-          getEventBus().publish({
-            id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            type: 'agent.task.self_healed',
-            source: task.agentId,
-            companyId: task.companyId,
-            userId: task.userId,
-            data: {
-              taskId,
-              agentId: task.agentId,
-              originalModel,
-              originalTier: modelTier,
-              fallbackModel: aiResponse.model,
-              triggerErrorCode: fallbackTriggerError,
-              latencyMs: Date.now() - startTime,
-            },
-            priority: 'high',
-            timestamp: new Date(),
-            correlationId: taskId,
-          }).catch(() => {});
-        } catch { /* Event delivery must not block an execution. */ }
-      }
+      let aiResponse: AIResponse = await callCompanyModel(routerRequest);
 
-      // If the model asked for tools, execute them and let it continue.
+      // If the model asked for tools, execute them and let it continue through
+      // the exact same tenant policy, usage ledger, and bounded route fallback.
       let toolLoopSteps = 0;
       let toolResults: Array<{ toolName: string; ok: boolean; error?: string; blocked?: boolean; durationMs: number }> = [];
       let offeredTools: string[] = [];
       if (aiResponse.toolCalls && aiResponse.toolCalls.length > 0 && toolSchemas.length > 0) {
         const loop = await runToolLoop({
-          chat: (req, company, agentRef, ctx) => router.chat(req, company, agentRef, ctx),
+          chat: (req) => callCompanyModel(req),
           request: routerRequest,
           initialResponse: aiResponse,
           agent: {
             agentId: agent.agentId,
             agentDbId: agent.id,
             name: agent.name,
-            departmentId: agent.departmentId,
-            allowedTools: agent.allowedTools,
-            forbiddenTools: agent.forbiddenTools,
+            departmentId: tenantDepartmentId,
+            allowedTools: employeePolicy ? JSON.stringify(effectiveAllowedTools) : agent.allowedTools,
+            forbiddenTools: employeePolicy ? JSON.stringify([...forbiddenToolNames]) : agent.forbiddenTools,
           },
           context: {
             companyId: task.companyId,
@@ -682,7 +814,7 @@ export class AgentExecutionEngine {
           promptTokens: aiResponse.usage.promptTokens,
           completionTokens: aiResponse.usage.completionTokens,
           totalTokens: aiResponse.usage.totalTokens,
-          ...(modelFallback ? { modelFallback: true, originalModel } : {}),
+          ...(modelFallback ? { modelFallback: true, fallbackAttempts, routingProfile } : {}),
           ...(toolLoopSteps > 0 ? { toolLoopSteps, offeredTools } : {}),
           toolResults,
         },
@@ -702,7 +834,8 @@ export class AgentExecutionEngine {
           companyId: task.companyId,
           latencyMs: aiResponse.latencyMs,
           contextSources,
-          status: 'running',
+          status: 'completed',
+          completedAt: new Date(),
           instanceId: task.instanceId,
           requestId: task.id,
           userId: task.userId,
@@ -790,6 +923,65 @@ export class AgentExecutionEngine {
     } catch (error) {
       const latency = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
+      if (error instanceof CompanyAIError && DEFERRED_ROUTING_CODES.has(error.code)) {
+        task.error = {
+          code: error.code,
+          message: errorMessage,
+          retryable: error.code !== 'EXTERNAL_DATA_NOT_AUTHORIZED' && error.code !== 'TOKEN_BUDGET_EXHAUSTED',
+          attempts: 1,
+          maxRetries: 3,
+          lastAttemptAt: new Date(),
+        };
+        if (task.status === 'running') {
+          this.stateManager.transition(taskId, 'paused', `Model routing deferred: ${error.code}`);
+        }
+        try {
+          getEventBus().publish({
+            id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            type: 'agent.task.deferred',
+            source: task.agentId,
+            companyId: task.companyId,
+            ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
+            data: { taskId, agentId: task.agentId, code: error.code, requestId: error.requestId, message: errorMessage },
+            priority: task.priority,
+            timestamp: new Date(),
+            correlationId: taskId,
+          }).catch(() => {});
+        } catch { /* Event delivery must not block safe deferral. */ }
+
+        if (agentDbId) {
+          await db.agentRun.create({
+            data: {
+              id: task.id,
+              agentId: agentDbId,
+              companyId: task.companyId,
+              input: task.input,
+              status: 'deferred',
+              instanceId: task.instanceId,
+              requestId: task.id,
+              userId: task.userId,
+              priority: task.priority,
+              riskScore: task.riskScore,
+              securityFlags: JSON.stringify(task.securityFlags ?? []),
+              approvalId: task.approvalId,
+              error: error.code,
+              errorMessage,
+              durationMs: latency,
+              completedAt: new Date(),
+            },
+          }).catch(() => { /* Deferred status remains visible in memory if persistence is unavailable. */ });
+        }
+        await db.auditLog.create({
+          data: {
+            action: 'agent_execution_deferred',
+            resource: task.agentId,
+            details: JSON.stringify({ taskId, companyId: task.companyId, errorCode: error.code, requestId: error.requestId, latencyMs: latency }),
+            ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
+          },
+        }).catch(() => {});
+        return this.stateManager.getTask(taskId)!;
+      }
+
       const retryable = this.isRetryable(error);
       const errorCode = this.classifyError(error);
 
@@ -875,19 +1067,22 @@ export class AgentExecutionEngine {
   }
 
   private processQueue(): void {
-    if (this.processing) return;
-    if (this.queue.size === 0) return;
+    const configuredConcurrency = Number.parseInt(process.env.AGENT_RUNTIME_MAX_PARALLEL_TASKS ?? '4', 10);
+    const maxParallelTasks = Math.max(1, Math.min(16, Number.isFinite(configuredConcurrency) ? configuredConcurrency : 4));
 
-    const task = this.queue.dequeue();
-    if (!task) return;
+    while (this.processingTaskIds.size < maxParallelTasks) {
+      const task = this.queue.dequeueEligible((candidate) =>
+        candidate.status === 'ready' && this.stateManager.canExecute(candidate.agentId, candidate.companyId),
+      );
+      if (!task) return;
 
-    // Skip if no longer in ready state
-    if (task.status !== 'ready') return;
-
-    this.processing = true;
-    this.runTask(task.id)
-      .catch((err) => console.error(`[AgentRuntime] Task ${task.id} error:`, err))
-      .finally(() => { this.processing = false; });
+      // runTask acquires the company/agent slot synchronously before its first
+      // await, so each dispatch reserves capacity before the next loop pass.
+      this.processingTaskIds.add(task.id);
+      void this.runTask(task.id)
+        .catch((err) => console.error(`[AgentRuntime] Task ${task.id} error:`, err))
+        .finally(() => { this.processingTaskIds.delete(task.id); });
+    }
   }
 
   // ─── Internal: Helpers ─────────────────────────────────────────
@@ -908,6 +1103,7 @@ export class AgentExecutionEngine {
   }
 
   private classifyError(error: unknown): string {
+    if (error instanceof CompanyAIError) return error.code;
     if (error instanceof Error) {
       const msg = error.message.toLowerCase();
       if (msg.includes('timeout')) return 'TIMEOUT';
