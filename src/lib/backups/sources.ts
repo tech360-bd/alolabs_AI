@@ -69,8 +69,6 @@ export function resolveSqlitePath(database: string): string {
 
 // ─── SQLite ────────────────────────────────────────────────────────────────
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 class SqliteBackupSource implements BackupSource {
   readonly dialect = 'sqlite' as const;
   readonly sourceNote: string;

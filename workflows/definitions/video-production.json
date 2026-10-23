@@ -4,8 +4,8 @@
   "slug": "video-production",
   "description": "Script, storyboard, animate, edit video content",
   "triggers": [
-    "video",
-    "reel",
+    "create video",
+    "create reel",
     "short video",
     "storyboard"
   ],

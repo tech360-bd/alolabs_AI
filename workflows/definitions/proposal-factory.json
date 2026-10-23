@@ -6,7 +6,7 @@
   "triggers": [
     "proposal",
     "contract",
-    "quote"
+    "request quote"
   ],
   "department": "Sales",
   "steps": [

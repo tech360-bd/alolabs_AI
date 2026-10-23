@@ -60,22 +60,23 @@ actually serve — nothing else needs to change.
 # 1. Bring up the local stack (MySQL, Qdrant, Ollama, n8n, app)
 docker compose -f docker-compose.inference.yml up -d
 
-# 2. Pull the tier models once (large download — check free disk first)
+# 2. Check the host's available RAM/disk first. The one-shot pull defaults to
+#    only the fast-tier starter; this still needs an actual inference test.
 docker compose -f docker-compose.inference.yml --profile models up model-pull
 
-# 3. Prove the gateway actually serves every tier
-docker compose -f docker-compose.inference.yml exec app npx tsx scripts/verify-inference.ts
+# 3. Verify only the starter tier until other models have been selected,
+#    downloaded and tested on the target hardware.
+docker compose -f docker-compose.inference.yml exec app npx tsx scripts/verify-inference.ts --tiers fast
+
+# After measured capacity review, explicitly request additional model IDs:
+# MODEL_PULL_MODELS='qwen2.5:1.5b-instruct,embeddinggemma:300m' docker compose -f docker-compose.inference.yml --profile models up model-pull
 ```
 
 `verify:inference` sends a real completion per tier and reports model id,
 latency and the reply. It exits non-zero if any tier fails; it never falls back
 to a paid provider.
 
-```
-OK   reasoning qwen2.5:72b-instruct         1842ms — I am qwen2.5:72b-instruct.
-OK   fast      qwen2.5:1.5b-instruct          61ms — I am qwen2.5:1.5b-instruct.
-6/6 tiers responding
-```
+The example output in `scripts/verify-inference.ts` documentation is illustrative only; do not treat it as a current benchmark or evidence that any tier is loaded on a target host. Capture actual output from the target model server for each run.
 
 Useful flags: `--tiers reasoning,fast`, `--base-url`, `--json`,
 `--max-tokens`, `--timeout`.

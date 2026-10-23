@@ -4,9 +4,9 @@
   "slug": "auto-deploy",
   "description": "Auto-deploy project to domain with SSL, Nginx, etc.",
   "triggers": [
-    "deploy",
-    "domain",
-    "server"
+    "deploy application",
+    "configure domain",
+    "provision server"
   ],
   "department": "DevOps",
   "steps": [

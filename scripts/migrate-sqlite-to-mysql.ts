@@ -23,14 +23,22 @@ interface MigrateOptions {
 }
 
 export async function migrateSQLiteToMySQL(options: MigrateOptions) {
-  const { sqlitePath, mysqlUrl, dryRun = false, batchSize = 250 } = options;
+  const { sqlitePath, mysqlUrl, dryRun = true, batchSize = 250 } = options;
+
+  // This legacy importer is intentionally dry-run-only. Its old apply path
+  // deleted destination tables, disabled FK checks and relaxed sql_mode, so it
+  // cannot satisfy the current backup/restore and transactional migration gate.
+  // Refuse before opening either database; a new reviewed migration is required.
+  if (!dryRun) {
+    throw new Error('Legacy SQLite→MySQL apply is disabled: the importer is destructive and non-transactional. Do not run it against production.');
+  }
 
   console.log('============================================================');
-  console.log('ALO Labs — SQLite to MySQL/MariaDB Migration Engine');
+  console.log('ALO Labs — SQLite to MySQL/MariaDB Migration PREVIEW');
   console.log('============================================================');
   console.log(`Source SQLite: ${sqlitePath}`);
-  console.log(`Target MySQL:  ${mysqlUrl.replace(/:[^:@]+@/, ':****@')}`);
-  console.log(`Dry Run:       ${dryRun}`);
+  console.log('Target MySQL:  not connected in preview mode');
+  console.log('Dry Run:       true (writes disabled)');
   console.log('============================================================\n');
 
   if (!fs.existsSync(sqlitePath)) {
@@ -224,8 +232,10 @@ if (require.main === module) {
   ].filter(Boolean) as string[];
 
   const sqlitePath = candidatePaths.find((p) => fs.existsSync(p)) || candidatePaths[0];
-  const mysqlUrl = process.argv[3] || process.env.DATABASE_URL || 'mysql://alohub_user:password@127.0.0.1:3306/db_hosting';
-  const dryRun = process.argv.includes('--dry-run');
+  const mysqlUrl = process.argv[3] || process.env.DATABASE_URL || '';
+  // Preview is the default. The current legacy apply path is intentionally
+  // rejected above until a backup-verified transactional replacement exists.
+  const dryRun = !process.argv.includes('--apply') || process.argv.includes('--dry-run');
 
   migrateSQLiteToMySQL({ sqlitePath, mysqlUrl, dryRun })
     .then((res) => {

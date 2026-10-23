@@ -3,8 +3,9 @@
  * ALO Labs workforce provisioning CLI (idempotent).
  *
  * Usage:
- *   npx tsx scripts/provision-workforce.ts              # apply managed rows, then verify
+ *   npx tsx scripts/provision-workforce.ts              # dry-run (default; no writes)
  *   npx tsx scripts/provision-workforce.ts --dry-run    # report what would change; no writes
+ *   npx tsx scripts/provision-workforce.ts --apply      # explicit write mode, after owner approval
  *   npx tsx scripts/provision-workforce.ts --verify     # read-only verification only
  *
  * Exit codes: 0 = provisioned/verified, 1 = conflicts or verification failure, 2 = error.
@@ -13,11 +14,12 @@
 import { buildWorkforcePlan, createPrismaWorkforceStore, provisionWorkforce, verifyWorkforce } from '../src/lib/workforce';
 import { getDepartmentRegistry } from '../src/lib/department-registry';
 import { db } from '../src/lib/db';
+import { workforceProvisionMode } from '../src/lib/workforce/cli-policy';
 
 async function main(): Promise<number> {
-  const args = new Set(process.argv.slice(2));
-  const dryRun = args.has('--dry-run');
-  const verifyOnly = args.has('--verify');
+  const mode = workforceProvisionMode(process.argv.slice(2));
+  const dryRun = mode === 'dry-run';
+  const verifyOnly = mode === 'verify';
 
   const plan = buildWorkforcePlan(getDepartmentRegistry().getAllDepartments());
   const store = createPrismaWorkforceStore(db);

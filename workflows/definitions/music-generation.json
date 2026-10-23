@@ -4,11 +4,11 @@
   "slug": "music-generation",
   "description": "Generate original lyrics, melodies, beats, and music",
   "triggers": [
-    "song",
-    "music",
-    "jingle",
-    "lyric",
-    "melody"
+    "song writing",
+    "music generation",
+    "create jingle",
+    "write lyrics",
+    "compose melody"
   ],
   "department": "Content Marketing",
   "steps": [

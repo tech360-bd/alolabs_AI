@@ -2,9 +2,9 @@
  * Comprehensive MySQL Schema & Compatibility Verification
  * ALO Labs AI-EOS
  *
- * Verifies the MySQL Prisma schema's indexed and relation scalar field types,
- * plus selected content fields that must use @db.LongText. This is a static
- * schema check; it does not connect to or inspect a live MySQL database.
+ * Verifies SQLite/MySQL Prisma model and logical field-type parity, MySQL
+ * indexed and relation scalar field safety, plus selected @db.LongText fields.
+ * This is static only; it does not connect to a live MySQL database.
  */
 
 import fs from 'fs';
@@ -12,6 +12,8 @@ import path from 'path';
 
 export interface VerificationResult {
   totalModels: number;
+  sqliteModels: number;
+  schemaParityErrors: number;
   totalIndexes: number;
   indexCollisions: number;
   relationFieldCollisions: number;
@@ -20,12 +22,32 @@ export interface VerificationResult {
   errors: string[];
 }
 
+function parseModelFields(content: string): Map<string, Map<string, string>> {
+  const models = new Map<string, Map<string, string>>();
+  const modelPattern = /^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm;
+  for (const match of content.matchAll(modelPattern)) {
+    const fields = new Map<string, string>();
+    for (const line of match[2].split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('@@')) continue;
+      const field = trimmed.match(/^([a-zA-Z0-9_]+)\s+([a-zA-Z0-9_?\[\]]+)/);
+      if (field) fields.set(field[1], field[2]);
+    }
+    models.set(match[1], fields);
+  }
+  return models;
+}
+
 export function verifyCompatibility(sqlitePath?: string): VerificationResult {
   const mysqlSchemaPath = path.join(process.cwd(), 'prisma', 'schema.mysql.prisma');
+  const sourceSchemaPath = sqlitePath ?? path.join(process.cwd(), 'prisma', 'schema.prisma');
   if (!fs.existsSync(mysqlSchemaPath)) {
     throw new Error('schema.mysql.prisma not found. Run scripts/generate-mysql-schema.ts first.');
   }
+  if (!fs.existsSync(sourceSchemaPath)) throw new Error('schema.prisma not found.');
 
+  const sourceContent = fs.readFileSync(sourceSchemaPath, 'utf8');
+  const sourceModels = parseModelFields(sourceContent);
   const content = fs.readFileSync(mysqlSchemaPath, 'utf8');
   const lines = content.split('\n');
 
@@ -82,6 +104,34 @@ export function verifyCompatibility(sqlitePath?: string): VerificationResult {
     }
   }
 
+  // Verify model/field/type parity before checking MySQL-specific annotations.
+  const schemaParityStart = errors.length;
+  for (const model of sourceModels.keys()) {
+    if (!modelFields.has(model)) errors.push(`MySQL schema is missing model ${model}`);
+  }
+  for (const [model, sourceFields] of sourceModels.entries()) {
+    const mysqlFields = modelFields.get(model);
+    if (!mysqlFields) continue;
+    for (const [field, sourceType] of sourceFields.entries()) {
+      const mysqlDefinition = mysqlFields.get(field);
+      if (!mysqlDefinition) {
+        errors.push(`MySQL schema is missing field ${model}.${field}`);
+        continue;
+      }
+      const mysqlType = mysqlDefinition.match(/^\w+\s+([a-zA-Z0-9_?\[\]]+)/)?.[1];
+      if (mysqlType !== sourceType) {
+        errors.push(`Field type mismatch ${model}.${field}: SQLite=${sourceType}, MySQL=${mysqlType ?? 'unparsed'}`);
+      }
+    }
+    for (const field of mysqlFields.keys()) {
+      if (!sourceFields.has(field)) errors.push(`MySQL schema has unexpected field ${model}.${field}`);
+    }
+  }
+  for (const model of modelFields.keys()) {
+    if (!sourceModels.has(model)) errors.push(`MySQL schema has unexpected model ${model}`);
+  }
+  const schemaParityErrors = errors.length - schemaParityStart;
+
   // 1. Verify 0 index collisions on LongText
   let totalIndexes = 0;
   let indexCollisions = 0;
@@ -117,11 +167,15 @@ export function verifyCompatibility(sqlitePath?: string): VerificationResult {
     { model: 'DomainDeployment', field: 'deployLog' },
     { model: 'Skill', field: 'purpose' },
     { model: 'Skill', field: 'content' },
-    { model: 'Agent', field: 'systemPrompt' },
-    { model: 'RagDocument', field: 'content' },
+    { model: 'Agent', field: 'purpose' },
+    { model: 'Agent', field: 'systemInstructions' },
+    { model: 'AgentExecution', field: 'input' },
+    { model: 'AgentExecution', field: 'executionOutput' },
+    { model: 'AgentRun', field: 'input' },
+    { model: 'AgentRun', field: 'output' },
     { model: 'RagChunk', field: 'content' },
-    { model: 'ExecutionLog', field: 'output' },
-    { model: 'PromptTemplate', field: 'content' },
+    { model: 'PromptTemplate', field: 'systemPrompt' },
+    { model: 'PromptTemplate', field: 'userTemplate' },
   ];
 
   let criticalFieldsVerified = 0;
@@ -129,17 +183,22 @@ export function verifyCompatibility(sqlitePath?: string): VerificationResult {
 
   for (const check of criticalChecks) {
     const fieldDef = modelFields.get(check.model)?.get(check.field);
-    if (fieldDef) {
-      criticalFieldsVerified++;
-      if (!fieldDef.includes('@db.LongText')) {
-        criticalFieldsPassed = false;
-        errors.push(`Critical field ${check.model}.${check.field} is NOT @db.LongText`);
-      }
+    if (!fieldDef) {
+      criticalFieldsPassed = false;
+      errors.push(`Critical field ${check.model}.${check.field} is missing`);
+      continue;
+    }
+    criticalFieldsVerified++;
+    if (!fieldDef.includes('@db.LongText')) {
+      criticalFieldsPassed = false;
+      errors.push(`Critical field ${check.model}.${check.field} is NOT @db.LongText`);
     }
   }
 
   const result: VerificationResult = {
     totalModels: modelFields.size,
+    sqliteModels: sourceModels.size,
+    schemaParityErrors,
     totalIndexes,
     indexCollisions,
     relationFieldCollisions,
@@ -151,7 +210,8 @@ export function verifyCompatibility(sqlitePath?: string): VerificationResult {
   console.log('============================================================');
   console.log('MySQL Schema Compatibility Verification');
   console.log('============================================================');
-  console.log(`Total Models:            ${result.totalModels}`);
+  console.log(`Models (SQLite/MySQL):    ${result.sqliteModels}/${result.totalModels}`);
+  console.log(`Schema parity errors:     ${result.schemaParityErrors} (Must be 0)`);
   console.log(`Total Indexed Fields:    ${result.totalIndexes}`);
   console.log(`Index Collisions:        ${result.indexCollisions} (Must be 0)`);
   console.log(`Relation Field Collisions: ${result.relationFieldCollisions} (Must be 0)`);
