@@ -4,8 +4,8 @@
   "slug": "web-scraper",
   "description": "Scrape public website data to markdown/JSON",
   "triggers": [
-    "scrape",
-    "crawl",
+    "scrape website",
+    "crawl website",
     "extract data"
   ],
   "department": "Software Development",

@@ -122,7 +122,9 @@ services:
       start_period: 20s
     networks: [alolabs-net]
 
-  # One-shot: pulls the tier models. Run explicitly, never on every `up`.
+  # One-shot: by default pulls ONLY the small fast-tier starter model. This is
+  # not proof it fits any target host; inspect available RAM/disk first. Add
+  # larger model IDs explicitly through MODEL_PULL_MODELS after capacity review.
   model-pull:
     image: ollama/ollama:latest
     profiles: ["models"]
@@ -131,22 +133,26 @@ services:
         condition: service_started
     environment:
       OLLAMA_HOST: http://ollama:11434
-      LOCAL_MODEL_REASONING: ${LOCAL_MODEL_REASONING:-qwen2.5:72b-instruct}
-      LOCAL_MODEL_BALANCED: ${LOCAL_MODEL_BALANCED:-qwen2.5:32b-instruct}
-      LOCAL_MODEL_FAST: ${LOCAL_MODEL_FAST:-qwen2.5:1.5b-instruct}
-      LOCAL_MODEL_CODING: ${LOCAL_MODEL_CODING:-qwen2.5-coder:32b-instruct}
-      LOCAL_MODEL_VISION: ${LOCAL_MODEL_VISION:-qwen2.5vl:7b}
-      LOCAL_MODEL_EMBEDDING: ${LOCAL_MODEL_EMBEDDING:-embeddinggemma:300m}
+      MODEL_PULL_MODELS: ${MODEL_PULL_MODELS:-qwen2.5:1.5b-instruct}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         set -e
-        for model in "$$LOCAL_MODEL_REASONING" "$$LOCAL_MODEL_BALANCED" "$$LOCAL_MODEL_FAST" \
-                     "$$LOCAL_MODEL_CODING" "$$LOCAL_MODEL_VISION" "$$LOCAL_MODEL_EMBEDDING"; do
-          echo "pulling $$model"
+        if [ -z "$$MODEL_PULL_MODELS" ]; then
+          echo "MODEL_PULL_MODELS is empty; choose model IDs after reviewing host capacity."
+          exit 2
+        fi
+        old_ifs=$$IFS
+        IFS=,
+        set -- $$MODEL_PULL_MODELS
+        IFS=$$old_ifs
+        for model in "$$@"; do
+          model=$$(printf '%s' "$$model" | tr -d '[:space:]')
+          [ -n "$$model" ] || continue
+          echo "pulling explicitly selected model: $$model"
           ollama pull "$$model"
         done
-        echo "all tier models present"
+        echo "selected model pulls complete"
         ollama list
     networks: [alolabs-net]
 

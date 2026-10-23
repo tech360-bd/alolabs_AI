@@ -4,8 +4,8 @@
   "slug": "seo-audit",
   "description": "Complete SEO audit and optimization plan",
   "triggers": [
-    "SEO",
-    "audit",
+    "SEO audit",
+    "website audit",
     "optimization",
     "rankings"
   ],

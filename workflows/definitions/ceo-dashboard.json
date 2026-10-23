@@ -4,10 +4,10 @@
   "slug": "ceo-dashboard",
   "description": "Generate executive summary and KPI dashboard",
   "triggers": [
-    "CEO",
+    "CEO dashboard",
     "executive",
     "summary",
-    "KPI"
+    "KPI report"
   ],
   "department": "Executive Office",
   "steps": [

@@ -98,7 +98,6 @@ const MIME_BY_EXTENSION: Record<string, string> = {
  */
 export function sanitizeFilename(name: string): string {
   const base = (name ?? '').split(/[\\/]/).pop() ?? '';
-  // eslint-disable-next-line no-control-regex
   let cleaned = base.replace(/[\x00-\x1f\x7f]/g, '').replace(/[^A-Za-z0-9._ -]/g, '_').replace(/\s+/g, '-');
   cleaned = cleaned.replace(/^[._-]+/, ''); // no hidden/relative prefixes
   if (!cleaned) cleaned = 'file';

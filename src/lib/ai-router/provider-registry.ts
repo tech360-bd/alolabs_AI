@@ -315,10 +315,11 @@ export function providersFromEnvironment(env: NodeJS.ProcessEnv = process.env): 
       create: () => new OllamaProvider(normaliseOllamaEndpoint(ollamaEndpoint)),
     });
   }
-  // The Z-AI SDK reads its own `.z-ai-config`; keep the historical default
-  // unless the operator explicitly disables it.
-  if (env.ZAI_SDK_ENABLED !== 'false') {
-    specs.push({ name: 'zai-sdk', source: '.z-ai-config', create: () => new ZAIProvider() });
+  // A provider without an explicit API key may still rely on a hosted account,
+  // subscription, or implicit backend credential. Never enable it by default:
+  // operators must consciously opt in after reviewing billing and data flow.
+  if (env.ZAI_SDK_ENABLED === 'true') {
+    specs.push({ name: 'zai-sdk', source: 'ZAI_SDK_ENABLED=true', create: () => new ZAIProvider() });
   }
   return specs;
 }

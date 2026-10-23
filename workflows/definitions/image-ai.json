@@ -4,11 +4,11 @@
   "slug": "image-ai",
   "description": "Generate images, posters, thumbnails, product images",
   "triggers": [
-    "image",
-    "poster",
+    "generate image",
+    "create poster",
     "thumbnail",
     "product image",
-    "design"
+    "design graphics"
   ],
   "department": "Content Marketing",
   "steps": [

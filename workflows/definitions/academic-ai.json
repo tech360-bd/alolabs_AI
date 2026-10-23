@@ -4,12 +4,12 @@
   "slug": "academic-ai",
   "description": "Study plans, lessons, quizzes, exams, flashcards",
   "triggers": [
-    "study",
+    "academic study help",
     "academic",
-    "course",
-    "lesson",
-    "quiz",
-    "exam"
+    "course recommendation",
+    "lesson plan",
+    "create a quiz",
+    "exam assessment"
   ],
   "department": "Learning & Development",
   "steps": [
