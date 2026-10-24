@@ -13,7 +13,8 @@ import {
   GRID,
   RADIUS,
   STROKE,
-  TYPE_RAMP,
+  typeRampFor,
+  type TypeRamp,
   nodeTreatment,
   linkStroke,
   type NodeKind,
@@ -64,6 +65,11 @@ export class SceneBuilder {
 
   get t(): RoleTokens {
     return this.opts.tokens
+  }
+
+  /** Skin-aware type ramp — the terminal skin runs every role 1–2px larger. */
+  get ramp(): TypeRamp {
+    return typeRampFor(this.opts.skin)
   }
 
   get theme(): 'light' | 'dark' {
@@ -121,9 +127,9 @@ export class SceneBuilder {
       y: snap(r.y + 16),
       text: label.toUpperCase(),
       family: 'mono',
-      size: TYPE_RAMP.zoneLabel.size,
-      weight: TYPE_RAMP.zoneLabel.weight,
-      tracking: TYPE_RAMP.zoneLabel.tracking,
+      size: this.ramp.zoneLabel.size,
+      weight: this.ramp.zoneLabel.weight,
+      tracking: this.ramp.zoneLabel.tracking,
       fill: this.t.soft,
       anchor: 'start',
     })
@@ -132,7 +138,7 @@ export class SceneBuilder {
 
   /** Section heading inside a zone (sans, small). */
   heading(x: number, y: number, text: string, opts: { anchor?: 'start' | 'middle' | 'end'; role?: TextRole; fill?: string } = {}) {
-    const ramp = TYPE_RAMP[opts.role ?? 'nodeName']
+    const ramp = this.ramp[opts.role ?? 'nodeName']
     return this.push(12, {
       t: 'text',
       x: snap(x),
@@ -212,9 +218,9 @@ export class SceneBuilder {
         y: placement.textY,
         text: label,
         family: 'mono',
-        size: TYPE_RAMP.arrowLabel.size,
-        weight: TYPE_RAMP.arrowLabel.weight,
-        tracking: TYPE_RAMP.arrowLabel.tracking,
+        size: this.ramp.arrowLabel.size,
+        weight: this.ramp.arrowLabel.weight,
+        tracking: this.ramp.arrowLabel.tracking,
         fill: this.t.soft,
         anchor: placement.anchor,
       })
@@ -304,7 +310,7 @@ export class SceneBuilder {
     // 3. Rectangular type tag (rx=2, never a pill)
     if (spec.tag) {
       const tag = spec.tag.slice(0, 6).toUpperCase()
-      const w = snapUp(measureText(tag, { family: 'mono', size: TYPE_RAMP.tag.size, tracking: 0.08 })) + 8
+      const w = snapUp(measureText(tag, { family: 'mono', size: this.ramp.tag.size, tracking: 0.08 })) + 8
       const h = 12
       const tx = box.x + 8
       const ty = box.y + 6
@@ -325,9 +331,9 @@ export class SceneBuilder {
         y: ty + 9,
         text: tag,
         family: 'mono',
-        size: TYPE_RAMP.tag.size,
-        weight: TYPE_RAMP.tag.weight,
-        tracking: TYPE_RAMP.tag.tracking,
+        size: this.ramp.tag.size,
+        weight: this.ramp.tag.weight,
+        tracking: this.ramp.tag.tracking,
         fill: alpha(this.t.ink, 0.8),
         anchor: 'middle',
       })
@@ -354,8 +360,8 @@ export class SceneBuilder {
       y: hasSub ? centerY - 2 : centerY + 4,
       text: spec.name,
       family: 'sans',
-      size: TYPE_RAMP.nodeName.size,
-      weight: opts.weight ?? TYPE_RAMP.nodeName.weight,
+      size: this.ramp.nodeName.size,
+      weight: opts.weight ?? this.ramp.nodeName.weight,
       fill: opts.nameFill ?? this.t.ink,
       anchor: 'middle',
     })
@@ -366,7 +372,7 @@ export class SceneBuilder {
         y: centerY + 14,
         text: spec.sublabel,
         family: 'mono',
-        size: TYPE_RAMP.sublabel.size,
+        size: this.ramp.sublabel.size,
         fill: this.t.muted,
         anchor: 'middle',
       })
@@ -403,8 +409,8 @@ export class SceneBuilder {
       y: snap(cy + 4),
       text: spec.name,
       family: 'sans',
-      size: TYPE_RAMP.nodeName.size,
-      weight: TYPE_RAMP.nodeName.weight,
+      size: this.ramp.nodeName.size,
+      weight: this.ramp.nodeName.weight,
       fill: this.t.ink,
       anchor: 'middle',
     })
@@ -415,7 +421,7 @@ export class SceneBuilder {
         y: snap(cy + 18),
         text: spec.sublabel,
         family: 'mono',
-        size: TYPE_RAMP.sublabel.size,
+        size: this.ramp.sublabel.size,
         fill: this.t.muted,
         anchor: 'middle',
       })
@@ -543,7 +549,7 @@ export class SceneBuilder {
       id?: string
     } = {},
   ) {
-    const ramp = TYPE_RAMP[opts.role ?? 'chartLabel']
+    const ramp = this.ramp[opts.role ?? 'chartLabel']
     const family = opts.family ?? (ramp.family === 'serif' ? 'serif' : ramp.family === 'mono' ? 'mono' : 'sans')
     return this.push(
       opts.layer ?? 45,
@@ -572,7 +578,7 @@ export class SceneBuilder {
     text: string,
     opts: { width?: number; anchor?: 'start' | 'middle' | 'end'; rule?: boolean } = {},
   ) {
-    const size = TYPE_RAMP.callout.size
+    const size = this.ramp.callout.size
     const w = opts.width ?? Math.max(160, measureText(text, { family: 'serif', size, tracking: 0 }))
     this.push(50, {
       t: 'text',
@@ -631,9 +637,9 @@ export class SceneBuilder {
       y: snap(y),
       text: text.toUpperCase(),
       family: 'mono',
-      size: TYPE_RAMP.axis.size,
-      weight: TYPE_RAMP.axis.weight,
-      tracking: TYPE_RAMP.axis.tracking,
+      size: this.ramp.axis.size,
+      weight: this.ramp.axis.weight,
+      tracking: this.ramp.axis.tracking,
       fill: this.t.soft,
       anchor,
     })
@@ -646,8 +652,8 @@ export class SceneBuilder {
       y: Math.round(y * 100) / 100,
       text,
       family: 'mono',
-      size: TYPE_RAMP.chartValue.size,
-      weight: TYPE_RAMP.chartValue.weight,
+      size: this.ramp.chartValue.size,
+      weight: this.ramp.chartValue.weight,
       fill: this.t.soft,
       anchor,
     })
@@ -655,7 +661,7 @@ export class SceneBuilder {
 
   /** Value chip with a mask behind it (bar labels, cell values). */
   chip(x: number, y: number, text: string, opts: { anchor?: 'start' | 'middle' | 'end'; fill?: string } = {}) {
-    const w = snapUp(measureText(text, { family: 'mono', size: TYPE_RAMP.chartValue.size })) + 8
+    const w = snapUp(measureText(text, { family: 'mono', size: this.ramp.chartValue.size })) + 8
     const h = 12
     const originX = opts.anchor === 'start' ? x : opts.anchor === 'end' ? x - w : x - w / 2
     this.push(43, { t: 'mask', x: snap(originX), y: snap(y - 8), w, h, rx: 2 })
@@ -665,8 +671,8 @@ export class SceneBuilder {
       y: Math.round(y * 100) / 100 + 1,
       text,
       family: 'mono',
-      size: TYPE_RAMP.chartValue.size,
-      weight: TYPE_RAMP.chartValue.weight,
+      size: this.ramp.chartValue.size,
+      weight: this.ramp.chartValue.weight,
       fill: opts.fill ?? this.t.ink,
       anchor: opts.anchor ?? 'middle',
     })

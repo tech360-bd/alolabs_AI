@@ -3,7 +3,7 @@
 /**
  * Design system reference — diagrams, buttons, cards and tokens.
  *
- * This is the living specification: the diagram gallery (44 visual types), the
+ * This is the living specification: the diagram gallery (45 visual types), the
  * editorial button language, the varied-width summary card pattern, and the
  * semantic token table every surface draws from.
  */
@@ -17,11 +17,15 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AL0Note } from './alo-note'
 import { KINDS, RADIUS, STROKE, TOKENS, NODE_TREATMENT_PREVIEW, TYPE_RAMP_PREVIEW } from './design-tokens'
+import { SEMANTIC_PATTERNS } from '@/lib/diagram-design/semantic-patterns'
+import { KIND_MAP } from '@/lib/diagram-design/tokens'
+import { EditorialDiagram } from '@/components/diagrams/editorial-diagram'
 
-type Tab = 'diagrams' | 'motion' | 'icons' | 'import' | 'buttons' | 'cards' | 'tokens'
+type Tab = 'diagrams' | 'patterns' | 'motion' | 'icons' | 'import' | 'buttons' | 'cards' | 'tokens'
 
 const TABS: { id: Tab; label: string; hint: string }[] = [
-  { id: 'diagrams', label: 'Diagrams', hint: '44 visual types, three variants' },
+  { id: 'diagrams', label: 'Diagrams', hint: '45 visual types, three variants' },
+  { id: 'patterns', label: 'Patterns', hint: '9 semantic routing patterns' },
   { id: 'motion', label: 'Motion', hint: 'Step, reveal and loop playback' },
   { id: 'icons', label: 'Icons', hint: '87 monochrome and brand icons' },
   { id: 'import', label: 'Import', hint: 'Mermaid, draw.io, Excalidraw' },
@@ -97,6 +101,7 @@ export default function DesignSystemPage() {
 
       <main className="mx-auto max-w-[1400px] px-6 py-10">
         {tab === 'diagrams' && <DiagramStudio />}
+        {tab === 'patterns' && <PatternsSection />}
         {tab === 'motion' && <MotionSection />}
         {tab === 'icons' && <IconsSection />}
         {tab === 'import' && <DiagramImport />}
@@ -413,6 +418,113 @@ function TokensSection() {
         <p className="mt-3 text-xs text-slate-500">
           Above the type budget, split the figure into an overview and a detail — never shrink the type to fit.
         </p>
+      </section>
+    </div>
+  )
+}
+
+/**
+ * Semantic patterns — nine named routing patterns from the upstream
+ * semantic-patterns.md, each with its routing row, required primitives,
+ * budget, anti-patterns and a worked template on the nearest visual type.
+ */
+function PatternsSection() {
+  const [active, setActive] = React.useState(SEMANTIC_PATTERNS[0].id)
+  const pattern = SEMANTIC_PATTERNS.find((p) => p.id === active) ?? SEMANTIC_PATTERNS[0]
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.5fr)]">
+      <section className="space-y-4">
+        <div>
+          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-slate-500">
+            Semantic patterns
+          </p>
+          <h2 className="mt-2 font-serif text-3xl font-normal tracking-tight text-slate-900">
+            Choose the pattern first, then the layout grammar
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            Semantic patterns describe <em>what a system does</em>; the {KINDS.length} visual types describe how
+            information is arranged. One primary pattern per figure — a second may supply at most one supporting
+            primitive. Every template below is drawn by the ordinary engines and passes the taste gate.
+          </p>
+        </div>
+
+        <ul className="space-y-1">
+          {SEMANTIC_PATTERNS.map((p) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                onClick={() => setActive(p.id)}
+                aria-pressed={active === p.id}
+                className={
+                  'w-full rounded-[6px] border px-4 py-3 text-left transition-colors ' +
+                  (active === p.id
+                    ? 'border-slate-900 bg-white'
+                    : 'border-slate-200 bg-white/60 hover:border-slate-400')
+                }
+              >
+                <span className="block text-sm font-medium text-slate-900">{p.name}</span>
+                <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-wider text-slate-500">
+                  {p.routing}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="space-y-6">
+        <div className="rounded-lg border border-slate-200 bg-white p-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wider">
+              {KIND_MAP[pattern.nearestKind].label}
+            </Badge>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
+              nearest visual type
+            </span>
+          </div>
+          <h3 className="mt-3 font-serif text-2xl text-slate-900">{pattern.name}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">{pattern.triggers}</p>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Required primitives</p>
+              <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                {pattern.requiredPrimitives.map((r) => (
+                  <li key={r} className="flex gap-2">
+                    <span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-slate-400" />
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Complexity budget</p>
+                <p className="mt-2 text-sm text-slate-700">{pattern.budget}</p>
+              </div>
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Anti-patterns</p>
+                <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                  {pattern.antiPatterns.map((a) => (
+                    <li key={a}>— {a}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Static fallback</p>
+                <p className="mt-2 text-sm text-slate-600">{pattern.staticFallback}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-6">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Worked template</p>
+          <div className="mt-3">
+            <EditorialDiagram spec={pattern.template} showAudit />
+          </div>
+        </div>
       </section>
     </div>
   )

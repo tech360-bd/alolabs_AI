@@ -1010,6 +1010,63 @@ export const EXAMPLES: DiagramSpec[] = [
     ],
     footer: 'Finance · net movement +£8k',
   },
+  // ── Service blueprint ──────────────────────────────────────────────────────
+  {
+    slug: 'service-blueprint-trial-to-paid',
+    kind: 'service-blueprint',
+    eyebrow: 'SERVICE DESIGN',
+    title: 'Trial to paid — what the customer never sees',
+    desc: 'A five-stage census of the trial conversion service: the customer row looks like a simple retry while the failure below the line of visibility is a billing job.',
+    size: { w: 1280, h: 400 },
+    blueprint: {
+      stages: [
+        { id: 'sign-up', label: 'Sign up' },
+        { id: 'trial', label: 'Start trial' },
+        { id: 'hit-limit', label: 'Hit the limit' },
+        { id: 'retry', label: 'Retry payment' },
+        { id: 'stay', label: 'Keep the plan' },
+      ],
+      layers: ['evidence', 'customer', 'frontstage', 'backstage', 'support'],
+      cells: [
+        { stage: 'sign-up', layer: 'evidence', name: 'Welcome email' },
+        { stage: 'trial', layer: 'evidence', name: 'Trial dashboard' },
+        { stage: 'hit-limit', layer: 'evidence', name: 'Usage meter' },
+        { stage: 'retry', layer: 'evidence', name: 'Invoice preview' },
+        { stage: 'stay', layer: 'evidence', name: 'Plan badge' },
+
+        { stage: 'sign-up', layer: 'customer', name: 'Create account' },
+        { stage: 'trial', layer: 'customer', name: 'Use the product' },
+        { stage: 'hit-limit', layer: 'customer', name: 'Retry payment' },
+        { stage: 'retry', layer: 'customer', name: 'Update card' },
+        { stage: 'stay', layer: 'customer', name: 'Continue' },
+
+        { stage: 'sign-up', layer: 'frontstage', name: 'Verify email' },
+        { stage: 'trial', layer: 'frontstage', name: 'Serve requests' },
+        { stage: 'hit-limit', layer: 'frontstage', name: 'Show paywall' },
+        { stage: 'retry', layer: 'frontstage', name: 'Run charge' },
+        { stage: 'stay', layer: 'frontstage', name: 'Confirm plan' },
+
+        { stage: 'sign-up', layer: 'backstage', name: 'Provision tenant', sublabel: 'tenant-job · 30s' },
+        { stage: 'trial', layer: 'backstage', name: 'Track usage', sublabel: 'usage-rollup · 1h' },
+        {
+          stage: 'hit-limit',
+          layer: 'backstage',
+          name: 'dunning-job timeout',
+          sublabel: 'dunning-job · 4h',
+          focal: true,
+        },
+        { stage: 'retry', layer: 'backstage', name: 'Card updater' },
+        { stage: 'stay', layer: 'backstage', name: 'Close trial' },
+
+        { stage: 'sign-up', layer: 'support', name: '—' },
+        { stage: 'trial', layer: 'support', name: 'Usage rollup' },
+        { stage: 'hit-limit', layer: 'support', name: 'Fraud check' },
+        { stage: 'retry', layer: 'support', name: 'Retry queue', sublabel: '3 attempts' },
+        { stage: 'stay', layer: 'support', name: 'CRM sync' },
+      ],
+    },
+    footer: 'Census, not a flow chart — stage order is the sequence',
+  },
 ]
 
 export const EXAMPLE_MAP: Record<string, DiagramSpec> = Object.fromEntries(
@@ -1018,7 +1075,7 @@ export const EXAMPLE_MAP: Record<string, DiagramSpec> = Object.fromEntries(
 
 export const EXAMPLE_KINDS: DiagramKind[] = EXAMPLES.map((e) => e.kind)
 
-/** The canonical example for a kind (44 kinds, one each). */
+/** The canonical example for a kind (45 kinds, one each). */
 export function getExample(kind: DiagramKind): DiagramSpec | undefined {
   return EXAMPLE_MAP[kind]
 }

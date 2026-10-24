@@ -23,8 +23,8 @@ import { contentStats, referenceDoc, skillBody } from '@/lib/marketing-kit/conte
 
 describe('diagram design — catalogue', () => {
   it('covers every visual type with an implementation and exactly one example', () => {
-    expect(KINDS.length).toBe(44)
-    expect(EXAMPLES.length).toBe(44)
+    expect(KINDS.length).toBe(45)
+    expect(EXAMPLES.length).toBe(45)
     for (const meta of KINDS) {
       expect(KIND_MAP[meta.kind], `${meta.kind} missing from KIND_MAP`).toBeTruthy()
       const examples = EXAMPLES.filter((e) => e.kind === meta.kind)

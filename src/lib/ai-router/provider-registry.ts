@@ -23,6 +23,7 @@ import { DeepSeekProvider } from './deepseek-provider';
 import { MistralProvider } from './mistral-provider';
 import { QwenProvider } from './qwen-provider';
 import { OpenRouterProvider } from './openrouter-provider';
+import { UnoRouterProvider } from './unorouter-provider';
 import { OllamaProvider } from './ollama-provider';
 import { ZAIProvider } from './zai-provider';
 import { decryptField, encryptField, fingerprint, isEncryptedField } from '../security/field-encryption';
@@ -41,6 +42,7 @@ export const CONFIGURABLE_PROVIDER_KINDS = [
   'openai-compatible',
   'openai-compatible-free',
   'openrouter-free',
+  'unorouter-free',
   'groq',
   'deepseek',
   'mistral',
@@ -178,6 +180,7 @@ export function routerNameForConfig(record: Pick<ProviderConfigRecord, 'provider
   // vendor-specific APIs. This prevents one tenant's credentials or endpoint
   // from replacing another tenant's config with the same provider kind.
   const scope = record.companyId ? `${record.companyId}.${record.name}` : record.name;
+  if (record.provider === 'unorouter-free') return `unorouter-free:${scope}`;
   return openAICompatibleProviderName(scope);
 }
 
@@ -195,6 +198,11 @@ export function buildProviderFromConfig(record: ProviderConfigRecord): BaseAIPro
   if (!endpoint) throw new Error(`Provider config "${record.name}" needs a baseUrl.`);
 
   const scope = record.companyId ? `${record.companyId}.${record.name}` : record.name;
+  // UnoRouter: free models only — the adapter refuses every non-`:free` lane by
+  // construction, whatever the catalog row claims.
+  if (record.provider === 'unorouter-free') {
+    return new UnoRouterProvider({ endpoint, apiKey, configName: scope });
+  }
   const freeOnly = record.provider === 'openrouter-free' || record.provider === 'openai-compatible-free';
   return new OpenAICompatibleProvider({
     id: scope,
@@ -219,7 +227,7 @@ export function describeProviderConfig(record: ProviderConfigRecord): ProviderCo
     baseUrl: record.baseUrl,
     hasApiKey: Boolean(record.encryptedApiKey),
     keyFingerprint: record.keyFingerprint,
-    freeOnly: record.provider === 'openrouter-free' || record.provider === 'openai-compatible-free',
+    freeOnly: record.provider === 'openrouter-free' || record.provider === 'openai-compatible-free' || record.provider === 'unorouter-free',
     models: parseModelCatalogue(record.models),
     isEnabled: record.isEnabled,
     isLocal: isTrustedLocalProviderConfig(record.provider, record.baseUrl, record.isLocal),

@@ -39,6 +39,7 @@ export { BaseAIProvider } from './provider-base';
 // ─── Providers ──────────────────────────────────────────────────────
 export { OllamaProvider } from './ollama-provider';
 export { OpenRouterProvider } from './openrouter-provider';
+export { UnoRouterProvider, UNOROUTER_ENDPOINT, UNOROUTER_FREE_MAX_OUTPUT_TOKENS } from './unorouter-provider';
 export { ZAIProvider } from './zai-provider';
 export { GroqProvider } from './groq-provider';
 export { DeepSeekProvider } from './deepseek-provider';

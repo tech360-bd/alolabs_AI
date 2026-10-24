@@ -12,6 +12,9 @@ export type AIProvider =
   | 'ollama-gemma'
   | 'openrouter'
   | 'openrouter-free'
+  | 'unorouter-free'
+  /** Additional UnoRouter free-lane connections configured at runtime (AIProviderConfig). */
+  | `unorouter-free:${string}`
   | 'zai-sdk'
   | 'openai-compatible'
   /** Additional OpenAI-compatible endpoints configured at runtime (AIProviderConfig). */

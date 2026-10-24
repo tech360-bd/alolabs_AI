@@ -33,6 +33,7 @@ import { renderFishbone, renderLoop, renderPolar, renderQuadrant, renderRadar, r
 import { renderSequence } from './engines/sequence'
 import { renderSchema } from './engines/schema'
 import { renderAxonometricPlan, renderExploded, renderSankey } from './engines/special'
+import { renderServiceBlueprint } from './engines/blueprint'
 import { SceneBuilder } from './scene'
 import { auditScene } from './audit'
 import type { DiagramSpec, Scene } from './spec'
@@ -65,7 +66,9 @@ export function renderDiagram(spec: DiagramSpec): Scene {
     skin,
     tokens: resolveSkin(skin, theme),
     legendMode: meta?.legend ?? 'custom',
-    background: spec.background ?? 'paper',
+    // The terminal frame defaults to the dot-grid texture (primitive-terminal.md);
+    // editorial figures stay on clean paper unless they ask for dots.
+    background: spec.background ?? (spec.frame === 'terminal' ? 'dots' : 'paper'),
     aria: { title: spec.title, desc: spec.desc, slug: spec.slug },
   })
 
@@ -144,22 +147,45 @@ export function renderDiagram(spec: DiagramSpec): Scene {
     renderAxonometricPlan(spec, b)
   } else if (kind === 'sankey') {
     renderSankey(spec, b)
+  } else if (kind === 'service-blueprint') {
+    renderServiceBlueprint(spec, b)
   } else {
     renderGraph(spec, b, { direction: spec.direction })
   }
 
-  // Editorial callouts — italic serif asides, max 2.
+  // Editorial callouts — italic serif asides, max 2, placed in the margins
+  // (top-right / bottom-left per primitive-annotation.md; the legacy bottom
+  // anchors stay supported).
   const callouts = (spec.callouts ?? []).slice(0, 2)
   const leaders: { from: { x: number; y: number }; target: string }[] = []
-  callouts.forEach((note, i) => {
-    const x = note.at === 'start' ? 40 : note.at === 'end' ? size.w - 40 : size.w / 2
-    const anchor = note.at === 'start' ? 'start' : note.at === 'end' ? 'end' : 'middle'
-    const y = size.h - 12 - i * 24
+  const marginStack: Record<string, number> = {}
+  callouts.forEach((note) => {
+    let x: number
+    let y: number
+    let anchor: 'start' | 'middle' | 'end'
+    let leaderDy = -14
+    if (note.at === 'top-right') {
+      const k = (marginStack['top-right'] = (marginStack['top-right'] ?? 0) + 1)
+      x = size.w - 40
+      anchor = 'end'
+      y = 22 + (k - 1) * 24
+      leaderDy = 14
+    } else if (note.at === 'bottom-left') {
+      const k = (marginStack['bottom-left'] = (marginStack['bottom-left'] ?? 0) + 1)
+      x = 40
+      anchor = 'start'
+      y = size.h - 12 - (k - 1) * 24
+    } else {
+      const k = (marginStack['bottom'] = (marginStack['bottom'] ?? 0) + 1)
+      x = note.at === 'start' ? 40 : note.at === 'end' ? size.w - 40 : size.w / 2
+      anchor = note.at === 'start' ? 'start' : note.at === 'end' ? 'end' : 'middle'
+      y = size.h - 12 - (k - 1) * 24
+    }
     b.callout(x, y, note.text, { anchor, rule: !note.target })
     if (note.target) {
-      // Leader starts just above the note's text, near its anchor edge.
+      // Leader starts just off the note's text, near its anchor edge.
       const fx = anchor === 'start' ? x + 12 : anchor === 'end' ? x - 12 : x
-      leaders.push({ from: { x: fx, y: y - 14 }, target: note.target })
+      leaders.push({ from: { x: fx, y: y + leaderDy }, target: note.target })
     }
   })
 

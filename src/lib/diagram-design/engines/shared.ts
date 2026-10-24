@@ -1,7 +1,16 @@
 /** Shared engine helpers: node measurement, ranking, palette helpers. */
 
 import { measureText, snapUp } from '../geometry'
-import { SERIES_TOKENS, TYPE_RAMP, type NodeKind, type NodeTreatment, type RoleTokens, nodeTreatment } from '../tokens'
+import {
+  SERIES_TOKENS,
+  TYPE_RAMP,
+  typeRampFor,
+  type NodeKind,
+  type NodeTreatment,
+  type RoleTokens,
+  type TypeRamp,
+  nodeTreatment,
+} from '../tokens'
 import type { DiagramSpec, LegendItem, NodeSpec, SeriesSpec, StackSpec } from '../spec'
 import type { SceneBuilder } from '../scene'
 
@@ -10,13 +19,22 @@ export const NODE_MIN_H = 56
 export const GAP_X = 40
 export const GAP_Y = 32
 
+/** The ramp a builder will paint with — pass it to every measurement. */
+export function rampOf(b: SceneBuilder): TypeRamp {
+  return typeRampFor(b.opts.skin)
+}
+
 /** Measure a node box from its content. Padding and rounding stay on the grid. */
-export function measureNode(node: NodeSpec, opts: { minW?: number; minH?: number } = {}) {
-  const nameW = measureText(node.name, { family: 'sans', size: TYPE_RAMP.nodeName.size, tracking: 0 })
+export function measureNode(
+  node: NodeSpec,
+  opts: { minW?: number; minH?: number; ramp?: TypeRamp } = {},
+) {
+  const ramp = opts.ramp ?? TYPE_RAMP
+  const nameW = measureText(node.name, { family: 'sans', size: ramp.nodeName.size, tracking: 0 })
   const subW = node.sublabel
-    ? measureText(node.sublabel, { family: 'mono', size: TYPE_RAMP.sublabel.size })
+    ? measureText(node.sublabel, { family: 'mono', size: ramp.sublabel.size })
     : 0
-  const tagW = node.tag ? measureText(node.tag, { family: 'mono', size: TYPE_RAMP.tag.size, tracking: 0.08 }) + 24 : 0
+  const tagW = node.tag ? measureText(node.tag, { family: 'mono', size: ramp.tag.size, tracking: 0.08 }) + 24 : 0
   const contentW = Math.max(nameW, subW, tagW) + 32
   const w = snapUp(Math.max(node.w ?? 0, opts.minW ?? NODE_MIN_W, contentW))
   const rows = (node.sublabel ? 1 : 0) + (node.tag ? 1 : 0)

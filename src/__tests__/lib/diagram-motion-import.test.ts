@@ -4,6 +4,7 @@ import { sceneToSvg } from '@/lib/diagram-design/export'
  */
 
 import { describe, it, expect } from 'vitest'
+import * as zlib from 'node:zlib'
 import {
   MOTION_CLOCK,
   announceFor,
@@ -240,7 +241,13 @@ describe('importers — draw.io and Excalidraw', () => {
     expect(ir.edges[0].label).toBe('checked')
   })
 
-  it('refuses compressed pages and non-draw.io input with clear messages', () => {
+  it('decodes compressed pages and refuses non-draw.io input with clear messages', () => {
+    // Compressed pages are now supported: base64 + deflate-raw + percent-encoding.
+    const xml =
+      '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="Edge" vertex="1" parent="1"><mxGeometry x="20" y="20" width="100" height="50"/></mxCell></root></mxGraphModel>'
+    const payload = Buffer.from(zlib.deflateRawSync(Buffer.from(encodeURIComponent(xml), 'latin1'))).toString('base64')
+    const ir = parseDrawio(`<mxfile><diagram name="p">${payload}</diagram></mxfile>`)
+    expect(ir.nodes.map((n) => n.name)).toEqual(['Edge'])
     expect(() => parseDrawio('<mxfile><diagram name="p">AAAAbase64==</diagram></mxfile>')).toThrow(/uncompressed/)
     expect(() => parseDrawio('<html></html>')).toThrow(/not a draw.io file/)
   })

@@ -65,12 +65,16 @@ interface ProviderTestResult {
   testedAt: string
 }
 
-type FreeProviderKind = 'openrouter-free' | 'openai-compatible-free'
+type FreeProviderKind = 'openrouter-free' | 'unorouter-free' | 'openai-compatible-free'
 
 const FREE_KIND_DETAILS: Record<FreeProviderKind, { label: string; help: string }> = {
   'openrouter-free': {
     label: 'OpenRouter — verified $0 models',
     help: 'Uses OpenRouter’s live catalog and keeps only models with both input and output prices reported as $0.',
+  },
+  'unorouter-free': {
+    label: 'UnoRouter — free :free models only',
+    help: 'Uses UnoRouter’s live catalog (https://api.unorouter.com/v1) and keeps only free lanes: model ids ending in ":free" with $0 input and output. Paid lanes are refused by the adapter.',
   },
   'openai-compatible-free': {
     label: 'Other OpenAI-compatible endpoint',
@@ -120,8 +124,8 @@ export default function AIProvidersPanel() {
 
   const chooseProvider = (value: FreeProviderKind) => {
     setProvider(value)
-    setName(value === 'openrouter-free' ? 'OpenRouter Free' : 'Free Compatible Endpoint')
-    setBaseUrl(value === 'openrouter-free' ? '' : '')
+    setName(value === 'openrouter-free' ? 'OpenRouter Free' : value === 'unorouter-free' ? 'UnoRouter Free' : 'Free Compatible Endpoint')
+    setBaseUrl('')
   }
 
   const discoverModels = async (config: ProviderConfig) => {
@@ -198,7 +202,7 @@ export default function AIProvidersPanel() {
             <Badge className="border-emerald-200 bg-emerald-50 text-emerald-800">Strict $0 mode</Badge>
           </div>
           <p className="mt-2 max-w-3xl text-sm text-slate-600">
-            Connect OpenRouter or another OpenAI-compatible provider through ALO’s existing router.
+            Connect OpenRouter, UnoRouter (free <code className="font-mono text-xs">:free</code> lanes only), or another OpenAI-compatible provider through ALO’s existing router.
             Only upstream catalogs that explicitly report zero input and output prices are eligible.
           </p>
         </div>
@@ -260,6 +264,16 @@ export default function AIProvidersPanel() {
                     . The server uses the default OpenRouter endpoint; you only need to paste your key.
                   </div>
                 )}
+                {provider === 'unorouter-free' && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                    Get a key from{' '}
+                    <a className="inline-flex items-center gap-1 font-medium text-blue-700 underline" href="https://unorouter.com" target="_blank" rel="noreferrer">
+                      UnoRouter <ExternalLink className="h-3 w-3" />
+                    </a>{' '}
+                    (no card required). The server uses the fixed endpoint <code className="font-mono text-xs">https://api.unorouter.com/v1</code>;
+                    only <code className="font-mono text-xs">:free</code> models are discovered and served — free lanes cap at ~1 request/minute each.
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="free-provider-key">API key</Label>
                   <Input
@@ -308,7 +322,7 @@ export default function AIProvidersPanel() {
           <CardContent className="flex flex-col items-center py-12 text-center">
             <Activity className="mb-3 h-9 w-9 text-slate-400" />
             <h2 className="font-medium text-slate-900">No free-only provider connected</h2>
-            <p className="mt-1 max-w-md text-sm text-slate-500">Add OpenRouter for its explicitly $0 models, or connect a compatible API whose model catalog publishes zero prices.</p>
+            <p className="mt-1 max-w-md text-sm text-slate-500">Add OpenRouter or UnoRouter for their explicitly $0 models, or connect a compatible API whose model catalog publishes zero prices.</p>
           </CardContent>
         </Card>
       ) : (
@@ -324,7 +338,7 @@ export default function AIProvidersPanel() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <CardTitle className="truncate text-base">{config.name}</CardTitle>
-                      <p className="mt-1 break-all text-xs text-slate-500">{config.provider === 'openrouter-free' ? 'OpenRouter' : (config.baseUrl ?? 'OpenAI-compatible')}</p>
+                      <p className="mt-1 break-all text-xs text-slate-500">{config.provider === 'openrouter-free' ? 'OpenRouter' : config.provider === 'unorouter-free' ? 'UnoRouter — free models only' : (config.baseUrl ?? 'OpenAI-compatible')}</p>
                     </div>
                     <div className="flex shrink-0 flex-wrap justify-end gap-1">
                       <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">$0 only</Badge>

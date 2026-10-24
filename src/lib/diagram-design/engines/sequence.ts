@@ -7,8 +7,8 @@
  */
 
 import { measureText, snap, snapUp } from '../geometry'
-import { RADIUS, STROKE, TYPE_RAMP, alpha, linkStroke } from '../tokens'
-import { measureNode } from './shared'
+import { RADIUS, STROKE, alpha, linkStroke } from '../tokens'
+import { measureNode, rampOf } from './shared'
 import type { DiagramSpec, LinkRole } from '../spec'
 import { SceneBuilder } from '../scene'
 
@@ -23,7 +23,7 @@ export function renderSequence(spec: DiagramSpec, b: SceneBuilder): void {
   // Lifeline columns, fanned across the width on the grid.
   const colWidth = snap((b.width - 96) / Math.max(actors.length, 1))
   const columns = actors.map((a, i) => {
-    const size = measureNode(a, { minW: 112, minH: headerH })
+    const size = measureNode(a, { minW: 112, minH: headerH, ramp: rampOf(b) })
     const cx = snap(48 + colWidth * i + colWidth / 2)
     const rect = { x: snap(cx - Math.max(size.w, 128) / 2), y: top, w: snapUp(Math.max(size.w, 128)), h: headerH }
     return { actor: a, cx, rect }
@@ -57,7 +57,7 @@ export function renderSequence(spec: DiagramSpec, b: SceneBuilder): void {
       layer: 12,
     })
     const label = (frag.label ?? 'OPT').toUpperCase()
-    const w = snapUp(measureText(label, { family: 'mono', size: TYPE_RAMP.tag.size, tracking: 0.08 })) + 16
+    const w = snapUp(measureText(label, { family: 'mono', size: rampOf(b).tag.size, tracking: 0.08 })) + 16
     b.rect({ x: x0, y: yTop, w, h: 16 }, { fill: b.t.paper2, stroke: alpha(b.t.ink, 0.25), width: STROKE.thin, rx: 2, layer: 13 })
     b.text(x0 + w / 2, yTop + 11, label, { role: 'tag', fill: b.t.ink, anchor: 'middle', layer: 13 })
   }
@@ -93,7 +93,7 @@ export function renderSequence(spec: DiagramSpec, b: SceneBuilder): void {
 
     if (m.label) {
       const text = m.label.slice(0, 14).toUpperCase()
-      const w = snapUp(measureText(text, { family: 'mono', size: TYPE_RAMP.arrowLabel.size, tracking: 0.06 })) + 10
+      const w = snapUp(measureText(text, { family: 'mono', size: rampOf(b).arrowLabel.size, tracking: 0.06 })) + 10
       const midX = snap((a.cx + c.cx) / 2)
       b.mask({ x: snap(midX - w / 2), y: snap(y - 20), w, h: 12 }, { rx: RADIUS.sm, layer: 30 })
       b.text(midX, y - 11, text, {

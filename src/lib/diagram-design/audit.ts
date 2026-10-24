@@ -11,7 +11,7 @@
  *   §9   grid alignment, focal count, legend completeness
  */
 
-import { GRID, KIND_MAP, UNIVERSAL_BUDGET, type NodeKind } from './tokens'
+import { GRID, KIND_MAP, UNIVERSAL_BUDGET, typeRampFor, type NodeKind } from './tokens'
 
 /** Paint layer of a node box (see the scene model's layer contract). */
 const NODE_LAYER = 41
@@ -35,9 +35,11 @@ export function auditScene(scene: Scene, spec: DiagramSpec): AuditReport {
       (i.prim as { stroke?: string }).stroke !== undefined,
   )
 
-  const nodeCount = (spec.nodes ?? []).length
+  const nodeCount = spec.blueprint ? spec.blueprint.cells.length : (spec.nodes ?? []).length
   const linkCount = (spec.links ?? []).length
-  const focalCount = (spec.nodes ?? []).filter((n) => n.kind === 'focal' || n.kind === 'accentLine').length
+  const focalCount = spec.blueprint
+    ? spec.blueprint.cells.filter((c) => c.focal).length
+    : (spec.nodes ?? []).filter((n) => n.kind === 'focal' || n.kind === 'accentLine').length
   const callouts = (spec.callouts ?? []).length
   const labels = scene.items.filter((i) => i.prim.t === 'text' && i.layer === 31).length
 
@@ -198,8 +200,10 @@ export function auditScene(scene: Scene, spec: DiagramSpec): AuditReport {
   }
 
   // §9 — typography roles: names sans, technical values mono, no stray serif.
+  // The ramp is skin-aware: the terminal skin paints node names 1–2px larger.
+  const nodeNameSize = typeRampFor(scene.skin).nodeName.size
   const namesInSans = texts.filter(
-    (t) => (t.prim as { family: string }).family === 'sans' && (t.prim as { size: number }).size === 12,
+    (t) => (t.prim as { family: string }).family === 'sans' && (t.prim as { size: number }).size === nodeNameSize,
   ).length
   const serifInNodes = texts.filter((t) => (t.prim as { family: string }).family === 'serif').length
   if (nodeBoxes.length === 0) {
@@ -212,6 +216,61 @@ export function auditScene(scene: Scene, spec: DiagramSpec): AuditReport {
       level: 'pass',
       message: `node names on the sans ramp${serifInNodes > 2 ? ` (${serifInNodes} serif callouts)` : ''}`,
     })
+  }
+
+  // type-service-blueprint.md — the census rules are executable.
+  if (spec.blueprint) {
+    const bp = spec.blueprint
+    const stages = bp.stages ?? []
+    const stageIds = new Set(stages.map((s) => s.id))
+    const findings2: AuditFinding[] = []
+    findings2.push(
+      stages.length >= 4 && stages.length <= 6
+        ? { rule: '§ blueprint stages', level: 'pass', message: `${stages.length} stages inside the 4–6 band` }
+        : {
+            rule: '§ blueprint stages',
+            level: 'fail',
+            message: `${stages.length} stages — the blueprint grid takes 4–6 narrative stages`,
+          },
+    )
+    // Required layers complete: every stage has a customer, frontstage and
+    // backstage slot (empty ones print `—`, but the column holds the slot).
+    const required: Array<'customer' | 'frontstage' | 'backstage'> = ['customer', 'frontstage', 'backstage']
+    const missing = stages.flatMap((s) =>
+      required.filter((l) => !bp.cells.some((c) => c.stage === s.id && c.layer === l)),
+    )
+    findings2.push(
+      missing.length
+        ? {
+            rule: '§ blueprint census',
+            level: 'warn',
+            message: `${missing.length} required slot(s) absent from the spec — the engine prints an em-dash for them`,
+          }
+        : { rule: '§ blueprint census', level: 'pass', message: 'every stage holds the required layers' },
+    )
+    const unknownStage = bp.cells.filter((c) => !stageIds.has(c.stage)).length
+    findings2.push(
+      unknownStage
+        ? {
+            rule: '§ blueprint cells',
+            level: 'fail',
+            message: `${unknownStage} cell(s) reference a stage that does not exist`,
+          }
+        : { rule: '§ blueprint cells', level: 'pass', message: 'every cell sits on a declared stage' },
+    )
+    const visibility = scene.items.some(
+      (i) => i.prim.t === 'line' && (i.prim as { strokeWidth?: number }).strokeWidth === 2,
+    )
+    findings2.push(
+      visibility
+        ? { rule: '§ blueprint visibility', level: 'pass', message: 'the line of visibility spans the plot' }
+        : {
+            rule: '§ blueprint visibility',
+            level: 'fail',
+            message: 'no visibility line drawn — without it this is a table of rows',
+          },
+    )
+    findings.push(...findings2)
   }
 
   // §12 — accessible SVG contract preconditions.

@@ -13,6 +13,16 @@
 
 import type { DiagramKind, NodeKind } from './tokens'
 import type { DiagramSpec, LinkSpec, NodeSpec, TableSpec } from './spec'
+import { inflateRaw, InflateError } from './inflate'
+import {
+  applyAudience,
+  applyDegradeLadder,
+  describeDials,
+  lintAudience,
+  resolveOutputDials,
+  sceneSizeFor,
+  type OutputDials,
+} from './output-spec'
 
 export type ImportFormat = 'mermaid' | 'drawio' | 'excalidraw'
 
@@ -71,6 +81,8 @@ export interface ImportResult {
   grammar: string
   drawn: { nodes: number; edges: number }
   source: { nodes: number; edges: number }
+  /** The four output dials in effect for this redraw (output-spec.md). */
+  output: OutputDials
 }
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
@@ -495,6 +507,42 @@ export function parseMermaid(source: string, opts: { diagram?: number } = {}): I
 
 // ─── draw.io ─────────────────────────────────────────────────────────────────
 
+/**
+ * Decode a compressed draw.io `<diagram>` payload:
+ * base64 (URL-safe `-_` tolerated) → inflateRaw → percent-decoded XML.
+ * Returns the XML string, or `null` when the payload is not a compressed page.
+ */
+export function decodeDrawioPayload(payload: string): string | null {
+  const compact = payload.replace(/\s+/g, '')
+  if (!compact || compact.length < 8) return null
+  if (/</.test(compact)) return null // already XML
+  const normalized = compact.replace(/-/g, '+').replace(/_/g, '/')
+  let binary: string
+  try {
+    binary = globalThis.atob(normalized)
+  } catch {
+    return null
+  }
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  let inflated: Uint8Array
+  try {
+    inflated = inflateRaw(bytes)
+  } catch (e) {
+    if (e instanceof InflateError) return null
+    throw e
+  }
+  // The page is stored percent-encoded (encodeURIComponent before deflate).
+  let xml = ''
+  try {
+    const asBinary = Array.from(inflated, (b) => String.fromCharCode(b)).join('')
+    xml = decodeURIComponent(asBinary)
+  } catch {
+    xml = new TextDecoder().decode(inflated)
+  }
+  return /<mxGraphModel|<mxCell|<mxfile/.test(xml) ? xml : null
+}
+
 function xmlDecode(s: string): string {
   return s
     .replace(/&#xa;|&#10;/gi, ' ')
@@ -515,13 +563,26 @@ function xmlAttrs(raw: string): Record<string, string> {
 
 export function parseDrawio(source: string): ImportIR {
   if (!source.trim()) throw new ImportError('no draw.io XML to import')
-  if (!/<mxfile\b|<mxGraphModel\b/.test(source)) throw new ImportError('not a draw.io file: expected <mxfile> or <mxGraphModel>')
   const ledger: LedgerEntry[] = []
+  // Bare compressed payloads (no <mxfile> wrapper) are accepted too.
+  if (!/<mxfile\b|<mxGraphModel\b/.test(source)) {
+    const bare = decodeDrawioPayload(source)
+    if (bare) return parseDrawio(bare)
+    throw new ImportError('not a draw.io file: expected <mxfile> or <mxGraphModel>')
+  }
   const pages = [...source.matchAll(/<diagram\b[^>]*>([\s\S]*?)<\/diagram>/g)]
   if (pages.length > 1) ledger.push({ action: 'dropped', detail: `${pages.length - 1} additional page(s) not imported; first page drawn` })
   let body = pages.length ? pages[0][1] : source
   if (/<diagram\b/.test(source) && !/<mxGraphModel\b/.test(body) && !/<mxCell\b/.test(body)) {
-    throw new ImportError('compressed draw.io pages are not supported; export the diagram uncompressed (File → Export → XML)')
+    // Compressed page: base64 + deflate-raw + percent-encoding (draw.io's own format).
+    const decoded = decodeDrawioPayload(body)
+    if (!decoded) {
+      throw new ImportError(
+        'compressed draw.io page could not be decoded; export the diagram uncompressed (File → Export → XML)',
+      )
+    }
+    ledger.push({ action: 'kept', detail: 'compressed draw.io page inflated (base64 + deflate-raw)' })
+    body = decoded
   }
 
   type Cell = { id: string; value: string; style: string; vertex: boolean; edge: boolean; source?: string; target?: string; parent?: string }
@@ -746,20 +807,37 @@ export function irToSpec(ir: ImportIR, format: ImportFormat, opts: { slug: strin
   return { ...base, kind: 'flowchart', nodes: ir.nodes.map((n) => ({ ...n })), links }
 }
 
-/** Parse, redraw and return the spec plus the fidelity ledger. */
+/** Parse, redraw and return the spec plus the fidelity ledger. The four output
+ * dials (format × size × detail × audience) shape the redraw before it is laid
+ * out — they are never retrofitted afterwards (output-spec.md). */
 export function importDiagram(
   format: ImportFormat,
   source: string,
-  opts: { slug?: string; title?: string; diagram?: number } = {},
+  opts: { slug?: string; title?: string; diagram?: number; output?: Partial<OutputDials> } = {},
 ): ImportResult {
+  const dials = resolveOutputDials(opts.output)
   const ir =
     format === 'mermaid' ? parseMermaid(source, { diagram: opts.diagram }) : format === 'drawio' ? parseDrawio(source) : parseExcalidraw(source)
-  const spec = irToSpec(ir, format, { slug: opts.slug ?? `imported-${format}`, title: opts.title })
-  const drawn = { nodes: ir.nodes.length, edges: ir.edges.length }
+
+  // Detail level: the degrade ladder trims the IR inside the level's ceilings.
+  const degrade = applyDegradeLadder(ir.nodes, ir.edges, dials.detail)
+  // Audience: the mechanical half (sublabel policy) plus wording notes.
+  const audienceNotes = lintAudience({ nodes: degrade.nodes, links: degrade.edges }, dials.audience)
+  const nodes = applyAudience(degrade.nodes, dials.audience)
+
+  const slim: ImportIR = { ...ir, nodes, edges: degrade.edges }
+  const spec = irToSpec(slim, format, { slug: opts.slug ?? `imported-${format}`, title: opts.title })
+  // Size dial: the viewBox comes from the preset before layout, never cropped after.
+  spec.size = sceneSizeFor(dials.size)
+  spec.footer = describeDials(dials)
+
+  const drawn = { nodes: slim.nodes.length, edges: slim.edges.length }
   const ledger: LedgerEntry[] = [
     { action: 'kept', detail: `${ir.sourceCounts.nodes} source node(s) → ${drawn.nodes} drawn` },
     { action: 'kept', detail: `${ir.sourceCounts.edges} source connection(s) → ${drawn.edges} drawn` },
     ...ir.ledger,
+    ...degrade.ledger,
+    ...audienceNotes,
   ]
-  return { spec, ledger, grammar: ir.grammar, drawn, source: ir.sourceCounts }
+  return { spec, ledger, grammar: ir.grammar, drawn, source: ir.sourceCounts, output: dials }
 }
