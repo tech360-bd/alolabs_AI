@@ -43,7 +43,7 @@ const nextConfig: NextConfig = {
           //   A nonce-based approach can be adopted in a future iteration (via middleware).
           // - style-src: Tailwind CSS dynamically generates styles that require inline support.
           //   Using a hash/nonce strategy here would break Tailwind's runtime behavior.
-          { key: 'Content-Security-Policy', value: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' wss:; frame-ancestors ${isDev ? "'self' https://*.e2b.app" : "'none'"};` },
+          { key: 'Content-Security-Policy', value: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://image.pollinations.ai; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' wss:; frame-ancestors ${isDev ? "'self' https://*.e2b.app" : "'none'"};` },
         ],
       },
       {

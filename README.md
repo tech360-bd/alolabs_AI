@@ -31,6 +31,7 @@
 - **251 REST API Routes** — Comprehensive backend covering agents, CRM, workflows, RAG, billing, social media, and more
 - **122 Prisma Data Models** — Full relational schema with users, roles, agents, workflows, tickets, deals, documents
 - **82 Admin Panels** — Feature-rich dashboard panels for every aspect of the system
+- **Commanding Center (Free AI Agent)** — Super Admin & Admin's own tool-calling agent on 100% free models (Groq, OpenRouter `:free`, Gemini, Cerebras, Ollama) with weather/Wikipedia/web-search/image/CRM/knowledge tools. See [docs/COMMAND-AGENT-FREE-AI.md](docs/COMMAND-AGENT-FREE-AI.md)
 - **Multi-Provider AI Router** — Route LLM requests across Ollama, OpenRouter, DeepSeek, Mistral, Qwen, and Z-AI
 - **RAG Engine** — Ingest, chunk, embed, and query documents with vector similarity search via Qdrant
 - **Agent Runtime** — Build, schedule, execute, and monitor autonomous AI agents with lifecycle management
