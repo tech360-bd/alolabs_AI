@@ -36,3 +36,40 @@ export function hasExplicitZeroPricing(model: unknown): boolean {
   const outputRate = row.outputCostPerMillionTokens ?? row.output_cost_per_million_tokens;
   return explicitZero(inputRate) && explicitZero(outputRate);
 }
+
+// ─── UnoRouter free lanes ────────────────────────────────────────────────────
+
+/**
+ * UnoRouter's own $0 contract: free lanes carry a `:free` model-id suffix
+ * (unorouter.com/docs, blog "free-models-aggregated"). Paid lanes bill per
+ * token and never carry the suffix.
+ */
+export function hasFreeModelIdSuffix(id: unknown): boolean {
+  return typeof id === 'string' && /:free$/i.test(id.trim());
+}
+
+/** True when the catalog row carries any pricing evidence at all. */
+function carriesPricingEvidence(row: Record<string, unknown>): boolean {
+  return Boolean(record(row.pricing) ?? record(row.cost)) ||
+    row.inputCostPerMillionTokens !== undefined ||
+    row.input_cost_per_million_tokens !== undefined ||
+    row.outputCostPerMillionTokens !== undefined ||
+    row.output_cost_per_million_tokens !== undefined;
+}
+
+/**
+ * UnoRouter free-lane gate. A model is eligible only when its id carries the
+ * `:free` suffix — upstream's published $0 contract — AND, when the catalog row
+ * also reports pricing, both directions confirm zero. A paid lane is never
+ * eligible, even temporarily at $0; a row that reports a non-zero rate is
+ * refused regardless of suffix. Missing pricing alone does not disqualify a
+ * `:free` row (the suffix is the authoritative marker), but it is never enough
+ * on its own.
+ */
+export function isUnoRouterFreeModel(model: unknown): boolean {
+  const row = record(model);
+  if (!row) return false;
+  if (!hasFreeModelIdSuffix(row.id)) return false;
+  if (carriesPricingEvidence(row)) return hasExplicitZeroPricing(row);
+  return true;
+}

@@ -103,6 +103,7 @@ interface UsageResult {
 
 const PROVIDER_KINDS = [
   'ollama', 'llama-cpp', 'custom-self-hosted', 'openai-compatible', 'openai-compatible-free', 'openrouter-free',
+  'unorouter-free',
   'openrouter', 'groq', 'deepseek', 'mistral', 'qwen', 'huggingface', 'github-models', 'cerebras', 'gemini',
   'cloudflare-workers-ai', 'cohere', 'zai-sdk',
 ] as const

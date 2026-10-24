@@ -34,6 +34,9 @@ export const AI_PROVIDER_PRESETS: readonly AIProviderPreset[] = [
   // Backwards-compatible provider kinds already supported by the project.
   { kind: 'openai-compatible-free', label: 'OpenAI-compatible (upstream $0 pricing gate)', defaultBaseUrl: '', docsUrl: '', apiKeyRequired: true, local: false, documentationHosts: [] },
   { kind: 'openrouter-free', label: 'OpenRouter (upstream $0 pricing gate)', defaultBaseUrl: 'https://openrouter.ai/api/v1', docsUrl: 'https://openrouter.ai/docs/quickstart', apiKeyRequired: true, local: false, documentationHosts: ['openrouter.ai'] },
+  // UnoRouter — free models only. Free lanes carry the `:free` model-id suffix
+  // and report $0 input and $0 output; paid lanes are refused by the adapter.
+  { kind: 'unorouter-free', label: 'UnoRouter (free :free models only)', defaultBaseUrl: 'https://api.unorouter.com/v1', docsUrl: 'https://unorouter.com/en/models', apiKeyRequired: true, local: false, documentationHosts: ['unorouter.com'] },
   { kind: 'deepseek', label: 'DeepSeek', defaultBaseUrl: 'https://api.deepseek.com/v1', docsUrl: 'https://api-docs.deepseek.com/', apiKeyRequired: true, local: false, documentationHosts: ['deepseek.com'] },
   { kind: 'qwen', label: 'Qwen', defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', docsUrl: '', apiKeyRequired: true, local: false, documentationHosts: [] },
   { kind: 'zai-sdk', label: 'Z-AI SDK', defaultBaseUrl: '', docsUrl: '', apiKeyRequired: false, local: false, documentationHosts: [] },
