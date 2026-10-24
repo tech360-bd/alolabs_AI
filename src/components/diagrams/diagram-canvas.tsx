@@ -11,7 +11,7 @@
 
 import { iconMarkup } from '@/lib/diagram-design/icons'
 import * as React from 'react'
-import { FONT_STACK, RADIUS, STROKE, alpha, nodeTreatment, resolveSkin } from '@/lib/diagram-design/tokens'
+import { FONT_STACK, RADIUS, STROKE, alpha, dotGridColor, nodeTreatment, resolveSkin } from '@/lib/diagram-design/tokens'
 import type { LegendItem, Prim, Scene } from '@/lib/diagram-design/spec'
 import type { NodeKind } from '@/lib/diagram-design/tokens'
 import { MOTION_CLOCK } from '@/lib/diagram-design/motion'
@@ -105,7 +105,7 @@ export function DiagramCanvas({ scene, className, hideLegend, motion, sketchy }:
           <ArrowMarker id={uid('arrow-link')} fill={t === 'dark' ? '#6a95d8' : '#2e5aa8'} />
           {scene.background === 'dots' ? (
             <pattern id={uid('dots')} width="22" height="22" patternUnits="userSpaceOnUse">
-              <circle cx="1" cy="1" r="0.9" fill={alpha(t === 'dark' ? '#f5f5f5' : '#2d3142', 0.1)} />
+              <circle cx="1" cy="1" r="0.9" fill={dotGridColor(resolveSkin(scene.skin, t), scene.skin)} />
             </pattern>
           ) : null}
         </defs>

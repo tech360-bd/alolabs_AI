@@ -10,8 +10,8 @@
  */
 
 import { niceTicks, measureText, snap, snapUp } from '../geometry'
-import { RADIUS, STROKE, TYPE_RAMP, alpha, nodeTreatment } from '../tokens'
-import { seriesColor } from './shared'
+import { RADIUS, STROKE, alpha, nodeTreatment } from '../tokens'
+import { rampOf, seriesColor } from './shared'
 import type { Rect } from '../geometry'
 import type { DiagramSpec } from '../spec'
 import { SceneBuilder } from '../scene'
@@ -334,7 +334,7 @@ export function renderTimeline(spec: DiagramSpec, b: SceneBuilder): void {
       width: STROKE.thin,
       layer: 11,
     })
-    const boxW = snapUp(Math.min(220, measureText(e.name, { family: 'sans', size: TYPE_RAMP.nodeName.size }) + 48))
+    const boxW = snapUp(Math.min(220, measureText(e.name, { family: 'sans', size: rampOf(b).nodeName.size }) + 48))
     const boxH = e.sublabel ? 56 : 40
     const box: Rect = {
       x: snap(x - boxW / 2),

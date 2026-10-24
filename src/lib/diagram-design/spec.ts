@@ -264,8 +264,12 @@ export interface RoomSpec {
 export interface NoteSpec {
   /** Italic Instrument Serif editorial aside. Max 2 per diagram. */
   text: string
-  /** Where the note anchors in the figure. */
-  at: 'start' | 'end' | 'under'
+  /**
+   * Where the note anchors in the figure. `top-right` / `bottom-left` are the
+   * upstream margin placements (primitive-annotation.md); the legacy anchors
+   * (`start` / `end` / `under`) sit on the bottom edge and stay supported.
+   */
+  at: 'start' | 'end' | 'under' | 'top-right' | 'bottom-left'
   /** Optional node id. When set, the note draws a dashed leader and a landing dot on that node (primitive-annotation.md). */
   target?: string
 }
@@ -336,6 +340,36 @@ export interface DiagramSpec {
   movements?: { from: string; to: string; label?: string }[]
   /** Timeline / journey scales. */
   scale?: { from: string; to: string }
+  /** Service blueprint census (type-service-blueprint.md). */
+  blueprint?: BlueprintSpec
+}
+
+// ─── Service blueprint ───────────────────────────────────────────────────────
+
+/** One action cell in a service-blueprint grid. Empty required cells print `—`. */
+export interface BlueprintCell {
+  stage: string
+  layer: BlueprintLayerId
+  /** Printed action, one line. Never a verb-only phrase the grid should not carry. */
+  name?: string
+  /** Optional second muted mono line — system name, wait time (`dunning-job · 4h`). */
+  sublabel?: string
+  /** The failure/wait/handoff the figure exists to show. ≤1 per diagram. */
+  focal?: boolean
+}
+
+/**
+ * Layer order, top to bottom (type-service-blueprint.md). `customer`,
+ * `frontstage` and `backstage` are required; `evidence` and `support` optional.
+ */
+export type BlueprintLayerId = 'evidence' | 'customer' | 'frontstage' | 'backstage' | 'support'
+
+export interface BlueprintSpec {
+  /** 4–6 narrative stages, left → right. Stage order is the sequence. */
+  stages: { id: string; label: string }[]
+  /** Layers present, top → bottom. The visibility line sits in the frontstage/backstage gap. */
+  layers?: BlueprintLayerId[]
+  cells: BlueprintCell[]
 }
 
 export type { DiagramKind, DiagramVariant, LinkRole, NodeKind, SkinName, TextRole, Theme }

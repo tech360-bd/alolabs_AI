@@ -11,9 +11,23 @@ import * as React from 'react'
 import { EditorialDiagram } from './editorial-diagram'
 import { importDiagram, ImportError, type ImportFormat, type ImportResult } from '@/lib/diagram-design/importers'
 import { IMPORT_SAMPLES } from '@/lib/diagram-design/import-samples'
+import {
+  AUDIENCES,
+  DEFAULT_DIALS,
+  DETAIL_LEVELS,
+  describeDials,
+  OUTPUT_FORMATS,
+  SIZE_PRESETS,
+  type Audience,
+  type DetailLevel,
+  type OutputDials,
+  type OutputFormat,
+  type SizePresetId,
+} from '@/lib/diagram-design/output-spec'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const FORMATS: { id: ImportFormat; label: string }[] = [
   { id: 'mermaid', label: 'Mermaid' },
@@ -26,19 +40,20 @@ export function DiagramImport() {
   const [source, setSource] = React.useState(IMPORT_SAMPLES.mermaid.source)
   const [slug, setSlug] = React.useState('imported-diagram')
   const [title, setTitle] = React.useState('')
+  const [dials, setDials] = React.useState<OutputDials>(DEFAULT_DIALS)
   const [result, setResult] = React.useState<ImportResult | null>(null)
   const [error, setError] = React.useState<string | null>(null)
 
   const run = React.useCallback(() => {
     try {
-      const next = importDiagram(format, source, { slug, title: title || undefined })
+      const next = importDiagram(format, source, { slug, title: title || undefined, output: dials })
       setResult(next)
       setError(null)
     } catch (e) {
       setResult(null)
       setError(e instanceof ImportError ? e.message : 'Import failed: the source could not be read.')
     }
-  }, [format, source, slug, title])
+  }, [format, source, slug, title, dials])
 
   const pickFormat = (next: ImportFormat) => {
     setFormat(next)
@@ -98,6 +113,75 @@ export function DiagramImport() {
           </label>
         </div>
 
+        <fieldset className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <legend className="px-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+            Output dials — format × size × detail × audience
+          </legend>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="block space-y-1">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Format</span>
+              <Select
+                value={dials.format}
+                onValueChange={(v) => setDials((d) => ({ ...d, format: v as OutputFormat }))}
+              >
+                <SelectTrigger aria-label="Output format"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {OUTPUT_FORMATS.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.id} — {f.deliverable}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="block space-y-1">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Size</span>
+              <Select
+                value={dials.size}
+                onValueChange={(v) => setDials((d) => ({ ...d, size: v as SizePresetId }))}
+              >
+                <SelectTrigger aria-label="Canvas size"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SIZE_PRESETS.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.id} · {p.aspect}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="block space-y-1">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Detail</span>
+              <Select
+                value={dials.detail}
+                onValueChange={(v) => setDials((d) => ({ ...d, detail: v as DetailLevel }))}
+              >
+                <SelectTrigger aria-label="Detail level"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {DETAIL_LEVELS.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>{l.id} · ≤{l.maxNodes} nodes</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="block space-y-1">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Audience</span>
+              <Select
+                value={dials.audience}
+                onValueChange={(v) => setDials((d) => ({ ...d, audience: v as Audience }))}
+              >
+                <SelectTrigger aria-label="Audience"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {AUDIENCES.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.id}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-slate-500">
+            {AUDIENCES.find((a) => a.id === dials.audience)?.names} ·{' '}
+            {DETAIL_LEVELS.find((l) => l.id === dials.detail)?.survives}{' '}
+            Whatever is cut is reported in the fidelity ledger — never silently.
+          </p>
+        </fieldset>
+
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="editorialAccent" size="editorialLg" onClick={run}>
             Redraw
@@ -125,6 +209,9 @@ export function DiagramImport() {
               <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">
                 grammar {result.grammar} · source {result.source.nodes} nodes / {result.source.edges} edges · drawn{' '}
                 {result.drawn.nodes} / {result.drawn.edges}
+              </p>
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-slate-400">
+                {describeDials(result.output)}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-700">
                 {result.ledger.map((entry, i) => (

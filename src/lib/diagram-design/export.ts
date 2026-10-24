@@ -7,7 +7,7 @@
  */
 
 import { iconMarkup } from './icons'
-import { FONT_LINK, FONT_STACK, STROKE, alpha, nodeTreatment, type RoleTokens } from './tokens'
+import { FONT_LINK, FONT_STACK, STROKE, alpha, dotGridColor, nodeTreatment, type RoleTokens } from './tokens'
 import { RADIUS } from './tokens'
 import type { LegendItem, Prim, Scene } from './spec'
 import { resolveSkin } from './tokens'
@@ -97,8 +97,10 @@ export function sceneToSvg(scene: Scene, opts: { sketchy?: boolean } = {}): stri
     ${marker('arrow-accent', tokens.accent)}
     ${marker('arrow-link', tokens.link)}
     ${opts.sketchy ? `<filter id="${uid('sketchy')}" x="-2%" y="-2%" width="104%" height="104%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="1.5"/></filter>` : ''}
+    ${scene.background === 'dots' ? `<pattern id="${uid('dots')}" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="${dotGridColor(tokens, scene.skin)}"/></pattern>` : ''}
   </defs>
   <rect width="${scene.width}" height="${height}" fill="${tokens.paper}"/>
+  ${scene.background === 'dots' ? `<rect width="${scene.width}" height="${height}" fill="url(#${uid('dots')})"/>` : ''}
   ${opts.sketchy
     ? `<g filter="url(#${uid('sketchy')})">${items.filter((i) => i.prim.t !== 'text').map((i) => primToSvg(i.prim, uid)).join('\n  ')}</g>\n  ${items.filter((i) => i.prim.t === 'text').map((i) => primToSvg(i.prim, uid)).join('\n  ')}`
     : items.map((i) => primToSvg(i.prim, uid)).join('\n  ')}

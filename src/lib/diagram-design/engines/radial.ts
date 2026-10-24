@@ -8,8 +8,8 @@
  */
 
 import { measureText, snap, snapUp } from '../geometry'
-import { RADIUS, STROKE, TYPE_RAMP, alpha, nodeTreatment } from '../tokens'
-import { seriesColor } from './shared'
+import { RADIUS, STROKE, alpha, nodeTreatment } from '../tokens'
+import { rampOf, seriesColor } from './shared'
 import type { Rect } from '../geometry'
 import type { DiagramSpec } from '../spec'
 import { SceneBuilder } from '../scene'
@@ -65,7 +65,7 @@ export function renderQuadrant(spec: DiagramSpec, b: SceneBuilder): void {
         layer: 41,
       })
       b.circle(x, y, item.focal ? 3 : 2, { fill: b.t.paper, layer: 42 })
-      const w = snapUp(measureText(item.label, { family: 'mono', size: TYPE_RAMP.chartValue.size })) + 12
+      const w = snapUp(measureText(item.label, { family: 'mono', size: rampOf(b).chartValue.size })) + 12
       b.mask({ x: snap(x + 8), y: snap(y - 16), w, h: 14 }, { rx: RADIUS.sm, layer: 43 })
       b.text(x + 14, y - 5, item.label, {
         role: 'chartValue',
@@ -303,7 +303,7 @@ export function renderVenn(spec: DiagramSpec, b: SceneBuilder): void {
     const pts = idx.map((i) => positions[i] ?? { x: cx, y: cy })
     const x = pts.reduce((a, p) => a + p.x, 0) / pts.length
     const y = pts.reduce((a, p) => a + p.y, 0) / pts.length
-    const w = snapUp(measureText(inter.label, { family: 'mono', size: TYPE_RAMP.chartValue.size })) + 12
+    const w = snapUp(measureText(inter.label, { family: 'mono', size: rampOf(b).chartValue.size })) + 12
     b.mask({ x: snap(x - w / 2), y: snap(y - 9), w, h: 16 }, { rx: RADIUS.sm, layer: 43 })
     b.text(x, y + 3, inter.label, { role: 'chartValue', fill: b.t.ink, anchor: 'middle', layer: 44 })
   }
@@ -328,7 +328,7 @@ export function renderFishbone(spec: DiagramSpec, b: SceneBuilder): void {
 
   const top = bones.filter((_, i) => i % 2 === 0)
   const bottom = bones.filter((_, i) => i % 2 === 1)
-  const maxBoneW = measureText('WWWWWWWWWWWW', { family: 'mono', size: TYPE_RAMP.chartValue.size })
+  const maxBoneW = measureText('WWWWWWWWWWWW', { family: 'mono', size: rampOf(b).chartValue.size })
 
   const place = (list: typeof bones, dir: -1 | 1) => {
     const span = spineX1 - spineX0 - 24
@@ -345,7 +345,7 @@ export function renderFishbone(spec: DiagramSpec, b: SceneBuilder): void {
       })
       bone.causes.forEach((cause, ci) => {
         const cy = snap(tipY + dir * (28 + ci * 20))
-        const cw = Math.min(maxBoneW + 24, snapUp(measureText(cause, { family: 'mono', size: TYPE_RAMP.chartValue.size })) + 16)
+        const cw = Math.min(maxBoneW + 24, snapUp(measureText(cause, { family: 'mono', size: rampOf(b).chartValue.size })) + 16)
         b.line(x - 32, cy, x - 32 + cw, cy, { stroke: alpha(b.t.ink, 0.3), width: STROKE.thin, layer: 20 })
         b.text(x - 32 + cw / 2, cy - 6, cause, { role: 'chartValue', fill: b.t.muted, anchor: 'middle', layer: 45 })
       })

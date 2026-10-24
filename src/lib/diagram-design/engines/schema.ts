@@ -8,23 +8,24 @@
  */
 
 import { measureText, snap, snapUp } from '../geometry'
-import { RADIUS, STROKE, TYPE_RAMP, alpha, nodeTreatment } from '../tokens'
+import { RADIUS, STROKE, alpha, nodeTreatment, type TypeRamp } from '../tokens'
 import type { Rect } from '../geometry'
 import type { ClassSpec, DiagramSpec, TableSpec } from '../spec'
 import { SceneBuilder } from '../scene'
+import { rampOf } from './shared'
 
 const ROW_H = 20
 const HEADER_H = 36
 
-function tableSize(t: TableSpec | ClassSpec, kind: 'table' | 'class') {
+function tableSize(t: TableSpec | ClassSpec, kind: 'table' | 'class', ramp: TypeRamp) {
   const rows =
     kind === 'table'
       ? (t as TableSpec).columns.map((c) => `${c.name} ${c.type}`)
       : [...(t as ClassSpec).attributes, ...(t as ClassSpec).operations]
-  const nameW = measureText(t.name, { family: 'sans', size: TYPE_RAMP.nodeName.size })
+  const nameW = measureText(t.name, { family: 'sans', size: ramp.nodeName.size })
   const rowW = Math.max(
     0,
-    ...rows.map((r) => measureText(r, { family: 'mono', size: TYPE_RAMP.chartLabel.size }) + 52),
+    ...rows.map((r) => measureText(r, { family: 'mono', size: ramp.chartLabel.size }) + 52),
   )
   const w = snapUp(Math.max(160, nameW + 32, rowW))
   const h = snapUp(HEADER_H + rows.length * ROW_H + 12)
@@ -37,7 +38,7 @@ export function renderSchema(spec: DiagramSpec, b: SceneBuilder, kind: 'table' |
   const gapX = 48
   const gapY = 40
   const maxPerRow = items.length > 3 ? 3 : items.length || 1
-  const sizes = items.map((t) => tableSize(t, kind))
+  const sizes = items.map((t) => tableSize(t, kind, rampOf(b)))
   const rowW = Math.max(...sizes.map((s) => s.w)) * Math.min(maxPerRow, items.length) +
     gapX * (Math.min(maxPerRow, items.length) - 1)
 

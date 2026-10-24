@@ -9,9 +9,9 @@
  * instead of shadows.
  */
 
-import { autoLegend, autoLegendStacks, fixedLegend, measureNode } from './shared'
+import { autoLegend, autoLegendStacks, fixedLegend, measureNode, rampOf } from './shared'
 import { measureText, snap, snapUp } from '../geometry'
-import { RADIUS, STROKE, TYPE_RAMP, alpha, nodeTreatment } from '../tokens'
+import { RADIUS, STROKE, alpha, nodeTreatment } from '../tokens'
 import type { Rect } from '../geometry'
 import type { DiagramSpec, NodeSpec, StackSpec } from '../spec'
 import { SceneBuilder } from '../scene'
@@ -203,7 +203,7 @@ export function renderKanban(spec: DiagramSpec, b: SceneBuilder): void {
     let y = r.y + 44
     for (const card of cards.filter((c) => c.zone === g.id)) {
       const rw = r.w - 24
-      const textW = measureText(card.name, { family: 'sans', size: TYPE_RAMP.nodeName.size })
+      const textW = measureText(card.name, { family: 'sans', size: rampOf(b).nodeName.size })
       const h = snapUp(textW > rw - 24 ? 64 : 48)
       if (y + h > r.y + r.h - 12) break
       const cr: Rect = { x: snap(r.x + 12), y: snap(y), w: snapUp(rw), h }
@@ -234,7 +234,7 @@ export function renderTree(spec: DiagramSpec, b: SceneBuilder, opts: { org?: boo
   // Assign leaves first, then centre parents over their children.
   const positions = new Map<string, Rect>()
   const sizes = new Map<string, { w: number; h: number }>()
-  for (const n of nodes) sizes.set(n.id, measureNode(n, { minW: opts.org ? 128 : 112, minH: opts.org ? 60 : 52 }))
+  for (const n of nodes) sizes.set(n.id, measureNode(n, { minW: opts.org ? 128 : 112, minH: opts.org ? 60 : 52, ramp: rampOf(b) }))
 
   const depth = new Map<string, number>()
   const walkDepth = (id: string, d: number) => {
@@ -346,7 +346,7 @@ export function renderHeatmap(spec: DiagramSpec, b: SceneBuilder): void {
   const values = cells.map((c) => c.value)
   const min = Math.min(...values, 0)
   const max = Math.max(...values, 1)
-  const labelW = Math.max(...rows.map((r) => measureText(r, { family: 'mono', size: TYPE_RAMP.chartLabel.size }))) + 24
+  const labelW = Math.max(...rows.map((r) => measureText(r, { family: 'mono', size: rampOf(b).chartLabel.size }))) + 24
   const gridW = b.width - PAD.left - PAD.right - labelW
   const gridH = b.height - PAD.top - PAD.bottom - 28
   const cellW = snap(gridW / Math.max(cols.length, 1))
@@ -448,7 +448,7 @@ export function renderTreemap(spec: DiagramSpec, b: SceneBuilder): void {
 export function renderSecurityMatrix(spec: DiagramSpec, b: SceneBuilder): void {
   const roles = spec.groups ?? []
   const resources = spec.nodes ?? []
-  const labelW = Math.max(...resources.map((r) => measureText(r.name, { family: 'mono', size: TYPE_RAMP.chartLabel.size }))) + 24
+  const labelW = Math.max(...resources.map((r) => measureText(r.name, { family: 'mono', size: rampOf(b).chartLabel.size }))) + 24
   const headerH = 40
   const gridW = b.width - PAD.left - PAD.right - labelW
   const gridH = b.height - PAD.top - PAD.bottom - headerH

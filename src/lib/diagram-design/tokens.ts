@@ -121,6 +121,14 @@ export const TERMINAL_SKIN: RoleTokens = {
   link: '#f5f5f5',
 }
 
+/** Dot-grid texture (primitive-terminal.md): barely-visible paper texture,
+ * `rgba(255,255,255,0.06–0.08)` on the terminal skin — never a competitor to
+ * the titlebar chrome. */
+export function dotGridColor(t: RoleTokens, skin: SkinName | undefined): string {
+  if (skin === 'terminal') return 'rgba(255,255,255,0.07)'
+  return alpha(t.ink, 0.08)
+}
+
 export type SkinName = 'editorial' | 'alo' | 'terminal'
 
 export function resolveSkin(skin: SkinName | undefined, theme: Theme): RoleTokens {
@@ -187,6 +195,46 @@ export const TYPE_RAMP = {
 } as const
 
 export type TextRole = keyof typeof TYPE_RAMP
+
+/** A mutable view of one type-ramp row (the shipped ramp is `as const`). */
+export interface TypeRampEntry {
+  family: 'serif' | 'sans' | 'mono'
+  size: number
+  weight: number
+  tracking: number
+  italic?: boolean
+}
+export type TypeRamp = Record<TextRole, TypeRampEntry>
+
+/**
+ * Terminal type ramp (primitive-terminal.md): every text role runs about
+ * 1–2px above the default scale — mono at default sizes reads small next to
+ * the sans/serif mix it replaces, and terminal cards are viewed at feed scale.
+ * Roles ≥12px grow by 2, smaller roles by 1 (node-name 12→14, sublabel 9→10).
+ */
+export const TERMINAL_TYPE_BOOST = { large: 2, small: 1, largeThreshold: 12 } as const
+
+const rampCache = new Map<SkinName | 'editorial', TypeRamp>()
+
+export function typeRampFor(skin: SkinName | undefined): TypeRamp {
+  const key: SkinName | 'editorial' = skin ?? 'editorial'
+  const cached = rampCache.get(key)
+  if (cached) return cached
+  const base = TYPE_RAMP as unknown as TypeRamp
+  let out = base
+  if (skin === 'terminal') {
+    out = {} as TypeRamp
+    for (const role of Object.keys(base) as TextRole[]) {
+      const row = base[role]
+      out[role] = {
+        ...row,
+        size: row.size + (row.size >= TERMINAL_TYPE_BOOST.largeThreshold ? TERMINAL_TYPE_BOOST.large : TERMINAL_TYPE_BOOST.small),
+      }
+    }
+  }
+  rampCache.set(key, out)
+  return out
+}
 
 /** Per-character width budget, in em. Geist sans 0.60 / Geist Mono 0.62. */
 export const CHAR_WIDTH = { sans: 0.6, mono: 0.62, serif: 0.52 } as const
@@ -325,6 +373,7 @@ export type DiagramKind =
   | 'uml-class'
   | 'story-map'
   | 'db-schema'
+  | 'service-blueprint'
 
 export interface KindMeta {
   kind: DiagramKind
@@ -349,7 +398,7 @@ export interface KindMeta {
 }
 
 /**
- * The 44 visual types. `budget.max` is the per-type limit; the universal rows
+ * The 45 visual types. `budget.max` is the per-type limit; the universal rows
  * (9 nodes, 12 arrows, 2 focal, 2 callouts) apply on top of every type.
  */
 export const KINDS: KindMeta[] = [
@@ -398,6 +447,15 @@ export const KINDS: KindMeta[] = [
   { kind: 'uml-class', label: 'UML class', purpose: 'Classes, operations + typed relations', engine: 'graph', budget: { maxNodes: 7, note: '7 classes, 8 relations, 5 members per compartment' }, legend: 'custom', defaultSize: { w: 960, h: 560 } },
   { kind: 'story-map', label: 'Story map', purpose: 'Backbone × release slices', engine: 'stack', budget: { maxNodes: 12, note: '5 activities, 3 slices, 12 cards' }, legend: 'custom', defaultSize: { w: 960, h: 480 } },
   { kind: 'db-schema', label: 'Database schema', purpose: 'Physical tables + column FKs', engine: 'graph', budget: { maxNodes: 5, note: '5 tables, 8 columns shown, 6 FKs' }, legend: 'custom', defaultSize: { w: 1000, h: 560 } },
+  {
+    kind: 'service-blueprint',
+    label: 'Service blueprint',
+    purpose: 'Customer vs hidden service across narrative stages, split by the line of visibility',
+    engine: 'stack',
+    budget: { maxNodes: 30, note: '4–6 stages × layers as a census; 1 focal cell; no connector arrows' },
+    legend: 'custom',
+    defaultSize: { w: 1280, h: 720 },
+  },
 ]
 
 export const KIND_MAP: Record<DiagramKind, KindMeta> = KINDS.reduce(

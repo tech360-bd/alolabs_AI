@@ -11,7 +11,7 @@
  * async) rather than crossing a forward path.
  */
 
-import { GAP_X, GAP_Y, autoLegend, measureNode, orderWithinRank, rankNodes } from './shared'
+import { GAP_X, GAP_Y, autoLegend, measureNode, orderWithinRank, rampOf, rankNodes } from './shared'
 import { snap, snapUp } from '../geometry'
 import { RADIUS, STROKE, alpha } from '../tokens'
 import type { Rect, Side } from '../geometry'
@@ -50,7 +50,7 @@ export function renderGraph(spec: DiagramSpec, b: SceneBuilder, opts: GraphOptio
 
   const rects = new Map<string, Rect>()
   const sizes = new Map<string, { w: number; h: number }>()
-  for (const n of nodes) sizes.set(n.id, measureNode(n, { minW: opts.minW, minH: opts.minH }))
+  for (const n of nodes) sizes.set(n.id, measureNode(n, { minW: opts.minW, minH: opts.minH, ramp: rampOf(b) }))
 
   if (useZones) {
     layoutWithZones(spec, b, nodes, links, zones, rects, sizes, { direction, rankGap, nodeGap, pad })
