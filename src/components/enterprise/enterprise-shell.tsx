@@ -20,6 +20,7 @@ import CompanySwitcher from './company-switcher'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type EnterpriseView =
+  | 'command-agent'
   | 'agent-command-center'
   | 'agentos-command'
   | 'agentos-runs'
@@ -111,6 +112,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Command Center',
     items: [
+      { id: 'command-agent' as EnterpriseView, name: 'Commanding Center (Free AI Agent)', icon: Brain },
       { id: 'agentos-command' as EnterpriseView, name: 'Command Center', icon: Zap },
       { id: 'agentos-runs' as EnterpriseView, name: 'Runs', icon: Activity },
       { id: 'agent-command-center' as EnterpriseView, name: 'Agent Command Center', icon: Brain },
@@ -203,6 +205,7 @@ const navGroups: NavGroup[] = [
 
 // ─── Lazy Panel Map ────────────────────────────────────────────────────────────
 const panelMap: Record<EnterpriseView, React.LazyExoticComponent<React.ComponentType<{ onNavigate?: (view: EnterpriseView) => void }>>> = {
+  'command-agent': lazy(() => import('./panels/command-agent-center')),
   'agentos-command': lazy(() => import('./panels/agentos-command')),
   'agentos-runs': lazy(() => import('./panels/agentos-runs')),
   'agent-command-center': lazy(() => import('./panels/agent-command-center')),
