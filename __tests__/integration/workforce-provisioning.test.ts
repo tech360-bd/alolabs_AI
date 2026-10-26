@@ -312,7 +312,9 @@ describe('workforce provisioning (real SQLite database)', () => {
     expect(verifyOnly.status, verifyOnly.stderr).toBe(0);
     expect(verifyOnly.docs.find((d) => d.verify)!.verify.counts.agentsOwned).toBe(2000);
 
-    const apply = runCli(env);
+    // Writes require the explicit --apply flag: the CLI is non-mutating by
+    // default, and only an apply run emits both the provision and verify docs.
+    const apply = runCli(env, '--apply');
     expect(apply.status, apply.stderr).toBe(0);
     const applyDoc = apply.docs.find((d) => d.verify)!;
     expect(applyDoc.verify.ok).toBe(true);

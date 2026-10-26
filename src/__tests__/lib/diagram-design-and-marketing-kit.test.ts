@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { EXAMPLES } from '@/lib/diagram-design/examples'
+import { EXAMPLES, EXAMPLE_BY_SLUG, getExampleBySlug } from '@/lib/diagram-design/examples'
 import { renderDiagram } from '@/lib/diagram-design/render'
 import { sceneToHtml, sceneToSvg } from '@/lib/diagram-design/export'
 import { KINDS, KIND_MAP, UNIVERSAL_BUDGET } from '@/lib/diagram-design/tokens'
@@ -35,6 +35,17 @@ describe('diagram design — catalogue', () => {
   it('uses unique slugs', () => {
     const slugs = EXAMPLES.map((e) => e.slug)
     expect(new Set(slugs).size).toBe(slugs.length)
+  })
+
+  it('indexes every example by slug for the public surfaces', () => {
+    // The site pages (home teaser, platform, work, gallery) address figures by
+    // slug; a kind-keyed map would hand them undefined and crash the render.
+    expect(Object.keys(EXAMPLE_BY_SLUG).length).toBe(EXAMPLES.length)
+    for (const e of EXAMPLES) {
+      expect(EXAMPLE_BY_SLUG[e.slug], `${e.slug} missing from EXAMPLE_BY_SLUG`).toBe(e)
+      expect(getExampleBySlug(e.slug)).toBe(e)
+    }
+    expect(getExampleBySlug('no-such-figure')).toBeUndefined()
   })
 })
 

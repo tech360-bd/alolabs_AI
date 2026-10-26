@@ -1,25 +1,27 @@
 'use client'
 
 /**
- * MarketingSite — the public website for alolabs.net, built from the designs on
- * the brand sheet: the system flow, the mobile command centre, the agent
- * specification cards, the headline statistics, the domains and the letterhead's
- * contact strip as the page footer.
+ * MarketingSite — the home page of alolabs.net.
  *
- * The app itself lives at the shell (`/`); this is the site that introduces it.
+ * The full company front door: hero with the headline statistics and a live
+ * command-centre panel, the system flow, the delivery process, the service
+ * lines, the agent specification cards, the mobile command centre, the
+ * departments and domains, the differentiators, a diagram teaser, insights,
+ * the FAQ and the letterhead contact strip — every figure a live component
+ * from the brand system, never a screenshot.
  */
 
 import * as React from 'react'
 import Link from 'next/link'
 import {
-  AloLabsLogo,
   Badge,
-  BrandRule,
   Mark,
 } from '@/components/brand/alo-logo'
 import { SystemFlow } from '@/components/brand/system-flow'
 import { CommandCenterMobile } from '@/components/brand/command-center-mobile'
 import { AgentSpecCard, SPEC_SAMPLE } from '@/components/brand/agent-spec-card'
+import { EditorialDiagram } from '@/components/diagrams/editorial-diagram'
+import { EXAMPLE_BY_SLUG } from '@/lib/diagram-design/examples'
 import { Button } from '@/components/ui/button'
 import {
   BRAND,
@@ -43,65 +45,53 @@ import {
   ShieldCheck,
   Workflow,
 } from 'lucide-react'
+import {
+  CtaBand,
+  FaqList,
+  NumberedCard,
+  Section,
+  SiteFooter,
+  SiteHeader,
+  StatCard,
+  type FaqItem,
+} from '@/components/site/chrome'
 
 const SECTIONS = [
   { id: 'system', label: 'System' },
+  { id: 'process', label: 'Process' },
+  { id: 'services', label: 'Services' },
   { id: 'agents', label: 'Agents' },
   { id: 'mobile', label: 'Mobile' },
   { id: 'departments', label: 'Departments' },
   { id: 'contact', label: 'Contact' },
 ]
 
+/** In-page section labels, reused by the section eyebrow numbering. */
+export const HOME_SECTIONS = SECTIONS
+
 export function MarketingSite() {
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: BRAND_FONTS.primary.stack }}>
-      <SiteHeader />
+      <SiteHeader active="/site" />
       <Hero />
       <LogoStrip />
       <SystemSection />
+      <ProcessSection />
+      <ServicesSection />
       <AgentsSection />
       <MobileSection />
       <DepartmentsSection />
+      <WhySection />
+      <DiagramsTeaser />
+      <InsightsSection />
+      <FaqSection />
       <ContactSection />
+      <CtaBand
+        title="One command centre. 1020 agents. Your departments next."
+        lead="Open the command centre and run a real command — or talk to the team about the first department we should automate together."
+      />
       <SiteFooter />
     </div>
-  )
-}
-
-// ─── Header ──────────────────────────────────────────────────────────────────
-
-function SiteHeader() {
-  return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-6 px-6 py-3.5">
-        <Link href="/site" className="flex items-center gap-3">
-          <AloLabsLogo size={34} tagline={false} title="ALO Labs AgentOS" />
-        </Link>
-        <nav className="hidden items-center gap-1 md:flex">
-          {SECTIONS.map((s) => (
-            <a
-              key={s.id}
-              href={`#${s.id}`}
-              className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
-              {s.label}
-            </a>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="hidden gap-1.5 sm:flex" asChild>
-            <Link href="/brand">
-              <Layers className="size-3.5" /> Brand book
-            </Link>
-          </Button>
-          <Button size="sm" className="gap-1.5" style={{ background: BRAND.orange }} asChild>
-            <Link href="/">
-              Open AgentOS <ArrowRight className="size-3.5" />
-            </Link>
-          </Button>
-        </div>
-      </div>
-    </header>
   )
 }
 
@@ -138,8 +128,8 @@ function Hero() {
               </Link>
             </Button>
             <Button size="lg" variant="outline" className="gap-2" asChild>
-              <Link href="#system">
-                See the system flow
+              <Link href="/site/platform">
+                Explore the platform
               </Link>
             </Button>
           </div>
@@ -238,49 +228,6 @@ function LogoStrip() {
   )
 }
 
-// ─── Section shell ───────────────────────────────────────────────────────────
-
-function Section({
-  id,
-  eyebrow,
-  title,
-  lead,
-  children,
-  ground = 'white',
-}: {
-  id: string
-  eyebrow: string
-  title: string
-  lead?: string
-  children: React.ReactNode
-  ground?: 'white' | 'canvas' | 'navy'
-}) {
-  const bg = ground === 'navy' ? BRAND.navy : ground === 'canvas' ? BRAND.canvas : '#FFFFFF'
-  const titleColor = ground === 'navy' ? '#FFFFFF' : BRAND.blue
-  const leadColor = ground === 'navy' ? 'rgba(255,255,255,0.72)' : BRAND.gray
-  return (
-    <section id={id} className="scroll-mt-20 border-b border-slate-200" style={{ background: bg }}>
-      <div className="mx-auto max-w-[1200px] px-6 py-16 lg:py-20">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: BRAND.orange }}>
-          {eyebrow}
-        </p>
-        <h2
-          className="mt-3 max-w-[46ch] text-3xl font-bold tracking-tight sm:text-[34px]"
-          style={{ color: titleColor, fontFamily: BRAND_FONTS.secondary.stack }}
-        >
-          {title}
-        </h2>
-        {lead ? (
-          <p className="mt-4 max-w-[70ch] text-[14px] leading-relaxed" style={{ color: leadColor }}>
-            {lead}
-          </p>
-        ) : null}
-        <div className="mt-10">{children}</div>
-      </div>
-    </section>
-  )
-}
-
 // ─── System flow ─────────────────────────────────────────────────────────────
 
 function SystemSection() {
@@ -289,7 +236,7 @@ function SystemSection() {
   return (
     <Section
       id="system"
-      eyebrow="2 · System flow"
+      eyebrow="1 · System flow"
       title="Every command takes the same eight-hop path — and it is auditable at every hop."
       lead="Orange is the action path, blue is the system path. The owner's command travels from the Command Center through the routers, the agent pool, memory and the hybrid RAG engine, and stops at the approval gate before execution."
     >
@@ -308,32 +255,113 @@ function SystemSection() {
   )
 }
 
-function StatCard({
-  icon: Icon,
-  value,
-  label,
-  note,
-}: {
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
-  value: string
-  label: string
-  note: string
-}) {
+// ─── Process ─────────────────────────────────────────────────────────────────
+
+function ProcessSection() {
+  const steps = [
+    { step: '1', title: 'Assess', body: 'We map your departments, workflows, data and risk surface — and agree what the agents should and should not do.' },
+    { step: '2', title: 'Design', body: 'Agent specifications, workflows, approval rules and integrations are designed as a system — documented in diagrams, not slideware.' },
+    { step: '3', title: 'Deploy', body: 'We stand up the command centre, provision the agent workforce and integrate your tools — in your cloud or ours.' },
+    { step: '4', title: 'Run', body: 'Agents work inside the approval gate while you watch the dashboards. We tune, report and extend department by department.' },
+  ]
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="flex items-center gap-2">
-        <Icon className="size-4" style={{ color: BRAND.orange }} />
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: BRAND.gray }}>
-          {label}
-        </span>
+    <Section
+      id="process"
+      eyebrow="2 · How we deliver"
+      title="Assess, design, deploy, run."
+      lead="The same four steps on every engagement — one workflow or a hundred-department workforce."
+      ground="canvas"
+    >
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {steps.map((s) => (
+          <div key={s.step} className="rounded-2xl border border-slate-200 bg-white p-6">
+            <span
+              className="flex size-10 items-center justify-center rounded-full text-[15px] font-bold text-white"
+              style={{ background: BRAND.orange, fontFamily: BRAND_FONTS.secondary.stack }}
+            >
+              {s.step}
+            </span>
+            <h3 className="mt-4 text-[17px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
+              {s.title}
+            </h3>
+            <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
+              {s.body}
+            </p>
+          </div>
+        ))}
       </div>
-      <p className="mt-2 text-3xl font-bold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-        {value}
-      </p>
-      <p className="mt-1 text-[11px]" style={{ color: BRAND.graySoft }}>
-        {note}
-      </p>
-    </div>
+      <div className="mt-6">
+        <Button variant="outline" className="gap-1.5" asChild>
+          <Link href="/site/solutions#process">
+            How engagements run <ArrowRight className="size-3.5" />
+          </Link>
+        </Button>
+      </div>
+    </Section>
+  )
+}
+
+// ─── Services ────────────────────────────────────────────────────────────────
+
+function ServicesSection() {
+  return (
+    <Section
+      id="services"
+      eyebrow="3 · Services"
+      title="Six service lines. One accountable team."
+      lead="Each line stands on its own — take one, combine them later, with the same command centre underneath."
+    >
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <NumberedCard
+          index="01"
+          title="AI agents & workforce automation"
+          body="Departments of specified AI agents that take real work off your team — reports, follow-ups, data entry, research — inside an approval gate."
+          items={['Agent specification & registry', 'Workflow automation', 'Approval & audit built in']}
+          href="/site/solutions#automation"
+          ctaLabel="Explore"
+        />
+        <NumberedCard
+          index="02"
+          title="CRM & marketing automation"
+          body="Lead capture, enrichment, scoring and nurture wired into your CRM — with campaigns and reporting running as scheduled agent work."
+          items={['CRM implementation', 'Lead enrichment & scoring', 'Campaign automation']}
+          href="/site/solutions#crm"
+          ctaLabel="Explore"
+        />
+        <NumberedCard
+          index="03"
+          title="Education & student operations"
+          body="Recruitment, applications, compliance and pastoral operations for consultancies and institutions — UKVI-aware workflows included."
+          items={['Applicant pipelines', 'Document & compliance checks', 'Agent-led student support']}
+          href="/site/solutions#education"
+          ctaLabel="Explore"
+        />
+        <NumberedCard
+          index="04"
+          title="Voice, SMS & communications"
+          body="AI call-centre and telephony integrations: inbound routing, call intelligence, SMS automation and VoIP — on the same agent workforce."
+          items={['Call intelligence', 'SMS follow-up automation', 'Conversation logging into CRM']}
+          href="/site/solutions#comms"
+          ctaLabel="Explore"
+        />
+        <NumberedCard
+          index="05"
+          title="Knowledge, content & media"
+          body="Hybrid RAG over your corpus, editorial diagrams, AI video and image pipelines — everything your teams publish, grounded in your data."
+          items={['Hybrid RAG (classic · graph · agentic)', 'Diagram & report generation', 'AI media pipelines']}
+          href="/site/solutions#knowledge"
+          ctaLabel="Explore"
+        />
+        <NumberedCard
+          index="06"
+          title="Custom AI products & integrations"
+          body="When the need is a product, not a service: multi-tenant SaaS, internal platforms and white-label AI assistants engineered to last."
+          items={['SaaS product engineering', 'LLM applications & agents', 'Data pipelines & integrations']}
+          href="/site/solutions#products"
+          ctaLabel="Explore"
+        />
+      </div>
+    </Section>
   )
 }
 
@@ -343,7 +371,7 @@ function AgentsSection() {
   return (
     <Section
       id="agents"
-      eyebrow="Master 1020 agent specification"
+      eyebrow="4 · Master 1020 agent specification"
       title="Every agent is specified before it runs: department, role, mission, work, input, output."
       lead="The specification list is the source of truth for the agent registry — 1020 agents across 100+ departments, each with a named role, a mission, an execution path, and QA and approval rules attached."
       ground="canvas"
@@ -409,7 +437,7 @@ function DepartmentsSection() {
   return (
     <Section
       id="departments"
-      eyebrow="Departments & deployment"
+      eyebrow="6 · Departments & deployment"
       title="Five departments on day one — and a subdomain for every surface."
       lead="Departments are the routing unit: each one owns its agents, workflows and approval rules. The platform is reachable on four branded domains."
       ground="white"
@@ -463,6 +491,159 @@ function DepartmentsSection() {
   )
 }
 
+// ─── Why ALO ─────────────────────────────────────────────────────────────────
+
+function WhySection() {
+  const reasons = [
+    { icon: ShieldCheck, title: 'Approval gate on everything', body: 'No agent side effect happens without risk scoring, policy checks and — where you configure it — a human yes.' },
+    { icon: BadgeCheck, title: 'Auditable at every hop', body: 'Who commanded, which agent acted, what it read, what it wrote. Exportable evidence, per tenant.' },
+    { icon: Layers, title: 'Specified, not improvised', body: 'Every agent has a department, a role, a mission and QA rules. If it cannot be specified, it does not ship.' },
+    { icon: Database, title: 'Grounded in your data', body: 'Hybrid RAG over your own corpus with source-cited answers — your data stays in your tenant.' },
+    { icon: Workflow, title: 'Department by department', body: 'Prove one department end to end, then extend the same pattern. Adoption is a delivery metric.' },
+    { icon: Globe, title: 'Your cloud or ours', body: 'Managed service, your VPC or fully self-hosted — the same platform, the same audit trail.' },
+  ]
+  return (
+    <Section
+      eyebrow="Why ALO Labs"
+      title="Automation with accountability."
+      lead="We built the guardrails first — then the workforce that needs them."
+      ground="canvas"
+    >
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {reasons.map((r) => (
+          <div key={r.title} className="rounded-2xl border border-slate-200 bg-white p-6">
+            <r.icon className="size-4.5" style={{ color: BRAND.orange }} />
+            <h3 className="mt-3 text-[16px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
+              {r.title}
+            </h3>
+            <p className="mt-2 text-[12.5px] leading-relaxed" style={{ color: BRAND.gray }}>
+              {r.body}
+            </p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Button variant="outline" className="gap-1.5" asChild>
+          <Link href="/site/work">
+            See the work <ArrowRight className="size-3.5" />
+          </Link>
+        </Button>
+        <Button variant="outline" className="gap-1.5" asChild>
+          <Link href="/site/pricing">
+            Pricing & deployment <ArrowRight className="size-3.5" />
+          </Link>
+        </Button>
+      </div>
+    </Section>
+  )
+}
+
+// ─── Diagram teaser ──────────────────────────────────────────────────────────
+
+function DiagramsTeaser() {
+  const figures = ['architecture-agentos', 'org-chart-ai-team', 'loop-growth-flywheel'] as const
+  return (
+    <Section
+      eyebrow="Editorial diagram system"
+      title="Your reports should look like this."
+      lead="Every figure in our materials is generated from the editorial diagram library — 45 visual types, taste-gated in CI, exported as accessible SVG. It ships with every AgentOS deployment."
+    >
+      <div className="grid gap-5 lg:grid-cols-3">
+        {figures.map((slug) => (
+          <div key={slug} className="rounded-2xl border border-slate-200 bg-white p-5">
+            <EditorialDiagram spec={EXAMPLE_BY_SLUG[slug]} />
+          </div>
+        ))}
+      </div>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Button className="gap-1.5" style={{ background: BRAND.orange }} asChild>
+          <Link href="/site/diagrams">
+            Open the diagram gallery <ArrowRight className="size-3.5" />
+          </Link>
+        </Button>
+        <Button variant="outline" className="gap-1.5" asChild>
+          <Link href="/design">Design system studio</Link>
+        </Button>
+      </div>
+    </Section>
+  )
+}
+
+// ─── Insights ────────────────────────────────────────────────────────────────
+
+function InsightsSection() {
+  const notes = [
+    { tag: 'Operations', title: 'The eight-hop command path — and why every hop is audited', href: '/site/insights' },
+    { tag: 'Governance', title: 'Designing an approval gate people do not route around', href: '/site/insights' },
+    { tag: 'Marketing', title: 'Turning 50 marketing playbooks into installable agents', href: '/site/press' },
+  ]
+  return (
+    <Section
+      eyebrow="Insights"
+      title="Notes from inside the agent factory."
+      lead="Field notes on running AI departments — governance, retrieval, rollout patterns and the design systems behind the product."
+      ground="canvas"
+    >
+      <div className="grid gap-5 lg:grid-cols-3">
+        {notes.map((note) => (
+          <Link
+            key={note.title}
+            href={note.href}
+            className="group rounded-2xl border border-slate-200 bg-white p-6 transition-transform hover:-translate-y-1"
+          >
+            <span
+              className="rounded-md px-2.5 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.12em]"
+              style={{ background: 'rgba(255,106,0,0.10)', color: BRAND.orange }}
+            >
+              {note.tag}
+            </span>
+            <h3 className="mt-3 text-[15px] font-semibold leading-snug" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
+              {note.title}
+            </h3>
+            <span className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: BRAND.orange }}>
+              Read the note <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+// ─── FAQ ─────────────────────────────────────────────────────────────────────
+
+const HOME_FAQS: FaqItem[] = [
+  {
+    q: 'What exactly is AgentOS?',
+    a: 'An enterprise AI operating system: one command centre routes every owner command to a specified workforce of AI agents — through memory, hybrid retrieval and an approval gate — with a complete audit trail. It is a platform you run departments on, not a chatbot.',
+  },
+  {
+    q: 'How is this different from hiring an automation agency?',
+    a: 'Agencies deliver workflows; AgentOS delivers the operating system those workflows run on — the registry, the routers, the approvals, the audit and the command centre — and our services team deploys the first departments on it.',
+  },
+  {
+    q: 'Can we start small?',
+    a: 'Yes. One department, 10–40 agents, 2–4 workflows — typically live in 2–4 weeks. Prove it end to end, then extend the same pattern to the next department.',
+  },
+  {
+    q: 'Where does our data live?',
+    a: 'In your tenant — managed cloud, your VPC or self-hosted. Retrieval runs against your own corpus and nothing is used to train third-party models.',
+  },
+]
+
+function FaqSection() {
+  return (
+    <Section
+      id="faq"
+      eyebrow="FAQ"
+      title="Questions we often hear."
+      lead="Can't find your answer? Our team replies within one business day."
+    >
+      <FaqList items={HOME_FAQS} />
+    </Section>
+  )
+}
+
 // ─── Contact (letterhead strip) ──────────────────────────────────────────────
 
 function ContactSection() {
@@ -482,9 +663,9 @@ function ContactSection() {
       </div>
       <div className="mt-6 flex flex-wrap gap-3">
         <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
-          <a href={COMPANY.emailHref}>
-            <Mail className="size-4" /> Email the team
-          </a>
+          <Link href="/site/contact">
+            <Mail className="size-4" /> Contact form
+          </Link>
         </Button>
         <Button size="lg" variant="outline" className="gap-2" asChild>
           <Link href="/invoice">
@@ -530,87 +711,5 @@ function ContactCard({
     </a>
   ) : (
     inner
-  )
-}
-
-// ─── Footer ──────────────────────────────────────────────────────────────────
-
-function SiteFooter() {
-  return (
-    <footer style={{ background: BRAND.navy }}>
-      <div className="mx-auto max-w-[1200px] px-6 py-12">
-        <div className="flex flex-wrap items-start justify-between gap-8">
-          <div className="max-w-[420px]">
-            <AloLabsLogo size={40} tagline theme="dark" />
-            <BrandRule width={150} className="mt-4 opacity-90" />
-            <p className="mt-3 text-[12px] leading-relaxed text-white/70">
-              {COMPANY.promise}
-            </p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div>
-              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/50">Platform</p>
-              <ul className="mt-2 space-y-1.5">
-                {SECTIONS.map((s) => (
-                  <li key={s.id}>
-                    <a href={`#${s.id}`} className="text-[12px] text-white/80 hover:text-white">
-                      {s.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/50">Company</p>
-              <ul className="mt-2 space-y-1.5">
-                <li>
-                  <Link href="/brand" className="text-[12px] text-white/80 hover:text-white">
-                    Brand &amp; system guideline
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/invoice" className="text-[12px] text-white/80 hover:text-white">
-                    Invoice on the letterhead
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/design" className="text-[12px] text-white/80 hover:text-white">
-                    Editorial design system
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/" className="text-[12px] text-white/80 hover:text-white">
-                    Open AgentOS
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="max-w-[280px]">
-            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/50">Head office</p>
-            <p className="mt-2 text-[12px] leading-relaxed text-white/80">
-              {COMPANY.legalName} · {COMPANY.entity}
-              <br />
-              {COMPANY.address[0]}
-              <br />
-              {COMPANY.address[1]}
-            </p>
-            <p className="mt-2 font-mono text-[11px] text-white/80">
-              {COMPANY.phone}
-              <br />
-              {COMPANY.email}
-            </p>
-          </div>
-        </div>
-        <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-6">
-          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">
-            © {new Date().getFullYear()} {COMPANY.legalName} · {COMPANY.product} · {COMPANY.tagline}
-          </p>
-          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">
-            {COMPANY.domains.map((d) => d.value).join(' · ')}
-          </p>
-        </div>
-      </div>
-    </footer>
   )
 }
