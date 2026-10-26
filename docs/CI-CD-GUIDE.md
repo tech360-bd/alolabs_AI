@@ -237,9 +237,9 @@ jobs:
       - name: Create backup on server
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
           script: |
             sudo bash /opt/alolabs/agent-hub/deploy/scripts/backup.sh \
               --id "pre-deploy-${GITHUB_SHA::0:8}" --quiet
@@ -252,9 +252,9 @@ jobs:
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
           script: |
             cd /opt/alolabs/agent-hub
             sudo bash deploy/scripts/deploy.sh --branch main
@@ -262,9 +262,9 @@ jobs:
       - name: Verify deployment
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
           script: |
             sudo bash /opt/alolabs/agent-hub/deploy/scripts/health-check.sh --json
 ```
@@ -407,9 +407,9 @@ jobs:
       - name: Create backup on server
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
           script: |
             sudo bash /opt/alolabs/agent-hub/deploy/scripts/backup.sh \
               --id "ci-$(date +%Y%m%d_%H%M%S)" --quiet
@@ -417,9 +417,9 @@ jobs:
       - name: Verify backup
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
           script: |
             LATEST=$(ls -t /opt/alolabs/agent-hub/backups/ | head -1)
             echo "Latest backup: $LATEST"
@@ -481,33 +481,74 @@ main (protected)
 
 ## 10. Required GitHub Secrets List
 
-| Secret | Required | Description |
-|---|---|---|
-| `DEPLOY_HOST` | **Yes** | Production server IP or hostname |
-| `DEPLOY_USER` | **Yes** | SSH username (e.g., `root` or `alohub`) |
-| `DEPLOY_SSH_KEY` | **Yes** | SSH private key for deployment |
-| `GITHUB_TOKEN` | Auto | GitHub provides automatically |
-| `DOCKER_REGISTRY_USER` | Optional | Container registry username |
-| `DOCKER_REGISTRY_TOKEN` | Optional | Container registry token |
+> **Authoritative source:** the workflows themselves (`.github/workflows/*.yml`).
+> This table is kept in sync with them by `scripts/validate-workflow-security.mjs`,
+> which fails CI if a workflow references a secret that is not documented here.
+> Earlier revisions of this guide documented `DEPLOY_HOST` / `DEPLOY_USER` /
+> `DEPLOY_SSH_KEY`. **Those names are wrong** — no workflow reads them, and
+> creating them produces a deploy that fails its own secret-validation step.
 
-### Setting Up SSH Deploy Key
+| Secret | Required | Used by | Description |
+|---|---|---|---|
+| `PRODUCTION_HOST` | **Yes** | `deploy.yml`, `backup.yml` | Production server IP or hostname |
+| `PRODUCTION_PORT` | **Yes** | `deploy.yml`, `backup.yml` | SSH port (was undocumented; `deploy.yml` hard-fails without it) |
+| `PRODUCTION_USER` | **Yes** | `deploy.yml`, `backup.yml` | SSH username — a dedicated **non-root** deploy user, see below |
+| `PRODUCTION_SSH_KEY` | **Yes** | `deploy.yml`, `backup.yml` | Private key for GitHub → server SSH |
+| `GITHUB_TOKEN` | Auto | `docker.yml`, `security.yml` | Provided automatically by Actions |
+| `SKIP_PAID_SERVICES` | No | `ci.yml`, `deploy.yml`, `backup-portability.yml` | Optional paid-services opt-in. May be set as a repository **Variable** (preferred) or Secret of the same name; paid steps run only when it resolves to `false`/`0`/`no`/`off`, or when a manual dispatch ticks `run_paid_services`. Resolution: `scripts/ci-paid-services.sh` (see `docs/CI_PAID_SERVICES.md`) |
+
+### Two different keys — do not conflate them
+
+This deployment needs **two independent credentials**, and mixing them up is the
+most common way this pipeline fails:
+
+1. **`PRODUCTION_SSH_KEY`** — authenticates **GitHub Actions → your server**.
+   Stored as a GitHub Actions secret. This is *not* a GitHub "deploy key".
+2. **A GitHub deploy key (read-only)** — authenticates **your server → GitHub**.
+   Required because `deploy/scripts/deploy.sh:119` runs `git fetch origin "${BRANCH}"`
+   *on the server*, and this repository is **private**. Without it the fetch fails
+   and the deploy aborts. A deploy key is repository-scoped and read-only, which is
+   the least-privilege choice here — the server only ever needs to fetch.
+   Ref: <https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys>
+
+### Secret scope: use *environment* secrets, not repository secrets
+
+Create all four `PRODUCTION_*` secrets on the **`production` environment**, not at
+repository level. Environment secrets are only exposed to jobs that declare
+`environment: production` — which `deploy.yml` and `backup.yml` already do — so a
+compromised or careless job in any other workflow cannot read your production SSH
+key. Ref: <https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets>
+
+### Setting up the server side
+
+Do **not** deploy as `root`, and do not install the key into
+`/root/.ssh/authorized_keys`. Root login over SSH is flagged `crit` by this
+repository's own `deploy/scripts/security-check.sh:240`, so the previously
+documented setup contradicted the project's own security gate.
+
+`deploy/scripts/deploy.sh` also needs `sudo` (line 13, `run_as_owner`) and the
+repository at `APP_DIR` (default `/opt`) — **not** `/opt/alolabs/agent-hub`.
+
+Use the provisioning script instead of hand-editing; it creates a dedicated
+deploy user, installs both keys with correct permissions, writes a sudoers
+drop-in limited to exactly the two scripts, and applies the sshd hardening
+drop-in described in the Ubuntu OpenSSH documentation
+(<https://ubuntu.com/server/docs/how-to/security/openssh-server/>):
 
 ```bash
-# 1. Generate a deploy key pair
-ssh-keygen -t ed25519 -C "github-deploy" -f ~/.ssh/github_deploy
-
-# 2. Add the public key to the server
-ssh-copy-id -i ~/.ssh/github_deploy.pub root@your-server-ip
-
-# 3. Restrict the key to deployment commands only
-# On the server, in /root/.ssh/authorized_keys:
-command="cd /opt/alolabs/agent-hub && sudo bash deploy/scripts/deploy.sh",no-port-forwarding,no-X11-forwarding,no-agent-forwarding ssh-ed25519 AAAA... github-deploy
-
-# 4. Add the private key to GitHub Secrets
-# GitHub → Settings → Secrets → Actions → New repository secret
-# Name: DEPLOY_SSH_KEY
-# Value: (paste the content of ~/.ssh/github_deploy)
+# On the server, as an admin:
+sudo bash deploy/scripts/setup-deploy-target.sh --app-dir /opt --deploy-user alodeploy
 ```
+
+> **Note on `command=`-restricted keys:** an earlier revision of this guide
+> suggested pinning `authorized_keys` to
+> `command="cd /opt/alolabs/agent-hub && sudo bash deploy/scripts/deploy.sh"`.
+> That **breaks the current pipeline**: `deploy.yml` copies the reviewed scripts
+> to `/tmp/alo-deploy-<run_id>-<run_attempt>` via `appleboy/scp-action` and
+> executes them from there, so a fixed `command=` is never what the runner asks
+> for. The provisioning script therefore uses a scoped sudoers rule instead,
+> which restricts *what can be run as root* without breaking the transfer step.
+
 
 ---
 
@@ -568,7 +609,7 @@ echo "bunx lint-staged" > .husky/pre-commit
 
 ## CI/CD Checklist
 
-- [ ] GitHub Secrets configured (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`)
+- [ ] GitHub Secrets configured (`PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_SSH_KEY`)
 - [ ] SSH deploy key generated and added to server
 - [ ] Branch protection rules enabled on `main`
 - [ ] CI pipeline passes on a test PR

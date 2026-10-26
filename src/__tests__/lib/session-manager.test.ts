@@ -1,4 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import crypto from 'crypto';
+
+/** Session tokens are indexed and stored by this digest, never in plaintext. */
+const sha256 = (value: string): string =>
+  crypto.createHash('sha256').update(value).digest('hex');
 
 // Mock @/lib/db before importing session-manager
 vi.mock('@/lib/db', () => ({
@@ -222,11 +227,31 @@ describe('Session Manager', () => {
       });
       const result = await revokeAllSessions('user-1');
       expect(result).toBe(3);
-      expect(mockedDb.settings.deleteMany).toHaveBeenCalledWith({
-        where: {
-          key: { in: ['session:tok1', 'session:tok2', 'session:tok3'] },
-        },
+
+      // These index entries are legacy plaintext, so revocation must target
+      // BOTH the hashed row (current format) and the plaintext row (pre-hashing
+      // format). Targeting only one would leave a valid session behind.
+      const arg = mockedDb.settings.deleteMany.mock.calls[0][0];
+      const keys: string[] = arg.where.key.in;
+      for (const t of ['tok1', 'tok2', 'tok3']) {
+        expect(keys).toContain(`session:${sha256(t)}`);
+        expect(keys).toContain(`session:${t}`);
+      }
+      expect(keys).toHaveLength(6);
+    });
+
+    it('should not double-hash index entries that are already digests', async () => {
+      const digest = sha256('real-token');
+      mockedDb.settings.findUnique.mockResolvedValue({
+        key: 'user:sessions:user-2',
+        value: JSON.stringify([digest]),
       });
+      await revokeAllSessions('user-2');
+      const keys: string[] = mockedDb.settings.deleteMany.mock.calls[0][0].where.key.in;
+      // A digest entry maps to exactly one key — hashing it again would produce
+      // a key that matches no row and silently revoke nothing.
+      expect(keys).toEqual([`session:${digest}`]);
+      expect(keys).not.toContain(`session:${sha256(digest)}`);
     });
 
     it('should handle corrupted JSON gracefully', async () => {

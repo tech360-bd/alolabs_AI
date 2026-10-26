@@ -13,6 +13,17 @@ WorkingDirectory=/opt/alolabs/agent-hub
 # Environment file (secrets live here, NOT in the unit file)
 EnvironmentFile=/opt/alolabs/agent-hub/.env
 
+# PORT CONTRACT: the app listens on 3011 project-wide. Next.js standalone
+# defaults to 3000 when PORT is unset, which silently mismatched the reverse
+# proxies (deploy/nginx/agentos.conf and Caddyfile both target 3011) and made
+# the service unreachable. Set it explicitly rather than relying on .env, so
+# the unit is correct even if .env omits PORT.
+# scripts/validate-compose.mjs asserts this value in CI.
+Environment=PORT=3011
+Environment=HOSTNAME=127.0.0.1
+Environment=NODE_ENV=production
+Environment=NEXT_TELEMETRY_DISABLED=1
+
 # Run via Bun (installed at /root/.bun/bin/bun or /usr/local/bin/bun)
 ExecStart=/usr/local/bin/bun .next/standalone/server.js
 Restart=on-failure

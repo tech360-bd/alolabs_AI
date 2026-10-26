@@ -57,23 +57,19 @@ find prisma -maxdepth 2 -type f -print 2>/dev/null | sort
 printf '%s\n' "=== DATABASE FILES ==="
 find "${APP_DIR}" -maxdepth 4 \( -name '*.db' -o -name '*.sqlite' -o -name '*.sqlite3' \) -type f -print
 
-DB_SCHEMA="prisma/schema.prisma"
-GENERATE_SCRIPT="db:generate"
+DB_SCHEMA="prisma/schema.mysql.prisma"
+GENERATE_SCRIPT="db:generate:mysql"
 case "${DATABASE_URL}" in
-  file:*)
-    grep -Eq 'provider *= *"sqlite"' "${DB_SCHEMA}" || fail "Prisma schema does not match SQLite"
-    DB_PATH="${DATABASE_URL#file:}"; [[ "${DB_PATH}" = /* ]] || DB_PATH="${APP_DIR}/${DB_PATH#./}"
-    DB_PATH="$(readlink -f "${DB_PATH}")"
-    [[ -f "${DB_PATH}" && -s "${DB_PATH}" ]] || fail "configured SQLite database is missing or empty"
-    DB_RELATIVE="$(realpath --relative-to="${APP_DIR}" "${DB_PATH}")"
-    if [[ "${DB_RELATIVE}" != ../* ]] && git ls-files --error-unmatch "${DB_RELATIVE}" >/dev/null 2>&1; then
-      fail "active SQLite database is tracked by Git and could be overwritten"
-    fi
-    echo "SQLite path: ${DB_PATH}"; stat -c 'Size: %s bytes; modified: %y; owner: %U:%G; mode: %a' "${DB_PATH}"
-    [[ "$(sqlite3 "${DB_PATH}" 'PRAGMA integrity_check;')" == ok ]] || fail "SQLite integrity check failed"
-    TABLE_COUNT="$(sqlite3 "${DB_PATH}" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")"
-    [[ "${TABLE_COUNT}" -gt 0 ]] || fail "configured SQLite database has no application tables"
-    lsof "${DB_PATH}" 2>/dev/null || echo "NOTICE: no currently open SQLite file handle; connectivity will also be verified through Prisma"
+  file:*|*.db|*.sqlite|*.sqlite3)
+    # SQLite is a local development and test convenience only. It is not an
+    # acceptable production datasource, not a fallback, and not an alternative
+    # production mode, so this deployment refuses to proceed rather than
+    # quietly installing a second-class database behind the production domain.
+    fail "production DATABASE_URL points at SQLite (${DATABASE_URL%%:*}...). \
+MySQL/MariaDB is mandatory for production. Set DATABASE_URL to \
+mysql://USER:PASSWORD@HOST:3306/DATABASE and generate the Prisma client from \
+prisma/schema.mysql.prisma. To move existing data use: \
+npm run db:migrate:mysql -- --dry-run  (then re-run without --dry-run)."
     ;;
   mysql://*|mariadb://*)
     DB_SCHEMA="prisma/schema.mysql.prisma"
@@ -121,7 +117,10 @@ TARGET_COMMIT="$(git rev-parse "origin/${BRANCH}")"
 git reset --hard "${TARGET_COMMIT}"
 bash "${SAFETY_SCRIPT_DIR}/database-safety-scan.sh" .
 [[ "$(sha256sum "${ENV_FILE}" | awk '{print $1}')" == "${ENV_HASH}" ]] || fail "production environment was modified"
-grep -Eq "provider *= *\"$( [[ "${DATABASE_URL}" == file:* ]] && echo sqlite || echo mysql )\"" "${DB_SCHEMA}" || fail "target Prisma provider differs from production"
+# The datasource is MySQL/MariaDB by the check above, so the generated schema
+# must be the MySQL one. Anything else means the checkout does not match what
+# this deployment verified earlier.
+grep -Eq 'provider *= *"mysql"' "${DB_SCHEMA}" || fail "target Prisma provider differs from production (expected mysql)"
 
 run_as_owner bun install --frozen-lockfile
 run_as_owner bunx prisma validate --schema "${DB_SCHEMA}"

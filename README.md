@@ -347,26 +347,72 @@ Useful PM2 commands: `pm2 logs agentos`, `pm2 monit`, `pm2 restart agentos`, `pm
 ## Docker Deployment
 
 ```bash
+docker compose config --quiet                   # Validate the configuration
 docker compose up --build -d                    # Start all services
-docker compose --profile tools up --build -d    # Include Adminer DB GUI
-docker compose logs -f                         # View logs
-docker compose down                            # Stop all services
-docker compose down -v                         # Stop and remove volumes (destroys data)
+docker compose --profile tools up --build -d    # + Adminer DB GUI and MariaDB
+docker compose logs -f                          # View logs
+docker compose down                             # Stop all services
+docker compose down -v                          # Stop and remove volumes (destroys data)
 ```
 
-Production overrides: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`
+Production overrides:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+The production stack requires these variables to be set (compose refuses to
+start without them): `DOMAIN`, `REDIS_PASSWORD`, `S3_ACCESS_KEY`,
+`S3_SECRET_KEY`, `ENCRYPTION_KEY`, `APP_SECRET`, `CSRF_SECRET`, `JWT_SECRET`,
+`API_GATEWAY_SECRET`, `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`. Copy
+`.env.example` to `.env` and fill them in.
+
+**Initialising the database schema.** The app container deliberately does *not*
+run migrations at startup — the runner image has no Prisma CLI (it is a
+devDependency) and an implicit `db push` on boot is how databases get silently
+reset. Apply the schema explicitly, once, against the mounted volume:
+
+```bash
+docker compose run --rm --entrypoint npx app prisma db push --schema=prisma/schema.prisma
+```
+
+For an air-gapped host, use the engine-less path instead (see
+`SETUP_GUIDE.md`): `DATABASE_URL=file:./data/agenthub.db npx tsx scripts/sqlite-push.ts`.
 
 ### Container Overview
+
+Defined in `docker-compose.yml`. The app listens on **3011**; Caddy is the only
+service published on a public interface.
+
 | Container | Image | Port | Purpose |
 |---|---|---|---|
-| **app** | `oven/bun:1.2.5-alpine` | `3000` | Main AgentOS application (Next.js standalone, multi-stage build) |
+| **app** | built from `Dockerfile` (`node:20-slim`) | `3011` (localhost) | Main AgentOS application (Next.js standalone, multi-stage build) |
 | **redis** | `redis:7-alpine` | `6379` (localhost) | Caching, rate limiting, session storage. 128 MB max, LRU, AOF persistence |
-| **qdrant** | `qdrant/qdrant:latest` | `6333`, `6334` (localhost) | Vector DB for RAG embeddings. gRPC on 6334 |
-| **minio** | `minio/minio:latest` | `9000`, `9001` (localhost) | S3-compatible object storage. Console on 9001 |
-| **adminer** | `adminer:latest` | `8080` (localhost, tools) | Database GUI (only with `--profile tools`) |
-| **mariadb** | `mariadb:10.11` | `3306` (localhost) | Optional MariaDB for dev exploration (not used by default SQLite) |
+| **qdrant** | `qdrant/qdrant:v1.12.4` | `6333`, `6334` (localhost) | Vector DB for RAG embeddings. gRPC on 6334 |
+| **minio** | `minio/minio` | `9000`, `9001` (localhost) | S3-compatible object storage. Console on 9001 |
+| **caddy** | `caddy:2-alpine` | `80`, `443` (**public**) | Reverse proxy with automatic Let's Encrypt TLS |
+| **prometheus** | `prom/prometheus:v2.54.1` | `9090` (localhost) | Metrics collection, 30-day retention |
+| **grafana** | `grafana/grafana:11.3.0` | `3001` (localhost) | Monitoring dashboards, provisioned from `deploy/grafana/` |
+| **adminer** | `adminer:4` | `8080` (localhost) | Database GUI — `--profile tools` only |
+| **mariadb** | `mariadb:10.11` | `3306` (localhost) | Optional MariaDB for exploring `prisma/schema.mysql.prisma` — `--profile tools` only |
 
-All optional services bind to `127.0.0.1` only. The Dockerfile uses a three-stage build (deps → builder → runner) as non-root `appuser` with health check on `/api/health`.
+Everything except Caddy binds to `127.0.0.1` only. Under
+`docker-compose.prod.yml`, redis, qdrant and minio are not published at all and
+are reachable solely over the internal `alolabs-net` network.
+
+The Dockerfile uses a three-stage build (deps → builder → runner) as non-root
+`appuser` with a health check on `/api/health`. All three stages use
+`node:20-slim` (Debian/glibc) rather than Alpine, because
+`prisma/schema.prisma` declares `binaryTargets = ["debian-openssl-3.0.x"]` and
+because `bcrypt`/`better-sqlite3` are compiled per libc — building on musl and
+running on glibc fails at `require()` time. The runner stage also copies the
+packages listed in `serverExternalPackages`, which Next.js intentionally leaves
+out of the standalone bundle.
+
+Configuration invariants (service references, the 3011 port contract, Caddy
+upstreams, bind-mount paths) are asserted in CI by
+`scripts/validate-compose.mjs`.
 
 ---
 

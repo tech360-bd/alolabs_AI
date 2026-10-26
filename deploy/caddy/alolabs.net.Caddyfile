@@ -1,0 +1,92 @@
+## ============================================================
+## ALO Labs AgentOS — production Caddy site for https://www.alolabs.net
+##
+## Target topology (Ubuntu + PM2). This is NOT the docker-compose Caddyfile in
+## the repository root — that one proxies to the `app` service over the compose
+## network and is for local development:
+##
+##     internet ──► Caddy :443/:80 (TLS) ──► 127.0.0.1:3011 (Next.js under PM2)
+##
+## Port 3011 stays on loopback. Only Caddy should be able to reach it, so the
+## Next.js process must bind 127.0.0.1 (see `HOSTNAME` in
+## deploy/env.production.example and ecosystem.config.js). Do not open 3011 in
+## the firewall.
+##
+## BEFORE ENABLING — read this
+## ---------------------------
+## 1. Only one process may bind :80/:443. This repository also ships
+##    deploy/nginx/alolabs.conf, which serves alolabs.net, www.alolabs.net,
+##    panel.alolabs.net and api.alolabs.net. If nginx currently serves those
+##    names, disable the overlapping nginx server blocks first, or keep using
+##    nginx. Running both fails with EADDRINUSE and can take the site down.
+##    Check:  sudo ss -ltnp '( sport = :443 or sport = :80 )'
+## 2. panel.alolabs.net and api.alolabs.net are deliberately NOT claimed here,
+##    so existing subdomains keep working wherever they are served today.
+## 3. The apex (alolabs.net -> www) redirect is a SEPARATE, opt-in file:
+##    deploy/caddy/alolabs-apex-redirect.Caddyfile. Do not enable it until you
+##    have confirmed nothing else answers on the apex.
+##
+## Environment variable
+##   APP_UPSTREAM   default 127.0.0.1:3011
+##
+## Validate:  caddy validate --config /etc/caddy/alolabs.net.Caddyfile --adapter caddyfile
+## Reload:    sudo systemctl reload caddy
+## ============================================================
+
+www.alolabs.net {
+	encode zstd gzip
+
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		-Server
+	}
+
+	# API responses must never be served from a shared cache.
+	handle /api/* {
+		header Cache-Control "no-store, no-cache, must-revalidate"
+		reverse_proxy {$APP_UPSTREAM:127.0.0.1:3011} {
+			header_up Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# Socket.IO / WebSocket upgrade. Caddy forwards Upgrade/Connection on its
+	# own; they are spelled out so the intent survives a later config rewrite.
+	handle /socket.io/* {
+		reverse_proxy {$APP_UPSTREAM:127.0.0.1:3011} {
+			header_up Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+			header_up X-Real-IP {remote_host}
+			header_up Upgrade {>Upgrade}
+			header_up Connection {>Connection}
+		}
+	}
+
+	handle {
+		reverse_proxy {$APP_UPSTREAM:127.0.0.1:3011} {
+			header_up Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	log {
+		output file /var/log/caddy/alolabs.net.access.log {
+			roll_size 100MiB
+			roll_keep 10
+		}
+		format json
+	}
+}

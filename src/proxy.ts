@@ -12,6 +12,12 @@ const PUBLIC_API_ROUTES: { path: string; methods: string[] }[] = [
   { path: '/api/auth/oauth', methods: ['GET', 'POST'] },
   { path: '/api/health/live', methods: ['GET'] },
   { path: '/api/health/ready', methods: ['GET'] },
+  // Listed explicitly rather than relying on the '/api/health' prefix match
+  // below. Returns only { status: 'pong' }. Being public by accident of a
+  // startsWith() on a broader entry is how a future /api/health/<sensitive>
+  // route would get exposed without anyone deciding to expose it;
+  // scripts/validate-route-auth.mjs gates that in CI.
+  { path: '/api/health/ping', methods: ['GET'] },
   { path: '/api/health', methods: ['GET'] },
   { path: '/api/v1/health', methods: ['GET'] },   // AgentOS liveness (public)
   { path: '/api/ping', methods: ['GET'] },

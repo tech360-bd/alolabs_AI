@@ -8,6 +8,12 @@ name: Backup script portability (macOS + Linux)
 # No production credentials are used: no `environment:`, no secrets and no
 # DATABASE_URL. The test writes a throw-away SQLite file and storage
 # directory under the OS temporary directory.
+#
+# COST NOTE: a macOS runner minute bills at roughly ten times a Linux minute
+# ($0.062 vs $0.006 on a standard runner), and this repository is private, so
+# the macOS leg is the most expensive thing this workflow does. It is therefore
+# skipped unless paid services are enabled, but it always runs on the weekly
+# schedule below so the BSD/GNU guarantee keeps being enforced.
 
 on:
   push:
@@ -22,7 +28,15 @@ on:
       - 'deploy/scripts/**'
       - '__tests__/integration/backup-restore.test.ts'
       - '.github/workflows/backup-portability.yml'
+  schedule:
+    - cron: '30 6 * * 1'
   workflow_dispatch:
+    inputs:
+      run_paid_services:
+        description: 'Include the 10x-rate macOS leg (default: Linux only)'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: backup-portability-${{ github.ref }}
@@ -31,17 +45,63 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Default deny; rules live in scripts/ci-paid-services.sh (unit-tested).
+  SKIP_PAID_SERVICES: 'true'
+
 jobs:
+  resolve:
+    name: Resolve platform matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      platforms: ${{ steps.matrix.outputs.platforms }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: matrix
+        env:
+          CI_RUN_PAID_OVERRIDE: ${{ inputs.run_paid_services == true && 'true' || '' }}
+          SKIP_PAID_FROM_VARS: ${{ vars.SKIP_PAID_SERVICES }}
+          SKIP_PAID_FROM_SECRET: ${{ secrets.SKIP_PAID_SERVICES }}
+        run: |
+          set -euo pipefail
+          effective="${SKIP_PAID_FROM_VARS:-${SKIP_PAID_FROM_SECRET:-${SKIP_PAID_SERVICES:-true}}}"
+          skip="$(CI_RUN_PAID_OVERRIDE="${CI_RUN_PAID_OVERRIDE}" SKIP_PAID_SERVICES="${effective}" \
+            bash scripts/ci-paid-services.sh)"
+          # Scheduled runs always cover macOS, so the portability guarantee is
+          # enforced weekly even while paid steps are skipped elsewhere.
+          if [[ "${skip}" == 'false' || "${GITHUB_EVENT_NAME}" == 'schedule' ]]; then
+            platforms='["ubuntu-latest","macos-latest"]'
+          else
+            platforms='["ubuntu-latest"]'
+          fi
+          echo "platforms=${platforms}" >> "${GITHUB_OUTPUT}"
+          {
+            echo '### Portability matrix'
+            echo ''
+            echo "- \`SKIP_PAID_SERVICES\` = \`${skip}\`"
+            echo "- Event: \`${GITHUB_EVENT_NAME}\`"
+            echo "- Running: \`${platforms}\`"
+            if [[ "${skip}" == 'true' && "${GITHUB_EVENT_NAME}" != 'schedule' ]]; then
+              echo ''
+              echo 'The 10x-rate macOS leg is skipped. Enable it with the repository'
+              echo 'Variable `SKIP_PAID_SERVICES=false`, or run this workflow manually.'
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
   backup-integration:
     name: Backup/restore integration — ${{ matrix.os }}
+    needs: resolve
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ fromJSON(needs.resolve.outputs.platforms) }}
+    # A hung macOS job would otherwise burn the 6-hour default at 10x the rate.
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: '1.3.4'
       - name: Record tool versions

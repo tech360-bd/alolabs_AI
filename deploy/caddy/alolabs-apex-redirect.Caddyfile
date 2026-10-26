@@ -1,0 +1,41 @@
+## ============================================================
+## OPTIONAL — apex redirect: https://alolabs.net  ->  https://www.alolabs.net
+##
+## This is a SEPARATE file on purpose. It is not imported by
+## alolabs.net.Caddyfile, so the canonical www site never depends on a decision
+## that requires checking live DNS and routing first.
+##
+## DO NOT ENABLE THIS UNTIL YOU HAVE CONFIRMED:
+##
+##   1. Nothing else answers on the apex.
+##        dig +short alolabs.net
+##        dig +short www.alolabs.net
+##        curl -sI https://alolabs.net
+##      If the apex already serves something other than this application, a
+##      308 here will break it. deploy/nginx/alolabs.conf currently lists
+##      `alolabs.net` in server_name alongside www, panel and api — check which
+##      of those is live before redirecting the apex.
+##
+##   2. TLS can be issued for the apex. Caddy needs :80 (HTTP-01) or :443
+##      (TLS-ALPN-01) reachable for alolabs.net specifically, and the DNS A/AAAA
+##      record must point at this host. Otherwise certificate issuance fails and
+##      the redirect never serves.
+##
+##   3. Only one process binds :80/:443 (see alolabs.net.Caddyfile).
+##
+## To enable, install both files and validate together:
+##   sudo install -m 0644 deploy/caddy/alolabs.net.Caddyfile /etc/caddy/alolabs.net.Caddyfile
+##   sudo install -m 0644 deploy/caddy/alolabs-apex-redirect.Caddyfile /etc/caddy/alolabs-apex-redirect.Caddyfile
+##   # then in /etc/caddy/Caddyfile:  import /etc/caddy/alolabs*.Caddyfile
+##   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+##   sudo systemctl reload caddy
+##
+## Rollback: remove the import line for this file and reload Caddy. The www
+## site is unaffected either way.
+## ============================================================
+
+alolabs.net {
+	# 308 (permanent, method-preserving) rather than 301 so a POST that reaches
+	# the apex is not downgraded to GET by an intermediary.
+	redir https://www.alolabs.net{uri} 308
+}

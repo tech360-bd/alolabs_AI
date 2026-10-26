@@ -358,9 +358,10 @@ export class AIRouter {
       this.recordFailure(entry);
       this.handleCircuitBreaker(entry);
 
-      // Attempt failover on circuit-open, provider-unavailable, or retryable errors
-      const isRetryable = err instanceof AIRouterError && err.retryable;
-      if (context?.allowFailover !== false && (err instanceof AICircuitOpenError || err instanceof AIProviderUnavailableError || isRetryable)) {
+      // Attempt failover on circuit-open, provider-unavailable, retryable HTTP
+      // errors, and provider timeouts (see shouldAttemptFailover), unless the
+      // caller context explicitly forbids failover.
+      if (context?.allowFailover !== false && shouldAttemptFailover(err, request)) {
         const fallback = await this.attemptFailover(request, decision.provider, companyId, agentId, entry.provider.freeOnly, context);
         if (fallback) {
           this.emitDecision({
@@ -594,6 +595,19 @@ export class AIRouter {
         completionTokens,
         costUsd: null,
       });
+
+      // Attempt failover streaming. Uses the SAME predicate as the
+      // non-streaming path: this previously tested only the two custom error
+      // classes, so a retryable 503 or a provider timeout failed the request
+      // outright even though a healthy provider was registered.
+      if (context?.allowFailover !== false && shouldAttemptFailover(err, request)) {
+        const fallbackStream = this.attemptStreamFailover(request, decision.provider, companyId, agentId, entry.provider.freeOnly, context);
+        if (fallbackStream) {
+          yield* fallbackStream;
+          return;
+        }
+      }
+
       throw err;
     }
   }
@@ -802,6 +816,77 @@ export class AIRouter {
     return null;
   }
 
+  private attemptStreamFailover(
+    request: AIRequest,
+    failedProvider: AIProvider,
+    companyId?: string,
+    agentId?: string,
+    freeOnlyOnly = false,
+    context: AIRequestContext = {},
+  ): AsyncGenerator<AIStreamChunk> | null {
+    const allowedModels = context.allowedModelIds ? new Set(context.allowedModelIds) : null;
+    const requiredCapabilities: AICapability[] = ['chat', 'streaming'];
+    if (request.tools?.length) requiredCapabilities.push('function-calling');
+    const available = this.getAvailableProviders(companyId, context).filter((entry) =>
+      entry.provider.name !== failedProvider &&
+      (!freeOnlyOnly || entry.provider.freeOnly) &&
+      entry.provider.supportedModels.some((model) =>
+        (!allowedModels || allowedModels.has(model.id)) &&
+        requiredCapabilities.every((capability) => model.capabilities.includes(capability)),
+      ),
+    );
+
+    if (available.length === 0) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const router = this;
+    const generate = async function* (this: void): AsyncGenerator<AIStreamChunk> {
+      for (const entry of available) {
+        const eligibleModels = entry.provider.supportedModels.filter((model) =>
+          (!allowedModels || allowedModels.has(model.id)) &&
+          requiredCapabilities.every((capability) => model.capabilities.includes(capability)),
+        );
+        const fallbackModel = eligibleModels.find((model) => model.id === request.model) ?? eligibleModels[0];
+        if (!fallbackModel) continue;
+        const routedRequest: AIRequest = { ...request, model: fallbackModel.id };
+        const promptTokens = router.estimatePromptTokens(request);
+        let completionTokens = 0;
+        let yielded = false;
+        try {
+          for await (const chunk of entry.provider.streamChatCompletion(routedRequest)) {
+            if (chunk.content) {
+              completionTokens += Math.ceil(chunk.content.length / 4);
+            }
+            yielded = true;
+            yield chunk;
+
+            if (chunk.finishReason) {
+              router.recordUsage({
+                provider: entry.provider.name,
+                model: chunk.model || fallbackModel.id,
+                promptTokens,
+                completionTokens,
+                companyId,
+                agentId,
+                timestamp: new Date(),
+              });
+            }
+          }
+          router.recordSuccess(entry);
+          return;
+        } catch {
+          router.recordFailure(entry);
+          router.handleCircuitBreaker(entry);
+          // Only try the next provider when nothing reached the caller yet;
+          // re-streaming after partial content would duplicate output.
+          if (yielded) return;
+        }
+      }
+    };
+
+    return generate();
+  }
+
   // ─── Private: Provider Helpers ──────────────────────────────────
 
   /**
@@ -960,6 +1045,48 @@ export class AIRouter {
 }
 
 // ─── Error classification helpers ───────────────────────────────────
+
+/**
+ * Decide whether a failed provider call should be re-attempted against a
+ * different provider.
+ *
+ * BOTH the non-streaming and streaming paths must use this one predicate. They
+ * previously diverged, and each was wrong in a different way:
+ *
+ *   - Streaming tested only `AICircuitOpenError || AIProviderUnavailableError`,
+ *     so it would not fail over on a retryable HTTP 503 that the non-streaming
+ *     path did handle.
+ *   - Neither path failed over on a timeout. `AbortSignal.timeout()` rejects
+ *     with a DOMException named 'TimeoutError', which is not an AIRouterError,
+ *     so `err instanceof AIRouterError && err.retryable` was false and the
+ *     request failed outright despite a healthy provider being registered.
+ *
+ * For a paid platform whose premise is provider-independent routing, a slow
+ * vendor becoming a hard user-facing error is precisely the failure the router
+ * exists to absorb.
+ *
+ * NOTE ON CANCELLATION: today every timeout originates from the provider's own
+ * `AbortSignal.timeout(timeoutMs)`, so failing over is always correct. If a
+ * caller-supplied AbortSignal is added to AIRequest, this predicate must
+ * distinguish a caller cancel (propagate, do not fail over) from a provider
+ * timeout (fail over) — otherwise cancelling a request would silently start a
+ * second one and bill the customer twice.
+ */
+function shouldAttemptFailover(err: unknown, request?: AIRequest): boolean {
+  // Caller cancellation must never fail over: dest-side providers combine the
+  // caller's AbortSignal with the provider timeout (requestAbortSignal), so a
+  // caller cancel would otherwise look exactly like a provider timeout here
+  // and silently start (and bill) a second request.
+  if (request?.signal?.aborted) return false;
+  if (err instanceof AICircuitOpenError) return true;
+  if (err instanceof AIProviderUnavailableError) return true;
+  if (err instanceof AIRouterError) return err.retryable;
+  // Timeouts surface as DOMException and network faults as plain Error; both are
+  // already normalised by errorCodeOf, so reuse that rather than duplicating the
+  // detection here.
+  const code = errorCodeOf(err);
+  return code === 'TIMEOUT' || code === 'RETRYABLE_ERROR';
+}
 
 function errorCodeOf(err: unknown): string {
   if (err instanceof AICircuitOpenError) return 'CIRCUIT_OPEN';

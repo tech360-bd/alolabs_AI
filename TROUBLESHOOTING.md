@@ -2,7 +2,7 @@
 
 ## Service Won't Start
 
-1. Check if port 3000 is in use: `ss -tlnp | grep 3000`
+1. Check if port 3011 is in use: `ss -tlnp | grep 3011`
 2. Check .env exists: `ls -la /opt/alolabs-aismh/shared/.env`
 3. Check DATABASE_URL is valid
 4. Check logs: `sudo journalctl -u alolabs-aismh -n 50`

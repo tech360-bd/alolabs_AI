@@ -9,14 +9,34 @@
 
 import crypto from 'crypto';
 import { db } from '@/lib/db';
+import {
+  SESSION_KEY_PREFIX,
+  hashSessionToken,
+  sessionKey,
+  legacySessionKey,
+  candidateKeysForIndexEntry,
+} from '@/lib/session-token';
+import {
+  readSessionIndex,
+  addSessionToIndex,
+  removeSessionFromIndex,
+  removeSessionIndexEntry,
+  clearSessionIndex,
+} from '@/lib/session-index';
 
 // ─── Configuration ──────────────────────────────────────────────────
 
 const TOKEN_LENGTH = 48;
 const DEFAULT_TTL_MS = 60 * 60 * 1000; // 1 hour
 const REMEMBER_ME_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const SESSION_KEY_PREFIX = 'session:';
-const USER_SESSIONS_KEY_PREFIX = 'user:sessions:';
+
+// NOTE: `sessionKey` / `SESSION_KEY_PREFIX` are imported from
+// @/lib/session-token, NOT redefined here. This module and src/lib/auth.ts
+// share one `session:` keyspace — auth.ts mints the tokens on login, this
+// module verifies and revokes them. A private sessionKey() in each file is how
+// logout silently broke: hashing was added to auth.ts alone, so revokeSession()
+// looked up the unhashed key, missed the row, and left the bearer token valid
+// after sign-out. Deriving the key in one place makes that drift impossible.
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -63,55 +83,26 @@ function isExpired(session: SessionData): boolean {
   return new Date(session.expiresAt) < new Date();
 }
 
-function sessionKey(token: string): string {
-  return `${SESSION_KEY_PREFIX}${token}`;
+/**
+ * Locate a session row by token, trying the hashed key first and then the
+ * pre-hashing legacy key. Returns the key that actually matched so callers can
+ * update or delete the right row.
+ */
+async function resolveSessionRow(
+  token: string,
+): Promise<{ key: string; value: string } | null> {
+  for (const key of [sessionKey(token), legacySessionKey(token)]) {
+    const record = await db.settings.findUnique({ where: { key } });
+    if (record) return { key, value: record.value };
+  }
+  return null;
 }
 
-function userSessionsKey(userId: string): string {
-  return `${USER_SESSIONS_KEY_PREFIX}${userId}`;
-}
-
-async function addUserSessionToken(userId: string, token: string): Promise<void> {
-  const key = userSessionsKey(userId);
-  const existing = await db.settings.findUnique({ where: { key } });
-  let tokens: string[] = [];
-  if (existing) {
-    try {
-      tokens = JSON.parse(existing.value) as string[];
-    } catch {
-      tokens = [];
-    }
-  }
-  if (!tokens.includes(token)) {
-    tokens.push(token);
-  }
-  await db.settings.upsert({
-    where: { key },
-    update: { value: JSON.stringify(tokens), updatedAt: new Date() },
-    create: { key, value: JSON.stringify(tokens), type: 'json' },
-  });
-}
-
-async function removeUserSessionToken(userId: string, token: string): Promise<void> {
-  const key = userSessionsKey(userId);
-  const existing = await db.settings.findUnique({ where: { key } });
-  if (!existing) return;
-  let tokens: string[] = [];
-  try {
-    tokens = JSON.parse(existing.value) as string[];
-  } catch {
-    return;
-  }
-  const filtered = tokens.filter((t) => t !== token);
-  if (filtered.length === 0) {
-    await db.settings.delete({ where: { key } }).catch(() => {});
-  } else {
-    await db.settings.update({
-      where: { key },
-      data: { value: JSON.stringify(filtered), updatedAt: new Date() },
-    });
-  }
-}
+// The per-user session index now lives in @/lib/session-index so that
+// src/lib/auth.ts (which mints tokens on login) and this module (which lists
+// and revokes them) share ONE implementation. When it was private to this file,
+// auth.ts never populated it, so listActiveSessions() always returned [] and
+// revokeAllSessions() always revoked nothing.
 
 // ─── Public API ─────────────────────────────────────────────────────
 
@@ -143,7 +134,7 @@ export async function createSession(
     create: { key: sessionKey(token), value: JSON.stringify(sessionData), type: 'json' },
   });
 
-  await addUserSessionToken(userId, token);
+  await addSessionToIndex(userId, token);
 
   return token;
 }
@@ -157,14 +148,12 @@ export async function verifySession(
 ): Promise<SessionData | null> {
   if (!token) return null;
 
-  const record = await db.settings.findUnique({
-    where: { key: sessionKey(token) },
-  });
-  if (!record) return null;
+  const resolved = await resolveSessionRow(token);
+  if (!resolved) return null;
 
   let session: SessionData;
   try {
-    session = JSON.parse(record.value) as SessionData;
+    session = JSON.parse(resolved.value) as SessionData;
   } catch {
     return null;
   }
@@ -181,8 +170,9 @@ export async function verifySession(
   session.lastUsedAt = now();
   session.expiresAt = newExpiresAt;
 
+  // Write back to the key that actually matched, which may be a legacy row.
   await db.settings.update({
-    where: { key: sessionKey(token) },
+    where: { key: resolved.key },
     data: { value: JSON.stringify(session), updatedAt: new Date() },
   });
 
@@ -193,23 +183,27 @@ export async function verifySession(
  * Revoke a single session by token.
  */
 export async function revokeSession(token: string): Promise<boolean> {
-  const record = await db.settings.findUnique({
-    where: { key: sessionKey(token) },
-  });
-  if (!record) return false;
+  const resolved = await resolveSessionRow(token);
+  if (!resolved) return false;
 
   let userId = '';
   try {
-    const data = JSON.parse(record.value) as SessionData;
+    const data = JSON.parse(resolved.value) as SessionData;
     userId = data.userId;
   } catch {
     // continue cleanup
   }
 
-  await db.settings.delete({ where: { key: sessionKey(token) } }).catch(() => {});
+  // Delete BOTH the matched row and its counterpart key. Revocation must never
+  // leave a usable credential behind: if a legacy plaintext row and a hashed
+  // row somehow both exist for one token, removing only one would keep the
+  // session alive after logout.
+  for (const key of [sessionKey(token), legacySessionKey(token)]) {
+    await db.settings.delete({ where: { key } }).catch(() => {});
+  }
 
   if (userId) {
-    await removeUserSessionToken(userId, token);
+    await removeSessionFromIndex(userId, token);
   }
 
   return true;
@@ -219,33 +213,57 @@ export async function revokeSession(token: string): Promise<boolean> {
  * Revoke all sessions for a user.
  */
 export async function revokeAllSessions(userId: string): Promise<number> {
-  const record = await db.settings.findUnique({
-    where: { key: userSessionsKey(userId) },
-  });
-  if (!record) return 0;
-
-  let tokens: string[] = [];
-  try {
-    tokens = JSON.parse(record.value) as string[];
-  } catch {
-    return 0;
-  }
-
+  const tokens = await readSessionIndex(userId);
   if (tokens.length === 0) return 0;
 
-  // Delete all session records
+  // Delete all session records. Index entries are digests, not raw tokens, so
+  // they must NOT be passed through sessionKey() (that would hash twice and
+  // match nothing). candidateKeysForIndexEntry also covers legacy plaintext
+  // entries written before hashing.
   await db.settings.deleteMany({
     where: {
-      key: { in: tokens.map((t) => sessionKey(t)) },
+      key: { in: tokens.flatMap((t) => candidateKeysForIndexEntry(t)) },
     },
   });
 
-  // Delete the user sessions index
-  await db.settings
-    .delete({ where: { key: userSessionsKey(userId) } })
-    .catch(() => {});
+  await clearSessionIndex(userId);
 
   return tokens.length;
+}
+
+/**
+ * Revoke every session belonging to a user EXCEPT the one presented.
+ *
+ * This is what "sign out all other devices" must do. The route previously
+ * called `revokeAllSessions()`, which deleted the caller's own session too and
+ * — despite a comment claiming it would "re-create the current one" — returned
+ * without doing so, silently invalidating the token the client was still
+ * holding. The next request from that client would 401 with no explanation.
+ *
+ * Returns the number of other sessions revoked.
+ */
+export async function revokeOtherSessions(
+  userId: string,
+  currentToken: string,
+): Promise<number> {
+  const entries = await readSessionIndex(userId);
+  if (entries.length === 0) return 0;
+
+  // Index entries are digests; the caller presents a raw token. Compare against
+  // both forms so a legacy plaintext entry is also recognised as "current".
+  const currentDigest = hashSessionToken(currentToken);
+  const others = entries.filter((e) => e !== currentDigest && e !== currentToken);
+  if (others.length === 0) return 0;
+
+  await db.settings.deleteMany({
+    where: { key: { in: others.flatMap((e) => candidateKeysForIndexEntry(e)) } },
+  });
+
+  // Rebuild the index so it holds only the surviving session.
+  await clearSessionIndex(userId);
+  await addSessionToIndex(userId, currentToken).catch(() => {});
+
+  return others.length;
 }
 
 /**
@@ -255,31 +273,29 @@ export async function revokeAllSessions(userId: string): Promise<number> {
 export async function listActiveSessions(
   userId: string,
 ): Promise<SessionInfo[]> {
-  const record = await db.settings.findUnique({
-    where: { key: userSessionsKey(userId) },
-  });
-  if (!record) return [];
-
-  let tokens: string[] = [];
-  try {
-    tokens = JSON.parse(record.value) as string[];
-  } catch {
-    return [];
-  }
+  const tokens = await readSessionIndex(userId);
+  if (tokens.length === 0) return [];
 
   const results: SessionInfo[] = [];
 
-  for (const token of tokens) {
-    const sessionRecord = await db.settings.findUnique({
-      where: { key: sessionKey(token) },
-    });
+  for (const entry of tokens) {
+    // Index entries are digests (or legacy plaintext), not raw tokens, so they
+    // must not go through sessionKey() — that would hash a second time and
+    // match nothing, silently reporting the user as having no sessions.
+    let sessionRecord: { value: string } | null = null;
+    for (const key of candidateKeysForIndexEntry(entry)) {
+      sessionRecord = await db.settings.findUnique({ where: { key } });
+      if (sessionRecord) break;
+    }
     if (!sessionRecord) continue;
 
     try {
       const session = JSON.parse(sessionRecord.value) as SessionData;
       if (!isExpired(session)) {
         results.push({
-          token: token.slice(0, 8) + '...',
+          // A short, non-replayable label. The entry is already a digest, so
+          // this leaks nothing usable.
+          token: entry.slice(0, 8) + '...',
           session,
         });
       }
@@ -311,13 +327,16 @@ export async function cleanupExpiredSessions(): Promise<number> {
     try {
       const session = JSON.parse(record.value) as SessionData;
       if (isExpired(session)) {
-        // Extract raw token from key
-        const rawToken = record.key.slice(SESSION_KEY_PREFIX.length);
+        // The suffix after `session:` is the stored identifier — a digest for
+        // current rows, a raw token for pre-hashing legacy rows. It is NOT a
+        // raw token in general, so it must be removed from the per-user index
+        // by exact match (removeSessionIndexEntry), never re-hashed.
+        const entry = record.key.slice(SESSION_KEY_PREFIX.length);
         expiredKeys.push(record.key);
 
         // Track for user session list cleanup
         const userTokens = expiredUserEntries.get(session.userId) || [];
-        userTokens.push(rawToken);
+        userTokens.push(entry);
         expiredUserEntries.set(session.userId, userTokens);
       }
     } catch {
@@ -333,10 +352,12 @@ export async function cleanupExpiredSessions(): Promise<number> {
     where: { key: { in: expiredKeys } },
   });
 
-  // Update user session lists to remove expired tokens
-  for (const [userId, tokens] of expiredUserEntries) {
-    for (const token of tokens) {
-      await removeUserSessionToken(userId, token);
+  // Update user session lists to remove expired entries. These are key
+  // suffixes (digests or legacy plaintext), so remove by exact match rather
+  // than via removeSessionFromIndex(), which would hash them a second time.
+  for (const [userId, entries] of expiredUserEntries) {
+    for (const entry of entries) {
+      await removeSessionIndexEntry(userId, entry);
     }
   }
 

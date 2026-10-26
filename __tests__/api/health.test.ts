@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// The health route derives its headline status from real subsystem checks:
+// with NO AI provider configured it honestly reports 'degraded'. These tests
+// assert the fully-healthy response shape, so configure one (unused) provider
+// credential before the router singleton initialises. No request is made to it.
+vi.hoisted(() => {
+  process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'test-only-key';
+});
+
 // We test the API route handler logic by importing and calling the GET function.
 // Since these routes depend on `@/lib/db` (Prisma), we mock the DB.
 
@@ -21,9 +29,13 @@ const mockWorkflowCount = vi.fn();
 const mockDepartmentCount = vi.fn();
 const mockUsageLogCount = vi.fn();
 const mockSkillCount = vi.fn();
+const mockQueryRaw = vi.fn();
 
 vi.mock('@/lib/db', () => ({
   db: {
+    // The health route verifies connectivity with a real `SELECT 1`; without
+    // this the route correctly reports the database as unverified.
+    $queryRaw: (..._args: unknown[]) => mockQueryRaw(..._args),
     company: { count: (...args: unknown[]) => mockCompanyCount(...args) },
     agent: { count: (...args: unknown[]) => mockAgentCount(...args) },
     workflow: { count: (...args: unknown[]) => mockWorkflowCount(...args) },
@@ -45,6 +57,7 @@ describe('GET /api/health', () => {
     mockDepartmentCount.mockResolvedValue(4);
     mockUsageLogCount.mockResolvedValue(100);
     mockSkillCount.mockResolvedValue(20);
+    mockQueryRaw.mockResolvedValue([{ ok: 1 }]);
   });
 
   it('should return 200 status', async () => {

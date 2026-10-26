@@ -1,0 +1,160 @@
+name: MySQL production datasource verification
+
+# Proves the mandatory production datasource actually works, using the MySQL
+# service container that GitHub-hosted runners provide. This is NOT a paid
+# third-party service — it is a local container on the same runner — so it needs
+# no credentials and no SKIP_PAID_SERVICES opt-in.
+#
+# What it gates:
+#   - prisma validate against the MySQL schema
+#   - prisma generate for the MySQL datasource (production must never run a
+#     SQLite-generated client)
+#   - real connect + read/write/transaction/JSON/utf8mb4 behaviour
+#     (__tests__/integration/mysql-compatibility.test.ts)
+#
+# Path-filtered and concurrency-limited on purpose: this repository is private,
+# so runner minutes are billed, and a MySQL container adds startup time.
+
+on:
+  push:
+    branches: [main, develop, 'arena/**']
+    paths:
+      - 'prisma/**'
+      - 'src/lib/db.ts'
+      - 'src/lib/production-database.ts'
+      - 'src/lib/db-adapters/**'
+      - '__tests__/integration/mysql-compatibility.test.ts'
+      - '.github/workflows/mysql.yml'
+  pull_request:
+    branches: [main, develop, 'arena/**']
+    paths:
+      - 'prisma/**'
+      - 'src/lib/db.ts'
+      - 'src/lib/production-database.ts'
+      - 'src/lib/db-adapters/**'
+      - '__tests__/integration/mysql-compatibility.test.ts'
+      - '.github/workflows/mysql.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: mysql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: '1.3.4'
+  MYSQL_DATABASE: alolabs_test
+  MYSQL_USER: agentos_ci
+  MYSQL_PASSWORD: ci-only-not-a-real-credential
+  MYSQL_ROOT_PASSWORD: ci-only-root-not-a-real-credential
+
+jobs:
+  mysql:
+    name: MySQL schema, client, and real read/write
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          # `env` IS available in services.*.env (unlike jobs.*.env), so the
+          # workflow-level values can be referenced here.
+          MYSQL_DATABASE: ${{ env.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ env.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ env.MYSQL_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: ${{ env.MYSQL_ROOT_PASSWORD }}
+        ports:
+          - 3306:3306
+        # `options` does not allow the `env` context, so the root password is
+        # spelled out. It is a throw-away CI credential, not a secret.
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-only-root-not-a-real-credential"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Compose the test database URLs
+        # The `env` context is NOT available in `jobs.<job_id>.env`, so the
+        # connection strings are built here from the real environment variables
+        # the workflow-level `env:` block provides, then published for later
+        # steps. Dedicated test database only — never production.
+        run: |
+          set -euo pipefail
+          url="mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@127.0.0.1:3306/${MYSQL_DATABASE}"
+          echo "MYSQL_TEST_URL=${url}" >> "${GITHUB_ENV}"
+          echo "DATABASE_URL=${url}" >> "${GITHUB_ENV}"
+          # Prove the URL is well-formed without echoing the password.
+          node -e 'const u=new URL(process.env.MYSQL_TEST_URL);
+            if (u.protocol!=="mysql:") throw new Error("not a mysql URL");
+            if (!u.pathname.slice(1)) throw new Error("no database in URL");
+            console.log("test database:", u.hostname+":"+u.port+u.pathname);'
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Assert the MySQL schema declares provider = "mysql"
+        run: |
+          set -euo pipefail
+          grep -Eq 'provider *= *"mysql"' prisma/schema.mysql.prisma \
+            || { echo 'prisma/schema.mysql.prisma is not a MySQL datasource'; exit 1; }
+          echo "MySQL schema OK: $(grep -c '^model ' prisma/schema.mysql.prisma) models"
+
+      - name: Validate the MySQL Prisma schema
+        run: bunx prisma validate --schema=prisma/schema.mysql.prisma
+
+      - name: Generate the Prisma client from the MySQL schema
+        # Production must run a MySQL-generated client. Generating from the
+        # default (SQLite) schema is what silently makes SQLite work in
+        # production, so it is explicitly not done here.
+        run: bun run db:generate:mysql
+
+      - name: Report the server version and charset
+        run: |
+          set -euo pipefail
+          mysql --host 127.0.0.1 --port 3306 \
+            --user "${MYSQL_USER}" --password="${MYSQL_PASSWORD}" \
+            -e "SELECT VERSION() AS version, DATABASE() AS db, @@character_set_database AS charset, @@collation_database AS collation;" \
+            "${MYSQL_DATABASE}"
+
+      - name: Confirm the test database is utf8mb4
+        run: |
+          set -euo pipefail
+          charset="$(mysql --host 127.0.0.1 --port 3306 \
+            --user "${MYSQL_USER}" --password="${MYSQL_PASSWORD}" -N -B \
+            -e 'SELECT @@character_set_database;' "${MYSQL_DATABASE}")"
+          echo "character_set_database=${charset}"
+          [[ "${charset}" == 'utf8mb4' ]] \
+            || { echo "expected utf8mb4, got ${charset}"; exit 1; }
+
+      - name: MySQL compatibility suite (real database)
+        run: bunx vitest run __tests__/integration/mysql-compatibility.test.ts
+        env:
+          NODE_ENV: test
+
+      - name: Datasource policy unit tests
+        run: bunx vitest run __tests__/unit/lib/production-database.test.ts
+        env:
+          NODE_ENV: test
+
+      - name: Fail if the MySQL suite silently skipped
+        # A skipped suite would otherwise look green. If MYSQL_TEST_URL somehow
+        # did not reach vitest, that is a failure, not a pass.
+        run: |
+          set -euo pipefail
+          bunx vitest run __tests__/integration/mysql-compatibility.test.ts --reporter=json \
+            --outputFile=/tmp/mysql-results.json >/dev/null 2>&1 || true
+          skipped="$(node -e 'const r=require("/tmp/mysql-results.json");console.log(r.numPendingTests+r.numTodoTests)')"
+          passed="$(node -e 'const r=require("/tmp/mysql-results.json");console.log(r.numPassedTests)')"
+          echo "passed=${passed} skipped=${skipped}"
+          [[ "${skipped}" -eq 0 && "${passed}" -gt 0 ]] \
+            || { echo "MySQL suite did not actually run (passed=${passed} skipped=${skipped})"; exit 1; }
