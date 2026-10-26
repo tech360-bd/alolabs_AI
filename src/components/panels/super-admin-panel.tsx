@@ -31,6 +31,7 @@ import {
   Clock,
   DollarSign,
   Layers,
+  FileCheck2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -65,6 +66,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import LinkCoveragePanel from '@/components/panels/link-coverage-panel'
 
 // ─── Shared types ─────────────────────────────────────────────────────────
 
@@ -164,6 +166,7 @@ const TABS = [
   { value: 'workers', label: 'Workers', icon: Cpu },
   { value: 'settings', label: 'Settings', icon: Settings },
   { value: 'deploy', label: 'Deploy', icon: Rocket },
+  { value: 'coverage', label: 'Link Coverage', icon: FileCheck2 },
 ] as const
 
 // ─── Color helpers ────────────────────────────────────────────────────────
@@ -1193,6 +1196,7 @@ export default function SuperAdminPanel() {
             <TabsContent value="workers" className="m-0"><WorkersTab /></TabsContent>
             <TabsContent value="settings" className="m-0"><SettingsTab /></TabsContent>
             <TabsContent value="deploy" className="m-0"><DeployTab /></TabsContent>
+            <TabsContent value="coverage" className="m-0"><LinkCoveragePanel /></TabsContent>
           </div>
         </Tabs>
       </div>

@@ -44,6 +44,7 @@
 - **Object Storage** — MinIO/S3-compatible file storage with CDN support and media library management
 - **Billing & Subscriptions** — Plans, invoices, payments, usage tracking, and cost estimation
 - **Audit Logging** — Comprehensive audit trail for all user actions, API calls, and system events
+- **Link Coverage (Super Admin)** — Every reference link in the workspace, with the repository files that back it, re-checked on disk (existence, lines, SHA-256) from the super admin dashboard; gaps are named, not glossed. See [docs/LINK_COVERAGE_SUPER_ADMIN.md](docs/LINK_COVERAGE_SUPER_ADMIN.md)
 - **Observability Stack** — Prometheus metrics, Grafana dashboards, health checks, and system monitoring
 - **PWA Support** — Service worker, manifest, and offline-capable progressive web app
 - **Email & SMS** — SMTP integration with templates, tracking, and campaign management

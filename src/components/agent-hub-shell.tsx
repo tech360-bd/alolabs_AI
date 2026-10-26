@@ -44,6 +44,7 @@ import {
   FolderTree,
   Wrench,
   FileText,
+  FileCheck2,
   ShieldCheck,
   Receipt,
   Store,
@@ -181,6 +182,7 @@ const UserManagementPanel = lazy(() => import('@/components/panels/user-manageme
 const BrandManagementPanel = lazy(() => import('@/components/panels/brand-management-panel'))
 const MediaLibraryPanel = lazy(() => import('@/components/panels/media-library-panel'))
 const SuperAdminPanel = lazy(() => import('@/components/panels/super-admin-panel'))
+const LinkCoveragePanel = lazy(() => import('@/components/panels/link-coverage-panel'))
 
 // Marketing
 const SmsPanel = lazy(() => import('@/components/panels/sms-panel'))
@@ -243,6 +245,7 @@ const navItems: NavItem[] = [
   { id: 'webhooks', label: 'Webhooks', icon: WebhookIcon, group: 'Security' },
   { id: 'company-access', label: 'Access Matrix', icon: ShieldCheck, group: 'Security' },
   { id: 'superAdmin', label: 'Super Admin', icon: ShieldCheck, group: 'Security' },
+  { id: 'link-coverage', label: 'Link Coverage', icon: FileCheck2, group: 'Admin' },
   { id: 'role-management', label: 'Roles', icon: Users, group: 'Security' },
   { id: 'protection-mode', label: 'Protection', icon: ShieldAlert, group: 'Security' },
   { id: 'security-center', label: 'Security Center', icon: Shield, group: 'Security' },
@@ -496,6 +499,7 @@ export default function AgentHubShell() {
       'gpu-monitor': <GpuMonitorPanel />,
       'mediaLibrary': <MediaLibraryPanel />,
       'superAdmin': <SuperAdminPanel />,
+      'link-coverage': <LinkCoveragePanel />,
       'sms': <SmsPanel />,
       'seo': <SeoPanel />,
       'mediaStudio': <MediaStudioPanel />,

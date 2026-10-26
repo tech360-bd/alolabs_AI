@@ -34,6 +34,7 @@
     "provision:ai-employees:dry-run": "npx tsx scripts/provision-ai-employee-identities.ts --dry-run",
     "provision:ai-employees:apply": "npx tsx scripts/provision-ai-employee-identities.ts --apply",
     "verify:ai-employees": "npx tsx scripts/provision-ai-employee-identities.ts --verify",
+    "verify:links": "npx tsx scripts/verify-link-coverage.ts",
     "report:tiers": "npx tsx scripts/tier-capacity.ts",
     "report:tiers:json": "npx tsx scripts/tier-capacity.ts --json",
     "review:builder": "npx tsx scripts/chief-architect-review.ts",

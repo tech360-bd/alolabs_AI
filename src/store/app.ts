@@ -6,6 +6,7 @@ export type ViewType =
   | 'web-crm'
   | 'super-admin'
   | 'superAdmin'
+  | 'link-coverage'
   | 'super-command'
   | 'crm-connections'
   | 'command-center'
