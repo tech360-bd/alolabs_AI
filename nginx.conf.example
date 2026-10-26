@@ -10,7 +10,7 @@
 #   3. certbot --nginx -d your-domain.com
 
 upstream alolabs_backend {
-    server 127.0.0.1:3000;
+    server 127.0.0.1:3011;
     keepalive 64;
 }
 

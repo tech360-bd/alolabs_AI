@@ -5,9 +5,19 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      confirm_production_deploy:
+        description: 'Required. Set to true to actually deploy to production.'
+        required: true
+        default: false
+        type: boolean
       migrations_approved:
         description: 'Explicitly authorize reviewed, non-destructive production migrations'
         required: true
+        default: false
+        type: boolean
+      run_paid_services:
+        description: 'Allow the SSH deploy to the production host to run (default: skipped)'
+        required: false
         default: false
         type: boolean
 
@@ -25,18 +35,27 @@ env:
   CSRF_SECRET: 'ci-only-not-production'
   JWT_SECRET: 'ci-only-not-production'
   API_GATEWAY_SECRET: 'ci-only-not-production'
+  # Default deny: the production deploy is a billed, externally-visible action,
+  # so it needs an explicit opt-in rather than firing on every push to main.
+  # See scripts/ci-paid-services.sh for the resolution rules.
+  SKIP_PAID_SERVICES: 'true'
 
 jobs:
   quality-and-safety:
     name: CI quality and production safety hard-gates
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      skip_paid: ${{ steps.paid.outputs.skip_paid }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - name: Install locked dependencies
         run: bun install --frozen-lockfile
+      - name: Validate workflow files
+        run: bun run lint:workflows
       - name: Production dependency advisory gate (blocks deployment)
         run: npm audit --omit=dev --audit-level=moderate
       - name: Generate CI Prisma client
@@ -64,10 +83,20 @@ jobs:
             echo "::error title=Complete TypeScript diagnostics::${diagnostic}"
             exit "${status}"
           fi
+      - name: Resolve paid-services policy
+        id: paid
+        env:
+          CI_RUN_PAID_OVERRIDE: ${{ inputs.run_paid_services == true && 'true' || '' }}
+          SKIP_PAID_FROM_VARS: ${{ vars.SKIP_PAID_SERVICES }}
+          SKIP_PAID_FROM_SECRET: ${{ secrets.SKIP_PAID_SERVICES }}
+        run: |
+          effective="${SKIP_PAID_FROM_VARS:-${SKIP_PAID_FROM_SECRET:-true}}"
+          echo "skip_paid=$(CI_RUN_PAID_OVERRIDE="${CI_RUN_PAID_OVERRIDE}" SKIP_PAID_SERVICES="${effective}" bash scripts/ci-paid-services.sh)" >> "$GITHUB_OUTPUT"
       - name: Complete test suite
         run: bun run test
         env:
           NODE_ENV: test
+          SKIP_PAID_SERVICES: ${{ steps.paid.outputs.skip_paid }}
       - name: ESLint
         run: bun run lint
       - name: Build verification
@@ -87,13 +116,24 @@ jobs:
           bash -n deploy/scripts/backup.sh
           bash -n .github/scripts/validate-production-secrets.sh
           bash -n deploy/scripts/deploy.sh
+          bash -n deploy/scripts/setup-deploy-target.sh
+      - name: Run the repository configuration guards
+        # These three are the same dependency-free gates CI runs. The deploy
+        # path previously ran none of them, so the gate protecting production
+        # was WEAKER than the gate protecting a pull request: a compose/port
+        # drift, an unauthenticated API route, or an unpinned third-party
+        # action could reach production without ever failing a check here.
+        run: |
+          node scripts/validate-compose.mjs
+          node scripts/validate-route-auth.mjs
+          node scripts/validate-workflow-security.mjs
       - name: Stage reviewed safety scripts
         run: |
           mkdir -p production-safety-scripts
           install -m 700 deploy/scripts/deploy.sh production-safety-scripts/deploy.sh
           install -m 700 deploy/scripts/backup.sh production-safety-scripts/backup.sh
           install -m 700 deploy/scripts/database-safety-scan.sh production-safety-scripts/database-safety-scan.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: production-safety-scripts
           path: production-safety-scripts
@@ -103,9 +143,34 @@ jobs:
   deployment-config:
     name: Deploy configuration (production bridge)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     environment: production
+    # EXPLICIT APPROVAL GATE.
+    #
+    # Previously this job ran on every push to main. The `production`
+    # environment has protection_rules: [] and deployment_branch_policy: null
+    # (verified via the REST API), so nothing stood between a merge and a
+    # production deploy — the moment Actions billing is fixed and the four
+    # PRODUCTION_* secrets exist, any push to main would deploy unattended.
+    #
+    # The GitHub-native control for this is a required reviewer on the
+    # environment, but per
+    # https://docs.github.com/en/rest/deployments/environments
+    # "If you are on a GitHub Free, GitHub Pro, or GitHub Team plan, other
+    # deployment protection rules, such as a wait timer or required reviewers,
+    # are only available for public repositories." This repository is PRIVATE,
+    # so that control may not be available on your plan.
+    #
+    # This condition is therefore plan-independent: a push to main still runs
+    # every quality and safety gate above, but the deploy itself only happens
+    # on a manual dispatch with confirm_production_deploy=true.
+    #
+    # TO RESTORE AUTO-DEPLOY (only if your plan supports required reviewers):
+    # add the reviewer rule per docs/DEPLOYMENT-RUNBOOK.md step 2, confirm it
+    # pauses the job, then delete the `if:` line below.
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production_deploy == true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       # Reports every missing or malformed PRODUCTION_* value at once, by name
       # only. Nothing secret is echoed. Runs as its own job so a configuration
       # problem is distinguishable from a deployment failure at a glance.
@@ -121,14 +186,41 @@ jobs:
     name: Deploy production
     needs: [quality-and-safety, deployment-config]
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     environment: production
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: production-safety-scripts
           path: production-safety-scripts
+      - name: Create a private staging directory (refuse any pre-existing path)
+        # /tmp is world-writable. The scp below writes into
+        # /tmp/alo-deploy-<run_id>-<run_attempt>, and that directory is later
+        # executed with `sudo`. If another local user pre-created that path —
+        # in particular as a symlink to somewhere like /etc — the scp would
+        # follow it and the subsequent `chmod 700 .../*.sh` + `sudo bash` would
+        # operate on attacker-influenced files. So create it first, as the
+        # deploy user, mode 0700, and FAIL if anything is already there.
+        # `mkdir` without -p refuses an existing path; the -L test additionally
+        # catches a dangling symlink, which -e misses.
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          script: |
+            set -eu
+            D="/tmp/alo-deploy-${{ github.run_id }}-${{ github.run_attempt }}"
+            if [ -e "$D" ] || [ -L "$D" ]; then
+              echo "REFUSING: staging path already exists: $D" >&2
+              ls -ld "$D" >&2 || true
+              exit 1
+            fi
+            mkdir -m 700 "$D"
+            ls -ld "$D"
       - name: Transfer reviewed safety scripts without changing production
-        uses: appleboy/scp-action@v1
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
@@ -139,7 +231,7 @@ jobs:
           strip_components: 1
           overwrite: true
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         env:
           MIGRATIONS_APPROVED: ${{ inputs.migrations_approved || 'false' }}
           PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}

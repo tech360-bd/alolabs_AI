@@ -1,6 +1,16 @@
 ## ============================================================
-## ALO Labs AIOS — Caddy Reverse Proxy
-## Replace {$DOMAIN} with your actual domain or set the DOMAIN env var.
+## ALO Labs AgentOS — Caddy Reverse Proxy
+##
+## Environment variables (set by docker-compose.yml):
+##   DOMAIN        — public hostname. Default: alolabs.localhost
+##   APP_UPSTREAM  — the Next.js app as reachable *from this container*.
+##                   Default: app:3011 (compose service name + port).
+##
+## Caddy runs in its own container, so the upstream must be the compose
+## service name over the shared network — never `localhost`, which would
+## resolve to the Caddy container itself and 502 every request. The app
+## listens on 3011; see the PORT CONTRACT in docker-compose.yml.
+##
 ## For local dev, the :81 block is preserved below.
 ## ============================================================
 
@@ -37,7 +47,7 @@
 	# ── API routes — no static cache ─────────────────────────
 	handle /api/* {
 		header Cache-Control "no-store, no-cache, must-revalidate"
-		reverse_proxy localhost:3000 {
+		reverse_proxy {$APP_UPSTREAM:app:3011} {
 			header_up Host {host}
 			header_up X-Forwarded-For {remote_host}
 			header_up X-Forwarded-Proto {scheme}
@@ -47,7 +57,7 @@
 
 	# ── Socket.IO / WebSocket upgrade ─────────────────────────
 	handle /socket.io/* {
-		reverse_proxy localhost:3000 {
+		reverse_proxy {$APP_UPSTREAM:app:3011} {
 			header_up Host {host}
 			header_up X-Forwarded-For {remote_host}
 			header_up X-Forwarded-Proto {scheme}
@@ -59,14 +69,14 @@
 
 	# ── Static assets (long cache) ────────────────────────────
 	handle /_next/static/* {
-		reverse_proxy localhost:3000 {
+		reverse_proxy {$APP_UPSTREAM:app:3011} {
 			header_up Host {host}
 		}
 	}
 
 	# ── Everything else ───────────────────────────────────────
 	handle {
-		reverse_proxy localhost:3000 {
+		reverse_proxy {$APP_UPSTREAM:app:3011} {
 			header_up Host {host}
 			header_up X-Forwarded-For {remote_host}
 			header_up X-Forwarded-Proto {scheme}
@@ -91,7 +101,7 @@
 	}
 
 	handle {
-		reverse_proxy localhost:3000 {
+		reverse_proxy {$APP_UPSTREAM:app:3011} {
 			header_up Host {host}
 			header_up X-Forwarded-For {remote_host}
 			header_up X-Forwarded-Proto {scheme}

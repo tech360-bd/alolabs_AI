@@ -1,5 +1,29 @@
 name: Verified production database backup
 
+# ─────────────────────────────────────────────────────────────────────────────
+# DELIBERATELY NOT GATED BY SKIP_PAID_SERVICES.
+#
+# An earlier revision of this file skipped the backup unless
+# SKIP_PAID_SERVICES was explicitly false. That was wrong on two counts:
+#
+#   1. It disabled a required backup. The free-service policy is explicit that
+#      security, backup, database-integrity and production-safety checks are
+#      never disabled to make CI pass. Since SKIP_PAID_SERVICES defaults to
+#      "true", the nightly backup would simply never run.
+#   2. It bought nothing. This workflow triggers only on `schedule` and
+#      `workflow_dispatch` — never on push or pull_request — so it contributes
+#      nothing to pull-request cost. There was no paid step here to skip.
+#
+# A backup is not a paid service and not paid-service provisioning: it is one
+# SSH command on a standard Linux runner. What it does need is a gate on
+# *production access*, and that is what `environment: production` provides —
+# add required reviewers there so a human approves, rather than reusing a
+# cost flag to switch off disaster recovery.
+#
+# It still fails closed: missing PRODUCTION_* secrets abort the job instead of
+# attempting an SSH connection to an empty host.
+# ─────────────────────────────────────────────────────────────────────────────
+
 on:
   workflow_dispatch:
   schedule:
@@ -14,12 +38,16 @@ permissions:
 
 jobs:
   backup:
+    name: Run verified server-side backup
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       # Same gate as the deploy workflow: a scheduled run with no usable
       # credentials fails here, by name, instead of inside the SSH action.
+      # (Shared script keeps this one implementation; the source repo's
+      # inline copy of the same check is deduplicated into it.)
       - name: Validate required production SSH secrets
         env:
           PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
@@ -28,7 +56,7 @@ jobs:
           PRODUCTION_PORT: ${{ secrets.PRODUCTION_PORT }}
         run: bash .github/scripts/validate-production-secrets.sh
       - name: Run verified server-side backup
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         env:
           PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
         with:

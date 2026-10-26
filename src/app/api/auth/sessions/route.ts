@@ -4,7 +4,7 @@ import { parseBody } from '@/lib/validators';
 import {
   verifySession,
   revokeSession,
-  revokeAllSessions,
+  revokeOtherSessions,
   listActiveSessions,
   refreshSession,
 } from '@/lib/session-manager';
@@ -99,8 +99,11 @@ export async function DELETE(request: NextRequest) {
 
   try {
     if (revokeAll) {
-      // Revoke all sessions for the user, then re-create the current one
-      const count = await revokeAllSessions(auth.userId);
+      // Revoke every session EXCEPT this one. "Sign out all other devices" must
+      // not sign out the caller: the previous revokeAllSessions() call deleted
+      // the caller's own session and never re-created it, so the client kept
+      // holding a dead token and 401'd on its next request.
+      const count = await revokeOtherSessions(auth.userId, auth.token);
       return NextResponse.json({ revoked: count });
     }
 

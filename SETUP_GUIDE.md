@@ -55,7 +55,12 @@ bun run db:push
 ```bash
 bun run dev
 ```
-Open **http://localhost:3000** in your browser.
+Open **http://localhost:3011** in your browser.
+
+> The dev server runs on **3011**, not 3000 — see `next dev -p 3011` in
+> `package.json`. Port 3011 is the project-wide contract: `Dockerfile`,
+> both compose files, `Caddyfile` and `deploy/prometheus.yml` all agree on it,
+> and `scripts/validate-compose.mjs` fails CI if they drift apart.
 
 ### Default Login
 - Email: `admin@alolabs.com`
@@ -154,7 +159,7 @@ sudo nano /etc/caddy/Caddyfile
 Paste this (replace `your-domain.com`):
 ```
 your-domain.com {
-    reverse_proxy 127.0.0.1:3000
+    reverse_proxy 127.0.0.1:3011
 }
 ```
 
@@ -189,12 +194,122 @@ cd aismh-production
 cp .env.example .env
 nano .env  # Fill in values
 
-docker compose -f docker-compose.prod.yml up -d --build
+# BOTH files are required. docker-compose.prod.yml only *overrides* services —
+# it defines no images or build context of its own, so passing it alone fails.
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-This starts: Next.js app + PostgreSQL + Redis + MinIO + Caddy
+This starts: Next.js app (port 3011) + Redis + Qdrant + MinIO + Caddy + Prometheus + Grafana.
 
-Check: `docker compose -f docker-compose.prod.yml logs -f`
+The database is **SQLite** inside the `app_data` volume, not PostgreSQL — no
+database container is started. Add `--profile tools` for Adminer and MariaDB.
+
+Then initialise the schema once (the app deliberately does not migrate on boot):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  run --rm --entrypoint npx app prisma db push --schema=prisma/schema.prisma
+```
+
+Production also requires these to be set in `.env` or compose refuses to start:
+`DOMAIN`, `REDIS_PASSWORD`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `ENCRYPTION_KEY`,
+`APP_SECRET`, `CSRF_SECRET`, `JWT_SECRET`, `API_GATEWAY_SECRET`,
+`GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`.
+
+Check: `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f`
+
+---
+
+## AIR-GAPPED / RESTRICTED-NETWORK BOOTSTRAP
+
+Use this when the machine cannot reach `binaries.prisma.sh` (Prisma engines) or
+`nodejs.org` (Node headers for native addons) — common in CI sandboxes, behind
+TLS-intercepting proxies, or on isolated build hosts.
+
+**Symptom:** `npm install` or `bun install` fails while building
+`better-sqlite3`, and `npx prisma generate` fails to download the query engine.
+If you then run `tsc --noEmit` you will see **hundreds of TypeScript errors**
+(`TS7006` implicit-any, `TS2305` "no exported member 'Prisma'"). Those are not
+real bugs — they are a cascade from the Prisma client never having been
+generated. Generate the client and they disappear.
+
+### 1. Install without running native build scripts
+
+```bash
+npm install --no-audit --no-fund --ignore-scripts
+```
+
+`better-sqlite3` is a native addon; skipping its build script avoids the
+`nodejs.org` header download. The cost is that real-database integration tests
+cannot run — see the note at the end of this section.
+
+### 2. Generate the Prisma client without the engines CDN
+
+```bash
+npm run db:generate:client-engine      # scripts/dev-generate-client.sh
+```
+
+This stubs the engine binaries and generates a client with
+`engineType = "client"` (WASM query compiler + better-sqlite3 driver adapter).
+Your `prisma/schema.prisma` is **not** modified.
+
+> **Critical:** an `engineType = "client"` PrismaClient throws at construction
+> unless a driver adapter is supplied, and `next build` constructs it while
+> collecting page data. So a build must set the adapter flag:
+>
+> ```bash
+> PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build
+> ```
+>
+> Omitting it fails with `P2038: Missing configured driver adapter`.
+>
+> If you only need **typecheck and lint** (no build), generate against the
+> *default* schema instead — that client needs no adapter and no engine:
+>
+> ```bash
+> mkdir -p .arena-tmp/engines
+> printf '#!/bin/bash\nif [ "$1" = "--version" ]; then echo "schema-engine stub"; exit 0; fi\nexit 0\n' \
+>   > .arena-tmp/engines/schema-engine
+> chmod +x .arena-tmp/engines/schema-engine
+> touch .arena-tmp/engines/libquery_engine.so.node
+>
+> PRISMA_SCHEMA_ENGINE_BINARY="$PWD/.arena-tmp/engines/schema-engine" \
+> PRISMA_QUERY_ENGINE_LIBRARY="$PWD/.arena-tmp/engines/libquery_engine.so.node" \
+>   npx prisma generate --schema=prisma/schema.prisma
+> ```
+
+### 3. Create the database without the schema-engine binary
+
+`prisma db push` also needs the engines CDN. Use the equivalent DDL generator,
+which parses the schema and applies it via Node's built-in SQLite:
+
+```bash
+mkdir -p db
+DATABASE_URL=file:./db/custom.db npx tsx scripts/sqlite-push.ts
+# -> sqlite-push: applied 460 statements
+# -> sqlite-push: 179 models, 179 tables present
+```
+
+### 4. Verify
+
+```bash
+npx tsc --noEmit                              # expect 0 errors
+npm run lint                                  # expect 0 errors, 0 warnings
+npx vitest run                                # see caveat below
+node scripts/validate-compose.mjs             # expect 0 violations
+```
+
+**Test caveat:** the 8 real-database suites under `__tests__/integration/`
+(27 tests) need the `better-sqlite3` native binding. Without network access to
+fetch a prebuilt binary or Node headers to compile one, they fail with
+`Could not locate the bindings file`. This is environmental, not a regression —
+the other ~984 tests pass, and all 27 pass on any host with normal network
+access. To get them running locally, rebuild the addon once you have
+connectivity: `npm rebuild better-sqlite3`.
+
+With full network access, none of this section is necessary — just
+`bun install && bun run db:generate && bun run db:push`.
 
 ---
 
@@ -402,9 +517,10 @@ bunx tsx scripts/seed-v3.ts
 | Open DB GUI | `bunx prisma studio` |
 | Lint code | `bun run lint` |
 | Run tests | `bun run test` |
-| Health check | `curl http://127.0.0.1:3000/api/health` |
-| Create backup | `curl -X POST http://127.0.0.1:3000/api/backups/create -H "Authorization: Bearer TOKEN"` |
-| Docker deploy | `docker compose -f docker-compose.prod.yml up -d --build` |
+| Health check | `curl http://127.0.0.1:3011/api/health` |
+| Create backup | `curl -X POST http://127.0.0.1:3011/api/backups/create -H "Authorization: Bearer TOKEN"` |
+| Docker deploy | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` |
+| Validate deploy config | `node scripts/validate-compose.mjs` |
 
 ---
 

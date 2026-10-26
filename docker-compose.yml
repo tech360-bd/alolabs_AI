@@ -1,8 +1,28 @@
 # ============================================================
-# ALO Labs AI-EOS — Docker Compose (Production)
-# Services: App, Caddy (auto-SSL), Prometheus, Grafana
-# Usage: docker compose up -d
+# ALO Labs AgentOS — Docker Compose (base)
+#
+# Services: app, redis, qdrant, minio, caddy (auto-SSL), prometheus, grafana
+# Optional (tools profile): adminer, mariadb
+#
+# Usage:
+#   docker compose up -d --build                 # core stack
+#   docker compose --profile tools up -d --build # + Adminer DB GUI, MariaDB
+#   docker compose config --quiet                # validate (runs in CI)
+#
+# Production overrides:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# PORT CONTRACT — the app listens on 3011 everywhere. This value is asserted
+# across Dockerfile, both compose files, Caddyfile and deploy/prometheus.yml
+# by scripts/validate-compose.mjs, which CI runs. Do not change it in one
+# place only.
 # ============================================================
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
 
 services:
   # ── Next.js Application ──────────────────────────────────────
@@ -10,31 +30,138 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: alolabs-ai-eos
+    image: alolabs-agentos:local
+    container_name: alolabs-agentos
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      # `required: false` so the stack still starts before an operator has run
+      # `cp .env.example .env`; every value the app needs is set explicitly in
+      # `environment` below or has a default.
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
-      PORT: 3000
-      DATABASE_URL: file:./db/custom.db
+      HOSTNAME: 0.0.0.0
+      PORT: "3011"
+      NEXT_TELEMETRY_DISABLED: "1"
+      # SQLite file inside the app_data volume, so the database survives
+      # `docker compose down` and is shared with the prod override.
+      DATABASE_URL: file:/app/data/agenthub.db
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      MINIO_URL: http://minio:9000
+      MINIO_HOST: minio
+      MINIO_PORT: "9000"
+      MINIO_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-alolabs}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-alolabs-minio-secret}
+      MINIO_BUCKET: ${MINIO_BUCKET:-agent-hub}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ACCESS_KEY:-alolabs}
+      S3_SECRET_KEY: ${MINIO_SECRET_KEY:-alolabs-minio-secret}
+      S3_BUCKET: ${MINIO_BUCKET:-agent-hub}
+      S3_REGION: ${MINIO_REGION:-us-east-1}
+      S3_USE_SSL: "false"
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${APP_PORT:-3011}:3011"
     volumes:
-      - app_data:/app/db
+      - app_data:/app/data
       - app_storage:/app/storage
       - app_logs:/app/logs
       - app_backups:/app/backups
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      <<: *healthcheck-defaults
+      # node:20-slim ships neither wget nor curl; use node's built-in fetch.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3011/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
     networks:
       - alolabs-net
     depends_on:
-      prometheus:
+      redis:
         condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    extra_hosts:
+      # Lets the container reach an Ollama instance on the Docker host.
+      - "host.docker.internal:host-gateway"
+
+  # ── Redis (cache, rate limiting, sessions) ───────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: alolabs-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: >
+      redis-server
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+      test: ["CMD", "redis-cli", "ping"]
+    networks:
+      - alolabs-net
+
+  # ── Qdrant (vector store for RAG embeddings) ─────────────────
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: alolabs-qdrant
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+      # Qdrant serves /readyz on 6333. The image ships bash but no guaranteed
+      # wget/curl, so probe the TCP port via bash's /dev/tcp.
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+    networks:
+      - alolabs-net
+
+  # ── MinIO (S3-compatible object storage) ─────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+    container_name: alolabs-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-alolabs}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-alolabs-minio-secret}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+      test: ["CMD", "mc", "ready", "local"]
+    networks:
+      - alolabs-net
 
   # ── Caddy Reverse Proxy (Auto-SSL) ──────────────────────────
   caddy:
@@ -51,11 +178,12 @@ services:
       - caddy_config:/config
     environment:
       DOMAIN: ${DOMAIN:-localhost}
+      # Caddy runs in its own container, so the upstream must be the compose
+      # service name, not localhost. The Caddyfile reads this variable.
+      APP_UPSTREAM: app:3011
     healthcheck:
-      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      <<: *healthcheck-defaults
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
     networks:
       - alolabs-net
     depends_on:
@@ -64,7 +192,7 @@ services:
 
   # ── Prometheus (Metrics Collection) ─────────────────────────
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.54.1
     container_name: alolabs-prometheus
     restart: unless-stopped
     ports:
@@ -74,21 +202,20 @@ services:
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.retention=30d'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
       interval: 15s
       timeout: 10s
       retries: 3
       start_period: 15s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
     networks:
       - alolabs-net
 
   # ── Grafana (Monitoring Dashboard) ──────────────────────────
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.3.0
     container_name: alolabs-grafana
     restart: unless-stopped
     ports:
@@ -102,16 +229,59 @@ services:
       - grafana_data:/var/lib/grafana
       - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 15s
       timeout: 10s
       retries: 3
       start_period: 30s
+      # Grafana listens on 3000 inside the container (published as 3001).
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
     networks:
       - alolabs-net
     depends_on:
       prometheus:
         condition: service_healthy
+
+  # ── Adminer (database GUI — tools profile only) ──────────────
+  adminer:
+    image: adminer:4
+    container_name: alolabs-adminer
+    restart: unless-stopped
+    profiles: ["tools"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mariadb
+    networks:
+      - alolabs-net
+    depends_on:
+      - mariadb
+
+  # ── MariaDB (optional dev exploration — tools profile only) ──
+  # The application uses SQLite by default; this exists for evaluating the
+  # MySQL/MariaDB path in prisma/schema.mysql.prisma.
+  mariadb:
+    image: mariadb:10.11
+    container_name: alolabs-mariadb
+    restart: unless-stopped
+    profiles: ["tools"]
+    ports:
+      - "127.0.0.1:3306:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-alolabs-root}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-agentos}
+      MARIADB_USER: ${MARIADB_USER:-agentos}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-alolabs-db}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./deploy/docker/mariadb-custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    healthcheck:
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+    networks:
+      - alolabs-net
 
 volumes:
   app_data:
@@ -122,6 +292,12 @@ volumes:
     driver: local
   app_backups:
     driver: local
+  redis_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  minio_data:
+    driver: local
   caddy_data:
     driver: local
   caddy_config:
@@ -129,6 +305,8 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  mariadb_data:
     driver: local
 
 networks:

@@ -20,10 +20,19 @@ interface MigrateOptions {
   mysqlUrl: string;
   dryRun?: boolean;
   batchSize?: number;
+  /**
+   * Required to write into a target database that already holds rows.
+   *
+   * Without this the migrator refuses to run against a non-empty database,
+   * because an INSERT into a populated schema either fails on duplicate primary
+   * keys or — worse, for tables without them — silently doubles data. Production
+   * must never be overwritten by an unattended run.
+   */
+  allowOverwrite?: boolean;
 }
 
 export async function migrateSQLiteToMySQL(options: MigrateOptions) {
-  const { sqlitePath, mysqlUrl, dryRun = true, batchSize = 250 } = options;
+  const { sqlitePath, mysqlUrl, dryRun = true, batchSize = 250, allowOverwrite = false } = options;
 
   // This legacy importer is intentionally dry-run-only. Its old apply path
   // deleted destination tables, disabled FK checks and relaxed sql_mode, so it
@@ -76,7 +85,44 @@ export async function migrateSQLiteToMySQL(options: MigrateOptions) {
       return { success: true, dryRun: true };
     }
 
-    // Disable foreign key checks & strict mode for migration
+    // ── Pre-flight: never assume the target is empty ──────────────
+    // Inspect the destination before writing anything. An unattended INSERT
+    // into a populated schema either fails on duplicate keys or silently
+    // duplicates data, so a non-empty target requires an explicit opt-in.
+    const [preflight] = await mysqlConn.execute(
+      `SELECT COUNT(*) AS tables_count,
+              COALESCE(SUM(TABLE_ROWS), 0) AS approx_rows
+         FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'`
+    );
+    const pf = (preflight as { tables_count: number; approx_rows: number }[])[0];
+    console.log(
+      `Target database currently holds ${pf.tables_count} table(s), ~${pf.approx_rows} row(s) (engine estimate).\n`
+    );
+
+    if (Number(pf.tables_count) > 0 && !allowOverwrite) {
+      throw new Error(
+        `Refusing to migrate: the target database already contains ${pf.tables_count} table(s).\n` +
+          'This utility never overwrites a populated database without explicit approval.\n' +
+          'Review the target first, then either:\n' +
+          '  - re-run with --allow-overwrite to insert into the existing schema, or\n' +
+          '  - point DATABASE_URL at a fresh, empty database.\n' +
+          'The source SQLite file is opened read-only and has not been modified.',
+      );
+    }
+    if (Number(pf.tables_count) > 0 && allowOverwrite) {
+      console.log(
+        'NOTICE: --allow-overwrite is set; existing rows are left in place and ' +
+          'new rows are inserted alongside them. Duplicate primary keys will error.\n'
+      );
+    }
+
+    // Disable foreign key checks & strict mode for migration. Foreign-key
+    // dependencies are handled by suspending enforcement for the duration of
+    // the load and re-enabling it afterwards, which is safer than trying to
+    // derive a correct table order from a schema that may be partially
+    // migrated; the post-migration validation below catches any relationship
+    // that did not resolve.
     await mysqlConn.execute('SET FOREIGN_KEY_CHECKS = 0');
     await mysqlConn.execute("SET sql_mode = ''");
     await mysqlConn.execute('SET NAMES utf8mb4');
@@ -232,18 +278,35 @@ if (require.main === module) {
   ].filter(Boolean) as string[];
 
   const sqlitePath = candidatePaths.find((p) => fs.existsSync(p)) || candidatePaths[0];
-  const mysqlUrl = process.argv[3] || process.env.DATABASE_URL || '';
-  // Preview is the default. The current legacy apply path is intentionally
-  // rejected above until a backup-verified transactional replacement exists.
+  // No hardcoded default: silently connecting to a baked-in URL is how data
+  // ends up in the wrong database. Require it explicitly.
+  const mysqlUrl = process.argv[3] || process.env.MYSQL_TARGET_URL || process.env.DATABASE_URL;
+  if (!mysqlUrl) {
+    console.error(
+      'No target MySQL URL provided.\n' +
+        'Usage: npx tsx scripts/migrate-sqlite-to-mysql.ts <sqlite-file> <mysql-url> [--dry-run] [--apply] [--allow-overwrite]\n' +
+        '   or: MYSQL_TARGET_URL=mysql://user:pass@host:3306/db npx tsx scripts/migrate-sqlite-to-mysql.ts <sqlite-file>\n' +
+        'Always preview with --dry-run first.',
+    );
+    process.exit(1);
+  }
+  if (!/^mysql:\/\//i.test(mysqlUrl) && !/^mariadb:\/\//i.test(mysqlUrl)) {
+    console.error(`Target URL must be mysql:// or mariadb://, got: ${mysqlUrl.replace(/:[^:@/]+@/, ':****@')}`);
+    process.exit(1);
+  }
+  // Preview is the default; --apply is required for a real run, and the legacy
+  // apply path is currently rejected inside migrateSQLiteToMySQL until a
+  // backup-verified transactional replacement exists.
   const dryRun = !process.argv.includes('--apply') || process.argv.includes('--dry-run');
+  const allowOverwrite = process.argv.includes('--allow-overwrite');
 
-  migrateSQLiteToMySQL({ sqlitePath, mysqlUrl, dryRun })
+  migrateSQLiteToMySQL({ sqlitePath, mysqlUrl, dryRun, allowOverwrite })
     .then((res) => {
       console.log('Migration finished with status:', res.success ? 'SUCCESS' : 'FAILED');
       process.exit(res.success ? 0 : 1);
     })
     .catch((err) => {
-      console.error('Fatal migration error:', err);
+      console.error('Fatal migration error:', err instanceof Error ? err.message : err);
       process.exit(1);
     });
 }

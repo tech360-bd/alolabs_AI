@@ -1,8 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// The health route derives its headline status from real subsystem checks:
+// with NO AI provider configured it honestly reports 'degraded'. These tests
+// assert the fully-healthy response shape, so configure one (unused) provider
+// credential before the router singleton initialises. No request is made to it.
+vi.hoisted(() => {
+  process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'test-only-key';
+});
+
 // Mock @/lib/db
 vi.mock('@/lib/db', () => ({
   db: {
+    // The health route verifies connectivity with a real `SELECT 1`; without
+    // this the route correctly reports the database as unverified.
+    $queryRaw: vi.fn().mockResolvedValue([{ ok: 1 }]),
     company: { count: vi.fn().mockResolvedValue(5) },
     agent: { count: vi.fn().mockResolvedValue(12) },
     workflow: { count: vi.fn().mockResolvedValue(3) },

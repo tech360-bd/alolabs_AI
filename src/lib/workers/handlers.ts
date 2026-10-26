@@ -6,6 +6,7 @@
 
 import { BaseWorker } from './worker';
 import type { WorkerJob, WorkerConfig, WorkerType } from './types';
+import { internalBaseUrl } from '@/lib/internal-url';
 import { executeCompanyAIChat, CompanyAIError } from '@/lib/multi-tenant-ai/service';
 import type { ModelRoutingProfile } from '@/lib/multi-tenant-ai/policy';
 
@@ -118,7 +119,7 @@ export class EmailWorker extends BaseWorker {
 
         // Email sending is delegated to an external service / API route.
         // In production, integrate with SendGrid, SES, or similar.
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+        const baseUrl = internalBaseUrl();
         const response = await fetch(`${baseUrl}/api/notifications`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -220,7 +221,7 @@ export class NotificationWorker extends BaseWorker {
         if (!title) throw new Error('Notification "title" is required');
 
         // Store in-app notification via API
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+        const baseUrl = internalBaseUrl();
         const response = await fetch(`${baseUrl}/api/notifications`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -272,7 +273,7 @@ export class BackupWorker extends BaseWorker {
 
     switch (action) {
       case 'create': {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+        const baseUrl = internalBaseUrl();
         const response = await fetch(`${baseUrl}/api/backups/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -295,7 +296,7 @@ export class BackupWorker extends BaseWorker {
         const { backupId } = job.payload as { backupId: string };
         if (!backupId) throw new Error('Backup "backupId" is required');
 
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+        const baseUrl = internalBaseUrl();
         const response = await fetch(`${baseUrl}/api/backups/restore`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -346,7 +347,7 @@ export class MediaWorker extends BaseWorker {
       case 'thumbnail': {
         // Media processing is CPU-intensive; in production this would use sharp/ffmpeg
         // in a separate process or lambda. Here we delegate to an internal API.
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+        const baseUrl = internalBaseUrl();
         const response = await fetch(`${baseUrl}/api/uploads`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

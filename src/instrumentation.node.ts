@@ -128,5 +128,21 @@ export async function registerNodeWorker(): Promise<void> {
   const globalForWorker = globalThis as unknown as { __agentosWorkerStarted?: boolean };
   if (globalForWorker.__agentosWorkerStarted) return;
   globalForWorker.__agentosWorkerStarted = true;
+
+  // Fail startup, before the worker polls anything, when this process is
+  // production and its datasource is not MySQL/MariaDB. Next.js does not call
+  // register() during `next build`, so the CI build (which uses a throw-away
+  // SQLite URL) is unaffected. The import is dynamic because this file is
+  // bundled for the edge runtime as well.
+  const { assertProductionDatasource } = await import('@/lib/production-database');
+  const { describeDatasource } = await import('@/lib/db');
+  const datasource = describeDatasource();
+  console.log(
+    `[AgentOS] datasource provider=${datasource.provider} url=${datasource.redactedUrl}`,
+  );
+  // Throws in production unless the datasource is MySQL/MariaDB, so a
+  // misconfigured server refuses to boot instead of quietly writing to SQLite.
+  assertProductionDatasource();
+
   startWorker();
 }

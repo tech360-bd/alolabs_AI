@@ -50,7 +50,8 @@
     "verify:inference": "npx tsx scripts/verify-inference.ts",
     "verify:inference:json": "npx tsx scripts/verify-inference.ts --json",
     "verify:mysql": "npx tsx scripts/verify-mysql-compatibility.ts",
-    "verify:workforce": "npx tsx scripts/verify-2000-workforce.ts"
+"verify:workforce": "npx tsx scripts/verify-2000-workforce.ts",
+    "lint:workflows": "node scripts/validate-workflows.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",

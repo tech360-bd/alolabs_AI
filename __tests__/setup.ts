@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { guardFetchAgainstPaidHosts, paidServicesSkipped } from './helpers/paid-services';
 
 // Mock Next.js navigation
 vi.mock('next/navigation', () => ({
@@ -9,7 +10,17 @@ vi.mock('next/navigation', () => ({
 
 // Keep the real fetch reachable for node-environment tests that talk to a
 // local HTTP server (see __tests__/helpers/real-fetch.ts).
-(globalThis as unknown as { __realFetch?: typeof fetch }).__realFetch = globalThis.fetch;
+//
+// While SKIP_PAID_SERVICES is active the real fetch is wrapped so that any
+// non-loopback request throws. Loopback stays reachable, so the local
+// http.createServer-based provider/webhook tests are unaffected, but an
+// accidental call to a billed third-party API fails loudly instead of spending
+// money on a runner. Policy lives in __tests__/helpers/paid-services.ts and
+// scripts/ci-paid-services.sh.
+(globalThis as unknown as { __realFetch?: typeof fetch }).__realFetch =
+  paidServicesSkipped() && globalThis.fetch
+    ? guardFetchAgainstPaidHosts(globalThis.fetch)
+    : globalThis.fetch;
 
 // Mock fetch for API calls
 global.fetch = vi.fn(() =>

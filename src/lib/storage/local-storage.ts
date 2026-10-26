@@ -98,6 +98,10 @@ const MIME_BY_EXTENSION: Record<string, string> = {
  */
 export function sanitizeFilename(name: string): string {
   const base = (name ?? '').split(/[\\/]/).pop() ?? '';
+  // Strip C0 control characters and DEL. The `no-control-regex` disable that
+  // used to sit here was dead: the rule is not enabled by this project's flat
+  // ESLint config, so the directive only produced an "unused eslint-disable"
+  // warning. The character class below is intentional and must stay.
   let cleaned = base.replace(/[\x00-\x1f\x7f]/g, '').replace(/[^A-Za-z0-9._ -]/g, '_').replace(/\s+/g, '-');
   cleaned = cleaned.replace(/^[._-]+/, ''); // no hidden/relative prefixes
   if (!cleaned) cleaned = 'file';
