@@ -178,6 +178,26 @@ describe('Command Agent loop', () => {
     expect(firstRequest.tools.map((t) => t.function.name)).toContain('get_weather');
   });
 
+  it('injects advisory skill guidance and rejects quarantined skills without granting tools', async () => {
+    chatMock.mockResolvedValueOnce({
+      requestId: 'req_skill', provider: 'groq',
+      response: { id: 'skill', content: 'Review guidance ready.', model: 'qwen/qwen3-32b', usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 }, finishReason: 'stop', latencyMs: 1 },
+    });
+    const { runCommandAgent } = await import('@/lib/command-agent/agent');
+    const result = await runCommandAgent({
+      companyId: 'company_1', userId: 'user_1', role: 'admin', companyName: 'ALO Labs',
+      message: 'Review my TypeScript code', sessionId: 'skill-session',
+      skillSlugs: ['mattpocock-code-review', 'rea-reverse-engineer-anything'],
+    });
+    expect(result.skillsUsed.some((skill) => skill.slug === 'mattpocock-code-review')).toBe(true);
+    expect(result.skillsRejected.some((skill) => skill.slug === 'rea-reverse-engineer-anything')).toBe(true);
+    const firstMessages = (chatMock.mock.calls.at(-1)![1] as { messages: Array<{ role: string; content: string }> }).messages;
+    const system = firstMessages.find((message) => message.role === 'system')!.content;
+    expect(system).toContain('TASK SKILL GUIDANCE');
+    expect(system).toContain('tools granted: none');
+    expect(system).not.toContain('Reverse Engineer Anything');
+  });
+
   it('propagates the gateway "configuration required" failure instead of faking an answer', async () => {
     const { CompanyAIError } = await import('@/lib/multi-tenant-ai/service');
     chatMock.mockRejectedValueOnce(new CompanyAIError('Configuration required: no authorised route', 503, 'CONFIGURATION_REQUIRED', 'req_x'));

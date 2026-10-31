@@ -32,6 +32,7 @@ const BodySchema = z.object({
   profile: z.enum(COMMAND_AGENT_PROFILES).default('free_general'),
   model: z.string().trim().max(300).optional(),
   targetCompany: z.string().trim().max(191).optional().nullable(),
+  skillSlugs: z.array(z.string().trim().min(1).max(160)).max(5).optional(),
 }).strict();
 
 function authFailure(error: unknown): NextResponse | null {
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest) {
         sessionId: parsed.data.sessionId,
         profile: parsed.data.profile,
         requestedModel: parsed.data.model ?? null,
+        requestedSkills: parsed.data.skillSlugs ?? [],
         messageLength: parsed.data.message.length,
         actorRole: actor.role,
       },
@@ -109,6 +111,7 @@ export async function POST(request: NextRequest) {
       sessionId: parsed.data.sessionId,
       profile: parsed.data.profile as CommandAgentProfile,
       ...(parsed.data.model ? { model: parsed.data.model } : {}),
+      ...(parsed.data.skillSlugs?.length ? { skillSlugs: parsed.data.skillSlugs } : {}),
     });
 
     return NextResponse.json({
@@ -121,6 +124,8 @@ export async function POST(request: NextRequest) {
       trace: result.trace,
       images: result.images,
       requestIds: result.requestIds,
+      skillsUsed: result.skillsUsed,
+      skillsRejected: result.skillsRejected,
       company: { id: company.id, name: company.name, slug: company.slug },
       timestamp: new Date().toISOString(),
     });
