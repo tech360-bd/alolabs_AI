@@ -21,7 +21,7 @@ vi.mock('@/lib/db', () => ({
 }));
 const runMock = vi.fn(async () => ({
   content: 'Done.', provider: 'groq', model: 'qwen/qwen3-32b', profile: 'free_general',
-  steps: 0, trace: [], images: [], requestIds: ['req_1'],
+  steps: 0, skillsUsed: [], skillsRejected: [], trace: [], images: [], requestIds: ['req_1'],
 }));
 vi.mock('@/lib/command-agent/agent', () => ({
   runCommandAgent: (...args: unknown[]) => runMock(...(args as [])),
@@ -50,7 +50,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   runMock.mockResolvedValue({
     content: 'Done.', provider: 'groq', model: 'qwen/qwen3-32b', profile: 'free_general',
-    steps: 0, trace: [], images: [], requestIds: ['req_1'],
+    steps: 0, skillsUsed: [], skillsRejected: [], trace: [], images: [], requestIds: ['req_1'],
   });
 });
 

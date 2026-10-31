@@ -114,6 +114,18 @@ describe('Agent context assembly', () => {
   })
 
 
+  it('injects assigned skill instructions and normalizes underscore slugs', async () => {
+    mocks.db.agent.findFirst.mockResolvedValue({ ...agent(), allowedSkills: JSON.stringify(['mattpocock_code_review']) })
+    mocks.db.skill.findMany.mockResolvedValue([
+      { slug: 'mattpocock-code-review', name: 'Code Review', description: 'Review code changes', purpose: 'Review code', inputs: '[]', outputs: '[]', content: '' },
+    ])
+    const context = await buildAgentContext({ agentId: 'AGENT-0001', companyId: currentCompany, task: 'Review code changes' })
+    expect(context.sources.skills).toBe(1)
+    expect(context.systemPrompt).toContain('# RELEVANT SKILLS')
+    expect(context.systemPrompt).toContain('Skill instructions (guidance only; no tool grants)')
+    expect(context.systemPrompt).toContain('Two-axis review')
+  })
+
   it('loads department SOPs only from the verified tenant department', async () => {
     mocks.db.enterpriseSOP.findMany.mockResolvedValue([
       { title: 'Application requirements SOP', category: 'admissions', description: 'Review the application requirements.', steps: '[\"Check source\"]', checklist: '[]', departmentId: 'dept-education' },

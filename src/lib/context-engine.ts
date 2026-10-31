@@ -12,6 +12,7 @@
 import { db } from '@/lib/db';
 import { agentCompanyScope } from '@/lib/agent-access';
 import { isKnowledgeVisibleToCompany } from '@/lib/tenant-knowledge';
+import { canonicalSkillSlug, getAgentSkill, loadAgentSkillBodies } from '@/lib/agent-skills';
 
 // ─── Public Types ───────────────────────────────────────────────────
 
@@ -36,6 +37,8 @@ export interface AgentContext {
     purpose: string;
     inputs: string[];
     outputs: string[];
+    content?: string;
+    contentTruncated?: boolean;
   }>;
   relevantPrompts: Array<{
     title: string;
@@ -236,14 +239,17 @@ export async function buildAgentContext(params: {
   }));
 
   // ── 3. Load Skills ───────────────────────────────────────────────
-  const skillSlugs = safeParseJson<string[]>(agent.allowedSkills, []);
+  const requestedSkillSlugs = safeParseJson<string[]>(agent.allowedSkills, []);
+  const skillSlugs = [...new Set(requestedSkillSlugs.flatMap((slug) => [slug, canonicalSkillSlug(slug)]))];
 
   let rawSkills: Array<{
+    slug: string;
     name: string;
     description: string;
     purpose: string;
     inputs: string;
     outputs: string;
+    content: string;
   }> = [];
 
   if (skillSlugs.length > 0 && keywords.length > 0) {
@@ -257,24 +263,39 @@ export async function buildAgentContext(params: {
       },
       take: Math.min(50, skillSlugs.length),
       select: {
+        slug: true,
         name: true,
         description: true,
         purpose: true,
         inputs: true,
         outputs: true,
+        content: true,
       },
     });
   }
 
-  const relevantSkills = rankTaskRelevant(rawSkills, keywords, (skill) => [
+  const rankedSkills = rankTaskRelevant(rawSkills, keywords, (skill) => [
     skill.name, skill.description, skill.purpose, skill.inputs, skill.outputs,
-  ], 5).map((s) => ({
-    name: s.name,
-    description: s.description,
-    purpose: s.purpose,
-    inputs: safeParseJson<string[]>(s.inputs, []),
-    outputs: safeParseJson<string[]>(s.outputs, []),
-  }));
+  ], 5);
+  const builtinEntries = rankedSkills
+    .map((skill) => getAgentSkill(skill.slug))
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry && entry.status === 'advisory'));
+  const builtinBodies = await loadAgentSkillBodies(builtinEntries, 1_800);
+  const builtinBodyBySlug = new Map(builtinBodies.map((skill) => [skill.entry.slug, skill]));
+  const relevantSkills = rankedSkills.map((skill) => {
+    const builtin = builtinBodyBySlug.get(canonicalSkillSlug(skill.slug));
+    const rawContent = skill.content?.trim() || builtin?.body || '';
+    const contentTruncated = rawContent.length > 1_800 || Boolean(builtin?.truncated);
+    return {
+      name: skill.name,
+      description: skill.description,
+      purpose: skill.purpose,
+      inputs: safeParseJson<string[]>(skill.inputs, []),
+      outputs: safeParseJson<string[]>(skill.outputs, []),
+      content: rawContent ? rawContent.slice(0, 1_800) : undefined,
+      contentTruncated: rawContent ? contentTruncated : undefined,
+    };
+  });
 
   // ── 4. Load task-relevant public Prompt Templates ─────────────────
   const rawPrompts = keywords.length > 0
@@ -639,6 +660,11 @@ function renderSkillsSection(ctx: AgentContext): string {
     }
     if (skill.outputs.length > 0) {
       parts.push(`**Outputs**: ${skill.outputs.join(', ')}`);
+    }
+    if (skill.content) {
+      parts.push('**Skill instructions (guidance only; no tool grants):**');
+      parts.push(skill.content);
+      if (skill.contentTruncated) parts.push('[Skill instructions truncated by context budget.]');
     }
     parts.push('');
   }

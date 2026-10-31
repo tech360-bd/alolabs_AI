@@ -51,8 +51,12 @@
     "verify:inference": "npx tsx scripts/verify-inference.ts",
     "verify:inference:json": "npx tsx scripts/verify-inference.ts --json",
     "verify:mysql": "npx tsx scripts/verify-mysql-compatibility.ts",
-"verify:workforce": "npx tsx scripts/verify-2000-workforce.ts",
-    "lint:workflows": "node scripts/validate-workflows.mjs"
+    "verify:workforce": "npx tsx scripts/verify-2000-workforce.ts",
+    "lint:workflows": "node scripts/validate-workflows.mjs",
+    "skills:sync": "node scripts/sync-agent-skills.mjs",
+    "skills:verify": "node scripts/verify-agent-skills.mjs",
+    "skills:install:dry-run": "npx tsx scripts/install-agent-skills.ts --dry-run",
+    "skills:install:apply": "npx tsx scripts/install-agent-skills.ts --apply"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",

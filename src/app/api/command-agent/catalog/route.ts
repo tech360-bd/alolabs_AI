@@ -12,6 +12,7 @@ import {
 import { hasExplicitZeroPricing } from '@/lib/ai-router/free-models';
 import { COMMAND_TOOLS } from '@/lib/command-agent/tools';
 import { listToolDefinitions } from '@/lib/tools/registry';
+import { agentSkillStats, getAgentSkillCatalog } from '@/lib/agent-skills';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +85,19 @@ export async function GET() {
       ...listToolDefinitions().map((tool) => ({ name: tool.name, description: tool.description, kind: 'internal' as const, category: tool.category, cost: 'free' })),
       ...COMMAND_TOOLS.map((tool) => ({ name: tool.name, description: tool.description, kind: 'external-free' as const, category: 'utility', cost: 'free' })),
     ],
+    skillStats: agentSkillStats(),
+    skills: getAgentSkillCatalog().skills.map((skill) => ({
+      slug: skill.slug,
+      title: skill.title,
+      description: skill.description,
+      category: skill.category,
+      status: skill.status,
+      riskLevel: skill.riskLevel,
+      source: skill.source.repo,
+      license: skill.source.license,
+      url: skill.source.url,
+      quarantineReason: skill.quarantineReason ?? null,
+    })),
     setupSteps: [
       'Get a free key — start with Groq (console.groq.com/keys) and OpenRouter (openrouter.ai/keys). No card needed.',
       'In Super Admin AI Control Plane → AI Providers, add the provider kind + base URL from the Free Models tab and paste the key.',

@@ -27,12 +27,14 @@ import type { EnterpriseView } from '../enterprise-shell'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface TraceStep { step: number; tool: string; args: Record<string, unknown>; ok: boolean; durationMs: number; output: string }
-interface ChatReply { success: boolean; response: string; provider: string; model: string; profile: string; steps: number; trace: TraceStep[]; images: string[]; company: { name: string } }
+interface SkillUsage { slug: string; title: string; source: string; license: string; truncated: boolean }
+interface ChatReply { success: boolean; response: string; provider: string; model: string; profile: string; steps: number; trace: TraceStep[]; images: string[]; skillsUsed?: SkillUsage[]; skillsRejected?: Array<{ slug: string; reason: string }>; company: { name: string } }
 interface FreeModel { id: string; name: string; strength: string; capabilities: string[]; contextLength?: number }
 interface FreeProvider { id: string; label: string; providerKind: string; baseUrl: string; getKeyUrl: string; envVar?: string; apiKeyRequired: boolean; cardRequired: boolean; local: boolean; freeAllowance: string; notes: string; models: FreeModel[] }
 interface FreeService { name: string; category: string; description: string; freeAllowance: string; url: string; apiKeyRequired: boolean; agentTool?: string }
 interface AuthorisedModel { id: string; provider: string; routeKind: string }
 interface ToolInfo { name: string; description: string; kind: string; category: string }
+interface SkillInfo { slug: string; title: string; description: string; category: string; status: 'advisory' | 'quarantined'; riskLevel: string; source: string; license: string; url: string; quarantineReason: string | null }
 interface Catalog {
   stats: { providers: number; models: number; services: number; noKeyTools: number }
   providers: FreeProvider[]
@@ -43,10 +45,12 @@ interface Catalog {
   authorisedModels: AuthorisedModel[]
   openRouterFree: { available: boolean; count: number; models: string[] }
   tools: ToolInfo[]
+  skillStats: { total: number; advisory: number; quarantined: number; sources: number; instructionOnly: boolean; grantsTools: boolean }
+  skills: SkillInfo[]
   setupSteps: string[]
   disclaimer: string
 }
-interface Message { role: 'user' | 'assistant' | 'error'; content: string; provider?: string; model?: string; profile?: string; trace?: TraceStep[]; images?: string[] }
+interface Message { role: 'user' | 'assistant' | 'error'; content: string; provider?: string; model?: string; profile?: string; trace?: TraceStep[]; images?: string[]; skillsUsed?: SkillUsage[]; skillsRejected?: Array<{ slug: string; reason: string }> }
 
 const PROFILES = [
   { id: 'free_general', label: 'Free · General' },
@@ -94,7 +98,7 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [catalogError, setCatalogError] = useState('')
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "I'm your Command Agent. I run on 100% free models (Groq → OpenRouter :free → Gemini/Cerebras → local Ollama) and can use tools: company knowledge, CRM, weather, Wikipedia, web search, Hacker News, image generation, calculator and more. Give me a command." },
+    { role: 'assistant', content: "I'm your Command Agent. I run on free/local model routes and can use read-only tools plus imported instruction-only skills (engineering, design, Android, science, media, and more). Skills never grant shell access or bypass approvals. Give me a command." },
   ])
   const [input, setInput] = useState('')
   const [profile, setProfile] = useState<string>('free_general')
@@ -102,6 +106,8 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
   const [sending, setSending] = useState(false)
   const [sessionId] = useState(() => `cmd-${Date.now().toString(36)}`)
   const [modelFilter, setModelFilter] = useState('')
+  const [skillFilter, setSkillFilter] = useState('')
+  const [skillStatusFilter, setSkillStatusFilter] = useState<'all' | 'advisory' | 'quarantined'>('advisory')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const loadCatalog = useCallback(async () => {
@@ -130,7 +136,7 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
       })
       setMessages((prev) => [...prev, {
         role: 'assistant', content: reply.response, provider: reply.provider, model: reply.model,
-        profile: reply.profile, trace: reply.trace, images: reply.images,
+        profile: reply.profile, trace: reply.trace, images: reply.images, skillsUsed: reply.skillsUsed ?? [], skillsRejected: reply.skillsRejected ?? [],
       }])
     } catch (error) {
       let detail = error instanceof Error ? error.message : 'Request failed'
@@ -153,6 +159,11 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
     ...provider,
     models: provider.models.filter((m) => !modelFilter || `${provider.label} ${m.id} ${m.name} ${m.strength}`.toLowerCase().includes(modelFilter.toLowerCase())),
   })).filter((provider) => provider.models.length > 0)
+  const filteredSkills = (catalog?.skills ?? []).filter((skill) => {
+    const matchesStatus = skillStatusFilter === 'all' || skill.status === skillStatusFilter
+    const haystack = `${skill.title} ${skill.slug} ${skill.description} ${skill.category} ${skill.source}`.toLowerCase()
+    return matchesStatus && (!skillFilter || haystack.includes(skillFilter.toLowerCase()))
+  })
   const noModelConfigured = catalog !== null && catalog.authorisedModels.length === 0 && catalog.enabledProviderConfigs === 0
   const servicesByCategory = (catalog?.services ?? []).reduce<Record<string, FreeService[]>>((acc, service) => {
     (acc[service.category] ??= []).push(service)
@@ -213,6 +224,7 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
           <TabsTrigger value="agent"><Sparkles className="mr-1.5 h-3.5 w-3.5" /> Command Agent</TabsTrigger>
           <TabsTrigger value="models"><Layers className="mr-1.5 h-3.5 w-3.5" /> Free Models</TabsTrigger>
           <TabsTrigger value="services"><Wrench className="mr-1.5 h-3.5 w-3.5" /> Free Services &amp; Tools</TabsTrigger>
+          <TabsTrigger value="skills"><BookOpen className="mr-1.5 h-3.5 w-3.5" /> Skills ({catalog?.skillStats.advisory ?? 0})</TabsTrigger>
           <TabsTrigger value="setup"><ListChecks className="mr-1.5 h-3.5 w-3.5" /> $0 Setup</TabsTrigger>
         </TabsList>
 
@@ -229,7 +241,7 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
                   {(catalog?.authorisedModels ?? []).map((m) => <option key={`${m.provider}:${m.id}`} value={m.id}>{m.provider} · {m.routeKind}</option>)}
                 </datalist>
                 <Button variant="ghost" size="sm" onClick={() => void clear()}><Trash2 className="mr-1.5 h-3.5 w-3.5" /> Clear</Button>
-                <span className="ml-auto hidden items-center gap-1.5 text-xs text-slate-500 md:flex"><ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Read-only tools · every call audited · $0 routes only</span>
+                <span className="ml-auto hidden items-center gap-1.5 text-xs text-slate-500 md:flex"><ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Read-only tools · {catalog?.skillStats.advisory ?? 0} advisory skills · no skill tool grants</span>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {QUICK_COMMANDS.map((cmd) => {
@@ -252,6 +264,14 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
                         {msg.images?.map((src) => (
                           <img key={src} src={src} alt="Generated by Command Agent (Pollinations, free)" className="mt-2 max-h-80 rounded-lg border border-slate-200" loading="lazy" />
                         ))}
+                        {msg.skillsUsed && msg.skillsUsed.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {msg.skillsUsed.map((skill) => <Badge key={skill.slug} variant="outline" className="px-1.5 py-0 text-[10px]" title={`${skill.source} · ${skill.license}${skill.truncated ? ' · truncated' : ''}`}>Skill: {skill.title}</Badge>)}
+                          </div>
+                        )}
+                        {msg.skillsRejected && msg.skillsRejected.length > 0 && (
+                          <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">Skills not used (quarantined/unknown): {msg.skillsRejected.map((skill) => skill.slug).join(', ')}</p>
+                        )}
                         {msg.trace && msg.trace.length > 0 && <ToolTrace trace={msg.trace} />}
                         {(msg.provider || msg.model) && (
                           <p className="mt-2 text-[11px] text-slate-400">{msg.provider} · <span className="font-mono">{msg.model}</span> · {msg.profile} · $0 route</p>
@@ -354,7 +374,41 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
           </div>
         </TabsContent>
 
-        {/* ─── Setup ─── */}
+        {/* ─── Skills ─── */}
+        <TabsContent value="skills" className="mt-3 min-h-0 flex-1 overflow-y-auto">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Input value={skillFilter} onChange={(e) => setSkillFilter(e.target.value)} placeholder="Filter skills… (e.g. code review, diagram, Android)" className="w-80 max-w-full" />
+            <select value={skillStatusFilter} onChange={(e) => setSkillStatusFilter(e.target.value as 'all' | 'advisory' | 'quarantined')} className="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm dark:border-slate-600 dark:bg-slate-900" aria-label="Skill status">
+              <option value="advisory">Advisory (agent-enabled)</option>
+              <option value="quarantined">Quarantined (review only)</option>
+              <option value="all">All</option>
+            </select>
+            <Badge variant="secondary">{catalog?.skillStats.total ?? 0} imported</Badge>
+            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">{catalog?.skillStats.advisory ?? 0} advisory</Badge>
+            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">{catalog?.skillStats.quarantined ?? 0} quarantined</Badge>
+            <span className="text-xs text-slate-500">Instruction-only · no scripts, plugins, or tool grants</span>
+          </div>
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {filteredSkills.map((skill) => (
+              <Card key={skill.slug} className="border-slate-200 dark:border-slate-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate" title={skill.title}>{skill.title}</span>
+                    <Badge className={skill.status === 'advisory' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}>{skill.status}</Badge>
+                  </CardTitle>
+                  <CardDescription className="text-xs">{skill.source} · {skill.license} · {skill.category}</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <p className="line-clamp-3 text-xs text-slate-600 dark:text-slate-400">{skill.description}</p>
+                  {skill.quarantineReason && <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">{skill.quarantineReason}</p>}
+                  <a className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#003ABC] hover:underline" href={skill.url} target="_blank" rel="noreferrer">Source <ExternalLink className="h-3 w-3" /></a>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {filteredSkills.length === 0 && <p className="text-sm text-slate-500">No skills match your filter.</p>}
+        </TabsContent>
+
         <TabsContent value="setup" className="mt-3 min-h-0 flex-1 overflow-y-auto">
           <div className="grid gap-3 lg:grid-cols-2">
             <Card>
