@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-31",
+  "checks": [
+    {
+      "command": "node scripts/check-workflow-definitions.mjs",
+      "exit_code": 0,
+      "stdout": "Definitions checked: 17\nSteps: 109\nUnique agents referenced: 40 (resolved to canonical workforce: 40)\nDepartments: 11 referenced, 17/17 exact matches\nSeeded workflow collisions: 111 seed definitions compared\n\nPASS             academic-ai.json  0 error(s), 0 warning(s)\nPASS             auto-deploy.json  0 error(s), 0 warning(s)\nPASS             ceo-dashboard.json  0 error(s), 0 warning(s)\nPASS             crm-saas.json  0 error(s), 0 warning(s)\nPASS             digital-marketing.json  0 error(s), 0 warning(s)\nPASS             education-agency.json  0 error(s), 0 warning(s)\nPASS             image-ai.json  0 error(s), 0 warning(s)\nPASS             music-generation.json  0 error(s), 0 warning(s)\nPASS             project-mgmt.json  0 error(s), 0 warning(s)\nPASS             proposal-factory.json  0 error(s), 0 warning(s)\nPASS             seo-audit.json  0 error(s), 0 warning(s)\nPASS             tech-agency.json  0 error(s), 0 warning(s)\nPASS             video-production.json  0 error(s), 0 warning(s)\nPASS             web-clone.json  0 error(s), 0 warning(s)\nPASS             web-scraper.json  0 error(s), 0 warning(s)\nPASS             website-builder.json  0 error(s), 0 warning(s)\nPASS             whatsapp-business.json  0 error(s), 0 warning(s)\nPASS             workflows_registry.json  0 error(s), 0 warning(s)\n\nSummary: 17 definitions, 0 error(s), 0 warning(s).\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/validate-route-auth.mjs",
+      "exit_code": 0,
+      "stdout": "validate-route-auth: 410 API route files, 636 non-public handler(s) checked, 16 allowlist entries, 2 documented exception(s)\nvalidate-route-auth: query-param bypasses present [action=ping, health=true] \u2014 not analysed\nvalidate-route-auth: OK \u2014 every non-public API handler references an auth helper\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/validate-workflow-security.mjs",
+      "exit_code": 0,
+      "stdout": "validate-workflow-security: 8 workflow(s), 30 action reference(s) (30 pinned), 6 distinct secret(s): GITHUB_TOKEN, PRODUCTION_HOST, PRODUCTION_PORT, PRODUCTION_SSH_KEY, PRODUCTION_USER, SKIP_PAID_SERVICES\nvalidate-workflow-security: OK \u2014 actions pinned, permissions least-privilege, secrets documented\n",
+      "stderr": ""
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "not_run": "No dependency installation; full unit/integration/E2E suite, build, lint, typecheck, live models, DB and production checks not run."
+}
