@@ -391,3 +391,40 @@ Owner / date / evidence reference:
 ```
 
 Until that decision is explicit, the correct state is **Phase 0 complete, implementation not started, production not approved**.
+
+
+---
+
+# Phase 0 reassessment — 2026-10-31
+
+> Phase 0 discovery snapshot · 2026-10-31 · baseline `d6774c0c131d460cae08b55ccde7eedc984843d1`
+> Recommendations are not implementations or authorization. No application, dependency, schema, infrastructure or production changes were made.
+
+## 2026-10-31 phase gate reassessment
+
+This appended section preserves the existing roadmap above. It supersedes no historical evidence silently; current Phase 0 is docs-only and does not authorize implementation.
+
+| Phase | Deliverable and exit gate | Current assessment |
+|---|---|---|
+| 0 Discovery | Repository inventory, all supplied resource dispositions, license/compatibility/risk/infrastructure audit and target recommendation; unknowns explicit | Documented; website access, 2 HTTP 404 repos and absent redirects remain blocked. No exhaustive dependency or runtime certification. |
+| 1 Design and approval | Detailed typed contracts, call-graph reconciliation, data mapping, permission/approval model, deployment design, hardware budgets and scoped milestones | Recommended next; **wait for explicit owner approval** before beginning. |
+| 2 Foundation | Reconcile existing registry/durable queue/orchestration; enforce grants and persistent approvals/audit; prove restart and recovery | Existing partial code; no implementation in this phase-0 session. |
+| 3 Authorized lab | Browser/repo/API pilot then Android/Ghidra adapters; prove isolation and artifact provenance | Planned, installation and runtime verification gated. |
+| 4 Factory | One real isolated feature→tests→review→approved PR workflow, project stack adapters | Existing workflow definitions; end-to-end unverified. |
+| 5 QA/security | Full reproducible regression, method-level denial, isolation, accessibility and performance reports | Existing test sources; only static checks rerun now. |
+| 6 Memory/creative | Verified project-scoped memory and curated optional presentation/diagram/media adapters | Existing memory/media modules; gaps and licenses must be closed. |
+| 7 Readiness | Full regression/security/load/recovery/monitoring/documentation evidence; explicit production approval | Not met; no deployment authorized. |
+
+## Proposed small milestones after approval
+
+- M1: Map existing execution callers and data ownership; finalize contracts and human gates without duplicate framework.
+- M2: Five-agent local-model staging pilot with durable task, actual tool result, exact evidence and fault/retry tests.
+- M3: One authorized browser/API lab and one isolated repository feature with tests/review; then Ghidra/Android if measured need.
+- M4: Truthful admin capability/evidence inventory; eliminate green unverified readiness signals without removing panels.
+- M5: Restore rehearsal, resource limits, security/tenant denial tests and production readiness review.
+
+Dates/costs require measured hardware, owner scope and engineering capacity; no unsupported completion deadline is promised. Prefer REA/Ghidra/Scrapling adapters and selected licensed engineering/Android/diagram skills only after review; all creative/CRM tools optional. Rejected or unresolved resources are not silently installed.
+
+## Acceptance status
+
+Resource dispositions documented; full resource facts/license/dependency verification remain incomplete where evidence is inaccessible or nested. Existing features preserved. Permission enforcement, universal restart/recovery, signed audit, lab isolation, generated-code QA, DB restore/migration gates, real local inference and production approval configuration remain unverified or partial as detailed in companion documents. **The full project is not complete. Stop after Phase 0 and obtain owner approval for Phase 1 design.**
