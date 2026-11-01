@@ -299,3 +299,27 @@ one line per surface.
 - **Public website at `/site`** (`src/components/site/marketing-site.tsx`): hero with the headline statistics, the system flow, the agent specification cards, the mobile command centre (blue theme), the five departments, the four domains, the letterhead contact strip as page cards, and a dark-ground footer. Previewed in the shell under Marketing & Design → Public Site.
 - **Portable letterhead** (`src/lib/brand/invoice-html.ts`): the invoice renders as one self-contained HTML document (tables + inline styles only, inline SVG mark) — used by *Download as HTML* on `/invoice` and by *Send by email* in the Invoice panel.
 - **Sending** goes through the deployment's own mail accounts (`GET /api/email/accounts`, `POST /api/email/send`) — no third-party mail service — with a plain-text alternative part and the message recorded in the email log.
+
+---
+
+## Addendum (2026-10-26) — website completion round
+
+The "complete everything" round closed the remaining gap in this report's scope: the **public website** now
+carries every shipped design element, at the quality of the reference agency sites.
+
+- **Diagrams on the public surface** — `/site/diagrams` publishes twelve generated editorial figures
+  (architecture, org chart, sequence, flywheel, kanban, gantt, sankey, quadrant, radar, ER schema, bar,
+  Wardley) plus the taste-gate rules; the home page, `/site/platform` and `/site/work` embed live figures
+  from the same library. `EXAMPLE_BY_SLUG` / `getExampleBySlug` were added to the library and pinned in
+  tests (slug-keyed lookup, 63 tests green).
+- **Buttons** — the editorial variants are used across all eleven site pages; the living matrix remains at
+  `/design`.
+- **Marketing kits** — `/site/press` is the public marketing kit: official lockups with downloads,
+  boilerplate copy with one-click copy, fact sheet, colour/type/usage rules, the 50-skill kit by category
+  with provenance, figure-asset guidance and a media desk.
+- **New public surface** — `/site/{platform,solutions,work,pricing,about,careers,insights,contact,press,diagrams}`
+  with SEO metadata and a 14-route sitemap on the letterhead domain; `POST /api/public/contact` captures
+  enquiries as CRM leads (CrmContact + CrmNote) with honeypot + rate limiting and best-effort house
+  notification.
+- **Suite** — 1427 tests passing, 0 failures; typecheck clean; the workforce restart test fixed to use the
+  CLI's explicit `--apply` mode.

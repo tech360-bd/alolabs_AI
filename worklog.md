@@ -1920,3 +1920,26 @@ Work Log:
 Stage Summary:
 - Circular badge and rule-with-dot divider implemented as vector assets and React components; used on the website and the brand book
 - 68 brand tests passing
+
+---
+
+Task ID: 14
+Agent: Website Completion (this session)
+Task: Finish the public website to the quality of the reference agency sites; fix every failing test; wire the diagram designs, buttons and marketing kits into the public surface; leave no task incomplete
+
+Work Log:
+- Rebuilt the environment end-to-end (npm install, better-sqlite3 compiled from source against local Node headers, air-gapped Prisma client) and got the whole suite executing again — the 8 failing integration files were all missing native/module artefacts, not code defects
+- Fixed the workforce restart test: the provisioning CLI is non-mutating by default and only an --apply run emits both provision and verify docs; the test now invokes it with --apply (commented in-line) — 15/15 green
+- Built the shared site chrome (src/components/site/chrome.tsx): multi-page header with Resources dropdown + mobile menu, four-column sitemap footer with the letterhead contact strip, PageHero with breadcrumbs, Section vocabulary, StatCard, Pill, CheckList, numbered editorial cards, FAQ accordion, CTA band and the contact form
+- Completed the home page (/site) to the reference pattern: hero + command-centre panel, system flow, delivery process (Assess/Design/Deploy/Run), six numbered service lines, agent specification cards, mobile command centre, departments & domains, six differentiators, diagram teaser, insights, FAQ, letterhead contact strip
+- Added ten new pages with SEO metadata: /site/platform (modules, system flow, RAG + approvals, deployment), /site/solutions (six service lines, process, industries, FAQ), /site/work (four case studies with live diagrams and measured outcomes), /site/pricing (three tiers + deployment matrix + procurement FAQ), /site/about (story, values, letterhead facts), /site/careers (benefits, five roles, hiring process), /site/insights (six field notes), /site/contact (form + offices + FAQ), /site/press (marketing kit: logo assets, boilerplate with copy buttons, fact sheet, colours, type, usage rules, the 50-skill kit, figure assets, media desk), /site/diagrams (public gallery of 12 editorial figures + the taste-gate rules)
+- Implemented the missing public API: POST /api/public/contact — validation, honeypot, per-IP rate limit, CRM lead capture (CrmContact + CrmNote) and best-effort SMTP notification through the platform's own mail accounts; verified end to end (lead recorded with note + tags, invalid payloads rejected)
+- Fixed the figure lookup bug the gallery exposed: EXAMPLE_MAP is keyed by kind, so slug lookups returned undefined and crashed EditorialDiagram; added EXAMPLE_BY_SLUG + getExampleBySlug to the diagram library, fixed all four consumers, and pinned slug indexing in the regression suite (63 tests)
+- Updated the sitemap with all 14 public routes on the letterhead domain (alolabs.net)
+- Restored brand-system site tests to green against the two-module composition (home + chrome), keeping every assertion; the footer again prints COMPANY.address[0]/[1] exactly as on the letterhead
+
+Stage Summary:
+- Public site complete: 11 pages + sitemap + working contact pipeline, every diagram a live generated figure (12 on the gallery, 5 on home, 4 on work, 1 on platform)
+- Full suite green: 1427 tests passing, 0 failures (112 files); typecheck 0 errors; eslint clean on all touched files
+- Contact form verified end to end: valid → CRM lead + note + tags; invalid → 400 with a clear message; no mail account configured → honest "recorded" response
+- Dev preview verified: every /site route 200, figures carry the accessible-SVG contract
