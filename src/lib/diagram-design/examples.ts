@@ -1073,11 +1073,21 @@ export const EXAMPLE_MAP: Record<string, DiagramSpec> = Object.fromEntries(
   EXAMPLES.map((e) => [e.kind, e]),
 )
 
+/** The same corpus indexed by slug — the stable id used by public surfaces. */
+export const EXAMPLE_BY_SLUG: Record<string, DiagramSpec> = Object.fromEntries(
+  EXAMPLES.map((e) => [e.slug, e]),
+)
+
 export const EXAMPLE_KINDS: DiagramKind[] = EXAMPLES.map((e) => e.kind)
 
 /** The canonical example for a kind (45 kinds, one each). */
 export function getExample(kind: DiagramKind): DiagramSpec | undefined {
   return EXAMPLE_MAP[kind]
+}
+
+/** Look up any example by its slug (e.g. 'architecture-agentos'). */
+export function getExampleBySlug(slug: string): DiagramSpec | undefined {
+  return EXAMPLE_BY_SLUG[slug]
 }
 
 /** Same spec with render-time overrides — used by the studio toggles. */
