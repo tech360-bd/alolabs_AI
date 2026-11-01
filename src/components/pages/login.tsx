@@ -28,6 +28,23 @@ export default function LoginPage() {
   const login = useAppStore((s) => s.login)
   const { toast } = useToast()
 
+  /**
+   * Navigate into the app after a successful credential/MFA exchange.
+   *
+   * This component used to be rendered *inside* the shell (which swapped views
+   * in place), so it never navigated. It is now the /login route, and the
+   * dashboard lives at /dashboard, so it has to. `?next=` is honoured only when
+   * it is a same-origin absolute path — a protocol-relative `//evil.com` or a
+   * full URL would otherwise turn the login form into an open redirect.
+   */
+  const redirectAfterLogin = useCallback(() => {
+    const requested = new URLSearchParams(window.location.search).get('next')
+    const safe = requested && requested.startsWith('/') && !requested.startsWith('//')
+      ? requested
+      : '/dashboard'
+    window.location.assign(safe)
+  }, [])
+
   // ── Form State ───────────────────────────────────────────────────────────
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -124,6 +141,7 @@ export default function LoginPage() {
           title: 'Welcome back!',
           description: `Logged in as ${data.user.name}`,
         })
+        redirectAfterLogin()
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'An unexpected error occurred.'
         setError(message)
@@ -132,7 +150,7 @@ export default function LoginPage() {
         setLoading(false)
       }
     },
-    [email, password, rememberMe, login, toast]
+    [email, password, rememberMe, login, toast, redirectAfterLogin]
   )
 
   // ── MFA Verification Handler ─────────────────────────────────────────────
@@ -170,13 +188,14 @@ export default function LoginPage() {
         title: 'Welcome back!',
         description: `Logged in as ${data.user.name}`,
       })
+      redirectAfterLogin()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Verification failed.'
       setMfaError(message)
     } finally {
       setMfaLoading(false)
     }
-  }, [mfaCode, mfaData, login, toast])
+  }, [mfaCode, mfaData, login, toast, redirectAfterLogin])
 
   // ── Back to Login from MFA ───────────────────────────────────────────────
   const handleBackToLogin = useCallback(() => {

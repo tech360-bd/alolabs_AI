@@ -1402,53 +1402,46 @@ export const EVENTS: EnterpriseEventSpec[] = [
 ];
 
 
+// PART 4 — NOT POPULATED, DELIBERATELY
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// PART 4: PHASES 3-13 — PLACEHOLDER ARRAYS (TODO: Expand in future iterations)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Earlier revisions of this file declared twelve empty arrays here for
+// "phases 3-13" (department full specs, AI employees, SOPs, skills, prompts,
+// knowledge graph, collaboration protocols, self-improvement configs,
+// governance frameworks, dashboards, master builder agents), each carrying a
+// note to expand it later. They were never populated and nothing imported them:
+// a `grep` for every symbol returned zero consumers outside this file. They are
+// removed rather than filled, because generating several hundred plausible-
+// looking agent and SOP records by hand would put invented data behind a very
+// real-looking interface.
+//
+// The authoritative data for these concerns lives in modules that are actually
+// wired up:
+//   - departments ......... src/lib/department-registry (100 real departments)
+//   - AI employees ........ src/lib/workforce (2,000 provisioned agents)
+//   - skills .............. src/lib/agent-skills + the skills registry API
+//   - prompts ............. db `prompt_registry:` settings via /api/prompts
+//   - knowledge / RAG ..... src/lib/rag-engine
+//   - governance .......... CONSTITUTION_RULES and the governance endpoints below
+//
+// The corresponding *types* remain exported so tools that describe the target
+// schema (scripts/generate-enterprise-spec.ts) keep compiling. The arrays are
+// kept (rather than deleted) only because AIEOS_SPECIFICATION below is typed as
+// a complete AIEOSSpecification and requires every field to be present. They are
+// EMPTY, and nothing in the running application reads them — no route, panel or
+// job imports this module's phase 3-13 fields.
 
-// Phase 3: Department Full Specs — expanded detail for each department blueprint
-// TODO: Expand each department into a full spec with KPIs, capabilities, tools, events, risks, SOPs, and AI employee counts
 export const DEPARTMENT_FULL_SPECS: DepartmentFullSpec[] = [];
-
-// Phase 4: AI Employees — detailed specs for every AI agent in the enterprise
-// TODO: Generate AI employee specs for each department (est. 400+ employees across 100 departments)
 export const AI_EMPLOYEES: AIEmployeeSpec[] = [];
-
-// Phase 5: Standard Operating Procedures — step-by-step processes for all departments
-// TODO: Generate SOPs for each department (est. 200+ SOPs covering critical workflows)
 export const SOPS: SOPSpec[] = [];
-
-// Phase 6: Skills — enterprise skill registry for AI agent capabilities
-// TODO: Generate skill specs for the enterprise skill registry (est. 150+ skills)
 export const SKILLS: SkillSpec[] = [];
-
-// Phase 7: Prompt Templates — reusable prompt patterns for agent communication
-// TODO: Generate prompt templates for agent communication and operations (est. 100+ templates)
 export const PROMPTS: PromptSpec[] = [];
-
-// Phase 8: Knowledge Graph — nodes and edges for enterprise knowledge
-// TODO: Generate knowledge nodes and edges (est. 500+ nodes, 1000+ edges)
 export const KNOWLEDGE_NODES: KnowledgeNodeSpec[] = [];
 export const KNOWLEDGE_EDGES: KnowledgeEdgeSpec[] = [];
-
-// Phase 9: Collaboration Protocols — inter-agent cooperation rules
-// TODO: Generate collaboration protocol specs for cross-department and inter-agent cooperation
 export const COLLABORATION_PROTOCOLS: CollaborationProtocolSpec[] = [];
-
-// Phase 10: Self-Improvement Engine — autonomous learning and optimization configs
-// TODO: Generate self-improvement engine configuration specs
 export const SELF_IMPROVEMENT_CONFIGS: SelfImprovementEngineSpec[] = [];
-
-// Phase 11: Governance Framework — policy enforcement and governance structures
-// TODO: Generate governance framework specs including policy definitions and enforcement rules
 export const GOVERNANCE_FRAMEWORKS: GovernanceFrameworkSpec[] = [];
-
-// Phase 12: Dashboards — monitoring and reporting view configurations
-// TODO: Generate dashboard specs for all enterprise monitoring and reporting views
 export const DASHBOARDS: DashboardSpec[] = [];
-
-// Phase 13: Master Builder Agent — autonomous enterprise construction specs
-// TODO: Generate master builder agent specs for autonomous enterprise construction
 export const MASTER_BUILDER_AGENTS: MasterBuilderAgentSpec[] = [];
 
 

@@ -95,6 +95,43 @@ export function MarketingSite() {
   )
 }
 
+// ─── Header ──────────────────────────────────────────────────────────────────
+
+function SiteHeader() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-6 px-6 py-3.5">
+        <Link href="/" className="flex items-center gap-3">
+          <AloLabsLogo size={34} tagline={false} title="ALO Labs AgentOS" />
+        </Link>
+        <nav className="hidden items-center gap-1 md:flex">
+          {SECTIONS.map((s) => (
+            <a
+              key={s.id}
+              href={`#${s.id}`}
+              className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            >
+              {s.label}
+            </a>
+          ))}
+        </nav>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="hidden gap-1.5 sm:flex" asChild>
+            <Link href="/brand">
+              <Layers className="size-3.5" /> Brand book
+            </Link>
+          </Button>
+          <Button size="sm" className="gap-1.5" style={{ background: BRAND.orange }} asChild>
+            <Link href="/login">
+              Open AgentOS <ArrowRight className="size-3.5" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </header>
+  )
+}
+
 // ─── Hero ────────────────────────────────────────────────────────────────────
 
 function Hero() {
@@ -123,7 +160,7 @@ function Hero() {
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
-              <Link href="/">
+              <Link href="/login">
                 Open the Command Center <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -711,5 +748,87 @@ function ContactCard({
     </a>
   ) : (
     inner
+  )
+}
+
+// ─── Footer ──────────────────────────────────────────────────────────────────
+
+function SiteFooter() {
+  return (
+    <footer style={{ background: BRAND.navy }}>
+      <div className="mx-auto max-w-[1200px] px-6 py-12">
+        <div className="flex flex-wrap items-start justify-between gap-8">
+          <div className="max-w-[420px]">
+            <AloLabsLogo size={40} tagline theme="dark" />
+            <BrandRule width={150} className="mt-4 opacity-90" />
+            <p className="mt-3 text-[12px] leading-relaxed text-white/70">
+              {COMPANY.promise}
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div>
+              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/50">Platform</p>
+              <ul className="mt-2 space-y-1.5">
+                {SECTIONS.map((s) => (
+                  <li key={s.id}>
+                    <a href={`#${s.id}`} className="text-[12px] text-white/80 hover:text-white">
+                      {s.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/50">Company</p>
+              <ul className="mt-2 space-y-1.5">
+                <li>
+                  <Link href="/brand" className="text-[12px] text-white/80 hover:text-white">
+                    Brand &amp; system guideline
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/invoice" className="text-[12px] text-white/80 hover:text-white">
+                    Invoice on the letterhead
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/design" className="text-[12px] text-white/80 hover:text-white">
+                    Editorial design system
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/login" className="text-[12px] text-white/80 hover:text-white">
+                    Open AgentOS
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div className="max-w-[280px]">
+            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/50">Head office</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-white/80">
+              {COMPANY.legalName} · {COMPANY.entity}
+              <br />
+              {COMPANY.address[0]}
+              <br />
+              {COMPANY.address[1]}
+            </p>
+            <p className="mt-2 font-mono text-[11px] text-white/80">
+              {COMPANY.phone}
+              <br />
+              {COMPANY.email}
+            </p>
+          </div>
+        </div>
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-6">
+          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">
+            © {new Date().getFullYear()} {COMPANY.legalName} · {COMPANY.product} · {COMPANY.tagline}
+          </p>
+          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">
+            {COMPANY.domains.map((d) => d.value).join(' · ')}
+          </p>
+        </div>
+      </div>
+    </footer>
   )
 }

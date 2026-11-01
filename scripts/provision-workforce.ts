@@ -31,13 +31,25 @@ async function main(): Promise<number> {
       console.error('Provisioning refused: conflicts found. No conflicting row was modified.');
       return 1;
     }
-    if (dryRun) return 0;
   }
 
+  // The verification document is always emitted, including for a dry run. It is
+  // a read-only report of the database's CURRENT state — which for a dry run is
+  // the pre-provisioning state — so it tells the operator exactly what a
+  // subsequent `--apply` would have to reconcile.
+  //
+  // This used to `return 0` before verification in dry-run mode, which meant the
+  // command emitted a provisioning plan with no verification report and exit 0,
+  // contradicting the documented contract ("Exit codes: 0 = provisioned /
+  // verified") and leaving operators unable to see drift before applying.
   const rows = await store.loadAll();
   const tenantId = await store.findTenantId('alo-labs');
   const verify = verifyWorkforce(plan, { tenantId, ...rows });
   console.log(JSON.stringify({ verify }, null, 2));
+
+  // A dry run writes nothing, so an unprovisioned database legitimately fails
+  // the post-state check. Report it without failing the dry run itself.
+  if (dryRun) return 0;
   return verify.ok ? 0 : 1;
 }
 

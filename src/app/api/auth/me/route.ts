@@ -5,7 +5,8 @@ import { verifySessionToken } from '@/lib/auth';
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    // Bearer for API clients, session cookie for browser/server-component calls.
+    const token = authHeader?.replace('Bearer ', '') || request.cookies.get('session-token')?.value;
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const session = await verifySessionToken(token);
