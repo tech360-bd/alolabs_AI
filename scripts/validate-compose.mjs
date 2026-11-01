@@ -209,12 +209,24 @@ function* walk(dir) {
 
 const isTestFile = (p) => /[./__](test|spec)\.(ts|tsx)$/.test(p) || p.includes(`${sep}__tests__${sep}`);
 
+// Generated skill/marketing content is DATA, not application code: it is
+// imported documentation (third-party SKILL.md bodies, marketing references)
+// stored in TypeScript string literals. Those documents legitimately use
+// `localhost:3000` in their own examples — an MCP server tutorial in the vendor
+// text, for instance — and the app's port has no bearing on them. Rewriting the
+// vendor text to satisfy this guard would corrupt imported documentation, so the
+// guard skips generated content instead. Everything hand-written stays in scope.
+const isGeneratedContent = (p) =>
+  /[\\/](agent-skills[\\/]content|marketing-kit[\\/]data|[\\/]content)[\\/].*\.generated\.ts$/.test(p) ||
+  /[\\/]agent-skills[\\/]content[\\/]/.test(p);
+
 const srcDir = join(root, 'src');
 if (existsSync(srcDir)) {
   for (const file of walk(srcDir)) {
     if (!/\.(ts|tsx)$/.test(file)) continue;
     const rel = relative(root, file);
     if (isTestFile(file)) continue;
+    if (isGeneratedContent(file)) continue;
     let inBlockComment = false;
     const lines = readFileSync(file, 'utf8').split('\n');
     for (let i = 0; i < lines.length; i++) {

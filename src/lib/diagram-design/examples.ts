@@ -89,7 +89,7 @@ export const EXAMPLES: DiagramSpec[] = [
       { from: 'hr', to: 'pay', role: 'accent', label: 'EXPORT' },
       { from: 'hr', to: 'tickets', role: 'link' },
       { from: 'hr', to: 'reports', dashed: true },
-      { from: 'tickets', to: 'ai', label: 'TODO', dashed: true },
+      { from: 'tickets', to: 'ai', label: 'Task', dashed: true },
     ],
     footer: 'Assessment · phase 1, no changes made',
   },

@@ -158,7 +158,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    // The opaque session token is returned in the body for API clients, and is
+    // ALSO set as an httpOnly cookie. The cookie is what the server-side page
+    // gate reads (`src/lib/server-session.ts`) and what the edge gate checks in
+    // `src/proxy.ts`; without it the dashboard could not be protected without
+    // trusting client-side state, which is not a security boundary.
+    const response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
@@ -167,6 +172,14 @@ export async function POST(request: NextRequest) {
       },
       token,
     });
+    response.cookies.set('session-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24, // matches SESSION_TTL_HOURS default of 24h
+    });
+    return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

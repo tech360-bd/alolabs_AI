@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { EnterpriseView } from '../enterprise-shell'
+import type { EnterpriseView } from '../types'
 import { fetchApi } from '@/lib/api'
 
 // ─── Types ────────────────────────────────────────────────────────────────────

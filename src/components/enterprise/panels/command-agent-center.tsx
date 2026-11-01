@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { fetchApi } from '@/lib/api'
-import type { EnterpriseView } from '../enterprise-shell'
+import type { EnterpriseView } from '../types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

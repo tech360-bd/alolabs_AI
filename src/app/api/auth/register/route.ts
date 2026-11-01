@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
@@ -77,6 +77,16 @@ export async function POST(request: NextRequest) {
       },
       token,
     }, { status: 201 });
+    // Same cookie contract as /api/auth/login: the server-side page gate reads
+    // this cookie, so a freshly registered user lands inside the dashboard.
+    response.cookies.set('session-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24,
+    });
+    return response;
   } catch (error) {
     console.error('Register error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

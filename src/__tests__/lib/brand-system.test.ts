@@ -412,12 +412,14 @@ describe('brand — surfaces', () => {
     expect(existsSync(join(root, 'src/app/invoice/page.tsx'))).toBe(true)
   })
 
-  it('registers both surfaces in the enterprise shell', () => {
-    const shell = readFileSync(join(root, 'src/components/enterprise/enterprise-shell.tsx'), 'utf8')
-    expect(shell).toContain("| 'brand-book'")
-    expect(shell).toContain("| 'invoice'")
-    expect(shell).toContain("'brand-book': lazy(")
-    expect(shell).toContain('invoice: lazy(')
+  it('registers both surfaces in the dashboard navigation catalogue', () => {
+    // Was: asserted against enterprise-shell.tsx, which nothing mounted any
+    // more. Navigation is now defined once, in the merged catalogue.
+    const nav = readFileSync(join(root, 'src/lib/dashboard/navigation.ts'), 'utf8')
+    expect(nav).toContain('"brand-book"')
+    expect(nav).toContain('"invoice"')
+    expect(nav).toContain('"brand-book": () =>')
+    expect(nav).toContain('"invoice": () =>')
   })
 
   it('builds the brand book from tokens, not literals', () => {
@@ -518,11 +520,18 @@ describe('invoice — portable HTML pad', () => {
 
 describe('site — the designs used on the website', () => {
   const src = readFileSync(join(root, 'src/components/site/marketing-site.tsx'), 'utf8')
-  const page = readFileSync(join(root, 'src/app/site/page.tsx'), 'utf8')
+  const home = readFileSync(join(root, 'src/app/page.tsx'), 'utf8')
+  const legacySite = readFileSync(join(root, 'src/app/site/page.tsx'), 'utf8')
 
-  it('exposes the marketing site as a route', () => {
-    expect(page).toContain('MarketingSite')
-    expect(page).toContain('export const metadata')
+  it('serves the marketing site at the root, so a first visit is public', () => {
+    // `/` used to mount the dashboard shell, which made the private application
+    // the first thing an anonymous visitor saw. The public site is now the root.
+    expect(home).toContain('MarketingSite')
+    expect(home).toContain('export const metadata')
+  })
+
+  it('redirects the legacy /site URL to the root instead of duplicating content', () => {
+    expect(legacySite).toContain("redirect('/')")
   })
 
   it('composes the shared designs: flow, agent cards, mobile view, contact strip', () => {

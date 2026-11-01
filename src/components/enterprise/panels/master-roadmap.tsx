@@ -17,7 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
-import type { EnterpriseView } from '../enterprise-shell'
+import type { EnterpriseView } from '../types'
 import type {
   RoadmapPhase, RoadmapStream, RoadmapTask, RoadmapMilestone, RoadmapRisk
 } from '@/lib/enterprise-roadmap'

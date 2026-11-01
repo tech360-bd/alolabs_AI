@@ -22,12 +22,18 @@ class MockNextRequest {
 }
 
 // Mock NextResponse
+// The real NextResponse has a mutable `cookies` bag, and the login route uses it
+// to set the httpOnly `session-token` cookie that the server-side page gate
+// reads. The mock must expose the same surface or the route throws (and used to
+// fail with a 500 that looked like a login bug).
+const setCookieMock = vi.fn();
 vi.mock('next/server', () => ({
   NextResponse: {
     json: (data: unknown, init?: { status?: number }) => ({
       status: init?.status ?? 200,
       json: async () => data,
       data,
+      cookies: { set: setCookieMock },
     }),
   },
 }));

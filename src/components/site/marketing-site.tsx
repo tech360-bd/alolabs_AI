@@ -74,7 +74,7 @@ function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-6 px-6 py-3.5">
-        <Link href="/site" className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3">
           <AloLabsLogo size={34} tagline={false} title="ALO Labs AgentOS" />
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
@@ -95,7 +95,7 @@ function SiteHeader() {
             </Link>
           </Button>
           <Button size="sm" className="gap-1.5" style={{ background: BRAND.orange }} asChild>
-            <Link href="/">
+            <Link href="/login">
               Open AgentOS <ArrowRight className="size-3.5" />
             </Link>
           </Button>
@@ -133,7 +133,7 @@ function Hero() {
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
-              <Link href="/">
+              <Link href="/login">
                 Open the Command Center <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -579,7 +579,7 @@ function SiteFooter() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/" className="text-[12px] text-white/80 hover:text-white">
+                  <Link href="/login" className="text-[12px] text-white/80 hover:text-white">
                     Open AgentOS
                   </Link>
                 </li>

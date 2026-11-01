@@ -22,16 +22,20 @@ const PUBLIC_API_ROUTES: { path: string; methods: string[] }[] = [
   { path: '/api/v1/health', methods: ['GET'] },   // AgentOS liveness (public)
   { path: '/api/ping', methods: ['GET'] },
   { path: '/api/infra/ping', methods: ['GET'] },
-  { path: '/api/enterprise/agents', methods: ['GET'] },   // dashboard
-  { path: '/api/enterprise/overview', methods: ['GET'] },  // dashboard
+  // NOTE: /api/enterprise/agents and /api/enterprise/overview used to be listed
+  // here, which made the dashboard's own data endpoints readable by anyone who
+  // found the URL. They now require credentials like every other private route.
   { path: '/api/webhooks/', methods: ['GET', 'POST', 'PUT', 'DELETE'] },
   { path: '/api/public/', methods: ['GET', 'POST', 'PUT', 'DELETE'] },
 ];
 
-const PUBLIC_QUERY_PARAMS = ['action=ping', 'health=true'];
-
-function isPublicApiRoute(pathname: string, search: string, method: string): boolean {
-  if (PUBLIC_QUERY_PARAMS.some((qp) => search.includes(qp))) return true;
+/**
+ * There used to be a `PUBLIC_QUERY_PARAMS` list here containing `health=true`,
+ * which made ANY api route public simply by appending `?health=true` to the URL.
+ * That is an authentication bypass and has been removed; liveness lives at the
+ * explicit `/api/health*` entries above.
+ */
+function isPublicApiRoute(pathname: string, method: string): boolean {
   return PUBLIC_API_ROUTES.some(
     (r) =>
       (pathname === r.path || pathname.startsWith(r.path)) &&
@@ -182,6 +186,26 @@ function isBlockedBot(request: NextRequest): boolean {
   return BLOCKED_BOT_PATTERNS.some((pattern) => pattern.test(ua));
 }
 
+// ─── Private Page Routes ─────────────────────────────────────────────────────
+// The dashboard is a private application. This is the edge half of the gate:
+// a request for a private page with no session cookie is redirected to /login
+// before the route handler runs, so the dashboard HTML is never generated for an
+// anonymous visitor.
+//
+// This check deliberately only tests for the cookie's PRESENCE. It cannot
+// validate it — the Edge runtime cannot reach Prisma — so the authoritative
+// check lives in `src/lib/server-session.ts`, which the /dashboard page awaits
+// before rendering. A forged cookie therefore gets past this line and is then
+// rejected by the server component.
+const PRIVATE_PAGE_PREFIXES = ['/dashboard'];
+const SESSION_COOKIE_NAME = 'session-token';
+
+function isPrivatePageRoute(pathname: string): boolean {
+  return PRIVATE_PAGE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 // ─── IP Extraction ────────────────────────────────────────────────────────────
 
 function getClientIp(request: NextRequest): string {
@@ -221,10 +245,20 @@ export function proxy(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
+  // ── Page auth enforcement: private routes require a session cookie ──────
+  if (isPageRoute && isPrivatePageRoute(pathname)) {
+    const hasSession = Boolean(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+    if (!hasSession) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('next', pathname + search);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   // ── API auth enforcement (Bearer token presence check) ─────────────────
   // Full DB-based session verification happens in per-route handlers
   // via requireAuth() from @/lib/api-auth.
-  if (isApi && !isPublicApiRoute(pathname, search, method)) {
+  if (isApi && !isPublicApiRoute(pathname, method)) {
     const authHeader = request.headers.get('authorization');
     // Versioned API clients may use a company-scoped X-API-Key. The handler
     // verifies its hash, status, expiry, tenant and scopes; proxy only checks

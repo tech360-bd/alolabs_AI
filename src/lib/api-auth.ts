@@ -1,6 +1,9 @@
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { db } from './db'
 import { verifySessionToken } from './auth'
+
+/** Cookie that carries the opaque server session token (set by /api/auth/login). */
+const SESSION_COOKIE = 'session-token'
 
 export interface AuthenticatedUser {
   userId: string
@@ -14,9 +17,15 @@ export interface AuthenticatedUser {
 export async function getAuthUser(): Promise<AuthenticatedUser | null> {
   const headersList = await headers()
   const authHeader = headersList.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) return null
+  let token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : ''
 
-  const token = authHeader.slice('Bearer '.length)
+  // Fall back to the httpOnly session cookie. Server components and browser
+  // navigations carry the cookie but no Authorization header, and the login
+  // route sets both, so accepting either keeps one identity for both transports.
+  if (!token) {
+    const cookieStore = await cookies()
+    token = cookieStore.get(SESSION_COOKIE)?.value ?? ''
+  }
   if (!token) return null
 
   try {

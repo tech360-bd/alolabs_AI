@@ -198,9 +198,9 @@ export async function loadAgentSkillBodies(entries: AgentSkillEntry[], maxBodyCh
   await Promise.all([...neededBySource.entries()].map(async ([sourceId, slugs]) => {
     const loader = bodyLoaders[sourceId];
     if (!loader) return;
-    const module = await loader();
+    const skillModule = await loader();
     for (const slug of slugs) {
-      const body = module.SKILL_BODIES[slug];
+      const body = skillModule.SKILL_BODIES[slug];
       if (typeof body === 'string') bodies.set(slug, body);
     }
   }));

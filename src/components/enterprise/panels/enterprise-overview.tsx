@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import type { EnterpriseView } from '../enterprise-shell'
+import type { EnterpriseView } from '../types'
 
 interface EnterpriseStats {
   departments: number

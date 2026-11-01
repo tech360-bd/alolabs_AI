@@ -1,18 +1,11 @@
-import type { Metadata } from 'next'
-import { MarketingSite } from '@/components/site/marketing-site'
+import { redirect } from 'next/navigation'
 
-export const metadata: Metadata = {
-  title: 'ALO Labs AgentOS — AI Agent Operating System',
-  description:
-    'One command centre for 1020 AI agents across 100+ departments. See the system flow, the agent specification cards, the mobile command centre and how to reach the team.',
-  openGraph: {
-    title: 'ALO Labs AgentOS — AI Agent Operating System',
-    description: 'One command centre for 1020 AI agents across 100+ departments.',
-    siteName: 'ALO Labs AgentOS',
-    images: ['/brand/alo-logo-horizontal.svg'],
-  },
-}
-
+/**
+ * `/site` was the marketing page while `/` mounted the dashboard. The root is
+ * now the public site, so this duplicate would split SEO signal and keep two
+ * copies of the same content in sync. Redirect permanently instead of deleting
+ * the URL, so existing links (and the old nav entry) keep working.
+ */
 export default function SitePage() {
-  return <MarketingSite />
+  redirect('/')
 }

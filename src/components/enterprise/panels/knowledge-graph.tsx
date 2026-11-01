@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { EnterpriseView } from '../enterprise-shell'
+import type { EnterpriseView } from '../types'
 
 interface KnowledgeNode {
   id: string

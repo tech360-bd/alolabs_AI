@@ -204,7 +204,7 @@ export const LINK_COVERAGE: CoverageEntry[] = [
     claim:
       'This is a Next.js web application; it ships no Android client, so a Kotlin UI kit has nowhere to live here.',
     evidence: [
-      { label: 'App shell (web only)', path: 'src/components/agent-hub-shell.tsx', kind: 'panel' },
+      { label: 'Dashboard shell (authenticated)', path: 'src/components/dashboard/dashboard-shell.tsx', kind: 'panel' },
       { label: 'Package manifest', path: 'package.json', kind: 'config' },
     ],
     upstreamMeta: { stars: 776, language: 'Kotlin', archived: false, checkedAt: CHECKED },
@@ -218,7 +218,7 @@ export const LINK_COVERAGE: CoverageEntry[] = [
     verdict: 'not_applicable',
     claim: 'No iOS target exists in this repository.',
     evidence: [
-      { label: 'App shell (web only)', path: 'src/components/agent-hub-shell.tsx', kind: 'panel' },
+      { label: 'Dashboard shell (authenticated)', path: 'src/components/dashboard/dashboard-shell.tsx', kind: 'panel' },
       { label: 'Package manifest', path: 'package.json', kind: 'config' },
     ],
     upstreamMeta: { stars: 638, language: 'Swift', archived: false, checkedAt: CHECKED },
@@ -233,7 +233,7 @@ export const LINK_COVERAGE: CoverageEntry[] = [
     claim:
       'There is no React Native or Expo target here; the mobile experience is a responsive web layout (the shell renders the same panels on small screens).',
     evidence: [
-      { label: 'Responsive shell with mobile sheet nav', path: 'src/components/agent-hub-shell.tsx', kind: 'panel' },
+      { label: 'Responsive shell with mobile sheet nav', path: 'src/components/dashboard/dashboard-shell.tsx', kind: 'panel' },
       { label: 'PWA manifest route', path: 'public/manifest.json', kind: 'config' },
     ],
     upstreamMeta: { stars: 939, language: 'TypeScript', archived: false, checkedAt: CHECKED },
@@ -247,7 +247,7 @@ export const LINK_COVERAGE: CoverageEntry[] = [
     verdict: 'not_applicable',
     claim: 'Native Java Android sample; no Android runtime here.',
     evidence: [
-      { label: 'App shell (web only)', path: 'src/components/agent-hub-shell.tsx', kind: 'panel' },
+      { label: 'Dashboard shell (authenticated)', path: 'src/components/dashboard/dashboard-shell.tsx', kind: 'panel' },
       { label: 'Package manifest', path: 'package.json', kind: 'config' },
     ],
     upstreamMeta: { stars: 1, language: 'Java', archived: false, checkedAt: CHECKED },
