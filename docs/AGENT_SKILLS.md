@@ -1,5 +1,7 @@
 # AgentOS Imported Skill Pack
 
+For the status of the requested REA, coding-agent, skill, memory, and presentation projects, including components not integrated, see [Requested agent projects status](REQUESTED_AGENT_PROJECTS_STATUS.md).
+
 - **Date:** 2026-10-31
 - **Status:** Implemented as an instruction-only skill pack for the ALO Labs Command Agent and assignable AgentOS skills
 - **Owner authorization:** “please done now … all skile are add our own ai agent? if no then add”

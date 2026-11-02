@@ -413,10 +413,10 @@ function TypingIndicator() {
 
 function SystemPulse() {
   const systems = [
-    { name: 'Orchestrator', icon: Brain, status: 'active' as const },
-    { name: 'Agent Runtime', icon: Bot, status: 'active' as const },
-    { name: 'AI Router', icon: Zap, status: 'active' as const },
-    { name: 'Memory System', icon: Server, status: 'active' as const },
+    { name: 'Orchestrator', icon: Brain },
+    { name: 'Agent Runtime', icon: Bot },
+    { name: 'AI Router', icon: Zap },
+    { name: 'Memory System', icon: Server },
   ]
 
   return (
@@ -431,11 +431,11 @@ function SystemPulse() {
           return (
             <div
               key={sys.name}
-              className="flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors bg-emerald-50/50 dark:bg-emerald-950/10"
+              className="flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors bg-slate-50 dark:bg-slate-800/50"
             >
               <Icon className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
               <span className="text-xs text-slate-600 dark:text-slate-400 flex-1">{sys.name}</span>
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="text-xs text-slate-500">Not measured</span>
             </div>
           )
         })}

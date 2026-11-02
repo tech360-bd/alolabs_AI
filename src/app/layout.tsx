@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'ALO Labs AgentOS — AI Agent Operating System',
-    description: 'A secure, multi-tenant AI agent operating system — 1 Command Center, 1020 AI Agents, 100+ Departments.',
+    description: 'An AI agent operating system bringing agents, knowledge, workflows and human oversight together.',
     siteName: 'ALO Labs AgentOS',
     images: ['/brand/alo-logo-horizontal.svg'],
   },

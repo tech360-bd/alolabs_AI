@@ -525,9 +525,6 @@ describe('site — the designs used on the website', () => {
   const src = readFileSync(join(root, 'src/components/site/marketing-site.tsx'), 'utf8')
   const home = readFileSync(join(root, 'src/app/page.tsx'), 'utf8')
   const legacySite = readFileSync(join(root, 'src/app/site/page.tsx'), 'utf8')
-  const chrome = readFileSync(join(root, 'src/components/site/chrome.tsx'), 'utf8')
-  const site = `${src}\n${chrome}`
-  const page = readFileSync(join(root, 'src/app/site/page.tsx'), 'utf8')
 
   it('serves the marketing site at the root, so a first visit is public', () => {
     // `/` used to mount the dashboard shell, which made the private application
@@ -540,39 +537,20 @@ describe('site — the designs used on the website', () => {
     expect(legacySite).toContain("redirect('/')")
   })
 
-  it('composes the shared designs: flow, agent cards, mobile view, contact strip', () => {
-    for (const part of ['SystemFlow', 'AgentSpecCard', 'SPEC_SAMPLE', 'CommandCenterMobile', 'AloLabsLogo']) {
-      expect(site, part).toContain(part)
+  it('explains AgentOS and links to the actual login', () => {
+    for (const text of ['Command Center', 'AI workforce', 'Knowledge & memory', 'Workflows & runs', 'What is an AI agent?']) {
+      expect(src).toContain(text)
     }
+    expect(src).toContain('href="/login"')
+    expect(src).toContain('COMPANY.emailHref')
   })
 
-  it('renders every section from tokens rather than literals', () => {
-    for (const token of ['HEADLINE_STATS', 'COMPANY', 'SYSTEM_FLOW', 'BRAND_FONTS']) {
-      expect(site, token).toContain(token)
-    }
-    expect(src).not.toMatch(/#FF6A00/)
-    expect(src).not.toMatch(/#003ABC/)
-    expect(chrome).not.toMatch(/#FF6A00/)
-    expect(chrome).not.toMatch(/#003ABC/)
+  it('labels the workflow illustration and avoids unverified headline counts', () => {
+    expect(src).toContain('Illustrative workflow')
+    expect(src).not.toContain('1020 AI agents')
+    expect(home).not.toContain('1020 AI agents')
   })
 
-  it('prints the four letterhead contact details in the footer', () => {
-    for (const token of ['COMPANY.address[0]', 'COMPANY.address[1]', 'COMPANY.phone', 'COMPANY.website', 'COMPANY.email', 'COMPANY.entity']) {
-      expect(site, token).toContain(token)
-    }
-    expect(site).toContain('COMPANY.domains')
-  })
-
-  it('uses the badge as a seal and the rule-and-dot divider', () => {
-    expect(src).toContain('<Badge size={96} />')
-    expect(site).toContain('<BrandRule width={150}')
-  })
-
-  it('links the app, the brand book and the invoice', () => {
-    expect(site).toContain('href="/"')
-    expect(site).toContain('href="/brand"')
-    expect(site).toContain('href="/invoice"')
-  })
 })
 
 // ─── Sending the invoice ─────────────────────────────────────────────────────

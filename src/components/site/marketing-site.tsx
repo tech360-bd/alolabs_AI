@@ -1,834 +1,118 @@
 'use client'
 
-/**
- * MarketingSite — the home page of alolabs.net.
- *
- * The full company front door: hero with the headline statistics and a live
- * command-centre panel, the system flow, the delivery process, the service
- * lines, the agent specification cards, the mobile command centre, the
- * departments and domains, the differentiators, a diagram teaser, insights,
- * the FAQ and the letterhead contact strip — every figure a live component
- * from the brand system, never a screenshot.
- */
-
-import * as React from 'react'
 import Link from 'next/link'
-import {
-  Badge,
-  Mark,
-} from '@/components/brand/alo-logo'
-import { SystemFlow } from '@/components/brand/system-flow'
-import { CommandCenterMobile } from '@/components/brand/command-center-mobile'
-import { AgentSpecCard, SPEC_SAMPLE } from '@/components/brand/agent-spec-card'
-import { EditorialDiagram } from '@/components/diagrams/editorial-diagram'
-import { EXAMPLE_BY_SLUG } from '@/lib/diagram-design/examples'
-import { Button } from '@/components/ui/button'
-import {
-  BRAND,
-  BRAND_FONTS,
-  COMPANY,
-  GRADIENTS,
-  HEADLINE_STATS,
-  SYSTEM_FLOW,
-} from '@/lib/brand/tokens'
-import {
-  ArrowRight,
-  BadgeCheck,
-  Bot,
-  Database,
-  Gauge,
-  Globe,
-  Layers,
-  Mail,
-  MapPin,
-  Phone,
-  ShieldCheck,
-  Workflow,
-} from 'lucide-react'
-import {
-  CtaBand,
-  FaqList,
-  NumberedCard,
-  Section,
-  SiteFooter,
-  SiteHeader,
-  StatCard,
-  type FaqItem,
-} from '@/components/site/chrome'
+import Image from 'next/image'
+import { ArrowDown, ArrowRight, ArrowUpRight, Bot, Braces, Check, ChevronRight, CircleDot, Command, Database, FileText, GitBranch, Layers3, LockKeyhole, Menu, MessageSquareText, Network, ShieldCheck, Sparkles, Workflow, X } from 'lucide-react'
+import { useState } from 'react'
+import { Mark } from '@/components/brand/alo-logo'
+import { COMPANY } from '@/lib/brand/tokens'
 
-const SECTIONS = [
-  { id: 'system', label: 'System' },
-  { id: 'process', label: 'Process' },
-  { id: 'services', label: 'Services' },
-  { id: 'agents', label: 'Agents' },
-  { id: 'mobile', label: 'Mobile' },
-  { id: 'departments', label: 'Departments' },
-  { id: 'contact', label: 'Contact' },
+const navigation = [
+  { label: 'Platform', href: '#platform' },
+  { label: 'How it works', href: '#how-it-works' },
+  { label: 'Use cases', href: '#use-cases' },
+  { label: 'FAQ', href: '#faq' },
+]
+export const HOME_SECTIONS = navigation
+
+const capabilities = [
+  { icon: MessageSquareText, number: '01', title: 'Command Center', description: 'Give your AI agent a task in natural language and follow the conversation in one place.', tag: 'THE STARTING POINT' },
+  { icon: Bot, number: '02', title: 'AI workforce', description: 'Organize specialist agents around roles, departments, and the work your team needs to do.', tag: 'THE TEAM' },
+  { icon: Database, number: '03', title: 'Knowledge & memory', description: 'Bring context into the conversation with a knowledge base and company-scoped memory.', tag: 'THE CONTEXT' },
+  { icon: Workflow, number: '04', title: 'Workflows & runs', description: 'Structure work into steps and review recorded run activity as tasks move forward.', tag: 'THE WORK' },
+  { icon: ShieldCheck, number: '05', title: 'Governance', description: 'Define rules, permissions, and approval boundaries for work that needs oversight.', tag: 'THE GUARDRAILS' },
+  { icon: Layers3, number: '06', title: 'Skills & tools', description: 'Give agents task-specific guidance while keeping tool access subject to existing policies.', tag: 'THE CAPABILITIES' },
 ]
 
-/** In-page section labels, reused by the section eyebrow numbering. */
-export const HOME_SECTIONS = SECTIONS
+const steps = [
+  { number: '01', title: 'Start with a goal', body: 'Tell the Command Center what you need, from a research question to a business task.' },
+  { number: '02', title: 'Bring in context', body: 'Agents can use available knowledge, skills and authorized tools to help shape a response.' },
+  { number: '03', title: 'Review the work', body: 'Follow the output and recorded activity. Keep people involved where decisions need approval.' },
+]
 
-export function MarketingSite() {
-  return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: BRAND_FONTS.primary.stack }}>
-      <SiteHeader active="/site" />
-      <Hero />
-      <LogoStrip />
-      <SystemSection />
-      <ProcessSection />
-      <ServicesSection />
-      <AgentsSection />
-      <MobileSection />
-      <DepartmentsSection />
-      <WhySection />
-      <DiagramsTeaser />
-      <InsightsSection />
-      <FaqSection />
-      <ContactSection />
-      <CtaBand
-        title="One command centre. 1020 agents. Your departments next."
-        lead="Open the command centre and run a real command — or talk to the team about the first department we should automate together."
-      />
-      <SiteFooter />
-    </div>
-  )
-}
+const cases = [
+  { icon: Braces, label: 'FOR BUILDERS', title: 'Make ideas clearer.', body: 'Explore technical questions, organize requirements, and use AI assistance to think through the next step.', className: 'bg-[#f3f1ff]', symbol: '01 / BUILD' },
+  { icon: Sparkles, label: 'FOR CREATIVE TEAMS', title: 'Move from blank to brief.', body: 'Develop ideas, draft content, and bring brand context into your creative process.', className: 'bg-[#fff2e9]', symbol: '02 / CREATE' },
+  { icon: Network, label: 'FOR OPERATIONS', title: 'Bring work together.', body: 'Organize departments, shared knowledge, and workflows in a single operating environment.', className: 'bg-[#edf5ff]', symbol: '03 / OPERATE' },
+]
 
-// ─── Header ──────────────────────────────────────────────────────────────────
+const faqs = [
+  { q: 'What is an AI agent?', a: 'An AI agent is software that uses an AI model, instructions, and available tools to help with a task. What it can actually do depends on its permissions, configuration, and the tools it has been given.' },
+  { q: 'What is ALO Labs AgentOS?', a: 'AgentOS is our AI agent operating system: a workspace for bringing agents, knowledge, workflows, and governance together. It is designed to help teams organize and oversee AI-assisted work.' },
+  { q: 'Can agents take action on their own?', a: 'Capabilities vary by agent and deployment. The Command Agent uses a bounded set of tools; sensitive actions and broader automation require the appropriate configuration, permissions, and review.' },
+  { q: 'Do I need to configure an AI provider?', a: 'Yes. AI-powered responses depend on a configured and available model provider. Availability, features, and cost depend on your deployment and provider settings.' },
+]
 
 function SiteHeader() {
+  const [open, setOpen] = useState(false)
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-6 px-6 py-3.5">
-        <Link href="/" className="flex items-center gap-3">
-          <AloLabsLogo size={34} tagline={false} title="ALO Labs AgentOS" />
-        </Link>
-        <nav className="hidden items-center gap-1 md:flex">
-          {SECTIONS.map((s) => (
-            <a
-              key={s.id}
-              href={`#${s.id}`}
-              className="rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
-              {s.label}
-            </a>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="hidden gap-1.5 sm:flex" asChild>
-            <Link href="/brand">
-              <Layers className="size-3.5" /> Brand book
-            </Link>
-          </Button>
-          <Button size="sm" className="gap-1.5" style={{ background: BRAND.orange }} asChild>
-            <Link href="/login">
-              Open AgentOS <ArrowRight className="size-3.5" />
-            </Link>
-          </Button>
-        </div>
+    <header className="relative z-30 border-b border-slate-200/80 bg-white">
+      <div className="mx-auto flex h-[76px] max-w-[1320px] items-center justify-between px-5 sm:px-8 lg:px-12">
+        <Link href="/" aria-label="ALO Labs AgentOS home" className="flex shrink-0 items-center gap-2.5"><Mark size={35} /><span className="text-[19px] font-bold tracking-[-0.05em] text-[#101a33]">ALO Labs<span className="ml-1.5 text-[11px] font-semibold tracking-normal text-slate-400">AgentOS</span></span></Link>
+        <nav aria-label="Main navigation" className="hidden items-center gap-9 lg:flex">{navigation.map((item) => <a key={item.href} href={item.href} className="text-[13px] font-semibold text-slate-600 transition hover:text-blue-700">{item.label}</a>)}</nav>
+        <div className="hidden items-center gap-6 sm:flex"><Link href="/login" className="text-[13px] font-semibold text-slate-700 hover:text-blue-700">Log in</Link><Link href="/login" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#112048] px-4 text-[13px] font-semibold text-white transition hover:bg-blue-800">Open AgentOS <ArrowUpRight size={15} /></Link></div>
+        <button className="rounded-lg p-2 text-slate-800 lg:hidden" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? <X size={23} /> : <Menu size={23} />}</button>
       </div>
+      {open && <nav aria-label="Mobile navigation" className="absolute left-0 right-0 border-b border-slate-200 bg-white px-5 pb-5 shadow-lg lg:hidden">{navigation.map((item) => <a key={item.href} href={item.href} onClick={() => setOpen(false)} className="block border-t border-slate-100 py-3 text-sm font-semibold text-slate-700">{item.label}</a>)}<Link href="/login" className="mt-2 flex justify-center rounded-lg bg-[#112048] px-4 py-3 text-sm font-semibold text-white">Open AgentOS</Link></nav>}
     </header>
   )
 }
 
-// ─── Hero ────────────────────────────────────────────────────────────────────
-
 function Hero() {
   return (
-    <section className="relative overflow-hidden border-b border-slate-200" style={{ background: BRAND.canvas }}>
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
-        style={{ background: GRADIENTS.orange.css }}
-        aria-hidden="true"
-      />
-      <div className="mx-auto grid max-w-[1200px] items-center gap-12 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
-        <div>
-          <span
-            className="inline-flex items-center gap-2 rounded-full px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.16em]"
-            style={{ background: 'rgba(255,106,0,0.10)', color: BRAND.orange }}
-          >
-            <Bot className="size-3.5" /> {COMPANY.tagline}
-          </span>
-          <h1 className="mt-5 text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-[56px]" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-            One command centre for <span style={{ color: BRAND.orange }}>1020 AI agents</span> across 100+ departments.
-          </h1>
-          <p className="mt-5 max-w-[62ch] text-[15px] leading-relaxed" style={{ color: BRAND.gray }}>
-            ALO Labs {COMPANY.product} routes every command from the owner to the right department, agent and workflow —
-            then runs it through memory, a hybrid RAG engine and an approval gate before anything executes. Secure,
-            auditable, and built to scale.
-          </p>
-          <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
-              <Link href="/login">
-                Open the Command Center <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="gap-2" asChild>
-              <Link href="/site/platform">
-                Explore the platform
-              </Link>
-            </Button>
-          </div>
-          <dl className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-4">
-            {HEADLINE_STATS.map((stat) => (
-              <div key={stat.label}>
-                <dt className="text-2xl font-bold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-                  {stat.value}
-                </dt>
-                <dd className="font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: BRAND.gray }}>
-                  {stat.label}
-                </dd>
-              </div>
-            ))}
-          </dl>
+    <section className="relative overflow-hidden bg-[#08132b] text-white">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(113,145,206,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(113,145,206,.16) 1px, transparent 1px)', backgroundSize: '60px 60px', maskImage: 'linear-gradient(to right, transparent 15%, black)' }} />
+      <div className="relative mx-auto grid min-h-[650px] max-w-[1320px] items-center gap-5 px-5 pb-12 pt-16 sm:px-8 lg:grid-cols-[1fr_1fr] lg:px-12 lg:pb-20 lg:pt-20">
+        <div className="relative z-10 max-w-[620px]">
+          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[.06] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.17em] text-blue-100"><span className="h-1.5 w-1.5 rounded-full bg-[#ff914d]" /> Meet your AI operating system</div>
+          <h1 className="text-[48px] font-semibold leading-[1.04] tracking-[-.055em] sm:text-[64px] xl:text-[76px]">Good ideas deserve <span className="text-[#92b9ff]">a great team.</span></h1>
+          <p className="mt-6 max-w-[490px] text-[16px] leading-[1.8] text-[#b4c0d6] sm:text-[17px]">Meet ALO Labs AgentOS: a place to bring AI agents, your knowledge, and your workflows together. Give your ideas the context to become meaningful work.</p>
+          <div className="mt-9 flex flex-wrap gap-3"><Link href="/login" className="inline-flex h-12 items-center gap-3 rounded-lg bg-[#ff7435] px-5 text-sm font-bold text-white transition hover:bg-[#ff8b57]">Open AgentOS <ArrowRight size={17} /></Link><a href="#how-it-works" className="inline-flex h-12 items-center gap-3 rounded-lg border border-white/20 px-5 text-sm font-semibold text-white transition hover:bg-white/10">See how it works <ArrowDown size={16} /></a></div>
+          <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-3 text-[11px] font-medium text-[#9aaac4]"><span className="flex items-center gap-2"><Check size={14} className="text-[#81aaff]" /> Your goals, in focus</span><span className="flex items-center gap-2"><Check size={14} className="text-[#81aaff]" /> People in control</span><span className="flex items-center gap-2"><Check size={14} className="text-[#81aaff]" /> One connected workspace</span></div>
         </div>
-
-        <div className="relative">
-          <div
-            className="rounded-2xl p-6"
-            style={{ background: BRAND.navy, boxShadow: '0 30px 70px -40px rgba(0,28,107,0.8)' }}
-          >
-            <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-              <span className="flex size-9 items-center justify-center rounded-full bg-white">
-                <Mark size={22} />
-              </span>
-              <div>
-                <p className="text-[13px] font-bold tracking-wide text-white">ALO COMMAND CENTER</p>
-                <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-white/60">
-                  Live routing · approval gate armed
-                </p>
-              </div>
-            </div>
-            <ul className="mt-4 space-y-2.5">
-              {[
-                { icon: Workflow, text: 'Owner command received — intent detected', tint: BRAND.orange },
-                { icon: Layers, text: 'Routed to Marketing Department · 34 agents eligible', tint: '#7BA7FF' },
-                { icon: ShieldCheck, text: 'Risk assessment passed · no policy violations', tint: '#7BA7FF' },
-                { icon: Database, text: 'Memory + hybrid RAG retrieved 128 sources', tint: '#7BA7FF' },
-                { icon: BadgeCheck, text: 'Approval granted — execution queued at 09:41', tint: BRAND.orange },
-              ].map((row) => (
-                <li key={row.text} className="flex items-start gap-3 rounded-lg bg-white/5 px-3 py-2.5">
-                  <row.icon className="mt-0.5 size-4 shrink-0" style={{ color: row.tint }} />
-                  <span className="text-[12px] leading-snug text-white/90">{row.text}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: 'rgba(255,106,0,0.14)' }}>
-              <span className="font-mono text-[9px] uppercase tracking-[0.16em]" style={{ color: '#FFB27A' }}>
-                Result
-              </span>
-              <span className="text-[12px] font-semibold text-white">Report delivered · audit logged</span>
-            </div>
+        <div className="relative mx-auto w-full max-w-[590px] lg:ml-auto">
+          <div className="relative aspect-[1.17] overflow-hidden rounded-2xl"><Image src="/agentos-orbit.png" alt="" fill priority sizes="(max-width: 1024px) 90vw, 590px" className="object-cover mix-blend-screen" /></div>
+          <div className="absolute bottom-[5%] left-[2%] w-[78%] max-w-[330px] rounded-xl border border-white/15 bg-[#101d39]/90 p-4 shadow-2xl backdrop-blur-xl sm:left-[3%] sm:p-5">
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#94a7c7]"><span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/20 text-blue-300"><Command size={13} /></span> AgentOS workspace <span className="ml-auto text-[9px] text-[#8191ad]">Illustration</span></div>
+            <p className="mt-4 text-sm font-medium leading-relaxed text-white">“Help me plan our next project.”</p>
+            <div className="mt-4 h-px bg-white/10" />
+            <div className="mt-3 flex items-center gap-2 text-[11px] text-[#acbad0]"><CircleDot size={13} className="text-[#ff9a68]" /> Context, tools &amp; people working together</div>
           </div>
-
-          {/* The circular badge, straight from the brand sheet */}
-          <div className="mt-5 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5">
-            <Badge size={96} />
-            <div>
-              <p className="text-[13px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-                {COMPANY.legalName} {COMPANY.product}
-              </p>
-              <p className="mt-1 text-[11px] leading-snug" style={{ color: BRAND.gray }}>
-                {COMPANY.promise}
-              </p>
-            </div>
-          </div>
+          <div className="absolute right-[2%] top-[16%] hidden rounded-xl border border-white/15 bg-[#101d39]/90 px-4 py-3 shadow-xl backdrop-blur sm:block"><div className="flex items-center gap-2 text-[11px] text-blue-100"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#ff7435]/20 text-[#ff9a68]"><Bot size={16} /></span><span><b className="block text-white">Specialist agents</b><span className="text-[#96a7c1]">Built around your work</span></span></div></div>
         </div>
       </div>
+      <div className="relative border-t border-white/10"><div className="mx-auto flex max-w-[1320px] flex-wrap items-center gap-x-8 gap-y-3 px-5 py-5 text-[10px] font-semibold uppercase tracking-[.14em] text-[#8293b1] sm:px-8 lg:px-12"><span className="text-[#b3c1d7]">One workspace for</span><span>AI agents</span><span className="text-[#ff8750]">✳</span><span>Knowledge</span><span className="text-[#ff8750]">✳</span><span>Workflows</span><span className="text-[#ff8750]">✳</span><span>Human oversight</span></div></div>
     </section>
   )
 }
 
-function LogoStrip() {
-  const items = [
-    { icon: Gauge, label: 'Command Center' },
-    { icon: Workflow, label: 'Master Router' },
-    { icon: Layers, label: 'Department Router' },
-    { icon: Database, label: 'Hybrid RAG' },
-    { icon: ShieldCheck, label: 'Approval Engine' },
-    { icon: BadgeCheck, label: 'Audit System' },
-  ]
-  return (
-    <section className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-6 px-6 py-7">
-        {items.map((item) => (
-          <span key={item.label} className="flex items-center gap-2">
-            <item.icon className="size-4" style={{ color: BRAND.orange }} />
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: BRAND.gray }}>
-              {item.label}
-            </span>
-          </span>
-        ))}
-      </div>
-    </section>
-  )
+function SectionHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+  return <div><p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.18em] text-[#f16c2d]"><span className="h-1.5 w-1.5 rounded-full bg-[#f16c2d]" /> {eyebrow}</p><h2 className="mt-4 max-w-[690px] text-[35px] font-semibold leading-[1.12] tracking-[-.045em] text-[#101a33] sm:text-[47px]">{title}</h2><p className="mt-4 max-w-[570px] text-[15px] leading-7 text-slate-500">{description}</p></div>
 }
 
-// ─── System flow ─────────────────────────────────────────────────────────────
-
-function SystemSection() {
-  const routeCount = SYSTEM_FLOW.filter((n) => !n.branch).length
-  const departmentCount = SYSTEM_FLOW.filter((n) => n.branch && n.tone === 'blue').length
+export function MarketingSite() {
   return (
-    <Section
-      id="system"
-      eyebrow="1 · System flow"
-      title="Every command takes the same eight-hop path — and it is auditable at every hop."
-      lead="Orange is the action path, blue is the system path. The owner's command travels from the Command Center through the routers, the agent pool, memory and the hybrid RAG engine, and stops at the approval gate before execution."
-    >
-      <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8">
-          <SystemFlow />
-        </div>
-        <div className="space-y-4">
-          <StatCard icon={Gauge} value={String(routeCount)} label="Routed hops" note="Command Center → result" />
-          <StatCard icon={Layers} value={String(departmentCount)} label="Department branches" note="Website, CRM, Marketing, Student Ops, Finance" />
-          <StatCard icon={Database} value="3" label="RAG families" note="Classic, graph and agentic retrieval" />
-          <StatCard icon={ShieldCheck} value="1" label="Approval gate" note="Nothing executes without it" />
-        </div>
-      </div>
-    </Section>
-  )
-}
-
-// ─── Process ─────────────────────────────────────────────────────────────────
-
-function ProcessSection() {
-  const steps = [
-    { step: '1', title: 'Assess', body: 'We map your departments, workflows, data and risk surface — and agree what the agents should and should not do.' },
-    { step: '2', title: 'Design', body: 'Agent specifications, workflows, approval rules and integrations are designed as a system — documented in diagrams, not slideware.' },
-    { step: '3', title: 'Deploy', body: 'We stand up the command centre, provision the agent workforce and integrate your tools — in your cloud or ours.' },
-    { step: '4', title: 'Run', body: 'Agents work inside the approval gate while you watch the dashboards. We tune, report and extend department by department.' },
-  ]
-  return (
-    <Section
-      id="process"
-      eyebrow="2 · How we deliver"
-      title="Assess, design, deploy, run."
-      lead="The same four steps on every engagement — one workflow or a hundred-department workforce."
-      ground="canvas"
-    >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {steps.map((s) => (
-          <div key={s.step} className="rounded-2xl border border-slate-200 bg-white p-6">
-            <span
-              className="flex size-10 items-center justify-center rounded-full text-[15px] font-bold text-white"
-              style={{ background: BRAND.orange, fontFamily: BRAND_FONTS.secondary.stack }}
-            >
-              {s.step}
-            </span>
-            <h3 className="mt-4 text-[17px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-              {s.title}
-            </h3>
-            <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
-              {s.body}
-            </p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-6">
-        <Button variant="outline" className="gap-1.5" asChild>
-          <Link href="/site/solutions#process">
-            How engagements run <ArrowRight className="size-3.5" />
-          </Link>
-        </Button>
-      </div>
-    </Section>
-  )
-}
-
-// ─── Services ────────────────────────────────────────────────────────────────
-
-function ServicesSection() {
-  return (
-    <Section
-      id="services"
-      eyebrow="3 · Services"
-      title="Six service lines. One accountable team."
-      lead="Each line stands on its own — take one, combine them later, with the same command centre underneath."
-    >
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        <NumberedCard
-          index="01"
-          title="AI agents & workforce automation"
-          body="Departments of specified AI agents that take real work off your team — reports, follow-ups, data entry, research — inside an approval gate."
-          items={['Agent specification & registry', 'Workflow automation', 'Approval & audit built in']}
-          href="/site/solutions#automation"
-          ctaLabel="Explore"
-        />
-        <NumberedCard
-          index="02"
-          title="CRM & marketing automation"
-          body="Lead capture, enrichment, scoring and nurture wired into your CRM — with campaigns and reporting running as scheduled agent work."
-          items={['CRM implementation', 'Lead enrichment & scoring', 'Campaign automation']}
-          href="/site/solutions#crm"
-          ctaLabel="Explore"
-        />
-        <NumberedCard
-          index="03"
-          title="Education & student operations"
-          body="Recruitment, applications, compliance and pastoral operations for consultancies and institutions — UKVI-aware workflows included."
-          items={['Applicant pipelines', 'Document & compliance checks', 'Agent-led student support']}
-          href="/site/solutions#education"
-          ctaLabel="Explore"
-        />
-        <NumberedCard
-          index="04"
-          title="Voice, SMS & communications"
-          body="AI call-centre and telephony integrations: inbound routing, call intelligence, SMS automation and VoIP — on the same agent workforce."
-          items={['Call intelligence', 'SMS follow-up automation', 'Conversation logging into CRM']}
-          href="/site/solutions#comms"
-          ctaLabel="Explore"
-        />
-        <NumberedCard
-          index="05"
-          title="Knowledge, content & media"
-          body="Hybrid RAG over your corpus, editorial diagrams, AI video and image pipelines — everything your teams publish, grounded in your data."
-          items={['Hybrid RAG (classic · graph · agentic)', 'Diagram & report generation', 'AI media pipelines']}
-          href="/site/solutions#knowledge"
-          ctaLabel="Explore"
-        />
-        <NumberedCard
-          index="06"
-          title="Custom AI products & integrations"
-          body="When the need is a product, not a service: multi-tenant SaaS, internal platforms and white-label AI assistants engineered to last."
-          items={['SaaS product engineering', 'LLM applications & agents', 'Data pipelines & integrations']}
-          href="/site/solutions#products"
-          ctaLabel="Explore"
-        />
-      </div>
-    </Section>
-  )
-}
-
-// ─── Agents ──────────────────────────────────────────────────────────────────
-
-function AgentsSection() {
-  return (
-    <Section
-      id="agents"
-      eyebrow="4 · Master 1020 agent specification"
-      title="Every agent is specified before it runs: department, role, mission, work, input, output."
-      lead="The specification list is the source of truth for the agent registry — 1020 agents across 100+ departments, each with a named role, a mission, an execution path, and QA and approval rules attached."
-      ground="canvas"
-    >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {SPEC_SAMPLE.map((spec) => (
-          <AgentSpecCard key={spec.id} spec={spec} />
-        ))}
-      </div>
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Button variant="outline" className="gap-1.5" asChild>
-          <Link href="/brand">
-            Open the specification layout <ArrowRight className="size-3.5" />
-          </Link>
-        </Button>
-        <span className="text-[11px]" style={{ color: BRAND.gray }}>
-          Cards are generated from data — the same component renders all 1020 in the registry.
-        </span>
-      </div>
-    </Section>
-  )
-}
-
-// ─── Mobile ──────────────────────────────────────────────────────────────────
-
-function MobileSection() {
-  const features = [
-    { icon: Gauge, title: 'Command centre in the pocket', body: 'The same twelve tiles and four tabs as the desktop surface — Dashboard, Agents and Tasks first.' },
-    { icon: Bot, title: 'Ask AgentOS anything', body: 'One search field routes natural-language requests to the right department and agent.' },
-    { icon: ShieldCheck, title: 'Approvals on the move', body: 'Nothing executes until it is approved — push approvals arrive on the same screen.' },
-    { icon: Globe, title: 'Blue theme, mobile-first', body: 'Blue for system and navigation, orange for action, per the brand guideline.' },
-  ]
-  return (
-    <Section
-      id="mobile"
-      eyebrow="5 · Mobile view"
-      title="Built mobile-first, so the command centre fits in a hand."
-      lead="Departments, approvals, students, partners, finance — the whole operating surface, reconstructed here as a live component rather than a screenshot."
-      ground="navy"
-    >
-      <div className="grid items-center gap-12 lg:grid-cols-[380px_1fr]">
-        <CommandCenterMobile />
-        <div className="grid gap-4 sm:grid-cols-2">
-          {features.map((f) => (
-            <div key={f.title} className="rounded-xl border border-white/10 bg-white/5 p-5">
-              <f.icon className="size-4" style={{ color: BRAND.orange }} />
-              <p className="mt-3 text-[14px] font-semibold text-white" style={{ fontFamily: BRAND_FONTS.secondary.stack }}>
-                {f.title}
-              </p>
-              <p className="mt-1.5 text-[12px] leading-relaxed text-white/70">{f.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Section>
-  )
-}
-
-// ─── Departments & domains ───────────────────────────────────────────────────
-
-function DepartmentsSection() {
-  const departments = SYSTEM_FLOW.filter((n) => n.branch && n.tone === 'blue').map((n) => n.label)
-  return (
-    <Section
-      id="departments"
-      eyebrow="6 · Departments & deployment"
-      title="Five departments on day one — and a subdomain for every surface."
-      lead="Departments are the routing unit: each one owns its agents, workflows and approval rules. The platform is reachable on four branded domains."
-      ground="white"
-    >
-      <div className="grid gap-10 lg:grid-cols-2">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {departments.map((d) => (
-              <span
-                key={d}
-                className="rounded-md px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-white"
-                style={{ background: BRAND.blue }}
-              >
-                {d}
-              </span>
-            ))}
-            <span
-              className="rounded-md border px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.08em]"
-              style={{ borderColor: BRAND.orange, color: BRAND.orange }}
-            >
-              + 95 more
-            </span>
-          </div>
-          <ul className="mt-6 space-y-3">
-            {[
-              'Each department runs its own workflow library and QA rules.',
-              'Agents are staffed per department and re-assigned without redeployment.',
-              'Approval rules and audit logs are scoped to the department.',
-            ].map((line) => (
-              <li key={line} className="flex items-start gap-2 text-[13px]" style={{ color: BRAND.gray }}>
-                <BadgeCheck className="mt-0.5 size-4 shrink-0" style={{ color: BRAND.orange }} />
-                {line}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {COMPANY.domains.map((d) => (
-            <div key={d.value} className="rounded-xl border border-slate-200 p-5">
-              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.graySoft }}>
-                {d.label}
-              </p>
-              <p className="mt-1.5 font-mono text-[13px] font-semibold" style={{ color: BRAND.blue }}>
-                {d.value}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Section>
-  )
-}
-
-// ─── Why ALO ─────────────────────────────────────────────────────────────────
-
-function WhySection() {
-  const reasons = [
-    { icon: ShieldCheck, title: 'Approval gate on everything', body: 'No agent side effect happens without risk scoring, policy checks and — where you configure it — a human yes.' },
-    { icon: BadgeCheck, title: 'Auditable at every hop', body: 'Who commanded, which agent acted, what it read, what it wrote. Exportable evidence, per tenant.' },
-    { icon: Layers, title: 'Specified, not improvised', body: 'Every agent has a department, a role, a mission and QA rules. If it cannot be specified, it does not ship.' },
-    { icon: Database, title: 'Grounded in your data', body: 'Hybrid RAG over your own corpus with source-cited answers — your data stays in your tenant.' },
-    { icon: Workflow, title: 'Department by department', body: 'Prove one department end to end, then extend the same pattern. Adoption is a delivery metric.' },
-    { icon: Globe, title: 'Your cloud or ours', body: 'Managed service, your VPC or fully self-hosted — the same platform, the same audit trail.' },
-  ]
-  return (
-    <Section
-      eyebrow="Why ALO Labs"
-      title="Automation with accountability."
-      lead="We built the guardrails first — then the workforce that needs them."
-      ground="canvas"
-    >
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {reasons.map((r) => (
-          <div key={r.title} className="rounded-2xl border border-slate-200 bg-white p-6">
-            <r.icon className="size-4.5" style={{ color: BRAND.orange }} />
-            <h3 className="mt-3 text-[16px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-              {r.title}
-            </h3>
-            <p className="mt-2 text-[12.5px] leading-relaxed" style={{ color: BRAND.gray }}>
-              {r.body}
-            </p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Button variant="outline" className="gap-1.5" asChild>
-          <Link href="/site/work">
-            See the work <ArrowRight className="size-3.5" />
-          </Link>
-        </Button>
-        <Button variant="outline" className="gap-1.5" asChild>
-          <Link href="/site/pricing">
-            Pricing & deployment <ArrowRight className="size-3.5" />
-          </Link>
-        </Button>
-      </div>
-    </Section>
-  )
-}
-
-// ─── Diagram teaser ──────────────────────────────────────────────────────────
-
-function DiagramsTeaser() {
-  const figures = ['architecture-agentos', 'org-chart-ai-team', 'loop-growth-flywheel'] as const
-  return (
-    <Section
-      eyebrow="Editorial diagram system"
-      title="Your reports should look like this."
-      lead="Every figure in our materials is generated from the editorial diagram library — 45 visual types, taste-gated in CI, exported as accessible SVG. It ships with every AgentOS deployment."
-    >
-      <div className="grid gap-5 lg:grid-cols-3">
-        {figures.map((slug) => (
-          <div key={slug} className="rounded-2xl border border-slate-200 bg-white p-5">
-            <EditorialDiagram spec={EXAMPLE_BY_SLUG[slug]} />
-          </div>
-        ))}
-      </div>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Button className="gap-1.5" style={{ background: BRAND.orange }} asChild>
-          <Link href="/site/diagrams">
-            Open the diagram gallery <ArrowRight className="size-3.5" />
-          </Link>
-        </Button>
-        <Button variant="outline" className="gap-1.5" asChild>
-          <Link href="/design">Design system studio</Link>
-        </Button>
-      </div>
-    </Section>
-  )
-}
-
-// ─── Insights ────────────────────────────────────────────────────────────────
-
-function InsightsSection() {
-  const notes = [
-    { tag: 'Operations', title: 'The eight-hop command path — and why every hop is audited', href: '/site/insights' },
-    { tag: 'Governance', title: 'Designing an approval gate people do not route around', href: '/site/insights' },
-    { tag: 'Marketing', title: 'Turning 50 marketing playbooks into installable agents', href: '/site/press' },
-  ]
-  return (
-    <Section
-      eyebrow="Insights"
-      title="Notes from inside the agent factory."
-      lead="Field notes on running AI departments — governance, retrieval, rollout patterns and the design systems behind the product."
-      ground="canvas"
-    >
-      <div className="grid gap-5 lg:grid-cols-3">
-        {notes.map((note) => (
-          <Link
-            key={note.title}
-            href={note.href}
-            className="group rounded-2xl border border-slate-200 bg-white p-6 transition-transform hover:-translate-y-1"
-          >
-            <span
-              className="rounded-md px-2.5 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.12em]"
-              style={{ background: 'rgba(255,106,0,0.10)', color: BRAND.orange }}
-            >
-              {note.tag}
-            </span>
-            <h3 className="mt-3 text-[15px] font-semibold leading-snug" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-              {note.title}
-            </h3>
-            <span className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: BRAND.orange }}>
-              Read the note <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-            </span>
-          </Link>
-        ))}
-      </div>
-    </Section>
-  )
-}
-
-// ─── FAQ ─────────────────────────────────────────────────────────────────────
-
-const HOME_FAQS: FaqItem[] = [
-  {
-    q: 'What exactly is AgentOS?',
-    a: 'An enterprise AI operating system: one command centre routes every owner command to a specified workforce of AI agents — through memory, hybrid retrieval and an approval gate — with a complete audit trail. It is a platform you run departments on, not a chatbot.',
-  },
-  {
-    q: 'How is this different from hiring an automation agency?',
-    a: 'Agencies deliver workflows; AgentOS delivers the operating system those workflows run on — the registry, the routers, the approvals, the audit and the command centre — and our services team deploys the first departments on it.',
-  },
-  {
-    q: 'Can we start small?',
-    a: 'Yes. One department, 10–40 agents, 2–4 workflows — typically live in 2–4 weeks. Prove it end to end, then extend the same pattern to the next department.',
-  },
-  {
-    q: 'Where does our data live?',
-    a: 'In your tenant — managed cloud, your VPC or self-hosted. Retrieval runs against your own corpus and nothing is used to train third-party models.',
-  },
-]
-
-function FaqSection() {
-  return (
-    <Section
-      id="faq"
-      eyebrow="FAQ"
-      title="Questions we often hear."
-      lead="Can't find your answer? Our team replies within one business day."
-    >
-      <FaqList items={HOME_FAQS} />
-    </Section>
-  )
-}
-
-// ─── Contact (letterhead strip) ──────────────────────────────────────────────
-
-function ContactSection() {
-  return (
-    <Section
-      id="contact"
-      eyebrow="Contact"
-      title="Talk to the team behind AgentOS."
-      lead="The same four details printed on every ALO Labs letterhead — address, phone, website and email."
-      ground="canvas"
-    >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <ContactCard icon={MapPin} label="Address" lines={[COMPANY.entity, ...COMPANY.address]} />
-        <ContactCard icon={Phone} label="Phone" lines={[COMPANY.phone]} href={COMPANY.phoneHref} />
-        <ContactCard icon={Globe} label="Website" lines={[COMPANY.website]} href={COMPANY.websiteHref} />
-        <ContactCard icon={Mail} label="Email" lines={[COMPANY.email]} href={COMPANY.emailHref} />
-      </div>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
-          <Link href="/site/contact">
-            <Mail className="size-4" /> Contact form
-          </Link>
-        </Button>
-        <Button size="lg" variant="outline" className="gap-2" asChild>
-          <Link href="/invoice">
-            View an invoice on the letterhead <ArrowRight className="size-4" />
-          </Link>
-        </Button>
-      </div>
-    </Section>
-  )
-}
-
-function ContactCard({
-  icon: Icon,
-  label,
-  lines,
-  href,
-}: {
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
-  label: string
-  lines: string[]
-  href?: string
-}) {
-  const inner = (
-    <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-5">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full" style={{ background: BRAND.blue }}>
-        <Icon className="size-4.5 text-white" style={{ color: '#FFFFFF' }} />
-      </span>
-      <div className="min-w-0">
-        <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.blue }}>
-          {label}
-        </p>
-        {lines.map((line) => (
-          <p key={line} className="mt-1 text-[11px] leading-snug" style={{ color: BRAND.ink }}>
-            {line}
-          </p>
-        ))}
-      </div>
+    <div className="min-h-screen bg-white font-sans text-[#101a33]">
+      <SiteHeader />
+      <main>
+        <Hero />
+        <section id="platform" className="scroll-mt-8 bg-[#fafbfe] px-5 py-20 sm:px-8 lg:px-12 lg:py-28"><div className="mx-auto max-w-[1224px]">
+          <div className="flex flex-wrap items-end justify-between gap-6"><SectionHeading eyebrow="Meet the platform" title="A little more clarity. A lot more possibility." description="AI is more useful when it understands the work around it. AgentOS brings the pieces together so your team can move with purpose." /><a href="#how-it-works" className="group inline-flex items-center gap-2 pb-1 text-sm font-semibold text-[#173d91]">Explore how it works <ArrowRight size={16} className="transition group-hover:translate-x-1" /></a></div>
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{capabilities.map(({ icon: Icon, ...card }) => <article key={card.title} className="group min-h-[235px] rounded-xl border border-[#e6eaf2] bg-white p-6 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50"><div className="flex items-start justify-between"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#edf3ff] text-[#2855ad]"><Icon size={20} strokeWidth={1.7} /></div><span className="font-mono text-[11px] text-slate-300">{card.number}</span></div><h3 className="mt-6 text-[18px] font-semibold tracking-tight">{card.title}</h3><p className="mt-2 max-w-[300px] text-[13px] leading-6 text-slate-500">{card.description}</p><p className="mt-5 text-[9px] font-bold tracking-[.14em] text-[#9aabc4]">{card.tag}</p></article>)}</div>
+        </div></section>
+        <section id="how-it-works" className="scroll-mt-8 px-5 py-20 sm:px-8 lg:px-12 lg:py-28"><div className="mx-auto grid max-w-[1224px] gap-14 lg:grid-cols-[.9fr_1.1fr] lg:gap-24">
+          <div><SectionHeading eyebrow="How it works" title="From a question to a way forward." description="Think of AgentOS as a home for your AI-assisted work—not just another chat window." /><Link href="/login" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-[#173d91]">Go to the Command Center <ArrowRight size={16} /></Link></div>
+          <div className="border-t border-slate-200">{steps.map((step) => <div key={step.number} className="grid grid-cols-[45px_1fr] gap-4 border-b border-slate-200 py-6 sm:grid-cols-[65px_1fr]"><span className="pt-1 font-mono text-xs text-[#ef7b48]">{step.number} /</span><div><h3 className="text-lg font-semibold tracking-tight">{step.title}</h3><p className="mt-2 max-w-[440px] text-sm leading-6 text-slate-500">{step.body}</p></div></div>)}</div>
+        </div></section>
+        <section className="bg-[#101b36] px-5 py-20 text-white sm:px-8 lg:px-12 lg:py-24"><div className="mx-auto grid max-w-[1224px] items-center gap-12 lg:grid-cols-2 lg:gap-24">
+          <div className="order-2 rounded-2xl border border-white/10 bg-[#162442] p-5 shadow-2xl sm:p-7 lg:order-1"><div className="flex items-center gap-2 border-b border-white/10 pb-4"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-400/15 text-blue-200"><Command size={16} /></div><div><p className="text-xs font-semibold">A place for the whole picture</p><p className="text-[10px] text-slate-400">Illustrative workflow</p></div></div><div className="mt-6 space-y-3">{[{ icon: MessageSquareText, text: 'Describe what you want to accomplish', sub: 'YOUR GOAL' }, { icon: GitBranch, text: 'Connect the right context and skills', sub: 'AGENT WORKSPACE' }, { icon: FileText, text: 'Review the result and next steps', sub: 'YOUR REVIEW' }].map(({ icon: Icon, text, sub }, index) => <div key={text} className="flex items-center gap-4 rounded-lg border border-white/10 bg-white/[.035] p-4"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${index === 1 ? 'bg-orange-400/15 text-orange-300' : 'bg-blue-400/15 text-blue-200'}`}><Icon size={16} /></span><div><p className="text-[9px] font-semibold tracking-[.14em] text-slate-400">{sub}</p><p className="mt-1 text-[13px] font-medium text-white">{text}</p></div><ChevronRight className="ml-auto text-slate-500" size={16} /></div>)}</div></div>
+          <div className="order-1 lg:order-2"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#ff9b6a]">Made for meaningful work</p><h2 className="mt-4 text-[36px] font-semibold leading-[1.12] tracking-[-.045em] sm:text-[47px]">Your intelligence. <span className="text-[#9cbcff]">Amplified.</span></h2><p className="mt-5 max-w-[450px] text-[15px] leading-7 text-slate-300">From your first prompt to the next decision, keep the important pieces in view. AgentOS is designed to help people and AI work together with context and care.</p><div className="mt-7 flex items-start gap-3 rounded-xl border border-white/10 bg-white/[.04] p-4"><LockKeyhole size={18} className="mt-0.5 shrink-0 text-[#ff9b6a]" /><p className="text-[13px] leading-6 text-slate-300">Permissions and human review matter. Available features depend on your deployment and configuration.</p></div></div>
+        </div></section>
+        <section id="use-cases" className="scroll-mt-8 bg-[#fafbfe] px-5 py-20 sm:px-8 lg:px-12 lg:py-28"><div className="mx-auto max-w-[1224px]"><SectionHeading eyebrow="Built for your kind of work" title="A workspace that grows with your ideas." description="Whether you are building, creating, or coordinating, start with a goal and bring the right context along." /><div className="mt-12 grid gap-4 md:grid-cols-3">{cases.map(({ icon: Icon, ...item }) => <article key={item.title} className={`flex min-h-[320px] flex-col rounded-xl p-7 ${item.className}`}><div className="flex items-center justify-between"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/75 text-[#223d75]"><Icon size={20} /></span><span className="font-mono text-[10px] text-slate-400">{item.symbol}</span></div><p className="mt-auto pt-14 text-[10px] font-bold tracking-[.15em] text-[#607296]">{item.label}</p><h3 className="mt-3 text-[23px] font-semibold tracking-[-.035em]">{item.title}</h3><p className="mt-2 text-[13px] leading-6 text-slate-600">{item.body}</p></article>)}</div></div></section>
+        <section id="faq" className="scroll-mt-8 px-5 py-20 sm:px-8 lg:px-12 lg:py-28"><div className="mx-auto grid max-w-[1224px] gap-12 lg:grid-cols-[.8fr_1.2fr] lg:gap-24"><SectionHeading eyebrow="Good to know" title="The questions behind the possibilities." description="A little more about AI agents and the workspace we are building." /><div className="border-t border-slate-200">{faqs.map((faq) => <details key={faq.q} className="group border-b border-slate-200"><summary className="flex cursor-pointer list-none items-center justify-between gap-5 py-6 text-[15px] font-semibold [&::-webkit-details-marker]:hidden">{faq.q}<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-lg font-normal group-open:rotate-45">+</span></summary><p className="max-w-[560px] pb-6 pr-6 text-sm leading-7 text-slate-500">{faq.a}</p></details>)}</div></div></section>
+        <section className="px-5 pb-10 sm:px-8 lg:px-12 lg:pb-16"><div className="relative mx-auto overflow-hidden rounded-2xl bg-[#1f4da2] px-7 py-12 text-white sm:px-12 sm:py-16 lg:flex lg:max-w-[1224px] lg:items-end lg:justify-between"><div aria-hidden="true" className="absolute -right-12 -top-40 h-80 w-80 rounded-full border-[50px] border-white/[.05]" /><div className="relative"><p className="text-[10px] font-bold uppercase tracking-[.17em] text-blue-200">The next step is yours</p><h2 className="mt-4 max-w-[650px] text-[34px] font-semibold leading-tight tracking-[-.04em] sm:text-[46px]">Let’s make good work happen.</h2><p className="mt-3 max-w-lg text-sm leading-6 text-blue-100">Explore the workspace or get in touch to talk about your team’s goals.</p></div><div className="relative mt-7 flex flex-wrap gap-3 lg:mt-0"><Link href="/login" className="inline-flex h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-[#14336f] hover:bg-blue-50">Open AgentOS <ArrowRight size={16} /></Link><a href={COMPANY.emailHref} className="inline-flex h-11 items-center rounded-lg border border-white/40 px-5 text-sm font-semibold hover:bg-white/10">Contact us</a></div></div></section>
+      </main>
+      <footer className="border-t border-slate-100 px-5 py-10 sm:px-8 lg:px-12"><div className="mx-auto flex max-w-[1224px] flex-col justify-between gap-8 sm:flex-row"><div><Link href="/" className="flex items-center gap-2"><Mark size={30} /><span className="font-bold tracking-tight">ALO Labs <span className="text-slate-400">AgentOS</span></span></Link><p className="mt-3 max-w-xs text-xs leading-6 text-slate-500">An AI agent operating system for people with ideas worth pursuing.</p></div><div className="flex flex-wrap gap-x-10 gap-y-3 text-xs font-medium text-slate-500"><a href="#platform">Platform</a><a href="#how-it-works">How it works</a><a href="#faq">FAQ</a><a href={COMPANY.emailHref}>Contact</a><Link href="/login">Log in</Link></div></div><div className="mx-auto mt-10 flex max-w-[1224px] flex-wrap justify-between gap-3 border-t border-slate-100 pt-5 text-[11px] text-slate-400"><span>© {new Date().getFullYear()} ALO Labs. All rights reserved.</span><span>Thoughtfully built for what’s next.</span></div></footer>
     </div>
-  )
-  return href ? (
-    <a href={href} className="block transition-transform hover:-translate-y-0.5">
-      {inner}
-    </a>
-  ) : (
-    inner
-  )
-}
-
-// ─── Footer ──────────────────────────────────────────────────────────────────
-
-function SiteFooter() {
-  return (
-    <footer style={{ background: BRAND.navy }}>
-      <div className="mx-auto max-w-[1200px] px-6 py-12">
-        <div className="flex flex-wrap items-start justify-between gap-8">
-          <div className="max-w-[420px]">
-            <AloLabsLogo size={40} tagline theme="dark" />
-            <BrandRule width={150} className="mt-4 opacity-90" />
-            <p className="mt-3 text-[12px] leading-relaxed text-white/70">
-              {COMPANY.promise}
-            </p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div>
-              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/50">Platform</p>
-              <ul className="mt-2 space-y-1.5">
-                {SECTIONS.map((s) => (
-                  <li key={s.id}>
-                    <a href={`#${s.id}`} className="text-[12px] text-white/80 hover:text-white">
-                      {s.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/50">Company</p>
-              <ul className="mt-2 space-y-1.5">
-                <li>
-                  <Link href="/brand" className="text-[12px] text-white/80 hover:text-white">
-                    Brand &amp; system guideline
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/invoice" className="text-[12px] text-white/80 hover:text-white">
-                    Invoice on the letterhead
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/design" className="text-[12px] text-white/80 hover:text-white">
-                    Editorial design system
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/login" className="text-[12px] text-white/80 hover:text-white">
-                    Open AgentOS
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="max-w-[280px]">
-            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/50">Head office</p>
-            <p className="mt-2 text-[12px] leading-relaxed text-white/80">
-              {COMPANY.legalName} · {COMPANY.entity}
-              <br />
-              {COMPANY.address[0]}
-              <br />
-              {COMPANY.address[1]}
-            </p>
-            <p className="mt-2 font-mono text-[11px] text-white/80">
-              {COMPANY.phone}
-              <br />
-              {COMPANY.email}
-            </p>
-          </div>
-        </div>
-        <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-6">
-          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">
-            © {new Date().getFullYear()} {COMPANY.legalName} · {COMPANY.product} · {COMPANY.tagline}
-          </p>
-          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">
-            {COMPANY.domains.map((d) => d.value).join(' · ')}
-          </p>
-        </div>
-      </div>
-    </footer>
   )
 }
