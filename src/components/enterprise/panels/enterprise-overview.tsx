@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { fetchApi } from '@/lib/api'
+import { useAppStore } from '@/store/app'
 import {
   Building2, Bot, Scale, ClipboardList, Network, Database, FileCode, Wrench,
   Brain, Map, RotateCcw, Heart, TrendingUp, BarChart3, Users, GitBranch, Zap,
@@ -130,7 +131,15 @@ interface Props {
   onNavigate?: (view: EnterpriseView) => void
 }
 
-export default function EnterpriseOverview({ onNavigate }: Props) {
+export default function EnterpriseOverview(props: Props) {
+  const company = useAppStore((state) => state.selectedCompany)
+  const userId = useAppStore((state) => state.user?.id ?? null)
+  // Remount synchronously on tenant changes: old tenant data and in-flight
+  // requests must never remain visible or exportable in the new context.
+  return <EnterpriseOverviewForCompany key={JSON.stringify([company, userId])} {...props} />
+}
+
+function EnterpriseOverviewForCompany({ onNavigate }: Props) {
   const [stats, setStats] = useState<EnterpriseStats | null>(null)
   const [events, setEvents] = useState<EnterpriseActivity[]>([])
   const [loading, setLoading] = useState(true)
@@ -247,7 +256,7 @@ export default function EnterpriseOverview({ onNavigate }: Props) {
 
       <div>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">System inventory & measured activity</h2>
-        <p className="text-xs text-slate-500 mb-4">A missing value means this tenant has no scoped measurement for that subsystem.</p>
+        <p className="text-xs text-slate-500 mb-4">{dataError ? 'Metrics could not be loaded; their values are unknown.' : 'A missing value means this subsystem has no scoped measurement.'}</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {systems.map((system) => {
             const Icon = system.icon
@@ -258,11 +267,11 @@ export default function EnterpriseOverview({ onNavigate }: Props) {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#003ABC]/8 group-hover:bg-[#003ABC]/12 transition-colors">
                       <Icon className="h-4 w-4 text-[#003ABC]" />
                     </div>
-                    {system.metric === null && <Badge variant="secondary" className="text-[9px]">Unmeasured</Badge>}
+                    {system.metric === null && <Badge variant="secondary" className="text-[9px]">{dataError ? 'Unavailable' : 'Unmeasured'}</Badge>}
                   </div>
                   <p className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">{system.name}</p>
                   <p className="text-lg font-bold text-slate-900 dark:text-white">{system.metric === null ? '—' : system.metric.toLocaleString()}</p>
-                  <p className="text-[10px] text-slate-400">{system.metric === null ? 'No tenant-scoped metric' : system.label}</p>
+                  <p className="text-[10px] text-slate-400">{system.metric === null ? (dataError ? 'Metrics unavailable' : 'No tenant-scoped metric') : system.label}</p>
                 </CardContent>
               </Card>
             )
@@ -328,7 +337,7 @@ export default function EnterpriseOverview({ onNavigate }: Props) {
                       </div>
                     </div>
                   )
-                }) : <p className="px-5 pb-4 text-sm text-slate-400">No tenant departments are recorded.</p>}
+                }) : <p className="px-5 pb-4 text-sm text-slate-400">{dataError ? 'Department data is unavailable.' : 'No tenant departments are recorded.'}</p>}
               </div>
             </ScrollArea>
           </CardContent>

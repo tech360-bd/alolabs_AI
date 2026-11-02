@@ -3,8 +3,8 @@ import { MarketingSite } from '@/components/site/marketing-site'
 
 /**
  * The public website. This is what a first-time visitor sees at
- * https://alolabs.net — the product story, the agent cards, the departments and
- * the contact details. The authenticated application lives at `/dashboard` and
+ * https://alolabs.net — the product story, AI agent information, and contact.
+ * The authenticated application lives at `/dashboard` and
  * is not reachable without a session.
  *
  * Previously this route mounted the dashboard shell directly, which is why the
@@ -16,10 +16,10 @@ import { MarketingSite } from '@/components/site/marketing-site'
 export const metadata: Metadata = {
   title: 'ALO Labs AgentOS — AI Agent Operating System',
   description:
-    'One command centre for 1020 AI agents across 100+ departments. See the system flow, the agent specification cards, the mobile command centre and how to reach the team.',
+    'Explore ALO Labs AgentOS: an AI agent operating system bringing agents, knowledge, workflows and human oversight together.',
   openGraph: {
     title: 'ALO Labs AgentOS — AI Agent Operating System',
-    description: 'One command centre for 1020 AI agents across 100+ departments.',
+    description: 'Bring AI agents, knowledge, workflows and human oversight together with ALO Labs AgentOS.',
     siteName: 'ALO Labs AgentOS',
     images: ['/brand/alo-logo-horizontal.svg'],
   },

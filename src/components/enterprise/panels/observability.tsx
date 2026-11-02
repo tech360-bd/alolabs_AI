@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchApi } from '@/lib/api'
+import { useAppStore } from '@/store/app'
 
 interface ObservabilityStats {
   generatedAt: string
@@ -36,6 +37,12 @@ function percentageLabel(value: number | null | undefined): string {
 }
 
 export default function Observability() {
+  const company = useAppStore((state) => state.selectedCompany)
+  const userId = useAppStore((state) => state.user?.id ?? null)
+  return <ObservabilityForCompany key={JSON.stringify([company, userId])} />
+}
+
+function ObservabilityForCompany() {
   const [stats, setStats] = useState<ObservabilityStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
