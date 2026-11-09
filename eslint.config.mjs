@@ -45,7 +45,10 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-useless-escape": "off",
   },
 }, {
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "audit/**", "scripts/**/*.js"]
+  // `ai-skills/` holds vendored third-party skill libraries (Cloudflare,
+  // Google, etc.) kept byte-identical to upstream — their .cjs tooling uses
+  // require() by design and must not be linted or reformatted by the app.
+  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "audit/**", "scripts/**/*.js", "ai-skills/**"]
 }];
 
 export default eslintConfig;
