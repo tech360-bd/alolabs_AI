@@ -528,10 +528,12 @@ describe('site — the designs used on the website', () => {
 
   it('serves the marketing site at the root, so a first visit is public', () => {
     // `/` used to mount the dashboard shell, which made the private application
-    // the first thing an anonymous visitor saw. The public site is now the root.
-    expect(home).toContain('MarketingSite')
-    expect(home).toContain('export const metadata')
-  })
+    // the first thing an anonymous visitor saw. The root now mounts the public
+    // home experience (which composes the shared marketing chrome), so a first
+    // visit is public and the dashboard stays behind the session gate.
+    expect(home).toContain('HomeExperience');
+    expect(home).toContain('export const metadata');
+  });
 
   it('redirects the legacy /site URL to the root instead of duplicating content', () => {
     expect(legacySite).toContain("redirect('/')")
