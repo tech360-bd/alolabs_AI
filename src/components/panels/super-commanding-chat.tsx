@@ -65,6 +65,9 @@ export default function SuperCommandingChat() {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [companies, setCompanies] = useState<Company[]>([])
+  // Real workforce size from the same tenant-scoped stats endpoint the other
+  // panels use — replaces the former hardcoded "2000 agents" strings.
+  const [agentCount, setAgentCount] = useState<number | null>(null)
   const [targetCompany, setTargetCompany] = useState<string>('__all__')
   const [broadcast, setBroadcast] = useState(false)
   const [showQuickMsgs, setShowQuickMsgs] = useState(true)
@@ -85,6 +88,12 @@ export default function SuperCommandingChat() {
       })
       .catch(() => {})
       .finally(() => setInitialLoading(false))
+    fetch('/api/enterprise/stats', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((res) => {
+        if (res && typeof res.agents === 'number') setAgentCount(res.agents)
+      })
+      .catch(() => {})
   }, [token])
 
   useEffect(() => {
@@ -224,7 +233,7 @@ export default function SuperCommandingChat() {
               <h2 className="text-sm font-bold text-[#1E293B]">Super Commanding Center</h2>
               <div className="flex items-center gap-1.5">
                 <span className="status-dot status-dot-active alo-pulse" style={{ width: 6, height: 6 }} />
-                <span className="text-[11px] text-[#94A3B8]">2000 agents online · 5 CRMs connected</span>
+                <span className="text-[11px] text-[#94A3B8]">{agentCount != null ? `${agentCount.toLocaleString()} agents online` : 'AI workforce online'} · {companies.filter((c) => c.crmConnected).length} CRMs connected</span>
               </div>
             </div>
           </div>
@@ -374,7 +383,7 @@ export default function SuperCommandingChat() {
             <div className="bg-[#F1F5F9] px-4 py-3 rounded-2xl rounded-bl-md border border-[#E2E8F0]">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#FF6A00] animate-pulse" />
-                <span className="text-xs text-[#64748B]">2000 agents processing...</span>
+                <span className="text-xs text-[#64748B]">agents processing...</span>
                 <Loader2 className="w-3 h-3 text-[#FF6A00] animate-spin" />
               </div>
             </div>
@@ -414,7 +423,7 @@ export default function SuperCommandingChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={broadcast ? "Broadcast to all 2000 agents..." : "Command your agents..."}
+              placeholder={broadcast ? "Broadcast to all agents..." : "Command your agents..."}
               disabled={sending}
               className="w-full h-11 bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] text-sm rounded-xl pl-4 pr-12 placeholder:text-[#94A3B8] focus:border-[#FF6A00]/40 focus:ring-[#FF6A00]/10"
             />
@@ -434,7 +443,7 @@ export default function SuperCommandingChat() {
         </div>
         <div className="flex items-center justify-between mt-1.5 px-1">
           <span className="text-[10px] text-[#94A3B8]">
-            {broadcast ? '📢 Broadcasting to all 2000 agents' : `🎯 Target: ${targetCompany === '__all__' ? 'All Companies' : companies.find(c => c.slug === targetCompany)?.name || 'All'}`}
+            {broadcast ? (agentCount != null ? `📢 Broadcasting to all ${agentCount.toLocaleString()} agents` : '📢 Broadcasting to all agents') : `🎯 Target: ${targetCompany === '__all__' ? 'All Companies' : companies.find(c => c.slug === targetCompany)?.name || 'All'}`}
           </span>
           <span className="text-[10px] text-[#94A3B8]">
             Press Enter to send

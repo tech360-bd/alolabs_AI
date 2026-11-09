@@ -79,6 +79,24 @@ function startWorker(): void {
       const summaries = router.getProviderSummaries();
       console.log(`[AgentOS worker] AI providers registered: ${summaries.map((p) => p.provider).join(', ') || '(none — configuration required)'}`);
     }
+
+    // Wire the in-process Agent Scheduler to the SAME AgentExecutionEngine the
+    // orchestrator and run pipeline use (one runtime, no duplicate executor),
+    // and start the self-healing monitor that re-drives unhealthy agents
+    // through the same runtime state/lifecycle managers. Both are lazy and
+    // best-effort: a wiring failure must never block the queue worker.
+    try {
+      const [{ getAgentScheduler }, { getExecutionEngine }, { getSelfHealingEngine }] = await Promise.all([
+        import('@/lib/agent-runtime/scheduler'),
+        import('@/lib/agent-runtime'),
+        import('@/lib/self-healing'),
+      ]);
+      getAgentScheduler().setEngine(getExecutionEngine());
+      getSelfHealingEngine().start();
+      console.log('[AgentOS worker] agent scheduler wired to runtime engine; self-healing monitor started');
+    } catch (error) {
+      console.error('[AgentOS worker] runtime wiring failed (queue worker continues):', error);
+    }
     let lastReclaim = Date.now();
 
     let polling = false;
