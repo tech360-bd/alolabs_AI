@@ -19,6 +19,22 @@ production host. Anything I could not execute is marked **NOT EXECUTED**, not "w
 
 ---
 
+## 0.1 Runtime wiring update — 2026-11-10 (`feat/real-workforce-wiring`)
+
+Follow-up pass on the gaps §1.7 and §9 exposed:
+
+| Change | File | Notes |
+|---|---|---|
+| Agent Scheduler wired to the ONE `AgentExecutionEngine` at boot (`setEngine`) | `src/instrumentation.node.ts` | Cron/interval/one-time schedules now dispatch through the same runtime the orchestrator and run pipeline use. Previously `setEngine` was never called, so scheduled dispatch was a silent no-op. |
+| Self-healing monitor started at boot | `src/instrumentation.node.ts` | `getSelfHealingEngine().start()` — retry/restart/rollback/escalate over the same agent-runtime state/lifecycle managers. Best-effort: wiring failure logs and the queue worker continues. |
+| Dashboard fake counts removed | `strategic-command.tsx`, `agent-intelligence-panel.tsx`, `super-commanding-chat.tsx`, `system-architecture.tsx`, `company-access-panel.tsx`, `src/app/site/platform/page.tsx` | All hardcoded "2,000 / 10,000 / 1020 / 5 CRMs" strings now read real tenant-scoped counts from `/api/enterprise/stats` (dash while loading, no number on failure). Architecture panel labels the 2,000-agent figure explicitly as *plan* capacity. |
+| `workers/WorkerManager` deliberately NOT started | — | Its AI/email/social workers bypass `AgentExecutionEngine`. Starting it would create a second execution path, violating the one-runtime rule. The durable `JobQueue` worker in `instrumentation.node.ts` (which does use the runtime) remains the only execution path. |
+| `src/lib/approval-engine` and `src/lib/chief-architect` left unwired | — | Superseded by the live `Approval`-model gate in `runs`/`execution.ts` and by the orchestrator planner respectively; kept for reference, not duplicated into the hot path. |
+
+Unchanged and still true: actual DB row counts must be measured on the production host (§7).
+
+---
+
 ## 1. Phase 1 answers (evidence-based)
 
 ### 1.1 How departments are stored and related to agents

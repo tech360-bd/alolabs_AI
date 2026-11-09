@@ -352,7 +352,7 @@ export default function CompanyAccessPanel() {
           </div>
           <div>
             <p className="text-sm font-semibold text-[#1E293B]">
-              🔒 ALO Labs owns all 2,000 AI agents centrally. Sister companies consume agent services through secure API keys only. No agent copies, prompts, or credentials are shared.
+              🔒 ALO Labs owns the entire central AI workforce. Sister companies consume agent services through secure API keys only. No agent copies, prompts, or credentials are shared.
             </p>
             <p className="text-xs text-[#64748B] mt-1.5">
               All requests route through the ALO Labs Gateway with tenant validation. Each company operates in complete isolation.

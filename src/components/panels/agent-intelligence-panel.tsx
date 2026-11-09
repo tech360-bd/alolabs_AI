@@ -1103,7 +1103,7 @@ export default function AgentIntelligencePanel() {
             <div>
               <h1 className="text-base font-bold">Agent Intelligence Panel</h1>
               <p className="text-[10px] text-muted-foreground">
-                Monitor, explore, and interact with all 100 departments & 2,000 agents
+                Monitor, explore, and interact with the department & agent network{globalStats ? ` — ${globalStats.totalDepartments} departments, ${globalStats.totalAgents.toLocaleString()} agents` : ''}
               </p>
             </div>
           </div>
@@ -1148,21 +1148,21 @@ export default function AgentIntelligencePanel() {
                   <div className="h-12 w-12 rounded-xl bg-emerald-100 flex items-center justify-center mx-auto mb-2">
                     <Building2 className="h-6 w-6 text-emerald-600" />
                   </div>
-                  <p className="text-xs font-medium">100</p>
+                  <p className="text-xs font-medium">{globalStats ? globalStats.totalDepartments.toLocaleString() : '—'}</p>
                   <p className="text-[10px] text-muted-foreground">Departments</p>
                 </div>
                 <div className="text-center">
                   <div className="h-12 w-12 rounded-xl bg-cyan-100 flex items-center justify-center mx-auto mb-2">
                     <Bot className="h-6 w-6 text-cyan-600" />
                   </div>
-                  <p className="text-xs font-medium">2,000</p>
+                  <p className="text-xs font-medium">{globalStats ? globalStats.totalAgents.toLocaleString() : '—'}</p>
                   <p className="text-[10px] text-muted-foreground">Agents</p>
                 </div>
                 <div className="text-center">
                   <div className="h-12 w-12 rounded-xl bg-violet-100 flex items-center justify-center mx-auto mb-2">
                     <BookOpen className="h-6 w-6 text-violet-600" />
                   </div>
-                  <p className="text-xs font-medium">∞</p>
+                  <p className="text-xs font-medium">{globalStats ? globalStats.totalKnowledge.toLocaleString() : '—'}</p>
                   <p className="text-[10px] text-muted-foreground">Knowledge</p>
                 </div>
               </div>

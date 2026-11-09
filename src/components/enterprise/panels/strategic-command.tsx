@@ -62,7 +62,49 @@ interface StrategicPanelProps {
 }
 
 // ─── Vision Card ──────────────────────────────────────────────────────────────
+interface WorkforceStatsSnapshot {
+  departments: number
+  agents: number
+  skills: number
+  prompts: number
+}
+
 function VisionCard() {
+  // Every number below is a real tenant-scoped database count served by
+  // /api/enterprise/stats — no hardcoded catalogue claims. While the request
+  // is in flight (or if it fails) the dash keeps the card honest.
+  const [stats, setStats] = useState<WorkforceStatsSnapshot | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchApi<{
+      departments?: number
+      agents?: number
+      skills?: number
+      prompts?: number
+    }>('/api/enterprise/stats')
+      .then((data) => {
+        if (cancelled) return
+        setStats({
+          departments: data.departments ?? 0,
+          agents: data.agents ?? 0,
+          skills: data.skills ?? 0,
+          prompts: data.prompts ?? 0,
+        })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const items = [
+    { label: 'Departments', value: stats ? stats.departments.toLocaleString() : '—', icon: Building2, color: 'text-[#003ABC]' },
+    { label: 'AI Employees', value: stats ? stats.agents.toLocaleString() : '—', icon: Bot, color: 'text-[#FF6A00]' },
+    { label: 'Skills', value: stats ? stats.skills.toLocaleString() : '—', icon: Zap, color: 'text-emerald-600' },
+    { label: 'Prompts', value: stats ? stats.prompts.toLocaleString() : '—', icon: Globe, color: 'text-purple-600' },
+  ]
+
   return (
     <Card className="border-none shadow-lg overflow-hidden">
       <div className="bg-gradient-to-r from-[#003ABC] to-[#0055D4] p-6 text-white">
@@ -94,12 +136,7 @@ function VisionCard() {
       </div>
       <CardContent className="p-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { label: 'Departments', value: '100', icon: Building2, color: 'text-[#003ABC]' },
-            { label: 'AI Employees', value: '2,000', icon: Bot, color: 'text-[#FF6A00]' },
-            { label: 'Skills', value: '10,000', icon: Zap, color: 'text-emerald-600' },
-            { label: 'Divisions', value: '12', icon: Globe, color: 'text-purple-600' },
-          ].map((item) => (
+          {items.map((item) => (
             <div key={item.label} className="text-center">
               <item.icon className={`h-5 w-5 mx-auto mb-1 ${item.color}`} />
               <p className="text-lg font-bold text-slate-900 dark:text-white">{item.value}</p>
