@@ -84,12 +84,18 @@ jobs:
         # connection strings are built here from the real environment variables
         # the workflow-level `env:` block provides, then published for later
         # steps. Dedicated test database only — never production.
+        # NOTE: GITHUB_ENV writes only affect SUBSEQUENT steps, so the URL
+        # validation below lives in its own step (it used to read the variable
+        # in the same step and always got `undefined` — every run of this
+        # workflow has failed since 2026-10-26 for exactly that reason).
         run: |
           set -euo pipefail
           url="mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@127.0.0.1:3306/${MYSQL_DATABASE}"
           echo "MYSQL_TEST_URL=${url}" >> "${GITHUB_ENV}"
           echo "DATABASE_URL=${url}" >> "${GITHUB_ENV}"
-          # Prove the URL is well-formed without echoing the password.
+
+      - name: Prove the URL is well-formed without echoing the password
+        run: |
           node -e 'const u=new URL(process.env.MYSQL_TEST_URL);
             if (u.protocol!=="mysql:") throw new Error("not a mysql URL");
             if (!u.pathname.slice(1)) throw new Error("no database in URL");
