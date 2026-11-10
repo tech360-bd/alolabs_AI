@@ -1,7 +1,7 @@
 {
   "name": "alolabs-agentos",
   "version": "1.0.0",
-  "description": "ALO Labs AgentOS / AI-EOS \u2014 Enterprise Artificial Intelligence Operating System",
+  "description": "ALO Labs AgentOS / AI-EOS — Enterprise Artificial Intelligence Operating System",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -11,7 +11,7 @@
     "audit:workforce": "npx tsx scripts/activate-workforce.ts",
     "audit:workforce:json": "npx tsx scripts/activate-workforce.ts --json",
     "bench:gateway": "npx tsx scripts/benchmark-gateway.ts",
-    "build": "NODE_OPTIONS=--max-old-space-size=3072 next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "NODE_OPTIONS=--max-old-space-size=3072 next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && cp -r node_modules/.prisma .next/standalone/node_modules/ && cp -r node_modules/@prisma .next/standalone/node_modules/",
     "canonicalize:workflows": "node scripts/canonicalize-workflow-definitions.mjs",
     "check:prisma-delegates": "tsx scripts/check-prisma-delegates.ts",
     "check:workflows": "node scripts/check-workflow-definitions.mjs",
