@@ -34,6 +34,7 @@ export interface StartCallInput {
   voiceAgentId?: string
   agentType?: 'ai' | 'human' | 'ivr'
   assignedUserId?: string
+  contactId?: string | null
   campaignCallId?: string
   recordingConsent?: boolean
   /** Sandbox-only: script the simulated outcome (tests/demo). */
@@ -82,6 +83,7 @@ export async function startCall(input: StartCallInput): Promise<StartedCall> {
       voiceAgentId: input.voiceAgentId,
       agentType: input.agentType ?? 'ai',
       assignedUserId: input.assignedUserId,
+      contactId: input.contactId ?? null,
       campaignCallId: input.campaignCallId,
       recordingConsent: input.recordingConsent ?? false,
       simulated,
@@ -188,6 +190,15 @@ export async function endCall(
     agentType: call.agentType,
     durationSeconds,
   })
+  // End-of-call artifacts (transcript, summary, structured outcome, campaign
+  // feedback). Best-effort: a summary failure must never resurrect a terminal
+  // call — but it is logged, never swallowed silently.
+  try {
+    const { finalizeCallArtifacts } = await import('./conversation-service')
+    await finalizeCallArtifacts(companyId, callId)
+  } catch (err) {
+    console.error(`[voice] finalizeCallArtifacts failed for call ${callId}:`, err instanceof Error ? err.message : err)
+  }
   return { durationSeconds, metered }
 }
 
