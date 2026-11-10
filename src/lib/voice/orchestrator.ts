@@ -37,6 +37,8 @@ export interface ConversationTurnInput {
     fallbackMessage?: string | null
     systemInstructions?: string | null
   } | null
+  /** Tenant knowledge retrieved for THIS turn (Knowledge Engine, fail-soft). */
+  knowledge?: Array<{ source: string; text: string }>
 }
 
 export interface ConversationTurnOutput {

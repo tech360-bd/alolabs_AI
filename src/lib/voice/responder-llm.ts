@@ -15,6 +15,7 @@
 
 import { executeCompanyAIChat, CompanyAIError } from '@/lib/multi-tenant-ai/service'
 import { detectLanguage, type LanguageDetection } from './language'
+import { knowledgeBlockForPrompt, type KnowledgeSnippet } from './knowledge'
 import type { ConversationResponder, ConversationTurnInput } from './orchestrator'
 import type { HandoffDecision } from './consent'
 
@@ -95,6 +96,11 @@ export class LlmConversationResponder implements ConversationResponder {
           (agent.systemInstructions ? `; business instructions: ${agent.systemInstructions}` : ''),
       )
       if (agent.greeting) parts.push(`Opening greeting already spoken (do not repeat verbatim): "${agent.greeting}"`)
+    }
+    const knowledge = (input.knowledge ?? []) as KnowledgeSnippet[]
+    if (knowledge.length > 0) {
+      const block = knowledgeBlockForPrompt(knowledge)
+      if (block) parts.push(block)
     }
     if (handoff.handoff) {
       parts.push(

@@ -7,7 +7,7 @@
  * are checked against REAL metered totals, never estimates.
  *
  * Quota sources (first non-empty wins):
- *   1. Company.metadata JSON  → `voiceQuota: { monthlyAiMinutes?, monthlyPstnMinutes?, budgetAlertUsd? }`
+ *   1. TenantConfig.config JSON → `voiceQuota: { monthlyAiMinutes?, monthlyPstnMinutes?, alertThresholdRatio? }`
  *   2. Env `VOICE_DEFAULT_MONTHLY_MINUTE_QUOTA` (platform default, 0 = unlimited)
  *
  * Alerting: crossing 80% (or the configured budget threshold) writes a
@@ -102,6 +102,20 @@ export function quotaDecision(params: {
 }
 
 /**
+ * Load the tenant's extensible JSON config (TenantConfig.config) — the home
+ * of `voiceQuota` and `voicePriceBook`. FIX: quota/price config used to be
+ * read from a non-existent Company.metadata column, so tenant configuration
+ * was silently ignored; TenantConfig is the real tenant JSON store.
+ */
+export async function tenantVoiceConfigJson(companyId: string): Promise<string | null> {
+  const cfg = await db.tenantConfig.findUnique({
+    where: { companyId },
+    select: { config: true },
+  })
+  return cfg?.config ?? null
+}
+
+/**
  * Pre-flight quota check for a call about to be placed. `estimatedMinutes` is
  * the max the call could consume (its agent's `maxCallSeconds` cap, rounded
  * up) — we charge nothing here, metering happens at real call end.
@@ -111,10 +125,8 @@ export async function checkCallQuota(params: {
   agentType: 'ai' | 'human' | 'ivr' | string
   maxCallSeconds: number
 }): Promise<QuotaCheckResult> {
-  const company = (await db.company.findUnique({
-    where: { id: params.companyId },
-  })) as { metadata?: string | null } | null
-  const config = parseQuotaConfig(company?.metadata ?? null)
+  const configJson = await tenantVoiceConfigJson(params.companyId)
+  const config = parseQuotaConfig(configJson)
   const dimension = params.agentType === 'ai' ? 'ai_call_minutes' : 'pstn_minutes'
   const limit = dimension === 'ai_call_minutes' ? config.monthlyAiMinutes : config.monthlyPstnMinutes
   if (limit === null) {
@@ -162,6 +174,18 @@ export async function recordQuotaAlert(params: {
         limitMinutes: params.limitMinutes,
         periodKey: params.periodKey,
       }),
+    },
+  })
+  // Surface the alert in the tenant's Notification center — an audit-only
+  // alert is invisible to the operators who must react to it.
+  await db.notification.create({
+    data: {
+      type: 'voice_quota_alert',
+      title: `Voice quota warning — ${params.dimension}`,
+      message: `Metered ${params.dimension} usage reached ${params.usedMinutes}/${params.limitMinutes} minutes for period ${params.periodKey}. New calls are refused once the quota is exhausted.`,
+      priority: 'warning',
+      companyId: params.companyId,
+      metadata: JSON.stringify({ dedupeKey, dimension: params.dimension, periodKey: params.periodKey }),
     },
   })
 }

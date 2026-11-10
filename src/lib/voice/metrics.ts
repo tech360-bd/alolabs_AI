@@ -17,6 +17,7 @@ export interface VoiceMetricsSnapshot {
   callsSimulated: number
   avgDurationSeconds: number
   escalationsOpen: number
+  escalationsCallbackScheduled: number
   campaignsRunning: number
   campaignCallsPending: number
   minutesMetered30d: { ai: number; pstn: number }
@@ -28,13 +29,14 @@ const ACTIVE_STATES = ['queued', 'ringing', 'in_progress', 'on_hold', 'transferr
 export async function voiceMetricsSnapshot(): Promise<VoiceMetricsSnapshot> {
   const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-  const [byStatus, byDirection, bySimulated, avg, escalationsOpen, campaignsRunning, campaignCallsPending, usage] =
+  const [byStatus, byDirection, bySimulated, avg, escalationsOpen, escalationsCallbackScheduled, campaignsRunning, campaignCallsPending, usage] =
     await Promise.all([
       db.callSession.groupBy({ by: ['status'], _count: { _all: true } }),
       db.callSession.groupBy({ by: ['direction'], _count: { _all: true } }),
       db.callSession.groupBy({ by: ['simulated'], _count: { _all: true } }),
       db.callSession.aggregate({ _avg: { durationSeconds: true } }),
       db.escalation.count({ where: { status: { in: ['assigned', 'callback_scheduled'] } } }),
+      db.escalation.count({ where: { status: 'callback_scheduled' } }),
       db.campaign.count({ where: { status: 'running' } }),
       db.campaignCall.count({ where: { status: { in: ['queued', 'pending'] } } }),
       db.voiceUsageEntry.groupBy({
@@ -63,6 +65,7 @@ export async function voiceMetricsSnapshot(): Promise<VoiceMetricsSnapshot> {
     callsSimulated: bySimulated.find((s) => s.simulated)?._count._all ?? 0,
     avgDurationSeconds: Math.round((avg._avg.durationSeconds ?? 0) * 100) / 100,
     escalationsOpen,
+    escalationsCallbackScheduled,
     campaignsRunning,
     campaignCallsPending,
     minutesMetered30d: {
@@ -96,6 +99,9 @@ export function voiceMetricsPrometheusLines(s: VoiceMetricsSnapshot): string[] {
   lines.push('# HELP voice_escalations_open Open human escalations (assigned or callback scheduled).')
   lines.push('# TYPE voice_escalations_open gauge')
   lines.push(`voice_escalations_open ${s.escalationsOpen}`)
+  lines.push('# HELP voice_escalations_callback_scheduled Escalations with a callback promise pending.')
+  lines.push('# TYPE voice_escalations_callback_scheduled gauge')
+  lines.push(`voice_escalations_callback_scheduled ${s.escalationsCallbackScheduled}`)
   lines.push('# HELP voice_campaigns_running Campaigns currently approved/running.')
   lines.push('# TYPE voice_campaigns_running gauge')
   lines.push(`voice_campaigns_running ${s.campaignsRunning}`)

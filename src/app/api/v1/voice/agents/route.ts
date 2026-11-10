@@ -50,8 +50,73 @@ export const POST = v1Handler(async ({ identity }, request) => {
       status: 'draft',
     },
   })
+  // Version 1 snapshot — every profile starts with an immutable audit trail (§10).
+  const { recordAgentVersion } = await import('@/lib/voice/agent-versions')
+  const version = await recordAgentVersion({
+    companyId: identity.companyId,
+    agentId: agent.id,
+    changedById: identity.userId,
+    note: 'created via /api/v1/voice/agents',
+  })
   return NextResponse.json({
     agent,
+    version: version.version,
     notice: 'Profile created in draft — set status:"active" via the dashboard after testing. Agents are reusable profiles, not dedicated processes.',
+  })
+})
+
+export const PATCH = v1Handler(async ({ identity }, request) => {
+  let body: Record<string, unknown>
+  try {
+    body = (await request.json()) as Record<string, unknown>
+  } catch {
+    throw new V1Error('Invalid JSON body', 400, 'BAD_REQUEST')
+  }
+  const id = typeof body.id === 'string' && body.id.trim() ? body.id.trim() : null
+  if (!id) throw new V1Error('id is required', 400, 'BAD_REQUEST')
+
+  const existing = await db.voiceAgent.findFirst({
+    where: { id, companyId: identity.companyId }, // tenant isolation
+  })
+  if (!existing) throw new V1Error('voice agent not found for this tenant', 404, 'NOT_FOUND')
+
+  const strFields = ['description', 'purpose', 'language', 'voiceLibraryItemId', 'greeting', 'systemInstructions', 'fallbackMessage', 'humanFallbackUserId', 'phoneNumberId', 'status'] as const
+  const data: Record<string, unknown> = {}
+  for (const f of strFields) {
+    const v = body[f]
+    if (typeof v === 'string' || v === null) data[f] = v
+  }
+  if (body.maxCallSeconds !== undefined) {
+    if (typeof body.maxCallSeconds !== 'number' || !Number.isFinite(body.maxCallSeconds)) {
+      throw new V1Error('maxCallSeconds must be a number', 400, 'BAD_REQUEST')
+    }
+    data.maxCallSeconds = Math.max(30, Math.min(3600, body.maxCallSeconds))
+  }
+  if (body.allowBargeIn !== undefined) data.allowBargeIn = body.allowBargeIn === true
+  if (body.knowledgeScope !== undefined) {
+    if (!Array.isArray(body.knowledgeScope)) throw new V1Error('knowledgeScope must be an array of ids', 400, 'BAD_REQUEST')
+    data.knowledgeScope = JSON.stringify(body.knowledgeScope)
+  }
+  if (body.escalationRules !== undefined) {
+    if (!Array.isArray(body.escalationRules)) throw new V1Error('escalationRules must be an array', 400, 'BAD_REQUEST')
+    data.escalationRules = JSON.stringify(body.escalationRules)
+  }
+  if (Object.keys(data).length === 0) throw new V1Error('nothing to update', 400, 'BAD_REQUEST')
+
+  await db.voiceAgent.update({ where: { id: existing.id }, data })
+  const { recordAgentVersion, agentConfigSnapshot } = await import('@/lib/voice/agent-versions')
+  const version = await recordAgentVersion({
+    companyId: identity.companyId,
+    agentId: existing.id,
+    changedById: identity.userId,
+    note: 'updated via /api/v1/voice/agents',
+    previousConfig: agentConfigSnapshot(existing as unknown as Record<string, unknown>),
+  })
+  const updated = await db.voiceAgent.findUniqueOrThrow({ where: { id: existing.id } })
+  return NextResponse.json({
+    agent: updated,
+    version: version.version,
+    versionSkipped: version.skipped,
+    notice: 'Every config change is snapshotted as an immutable VoiceAgentVersion (master prompt §10 audit history).',
   })
 })

@@ -125,12 +125,37 @@ export async function answerCall(callId: string, companyId: string): Promise<voi
     where: { id: callId },
     data: { answeredAt: new Date() },
   })
+  // Recording pipeline: consent-gated, adapter-driven, audit-logged (§19).
+  // Best-effort — a recording problem must never break a live conversation.
+  try {
+    const { startCallRecordingIfAllowed } = await import('./recording')
+    const result = await startCallRecordingIfAllowed(callId, companyId)
+    if (!result.performed) console.info(`[voice] recording not started on ${callId}: ${result.reason}`)
+  } catch (err) {
+    console.error(`[voice] recording start failed for ${callId}:`, err instanceof Error ? err.message : err)
+  }
 }
 
 export async function holdCall(callId: string, companyId: string, on: boolean): Promise<void> {
   const call = await getCall(callId, companyId)
   const next: CallState = on ? 'on_hold' : 'in_progress'
   await applyTransition(callId, companyId, call.status as CallState, next, { hold: on })
+  await logEvent(callId, companyId, on ? 'hold' : 'unhold', { at: new Date().toISOString() })
+  if (!on) {
+    // Accumulate real hold time from the last hold event — `holdSeconds` is a
+    // measured fact, not an estimate.
+    const lastHold = await db.callEvent.findFirst({
+      where: { callSessionId: callId, companyId, type: 'hold' },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    })
+    if (lastHold) {
+      const delta = Math.max(0, Math.floor((Date.now() - lastHold.createdAt.getTime()) / 1000))
+      if (delta > 0) {
+        await db.callSession.update({ where: { id: callId }, data: { holdSeconds: { increment: delta } } })
+      }
+    }
+  }
 }
 
 export async function transferCall(
@@ -198,6 +223,32 @@ export async function endCall(
     await finalizeCallArtifacts(companyId, callId)
   } catch (err) {
     console.error(`[voice] finalizeCallArtifacts failed for call ${callId}:`, err instanceof Error ? err.message : err)
+  }
+  // Stop the recording (persists the CallRecording row from real adapter
+  // metadata — see recording.ts honesty rule).
+  try {
+    const { stopCallRecording } = await import('./recording')
+    const rec = await stopCallRecording(callId, companyId)
+    if (!rec.performed || !rec.recording) console.info(`[voice] recording not persisted on ${callId}: ${rec.reason}`)
+  } catch (err) {
+    console.error(`[voice] recording stop failed for ${callId}:`, err instanceof Error ? err.message : err)
+  }
+  // Presence auto-release: a human agent whose last active call just ended
+  // returns to `available` — without this, handoff routing starves after the
+  // first transferred call.
+  if (call.assignedUserId) {
+    try {
+      const stillActive = await db.callSession.count({
+        where: {
+          companyId,
+          assignedUserId: call.assignedUserId,
+          status: { in: ['queued', 'ringing', 'in_progress', 'on_hold', 'transferring'] },
+        },
+      })
+      if (stillActive === 0) await setPresence(companyId, call.assignedUserId, 'available')
+    } catch (err) {
+      console.error(`[voice] presence release failed for ${callId}:`, err instanceof Error ? err.message : err)
+    }
   }
   return { durationSeconds, metered }
 }

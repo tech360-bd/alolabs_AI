@@ -15,9 +15,11 @@
 import { db } from '@/lib/db'
 import { enqueue, type QueueItemData } from '@/lib/job-queue'
 import { runCampaignTick } from './dialer'
+import { runCallbackTick, hasDueCallbackWork, CALLBACK_JOB_TYPE } from './callbacks'
 
 export const VOICE_QUEUE = 'voice'
 export const VOICE_TICK_JOB_TYPE = 'voice.campaign.tick'
+export const VOICE_CALLBACK_JOB_TYPE = CALLBACK_JOB_TYPE
 export const TICK_INTERVAL_MS = 60_000
 
 /** Enqueue one dialer tick for a tenant (max one per minute, per company). */
@@ -29,6 +31,22 @@ export async function enqueueCampaignTick(companyId: string, delayMs = 0): Promi
     { companyId },
     {
       idempotencyKey: `voice-campaign-tick:${companyId}:${bucket}`,
+      delayMs,
+      maxRetries: 3,
+    },
+  )
+  return item.id
+}
+
+/** Enqueue one callback-scheduler tick for a tenant. */
+export async function enqueueCallbackTick(companyId: string, delayMs = 0): Promise<string> {
+  const bucket = Math.floor((Date.now() + delayMs) / TICK_INTERVAL_MS)
+  const item = await enqueue(
+    VOICE_QUEUE,
+    VOICE_CALLBACK_JOB_TYPE,
+    { companyId },
+    {
+      idempotencyKey: `voice-callback-tick:${companyId}:${bucket}`,
       delayMs,
       maxRetries: 3,
     },
@@ -49,9 +67,9 @@ async function hasActiveCampaignWork(companyId: string): Promise<boolean> {
 }
 
 /**
- * Executor for `voice.campaign.tick`. Used by the background worker
- * (src/instrumentation.node.ts) and the manual trigger route so both paths
- * behave identically.
+ * Executor for `voice.campaign.tick` and `voice.callback.due`. Used by the
+ * background worker (src/instrumentation.node.ts) and the manual trigger
+ * routes so both paths behave identically.
  */
 export async function dispatchVoiceJob(job: QueueItemData): Promise<unknown> {
   let payload: Record<string, unknown> = {}
@@ -60,15 +78,22 @@ export async function dispatchVoiceJob(job: QueueItemData): Promise<unknown> {
   } catch {
     payload = {}
   }
-  if (job.jobType !== VOICE_TICK_JOB_TYPE) {
-    throw new Error(`unknown voice job type: ${job.jobType}`)
-  }
   const companyId = typeof payload.companyId === 'string' ? payload.companyId : null
-  if (!companyId) throw new Error('voice.campaign.tick job missing companyId')
+  if (!companyId) throw new Error('voice queue job missing companyId')
 
-  const decisions = await runCampaignTick(companyId)
-  if (await hasActiveCampaignWork(companyId)) {
-    await enqueueCampaignTick(companyId, TICK_INTERVAL_MS)
+  if (job.jobType === VOICE_TICK_JOB_TYPE) {
+    const decisions = await runCampaignTick(companyId)
+    if (await hasActiveCampaignWork(companyId)) {
+      await enqueueCampaignTick(companyId, TICK_INTERVAL_MS)
+    }
+    return { companyId, decisions, dialed: decisions.filter((d) => d.action === 'dial').length }
   }
-  return { companyId, decisions, dialed: decisions.filter((d) => d.action === 'dial').length }
+  if (job.jobType === VOICE_CALLBACK_JOB_TYPE) {
+    const decisions = await runCallbackTick(companyId)
+    if (await hasDueCallbackWork(companyId)) {
+      await enqueueCallbackTick(companyId, TICK_INTERVAL_MS)
+    }
+    return { companyId, decisions, dialed: decisions.filter((d) => d.action === 'dialed').length }
+  }
+  throw new Error(`unknown voice job type: ${job.jobType}`)
 }

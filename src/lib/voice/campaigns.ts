@@ -52,6 +52,41 @@ export function parseCallingHours(raw: string): CallingHoursConfig {
   }
 }
 
+/** UTC offset (ms) of an IANA timezone at a given instant (two-pass, DST-safe). */
+function timezoneOffsetMs(timezone: string, at: Date): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+  const parts = dtf.formatToParts(at)
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? '0')
+  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second'))
+  return asUtc - at.getTime()
+}
+
+/**
+ * Pure: the UTC instant of LOCAL MIDNIGHT in `timezone` for the day containing
+ * `at`. Used by the campaign dialer so the daily quota window matches the
+ * campaign's calling-hours timezone (previously the window was UTC-midnight,
+ * which let campaigns near midnight overshoot by up to the UTC offset).
+ * Unknown timezones fall back to UTC (fail-closed to the old behavior).
+ */
+export function localDayStartUtc(at: Date, timezone: string): Date {
+  try {
+    const dayFmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+    })
+    const [year, month, day] = dayFmt.format(at).split('-').map(Number)
+    const localMidnightGuess = Date.UTC(year, month - 1, day, 0, 0, 0)
+    const offset = timezoneOffsetMs(timezone, new Date(localMidnightGuess))
+    return new Date(localMidnightGuess - offset)
+  } catch {
+    const fallback = new Date(at)
+    fallback.setUTCHours(0, 0, 0, 0)
+    return fallback
+  }
+}
+
 /**
  * Evaluate one pending destination against every compliance gate and create
  * (or update) its CampaignCall row. Returns an explicit action so the caller

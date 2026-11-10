@@ -29,6 +29,8 @@ import { detectLanguage, replyLanguageFor } from './language'
 import { buildOpeningGreeting } from './disclosure'
 import { executeHandoff } from './handoff'
 import { endCall, answerCall } from './call-service'
+import { retrieveKnowledge } from './knowledge'
+import { evaluateSilence, silenceNudgeReply, silenceEndReply, classifyBargeIn } from './turn-taking'
 import type { HandoffTrigger } from './consent'
 
 export class ConversationError extends Error {
@@ -57,6 +59,7 @@ async function loadAgent(companyId: string, voiceAgentId: string | null) {
     select: {
       id: true, name: true, language: true, greeting: true, fallbackMessage: true,
       systemInstructions: true, maxCallSeconds: true, status: true,
+      knowledgeScope: true, allowBargeIn: true,
     },
   })
 }
@@ -163,6 +166,14 @@ export async function handleConversationTurn(params: {
   utterance: string
   asrConfidence?: number | null
   asrFailureCount?: number
+  /** Transport reports the customer started speaking while TTS was playing. */
+  bargeIn?: boolean
+  /** Transport-measured customer speech duration in ms (barge-in noise filter). */
+  customerSpeechDurationMs?: number | null
+  /** Silence since the agent's last reply (transport-measured), when the utterance is empty. */
+  silenceMs?: number | null
+  /** Silence nudges already spoken on this call (durable via prior turn payloads). */
+  nudgesSoFar?: number
 }): Promise<{
   reply: string
   handoff: { handoff: boolean; mandatory: boolean; reason: string }
@@ -170,6 +181,7 @@ export async function handleConversationTurn(params: {
   endReason?: string
   language: string
   responder: string
+  turnClassification?: 'barge_in' | 'silence_nudge' | 'silence_end' | 'normal'
 }> {
   const call = await loadCall(params.companyId, params.callSessionId)
   const agent = await loadAgent(params.companyId, call.voiceAgentId)
@@ -180,6 +192,70 @@ export async function handleConversationTurn(params: {
     language: detection.language,
     asrConfidence: params.asrConfidence ?? null,
   })
+
+  // --- Turn-taking: barge-in (customer interrupted the agent's speech) ---
+  let turnClassification: 'barge_in' | 'silence_nudge' | 'silence_end' | 'normal' = 'normal'
+  if (params.bargeIn) {
+    const decision = classifyBargeIn({
+      customerSpokeDuringAgentSpeech: true,
+      customerSpeechDurationMs: params.customerSpeechDurationMs ?? null,
+    })
+    if (decision.bargedIn) turnClassification = 'barge_in'
+    await db.callEvent.create({
+      data: {
+        callSessionId: call.id,
+        companyId: params.companyId,
+        type: 'barge_in',
+        payload: JSON.stringify({
+          recognized: decision.bargedIn,
+          agentAllowsBargeIn: agent?.allowBargeIn ?? true,
+          reason: decision.reason,
+        }),
+      },
+    })
+  }
+
+  // --- Turn-taking: silence / dead-air (empty utterance + measured silence) ---
+  if (!params.utterance.trim() && typeof params.silenceMs === 'number' && params.silenceMs > 0) {
+    const nudgesSoFar = await countSilenceNudges(params.companyId, call.id)
+    const silence = evaluateSilence({
+      silenceMs: params.silenceMs,
+      maxSilenceMs: Number(process.env.VOICE_MAX_SILENCE_MS ?? '20000'),
+      nudgesSoFar,
+    })
+    const replyLanguage = replyLanguageFor(detection, agent?.language ?? 'bn-BD')
+    if (silence.action === 'nudge') {
+      const nudgeReply = silenceNudgeReply(replyLanguage)
+      await persistTurn(params.companyId, call.id, 'agent', nudgeReply, {
+        responder: 'turn-taking', intents: ['silence_nudge'], replyLanguage,
+        turnClassification: 'silence_nudge',
+      })
+      return { reply: nudgeReply, handoff: { handoff: false, mandatory: false, reason: silence.reason }, endCall: false, language: replyLanguage, responder: 'turn-taking', turnClassification: 'silence_nudge' }
+    }
+    if (silence.action === 'end_call') {
+      const endReply = silenceEndReply(replyLanguage)
+      await persistTurn(params.companyId, call.id, 'agent', endReply, {
+        responder: 'turn-taking', intents: ['silence_end'], replyLanguage,
+        turnClassification: 'silence_end',
+      })
+      await endCall(call.id, params.companyId, 'completed', `silence_timeout after ${nudgesSoFar} nudges`)
+      return { reply: endReply, handoff: { handoff: false, mandatory: false, reason: silence.reason }, endCall: true, endReason: 'silence_timeout', language: replyLanguage, responder: 'turn-taking', turnClassification: 'silence_end' }
+    }
+  }
+
+  // --- Knowledge Engine (fail-soft): tenant-scoped retrieval for this turn ---
+  let knowledge: Array<{ source: string; text: string }> = []
+  let knowledgeMeta: { snippets: number; error: string | null; collections: string[] } = { snippets: 0, error: null, collections: [] }
+  if (agent?.knowledgeScope && params.utterance.trim()) {
+    const retrieval = await retrieveKnowledge({
+      companyId: params.companyId,
+      scopeRaw: agent.knowledgeScope,
+      query: params.utterance,
+      actorUserId: call.assignedUserId,
+    })
+    knowledge = retrieval.snippets.map((s) => ({ source: s.source, text: s.text }))
+    knowledgeMeta = { snippets: knowledge.length, error: retrieval.error, collections: retrieval.collectionsQueried }
+  }
 
   const durationSeconds = call.answeredAt
     ? Math.max(0, Math.floor((Date.now() - call.answeredAt.getTime()) / 1000))
@@ -203,6 +279,7 @@ export async function handleConversationTurn(params: {
           systemInstructions: agent.systemInstructions,
         }
       : null,
+    knowledge,
   }
 
   const actorUserId = await resolveActorUserId(params.companyId, call.assignedUserId)
@@ -213,6 +290,8 @@ export async function handleConversationTurn(params: {
     responder: output.responder,
     intents: output.intents,
     replyLanguage,
+    turnClassification,
+    knowledge: knowledgeMeta,
   })
 
   // Persist detected language on the call (first detection wins as primary,
@@ -229,7 +308,7 @@ export async function handleConversationTurn(params: {
       decision: { ...output.handoff, trigger: output.handoff.trigger as HandoffTrigger | undefined },
       voiceAgentId: call.voiceAgentId,
     })
-    return { reply: output.reply, handoff: output.handoff, endCall: true, endReason: `handoff:${output.handoff.trigger ?? 'requested'}`, language: replyLanguage, responder: output.responder }
+    return { reply: output.reply, handoff: output.handoff, endCall: true, endReason: `handoff:${output.handoff.trigger ?? 'requested'}`, language: replyLanguage, responder: output.responder, turnClassification }
   }
 
   if (output.endCall) {
@@ -243,7 +322,17 @@ export async function handleConversationTurn(params: {
     endReason: output.endReason,
     language: replyLanguage,
     responder: output.responder,
+    turnClassification,
   }
+}
+
+/** Count prior silence nudges from durable turn payloads (not process memory). */
+async function countSilenceNudges(companyId: string, callSessionId: string): Promise<number> {
+  const events = await db.callEvent.findMany({
+    where: { callSessionId, companyId, type: 'conversation_turn', payload: { contains: '"turnClassification":"silence_nudge"' } },
+    select: { id: true },
+  })
+  return events.length
 }
 
 // ---- Call-end artifacts ----

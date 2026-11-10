@@ -93,7 +93,18 @@ vi.mock('@/lib/db', () => ({
         store.escalation.push(row)
         return { ...row }
       },
+      findFirst: async ({ where }: { where: Row }) => store.escalation.find((r) => matches(r, where)) ?? null,
       findMany: async ({ where }: { where: Row }) => store.escalation.filter((r) => matches(r, where)),
+      updateMany: async ({ where, data }: { where: Row; data: Row }) => {
+        let count = 0
+        for (const r of store.escalation) {
+          if (matches(r, where)) {
+            Object.assign(r, data)
+            count += 1
+          }
+        }
+        return { count }
+      },
     },
     task: {
       create: async ({ data }: { data: Row }) => {
@@ -259,6 +270,9 @@ describe('conversation turns + structural handoff', () => {
     // Escalation persisted with a callback task (no available human agent).
     expect(store.escalation).toHaveLength(1)
     expect(store.escalation[0].status).toBe('callback_scheduled')
+    // Round-2 gap closure: the callback promise now carries a DEADLINE that
+    // the voice callback scheduler (voice.callback.due) consumes.
+    expect(store.escalation[0].callbackDueAt).toBeInstanceOf(Date)
     expect(store.task).toHaveLength(1)
     expect(String(store.task[0].title)).toContain('Callback')
     // The call was ended honestly and the handoff audited.

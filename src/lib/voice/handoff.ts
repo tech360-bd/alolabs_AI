@@ -20,6 +20,7 @@ import { db } from '@/lib/db'
 import { orderQueueCandidates, type QueueCandidate } from './routing'
 import type { HandoffDecision } from './consent'
 import { endCall } from './call-service'
+import { scheduleCallback } from './callbacks'
 
 export interface EscalationTarget {
   userId: string | null
@@ -170,6 +171,10 @@ export async function executeHandoff(params: {
     },
     select: { id: true },
   })
+  // The callback promise gets a DEADLINE — the voice callback scheduler
+  // (callbacks.ts, `voice.callback.due` queue job) dials the customer back
+  // when it comes due. A promise without a deadline is a silent drop.
+  const callbackDueAt = await scheduleCallback({ companyId: params.companyId, escalationId: escalation.id })
   await db.callEvent.create({
     data: {
       callSessionId: call.id,
@@ -178,6 +183,7 @@ export async function executeHandoff(params: {
       payload: JSON.stringify({
         escalationId: escalation.id,
         callbackTaskId: callbackTask.id,
+        callbackDueAt: callbackDueAt.toISOString(),
         trigger: params.decision.trigger,
         reason: params.decision.reason,
         noAgentAvailable: true,

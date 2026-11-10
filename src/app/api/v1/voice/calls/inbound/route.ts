@@ -39,6 +39,9 @@ export const POST = v1Handler(async ({ identity }, request) => {
       callSessionId,
       utterance: body.utterance,
       asrConfidence: typeof body.asrConfidence === 'number' ? body.asrConfidence : null,
+      bargeIn: body.bargeIn === true,
+      customerSpeechDurationMs: typeof body.customerSpeechDurationMs === 'number' ? body.customerSpeechDurationMs : null,
+      silenceMs: typeof body.silenceMs === 'number' ? body.silenceMs : null,
     })
     return { callSessionId, turn }
   }

@@ -18,7 +18,7 @@
 
 import { db } from '@/lib/db'
 import { campaignExpiryCheck } from './campaign-lifecycle'
-import { prepareCampaignCall, dialCampaignCall } from './campaigns'
+import { prepareCampaignCall, dialCampaignCall, parseCallingHours, localDayStartUtc } from './campaigns'
 
 export interface TickDecision {
   campaignId: string
@@ -121,10 +121,11 @@ export async function runCampaignTick(companyId: string, at: Date = new Date()):
           },
         })
       : 0
-    // Daily quota: attempts started since local midnight (UTC day used —
-    // documented; the calling-hours config owns timezone correctness).
-    const dayStart = new Date(at)
-    dayStart.setUTCHours(0, 0, 0, 0)
+    // Daily quota: attempts started since local midnight in the campaign's
+    // calling-hours timezone — the SAME timezone that owns calling-hours
+    // correctness, so the quota day and the legal calling day always agree.
+    const campaignTz = parseCallingHours(campaign.callingHours).timezone
+    const dayStart = localDayStartUtc(at, campaignTz)
     const callsStartedToday = await db.campaignCall.count({
       where: { campaignId: campaign.id, companyId, lastAttemptAt: { gte: dayStart } },
     })

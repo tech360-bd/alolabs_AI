@@ -139,6 +139,16 @@ export class SandboxTelephonyAdapter implements TelephonyAdapter {
     if (call) call.events.push({ type: on ? 'record_start' : 'record_stop', at: new Date() })
   }
 
+  /**
+   * Honest recording metadata: the sandbox has NO audio stream, so there is
+   * no recording to persist. Recording.ts only writes a CallRecording row
+   * when an adapter returns real media metadata — a fake "recording" of a
+   * call that had no audio would be fabricated evidence.
+   */
+  async recordingMetadata(): Promise<null> {
+    return null
+  }
+
   async health(): Promise<{ reachable: boolean; detail?: string }> {
     return { reachable: true, detail: 'sandbox adapter is always reachable (simulated)' }
   }
