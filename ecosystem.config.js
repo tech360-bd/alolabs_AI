@@ -1,9 +1,9 @@
 module.exports = {
   apps: [{
-    name: 'agentos-app',
-    cwd: '/opt',
+    name: 'alolabs-agentos',
+    cwd: '/home/alamin/alolabs_AI',
     script: '.next/standalone/server.js',
-    interpreter: '/usr/local/bin/bun',
+    interpreter: 'node',
     instances: 1,
     exec_mode: 'fork',
     autorestart: true,
@@ -13,13 +13,11 @@ module.exports = {
     kill_timeout: 10000,
     listen_timeout: 15000,
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-    error_file: '/opt/logs/agentos-error.log',
-    out_file: '/opt/logs/agentos-out.log',
     merge_logs: true,
     env: {
       NODE_ENV: 'production',
       HOSTNAME: '0.0.0.0',
-      PORT: 3011,
+      PORT: 3012,
     },
   }],
 };
