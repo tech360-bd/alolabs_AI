@@ -55,6 +55,16 @@ jobs:
           bunx prisma --version
       - name: Install locked dependencies
         run: bun install --frozen-lockfile
+      - name: Assert the default schema is the SQLite datasource
+        # prisma/schema.prisma is the dev/test/CI datasource (SQLite). Production
+        # generates its client from prisma/schema.mysql.prisma via deploy.sh
+        # (`db:generate:mysql`) — see src/lib/production-database.ts and the
+        # mysql.yml workflow. This assertion makes a provider flip fail CI
+        # instead of breaking every SQLite-adapter test at runtime.
+        run: |
+          set -euo pipefail
+          grep -Eq 'provider *= *"sqlite"' prisma/schema.prisma \
+            || { echo 'prisma/schema.prisma must stay provider="sqlite" (dev/CI). Production uses prisma/schema.mysql.prisma via deploy.sh / npm run db:generate:mysql.'; exit 1; }
       - name: Validate workflow files
         # Catches unpinned actions and context-availability mistakes (for
         # example `secrets` in `jobs.<job_id>.if`, where it is not allowed)
