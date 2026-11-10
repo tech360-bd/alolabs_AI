@@ -301,6 +301,6 @@ export function buildEmployeeWorkforceProfile(
     security: () => ({ satisfied: profile.security.protectionRules.length > 0, evidence: `${profile.security.protectionRules.length} protection rule(s)` }),
   };
 
-  profile.completeness = PROFILE_CATEGORIES.map((category) => ({ category, ...evidence[category]() }));
-  return profile;
+  const completeness = PROFILE_CATEGORIES.map((category) => ({ category, ...evidence[category]() }));
+  return { ...profile, completeness };
 }
