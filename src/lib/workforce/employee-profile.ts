@@ -93,6 +93,7 @@ export interface DerivedPrompt {
  * The output is a pure function of the input — no randomness, no model calls.
  */
 export function deriveEmployeePrompts(agent: {
+  role: string;
   purpose: string;
   systemInstructions: string;
   workflowSteps: MaybeSerialized<string[]>;
@@ -223,7 +224,7 @@ export function buildEmployeeWorkforceProfile(
   const taskPrompts = deriveEmployeePrompts(agent);
   const escalationPrompt = taskPrompts.find((p) => p.kind === 'escalation')?.prompt ?? '';
 
-  const profile: EmployeeWorkforceProfile = {
+  const profile: Omit<EmployeeWorkforceProfile, 'completeness'> = {
     employeeKey: identity.employeeKey,
     role: {
       roleKey: identity.roleKey,
