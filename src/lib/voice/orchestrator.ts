@@ -37,6 +37,8 @@ export interface ConversationTurnInput {
     fallbackMessage?: string | null
     systemInstructions?: string | null
   } | null
+  /** Tenant knowledge retrieved for THIS turn (Knowledge Engine, fail-soft). */
+  knowledge?: Array<{ source: string; text: string }>
 }
 
 export interface ConversationTurnOutput {
@@ -139,8 +141,15 @@ export function buildStructuredOutcome(params: {
  * then the responder. This ordering is the safety contract — the responder
  * receives the handoff decision and must honor it, and the orchestrator
  * independently enforces `mandatory` handoffs even if a responder ignores it.
+ *
+ * `responderOverride` lets a caller inject the responder for THIS turn (e.g.
+ * a per-tenant LLM responder with correct attribution). When omitted the
+ * globally registered responder is used.
  */
-export async function runConversationTurn(input: ConversationTurnInput): Promise<ConversationTurnOutput> {
+export async function runConversationTurn(
+  input: ConversationTurnInput,
+  responderOverride?: ConversationResponder,
+): Promise<ConversationTurnOutput> {
   const handoff = evaluateHandoff({
     utterance: input.utterance,
     asrFailureCount: input.asrFailureCount,
@@ -149,7 +158,8 @@ export async function runConversationTurn(input: ConversationTurnInput): Promise
     maxCallSeconds: input.maxCallSeconds,
   })
 
-  const responderResult = await activeResponder.respond(input, handoff)
+  const responder = responderOverride ?? activeResponder
+  const responderResult = await responder.respond(input, handoff)
   const mandatoryHandoff = handoff.handoff && handoff.mandatory
   const endCall = responderResult.endCall === true && !mandatoryHandoff ? true : handoff.handoff && handoff.trigger === 'max_duration'
 
@@ -163,7 +173,7 @@ export async function runConversationTurn(input: ConversationTurnInput): Promise
     intents: responderResult.intents ?? [],
     endCall,
     endReason: responderResult.endReason ?? (endCall ? handoff.trigger : undefined),
-    responder: activeResponder.id,
+    responder: responder.id,
   }
 }
 

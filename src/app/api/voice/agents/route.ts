@@ -51,7 +51,15 @@ export async function POST(request: Request) {
         phoneNumberId: optionalString(body, 'phoneNumberId'),
       },
     })
-    return { data: agent }
+    // Version 1 snapshot — every profile starts with an immutable audit trail (§10).
+    const { recordAgentVersion } = await import('@/lib/voice/agent-versions')
+    const version = await recordAgentVersion({
+      companyId: auth.companyId,
+      agentId: agent.id,
+      changedById: auth.userId,
+      note: 'created via /api/voice/agents',
+    })
+    return { data: agent, version: version.version }
   })
 }
 
@@ -69,8 +77,19 @@ export async function PATCH(request: Request) {
     if (body.maxCallSeconds !== undefined) data.maxCallSeconds = String(optionalNumber(body, 'maxCallSeconds') ?? 600)
     if (Object.keys(data).length === 0) throw new Error('Invalid request: nothing to update')
     // Tenant-scoped update: updateMany with companyId filter refuses cross-tenant writes.
+    const existing = await db.voiceAgent.findFirst({ where: { id, companyId: auth.companyId } })
+    if (!existing) throw new Error(`voice agent ${id} not found for this tenant`)
     const result = await db.voiceAgent.updateMany({ where: { id, companyId: auth.companyId }, data })
     if (result.count === 0) throw new Error(`voice agent ${id} not found for this tenant`)
-    return { data: { ok: true, updated: result.count } }
+    // Immutable version snapshot when the auditable config actually changed (§10).
+    const { recordAgentVersion, agentConfigSnapshot } = await import('@/lib/voice/agent-versions')
+    const version = await recordAgentVersion({
+      companyId: auth.companyId,
+      agentId: existing.id,
+      changedById: auth.userId,
+      note: 'updated via /api/voice/agents',
+      previousConfig: agentConfigSnapshot(existing as unknown as Record<string, unknown>),
+    })
+    return { data: { ok: true, updated: result.count }, version: version.version, versionSkipped: version.skipped }
   })
 }

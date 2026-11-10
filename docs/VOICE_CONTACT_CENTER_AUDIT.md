@@ -6,6 +6,13 @@
 **Working branch:** `arena/af56beb2-alolabs-ai`
 **Decision status:** Phase 0 documentation only. **Owner approval is required before Phase 1. Production deployment is not approved.**
 
+> **UPDATE 2026-11-11:** the runtime gaps identified below (conversation brain
+> wiring, campaign lifecycle, dialer worker, webhook HMAC security, handoff
+> execution, CRM caller matching, quotas, metrics, v1 surface) are now
+> implemented — see `docs/VOICE_GAP_CLOSURE_2026-11-11.md` for the per-section
+> implementation map and the honest remaining boundary (real PSTN + media
+> layer still require owner-approved infrastructure).
+
 ## 1. Executive conclusion
 
 ALO Labs already has a substantial AgentOS application. The correct approach is an **additive communications domain inside that application**, not a replacement repository, a second competing tenant system, or a cosmetic call-center dashboard.

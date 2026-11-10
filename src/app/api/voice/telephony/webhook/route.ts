@@ -2,36 +2,55 @@ import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { answerCall, endCall, transferCall } from '@/lib/voice/call-service'
 import { isCallState } from '@/lib/voice/call-state'
+import { verifyWebhookSignature } from '@/lib/voice/webhook-security'
+import { beginConversation } from '@/lib/voice/conversation-service'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Telephony provider webhook (Modules A/E/F).
+ * Telephony provider webhook (master prompt §08/§19/§22).
  *
  * Real adapters (Asterisk/FreeSWITCH/SIP trunk) post call-state events here.
- * Authentication: the tenant is identified by `companyId` in the query string
- * and MUST present `x-alolabs-webhook-secret` matching that Company's apiSecret.
- * Invalid secrets are rejected with 401 and the event is never applied.
  *
- * The webhook only drives the state machine — it can never fabricate call
- * content (transcripts/summaries) or invent durations.
+ * AUTHENTICATION (two methods during the adapter migration window):
+ * 1. HMAC (preferred, replay-safe):
+ *      x-alolabs-timestamp = unix seconds
+ *      x-alolabs-signature = hex(HMAC_SHA256(company.apiSecret, `${timestamp}.${rawBody}`))
+ * 2. Legacy static header `x-alolabs-webhook-secret` — accepted only when no
+ *    signature headers are present; the tenant is identified by `companyId`
+ *    in the query string. Invalid credentials are rejected with 401 and the
+ *    event is never applied.
+ *
+ * The webhook only drives the state machine and conversation lifecycle — it
+ * can never fabricate call content or invent durations.
  */
 export async function POST(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const companyId = searchParams.get('companyId')
-    const secret = request.headers.get('x-alolabs-webhook-secret')
-    if (!companyId || !secret) {
-      return NextResponse.json({ error: 'companyId and secret required' }, { status: 401 })
+    if (!companyId) {
+      return NextResponse.json({ error: 'companyId required' }, { status: 401 })
     }
     const company = await db.company.findUnique({ where: { id: companyId }, select: { id: true, apiSecret: true } })
-    if (!company || !company.apiSecret || company.apiSecret !== secret) {
+    if (!company || !company.apiSecret) {
       return NextResponse.json({ error: 'Invalid webhook credentials' }, { status: 401 })
+    }
+
+    // Raw body is required for the HMAC (the signature is computed over the
+    // exact bytes the adapter signed).
+    const rawBody = await request.text()
+    const auth = verifyWebhookSignature({
+      rawBody,
+      headers: request.headers,
+      secret: company.apiSecret,
+    })
+    if (!auth.ok) {
+      return NextResponse.json({ error: `Webhook authentication failed: ${auth.reason}` }, { status: auth.status })
     }
 
     let body: Record<string, unknown>
     try {
-      body = (await request.json()) as Record<string, unknown>
+      body = JSON.parse(rawBody) as Record<string, unknown>
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
@@ -53,14 +72,26 @@ export async function POST(request: Request) {
         callSessionId: call.id,
         companyId,
         type: `provider_${event}`,
-        payload: JSON.stringify({ providerCallId, ...sanitize(body) }),
+        payload: JSON.stringify({ providerCallId, authMethod: auth.method, ...sanitize(body) }),
       },
     })
 
     switch (event) {
-      case 'answered':
+      case 'answered': {
         await answerCall(call.id, companyId)
-        break
+        // Inbound AI calls open the real conversation (greeting carries the
+        // mandatory AI identity disclosure).
+        let conversation: { greeting: string; language: string } | null = null
+        if (call.direction === 'inbound' && call.agentType === 'ai' && call.voiceAgentId) {
+          const opening = await beginConversation({
+            companyId,
+            callSessionId: call.id,
+            detectedLanguage: typeof body.detectedLanguage === 'string' ? body.detectedLanguage : null,
+          })
+          conversation = { greeting: opening.greeting, language: opening.language }
+        }
+        return NextResponse.json({ ok: true, conversation })
+      }
       case 'ended': {
         const finalState = typeof body.finalState === 'string' && isCallState(body.finalState)
           ? body.finalState : 'completed'
@@ -94,7 +125,7 @@ export async function POST(request: Request) {
 function sanitize(body: Record<string, unknown>): Record<string, unknown> {
   const clone: Record<string, unknown> = { ...body }
   for (const key of Object.keys(clone)) {
-    if (/secret|token|password|authorization/i.test(key)) clone[key] = '[redacted]'
+    if (/secret|token|password|authorization/i.test(key) || key === 'signature') clone[key] = '[redacted]'
   }
   return clone
 }

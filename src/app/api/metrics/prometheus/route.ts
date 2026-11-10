@@ -70,6 +70,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Voice & Contact Center subsystem metrics — real DB aggregates
+    // (call counts, concurrency, escalations, metered minutes).
+    try {
+      const { voiceMetricsSnapshot, voiceMetricsPrometheusLines } = await import('@/lib/voice/metrics');
+      const snapshot = await voiceMetricsSnapshot();
+      lines.push(...voiceMetricsPrometheusLines(snapshot));
+    } catch (voiceError) {
+      console.error('voice metrics export failed (exporting core metrics without them):', voiceError);
+    }
+
     const output = [...helpLines, '# TYPE agent_hub_metrics gauge', ...lines].join('\n');
 
     return new NextResponse(output, {

@@ -3859,7 +3859,7 @@ model SipTrunkConfig {
   host            String
   port            Int       @default(5060)
   transport       String @db.LongText    @default("udp") // udp, tcp, tls, wss
-  credentialRef   String? @db.LongText // IntegrationCredential id — secrets never stored here
+  credentialRef   String? @db.LongText // External secret-store reference (e.g. IntegrationCredential/secrets manager id) — secrets never stored here
   status          String    @default("unverified") // unverified, online, offline, error
   lastVerifiedAt  DateTime?
   lastError       String? @db.LongText
@@ -4051,6 +4051,8 @@ model CallSession {
   id                String    @id @default(cuid())
   companyId         String
   direction         String    // inbound, outbound
+  language          String @db.LongText    @default("bn-BD") // primary conversation language (bn-BD, en-US, mixed)
+  contactId         String? // CrmContact id — set by inbound caller identification (exact normalized-phone match)
   channel           String    @default("pstn") // pstn, sip, webrtc, sandbox
   fromNumber        String @db.LongText
   toNumber          String @db.LongText
@@ -4162,7 +4164,7 @@ model Campaign {
   name                 String
   description          String? @db.LongText
   type                 String    @default("follow_up") // reminder, survey, follow_up, lead_qualification, appointment
-  status               String    @default("draft") // draft, scheduled, running, paused, completed, cancelled
+  status               String    @default("draft") // draft, pending_approval, approved, running, paused, completed, cancelled, expired — see src/lib/voice/campaign-lifecycle.ts
   script               String? @db.LongText
   voiceAgentId         String?
   phoneNumberId        String?
@@ -4174,6 +4176,11 @@ model Campaign {
   minGapMinutesPerContact Int    @default(1440)
   respectDnc           Boolean   @default(true)
   recordingDisclosure  String? @db.LongText
+  approvedById         String? // User id who approved the campaign (required before dialing)
+  approvedAt           DateTime?
+  expiresAt            DateTime? // campaign refuses to dial after this instant
+  maxConcurrentCalls   Int       @default(2) // concurrent live calls this campaign may own
+  dailyQuota           Int       @default(200) // max call attempts per local day in the campaign timezone (0 = unlimited)
   metadata             String @db.LongText    @default("{}")
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -4188,7 +4195,7 @@ model CampaignCall {
   campaignId       String
   companyId        String
   contactId        String? // CrmContact id
-  destinationNumber String @db.LongText
+  destinationNumber String
   status           String    @default("pending") // pending, dnc_blocked, outside_hours, queued, dialing, in_progress, completed, no_answer, busy, failed, skipped, max_attempts, cancelled
   attempts         Int       @default(0)
   lastAttemptAt    DateTime?
@@ -4201,6 +4208,7 @@ model CampaignCall {
 
   campaign    Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
+  @@unique([campaignId, destinationNumber]) // duplicate-call prevention (§13)
   @@index([campaignId, status])
   @@index([companyId, status])
   @@index([nextAttemptAt])
@@ -4253,4 +4261,136 @@ model VoiceUsageEntry {
 
   @@index([companyId, dimension])
   @@index([companyId, recordedAt])
+}
+
+// ---- Gap-closure models: handoff, appointments, customer consent,
+// provider registry, idempotency (master prompt §12/§14/§16/§18/§22) ----
+
+model Escalation {
+  id              String    @id @default(cuid())
+  companyId       String
+  callSessionId   String
+  trigger         String @db.LongText // customer_requested_human, payment_dispute, legal_or_safety, repeated_recognition_failure, low_confidence, max_duration, agent_error
+  reason          String @db.LongText
+  status          String    @default("open") // open, assigned, callback_scheduled, resolved, cancelled
+  assignedUserId  String?
+  queueId         String?
+  callbackTaskId  String? // Task id created when no human agent was available
+  callbackDueAt   DateTime? // when the promised callback must be dialed — consumed by the voice callback scheduler
+  resolvedAt      DateTime?
+  resolutionNote  String? @db.LongText
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([companyId, status])
+  @@index([callSessionId])
+  @@index([assignedUserId, status])
+}
+
+model Appointment {
+  id             String    @id @default(cuid())
+  companyId      String
+  contactId      String? // CrmContact id
+  callSessionId  String? // CallSession that booked it (source of truth for the action)
+  title          String
+  scheduledFor   DateTime
+  durationMin    Int       @default(30)
+  timezone       String @db.LongText    @default("Asia/Dhaka")
+  status         String    @default("scheduled") // scheduled, confirmed, cancelled, completed, no_show
+  notes          String? @db.LongText
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([companyId, scheduledFor])
+  @@index([contactId])
+  @@index([callSessionId])
+}
+
+model CustomerConsent {
+  id              String    @id @default(cuid())
+  companyId       String
+  contactId       String? // CrmContact id when the caller is identified
+  phoneNumber     String // normalized E.164 — consent must survive contact dedup
+  channel         String    @default("voice") // voice, sms, whatsapp
+  purpose         String    @default("outbound_contact") // outbound_contact, recording, marketing
+  granted         Boolean   @default(false)
+  method          String @db.LongText    @default("verbal") // verbal, written, web_form, ivr
+  evidenceRef     String? @db.LongText
+  revokedAt       DateTime?
+  grantedAt       DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([companyId, phoneNumber, channel, purpose])
+  @@index([companyId, granted])
+}
+
+model TelephonyProviderConfig {
+  id            String   @id @default(cuid())
+  companyId     String
+  adapter       String // sandbox, asterisk, freeswitch, external_sip — must match telephony/registry.ts
+  label         String @db.LongText
+  status        String   @default("unverified") // unverified, online, offline, error
+  config        String @db.LongText   @default("{}") // JSON — connection metadata only, NEVER credentials
+  capabilities  String @db.LongText   @default("{}") // JSON TelephonyCapabilities as reported by the last health check
+  lastCheckedAt DateTime?
+  lastError     String? @db.LongText
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([companyId, adapter])
+  @@index([companyId, status])
+}
+
+model VoiceIdempotencyKey {
+  id           String   @id @default(cuid())
+  companyId    String
+  scope        String // e.g. "calls.post", "campaigns.dial"
+  key          String // client-supplied Idempotency-Key
+  status       String   @default("pending") // pending, succeeded, failed
+  responseJson String? @db.LongText
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([companyId, scope, key])
+  @@index([expiresAt])
+}
+
+// ---- Gap-closure round 2: agent versioning, usage billing, observability
+// (master prompt §10 version+audit history, §20 billing_records) ----
+
+model VoiceAgentVersion {
+  id          String   @id @default(cuid())
+  companyId   String
+  agentId     String // VoiceAgent id
+  version     Int // 1-based, monotonic per agent
+  config      String @db.LongText   @default("{}") // JSON snapshot of the full agent profile at this version
+  changedById String? // User id who made the change (null = system/worker)
+  note        String? @db.LongText
+  createdAt   DateTime @default(now())
+
+  @@unique([agentId, version])
+  @@index([companyId, agentId])
+}
+
+model VoiceBillingRecord {
+  id                String    @id @default(cuid())
+  companyId         String
+  periodKey         String // billing period, e.g. "2026-11"
+  dimension         String // VoiceUsageEntry dimension
+  unit              String @db.LongText
+  quantity          Float     @default(0)
+  simulatedQuantity Float     @default(0) // reported separately — simulated usage is never billed by default
+  unitPrice         Float     @default(0) // price-book unit price (0 = informational, not billed)
+  amount            Float     @default(0) // billableQuantity * unitPrice
+  currency          String    @default("USD")
+  priceBookSource   String @db.LongText    @default("default") // default | tenant
+  status            String    @default("draft") // draft, issued
+  issuedAt          DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@unique([companyId, periodKey, dimension])
+  @@index([companyId, periodKey])
 }
