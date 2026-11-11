@@ -4506,3 +4506,18 @@ model RoleMigration {
   @@unique([userId, oldRole, newRole])
   @@index([status])
 }
+
+// F8: Idempotency key store — separate from Task so duplicate submissions
+// with the same key are detected before any task record is created.
+model IdempotencyKey {
+  id              String   @id @default(cuid())
+  key             String   // the caller-supplied idempotency key
+  companyId       String   // tenant scope — same key in different tenants is distinct
+  taskId          String?  // the task created on first submission (null until task row exists)
+  requestHash     String  // hash of the request body — enforces EXACT match
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime? // optional TTL
+
+  @@unique([companyId, key]) // exact match + tenant-scoped uniqueness
+  @@index([companyId, createdAt])
+}

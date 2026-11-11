@@ -11,8 +11,8 @@
  */
 
 import * as React from 'react'
-import { useApiGet } from '@/hooks/use-api-actions'
-import { fetchApi } from '@/lib/api'
+import { useApiGetV1 } from '@/hooks/use-api-actions'
+import { fetchApi, fetchApiV1 } from '@/lib/api'
 import {
   Table,
   TableBody,
@@ -52,7 +52,6 @@ interface PortalTask {
 }
 
 interface TasksResponse {
-  data?: PortalTask[]
   tasks?: PortalTask[]
 }
 
@@ -78,8 +77,8 @@ function statusTone(status: string): 'blue' | 'orange' | 'green' | 'red' | 'gray
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function PortalTasksPage() {
-  const { data, loading, error, refresh } = useApiGet<TasksResponse>('/api/v1/ai/tasks')
-  const tasks = React.useMemo(() => data?.data ?? data?.tasks ?? [], [data])
+  const { data, loading, error, refresh } = useApiGetV1<TasksResponse>('/api/v1/ai/tasks')
+  const tasks = React.useMemo(() => data?.tasks ?? [], [data])
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
 
   const isEmpty = tasks.length === 0
@@ -185,7 +184,7 @@ function TaskDetailDrawer({ taskId, onClose }: { taskId: string; onClose: () => 
     let cancelled = false
     setLoading(true)
     setError('')
-    fetchApi<PortalTask>(`/api/v1/ai/tasks/${taskId}`)
+    fetchApiV1<PortalTask>(`/api/v1/ai/tasks/${taskId}`)
       .then((d) => {
         if (!cancelled) setTask(d)
       })

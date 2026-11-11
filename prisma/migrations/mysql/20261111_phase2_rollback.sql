@@ -8,3 +8,4 @@ DROP TABLE IF EXISTS `CapabilityAssessment`;
 DROP TABLE IF EXISTS `ProjectDiscovery`;
 DROP TABLE IF EXISTS `Entitlement`;
 DROP TABLE IF EXISTS `Service`;
+DROP TABLE IF EXISTS `IdempotencyKey`;

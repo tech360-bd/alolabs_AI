@@ -116,3 +116,17 @@ CREATE TABLE IF NOT EXISTS `RoleMigration` (
   INDEX `RoleMigration_status_idx` (`status`),
   PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- F8: Idempotency key store (additive)
+CREATE TABLE IF NOT EXISTS `IdempotencyKey` (
+  `id` VARCHAR(191) NOT NULL,
+  `key` VARCHAR(191) NOT NULL,
+  `companyId` VARCHAR(191) NOT NULL,
+  `taskId` VARCHAR(191) NULL,
+  `requestHash` VARCHAR(191) NOT NULL,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `expiresAt` DATETIME(3) NULL,
+  UNIQUE INDEX `IdempotencyKey_companyId_key_key` (`companyId`, `key`),
+  INDEX `IdempotencyKey_companyId_createdAt_idx` (`companyId`, `createdAt`),
+  PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
