@@ -14,8 +14,8 @@ describe('static SQLite/MySQL Prisma schema compatibility', () => {
   it('verifies current model, field-type, index, relation and large-text checks', () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const result = verifyCompatibility();
-    expect(result.totalModels).toBe(227);
-    expect(result.sqliteModels).toBe(227);
+    expect(result.totalModels).toBe(228);
+    expect(result.sqliteModels).toBe(228);
     expect(result.schemaParityErrors).toBe(0);
     expect(result.indexCollisions).toBe(0);
     expect(result.relationFieldCollisions).toBe(0);
