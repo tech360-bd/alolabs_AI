@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+// Public design tokens — must load after globals.css (same pattern as home.css,
+// which page.tsx imports; the cascade here is globals → public-design → page css).
+import "./public-design.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 

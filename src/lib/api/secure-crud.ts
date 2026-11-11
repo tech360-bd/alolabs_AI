@@ -68,6 +68,14 @@ const DEFAULT_READ_LIMIT: RateLimitPolicy = { limit: 600, windowMs: 60_000 };
 
 type GuardOptions = SecureRouteOptions<Record<string, unknown>, Record<string, unknown>, unknown>;
 
+/** One parent row that a child record inherits its tenancy through. */
+export interface OwnershipSpec {
+  delegate: string;
+  fk: string;
+  relation: string;
+  tenantField?: string;
+}
+
 export interface SecureCrudOptions {
   /** Dotted resource name, e.g. `crm.contacts`. */
   resource: string;
@@ -103,9 +111,23 @@ export interface SecureCrudOptions {
   /**
    * For tables with no `companyId` column of their own: scope every row
    * through its parent (e.g. a note through its contact). The parent's tenant
-   * column is checked on reads, creates, updates and deletes.
+   * column is checked on reads, creates, updates and deletes. Accepts one
+   * spec or several (e.g. a deal inheriting through both its contact and its
+   * pipeline); every referenced parent is tenant-verified.
    */
-  ownership?: { delegate: string; fk: string; relation: string; tenantField?: string };
+  ownership?: OwnershipSpec | OwnershipSpec[];
+  /**
+   * Optional zod schema for extra list filters (e.g. `{ status, pipelineId }`),
+   * parsed from the query string and merged into the read `where`. Unknown
+   * query parameters are still stripped — only the fields declared here pass.
+   */
+  filterSchema?: z.ZodTypeAny;
+  /**
+   * Optional side effect after a successful create (e.g. touching the parent
+   * contact's `lastContactAt`). Throwing here fails the request with a 502 —
+   * keep hooks idempotent and cheap.
+   */
+  afterCreate?: (record: Record<string, unknown>, context: SecureContext<Record<string, unknown>, Record<string, unknown>, unknown>) => Promise<void>;
   /** Pass `false` to opt out (not recommended for mutating routes). */
   rateLimit?: RateLimitPolicy | false;
 }
@@ -160,10 +182,15 @@ export function secureCrud(options: SecureCrudOptions) {
     };
   };
 
-  const ownership = options.ownership;
+  const ownerships: OwnershipSpec[] = options.ownership
+    ? Array.isArray(options.ownership)
+      ? options.ownership
+      : [options.ownership]
+    : [];
+  const ownership = ownerships[0];
   const ownerTenantField = ownership?.tenantField ?? 'companyId';
 
-  /** Row-level filter for reads: own column, or the parent relation. */
+  /** Row-level filter for reads: own column, or the first parent relation. */
   const tenantFilter = (companyId: string): Record<string, unknown> => {
     if (!companyId) return {};
     if (tenantField) return { [tenantField]: companyId };
@@ -172,20 +199,41 @@ export function secureCrud(options: SecureCrudOptions) {
   };
 
   /**
-   * Verify that the parent record referenced by a create/update belongs to the
-   * caller's tenant. Used for tables that inherit tenancy through a relation.
+   * Verify that one parent record referenced by a create/update belongs to
+   * the caller's tenant. Used for tables that inherit tenancy through a relation.
    */
   const assertParentTenant = async (
     context: SecureContext<Record<string, unknown>, Record<string, unknown>, unknown>,
     parentId: unknown,
+    spec: OwnershipSpec,
   ): Promise<void> => {
-    if (!ownership || typeof parentId !== 'string' || !parentId) return;
-    const parent = await delegate(ownership.delegate).findUnique({
+    if (typeof parentId !== 'string' || !parentId) return;
+    const parentTenantField = spec.tenantField ?? 'companyId';
+    const parent = await delegate(spec.delegate).findUnique({
       where: { id: parentId },
-      select: { [ownerTenantField]: true },
+      select: { [parentTenantField]: true },
     });
-    if (!parent) throw new ApiHttpError(400, 'invalid_body', `Unknown ${ownership.relation} reference`);
-    context.assertTenant(parent[ownerTenantField] as string | null | undefined);
+    if (!parent) throw new ApiHttpError(400, 'invalid_body', `Unknown ${spec.relation} reference`);
+    context.assertTenant(parent[parentTenantField] as string | null | undefined);
+  };
+
+  /** Verify every declared parent referenced in a payload row. */
+  const assertParentsTenant = async (
+    context: SecureContext<Record<string, unknown>, Record<string, unknown>, unknown>,
+    row: Record<string, unknown>,
+  ): Promise<void> => {
+    for (const spec of ownerships) await assertParentTenant(context, row[spec.fk], spec);
+  };
+
+  /**
+   * Build one `where` fragment from a possibly dotted field path
+   * (e.g. `contact.firstName` → `{ contact: { firstName: { contains } } }`).
+   */
+  const searchFragment = (field: string, value: string): Record<string, unknown> => {
+    const parts = field.split('.');
+    let fragment: Record<string, unknown> = { contains: value };
+    for (const part of parts.reverse()) fragment = { [part]: fragment };
+    return fragment;
   };
 
   const GET = secureRoute(guard('read', { query: listQuery as unknown as z.ZodType<Record<string, unknown>> }), async (context) => {
@@ -196,7 +244,15 @@ export function secureCrud(options: SecureCrudOptions) {
     };
     const trimmed = query.search?.trim();
     if (trimmed && options.searchFields?.length) {
-      where.OR = options.searchFields.map((field) => ({ [field]: { contains: trimmed } }));
+      where.OR = options.searchFields.map((field) => searchFragment(field, trimmed));
+    }
+    if (options.filterSchema) {
+      const filters = options.filterSchema.parse(
+        Object.fromEntries(context.request.nextUrl.searchParams),
+      ) as Record<string, unknown>;
+      for (const [key, value] of Object.entries(filters)) {
+        if (value !== undefined && value !== null && value !== '') where[key] = value;
+      }
     }
     const orderBy = query.sort ? { [query.sort]: query.order } : options.orderBy ?? { createdAt: 'desc' };
     const shape = {
@@ -223,12 +279,13 @@ export function secureCrud(options: SecureCrudOptions) {
     async (context) => {
       // A client-supplied `companyId` was either rejected (403) or stripped by
       // the guard, so the value below is always the principal's own tenant.
-      if (ownership) await assertParentTenant(context, (context.body ?? {})[ownership.fk]);
+      await assertParentsTenant(context, (context.body ?? {}) as Record<string, unknown>);
       const record = await delegate(options.model).create({
         data: { ...(context.body ?? {}), ...tenantFilter(context.companyId) },
         ...(options.include ? { include: options.include } : {}),
         ...(options.select ? { select: options.select } : {}),
       });
+      if (options.afterCreate) await options.afterCreate(record, context);
       await writeAudit(context, 'create', label, { id: record.id });
       return jsonResponse({ data: record }, context.requestId, 201);
     },
@@ -248,10 +305,8 @@ export function secureCrud(options: SecureCrudOptions) {
     // Cross-tenant records are reported as 404 so the API cannot be used to
     // probe which ids exist in other tenants.
     if (tenantField) context.assertTenant(existing[tenantField] as string | null | undefined);
-    if (ownership) {
-      await assertParentTenant(context, existing[ownership.fk as string]);
-      if (fields[ownership.fk] !== undefined) await assertParentTenant(context, fields[ownership.fk]);
-    }
+    await assertParentsTenant(context, existing);
+    await assertParentsTenant(context, fields);
 
     const record = await store.update({
       where: { id },
@@ -272,7 +327,7 @@ export function secureCrud(options: SecureCrudOptions) {
     const existing = await store.findUnique({ where: { id } });
     if (!existing) throw notFound();
     if (tenantField) context.assertTenant(existing[tenantField] as string | null | undefined);
-    if (ownership) await assertParentTenant(context, existing[ownership.fk as string]);
+    await assertParentsTenant(context, existing);
 
     await store.delete({ where: { id } });
     await writeAudit(context, 'delete', label, { id });

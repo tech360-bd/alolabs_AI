@@ -469,10 +469,20 @@ async function seed() {
 
   // ─── 1. Create Super Admin User ──────────────────────────────────────────
   console.log('👤 Creating super admin...');
-  const passwordHash = await bcrypt.hash('Admin@123', 12);
+  // SECURITY: never hardcode a credential. Require an env var, fail closed.
+  // Matches the policy in scripts/seed-agentos.ts.
+  const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@alolabs.net';
+  const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
+  if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 12) {
+    throw new Error(
+      'Set SEED_ADMIN_PASSWORD to a unique password of at least 12 characters before seeding. ' +
+        'Hardcoded credentials are refused (see scripts/seed-agentos.ts for the policy).',
+    );
+  }
+  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
   const superAdmin = await db.user.create({
     data: {
-      email: 'admin@command.center',
+      email: ADMIN_EMAIL,
       passwordHash,
       name: 'Super Admin',
       role: 'super_admin',
