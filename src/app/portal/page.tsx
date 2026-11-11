@@ -16,7 +16,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useApiGet } from '@/hooks/use-api-actions'
+import { useApiGetV1 } from '@/hooks/use-api-actions'
 import { Button } from '@/components/ui/button'
 import {
   PortalPageHero,
@@ -47,7 +47,6 @@ interface ServiceCatalogItem {
 }
 
 interface ServiceCatalogResponse {
-  data?: ServiceCatalogItem[]
   services?: ServiceCatalogItem[]
 }
 
@@ -96,13 +95,13 @@ const QUICK_LINKS: {
 const EXPECTED_SERVICE_SLUGS = ['ai-chat', 'ai-knowledge-search', 'ai-tasks']
 
 export default function PortalHomePage() {
-  const { data, loading, error, refresh } = useApiGet<ServiceCatalogResponse>('/api/v1/ai/capabilities')
+  const { data, loading, error, refresh } = useApiGetV1<ServiceCatalogResponse>('/api/v1/ai/capabilities')
 
   // The capabilities endpoint may return either { data: [...] } or { services: [...] }
   // depending on the eventual implementation. Accept both.
   const services: ServiceCatalogItem[] = React.useMemo(() => {
     if (!data) return []
-    return data.data ?? data.services ?? []
+    return data.services ?? []
   }, [data])
 
   const isEmpty = services.length === 0
