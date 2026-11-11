@@ -152,3 +152,134 @@
 @media(max-width:1000px){.work-grid,.tech-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){.work-grid,.tech-grid{grid-template-columns:1fr}.hero3d{min-height:420px}}
 @media(max-width:440px){.hero3d{min-height:360px;border-radius:13px}}
+
+/* ============================================================================
+   PREMIUM 3D WEBSITE REDESIGN — vibrant ALO brand colors
+   Orange #FF6A00 + Blue #003ABC + BlueLight #0077FF on every surface.
+   ========================================================================== */
+
+/* ── Brand button ─────────────────────────────────────────────────────────── */
+.home-button-orange{background:var(--alo-orange, #FF6A00);color:#fff;box-shadow:0 8px 24px rgba(255,106,0,.3)}
+.home-button-orange:hover{background:var(--alo-orange-light, #FF8A2B);transform:translateY(-2px);box-shadow:0 12px 32px rgba(255,106,0,.4)}
+
+/* ── Hero accent text ─────────────────────────────────────────────────────── */
+.hero-accent{background:linear-gradient(90deg, #003ABC 0%, #0077FF 50%, #FF6A00 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.hero-trust{display:flex;flex-wrap:wrap;gap:16px;margin-top:28px}
+.hero-trust span{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--alo-navy-muted, #94A3B8)}
+.hero-trust svg{color:var(--alo-orange, #FF6A00)}
+
+/* ── Heading accents ──────────────────────────────────────────────────────── */
+.heading-accent-orange{background:linear-gradient(90deg, #FF6A00 0%, #FFB300 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#FF6A00}
+.heading-accent-blue{background:linear-gradient(90deg, #003ABC 0%, #0077FF 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#003ABC}
+.section-dark .heading-accent-blue{background:linear-gradient(90deg, #0077FF 0%, #FF8A2B 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.section-dark .heading-accent-orange{background:linear-gradient(90deg, #FF8A2B 0%, #FFB300 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* ── Dark sections ────────────────────────────────────────────────────────── */
+.section-dark{background:linear-gradient(180deg, #0A1B3D 0%, #001C6B 100%);color:#fff}
+.section-dark .section-topline{border-color:rgba(255,255,255,.1)}
+.section-dark .section-kicker{color:rgba(255,255,255,.6)}
+.section-dark .section-index{color:rgba(255,255,255,.3)}
+.section-dark h2{color:#fff}
+.section-dark .section-heading-row>p{color:rgba(255,255,255,.6)}
+
+/* ── Services grid ────────────────────────────────────────────────────────── */
+.home-services{background:linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)}
+.services-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:50px}
+.service-card{position:relative;border:1px solid #E2E8F0;border-radius:16px;padding:28px;background:#fff;transition:all .3s var(--alo-ease, ease);overflow:hidden}
+.service-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--alo-gradient-blue, linear-gradient(90deg, #003ABC, #0077FF));transform:scaleX(0);transform-origin:left;transition:transform .3s ease}
+.service-card:hover{transform:translateY(-6px);box-shadow:0 20px 50px rgba(0,59,188,.12);border-color:rgba(0,119,255,.3)}
+.service-card:hover::before{transform:scaleX(1)}
+.service-orange::before{background:linear-gradient(90deg, #FF6A00, #FFB300)}
+.service-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.service-icon{width:48px;height:48px;border-radius:12px;display:grid;place-items:center}
+.service-icon-blue{background:linear-gradient(135deg, #003ABC, #0077FF);color:#fff}
+.service-icon-orange{background:linear-gradient(135deg, #FF6A00, #FF8A2B);color:#fff}
+.service-scope{font-family:ui-monospace,monospace;font-size:10px;font-weight:600;color:#64748B;background:#F1F5F9;padding:4px 10px;border-radius:20px}
+.service-card h3{font-size:20px;font-weight:700;letter-spacing:-.03em;margin:0 0 10px;color:#1E293B}
+.service-card p{font-size:14px;line-height:1.6;color:#64748B;margin:0 0 16px}
+.service-card-footer{border-top:1px solid #F1F5F9;padding-top:12px}
+.service-endpoint{font-family:ui-monospace,monospace;font-size:11px;color:#0077FF;font-weight:600}
+
+/* ── API section visual ──────────────────────────────────────────────────── */
+.home-api{position:relative;overflow:hidden}
+.api-visual{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-top:60px;min-height:420px}
+.api-center{position:relative;display:flex;align-items:center;justify-content:center}
+.api-core{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:12px;padding:40px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);border-radius:20px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);text-align:center}
+.api-core strong{font-size:18px;color:#fff;font-weight:700}
+.api-core code{font-family:ui-monospace,monospace;font-size:12px;color:#FF8A2B;background:rgba(255,106,0,.1);padding:6px 14px;border-radius:8px}
+.api-pulse{position:absolute;width:300px;height:300px;border:2px solid rgba(0,119,255,.2);border-radius:50%;animation:aloPulse 3s ease-in-out infinite}
+.api-pulse::before,.api-pulse::after{content:'';position:absolute;inset:30px;border:2px solid rgba(255,106,0,.15);border-radius:50%;animation:aloPulse 3s ease-in-out infinite .5s}
+.api-pulse::after{inset:60px;border-color:rgba(0,119,255,.1);animation-delay:1s}
+@keyframes aloPulse{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.1);opacity:.7}}
+.api-connections{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.api-connection{display:flex;align-items:center;gap:14px;padding:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;transition:all .3s ease}
+.api-connection:hover{background:rgba(255,255,255,.08);border-color:rgba(0,119,255,.3);transform:translateX(4px)}
+.api-connection-icon{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg, rgba(0,119,255,.2), rgba(0,59,188,.2));color:#0077FF;flex-shrink:0}
+.api-connection:nth-child(even) .api-connection-icon{background:linear-gradient(135deg, rgba(255,106,0,.2), rgba(255,138,43,.2));color:#FF8A2B}
+.api-connection strong{display:block;font-size:14px;color:#fff;font-weight:600}
+.api-connection small{display:block;font-size:11px;color:rgba(255,255,255,.5);margin-top:3px}
+
+/* ── API code block ───────────────────────────────────────────────────────── */
+.api-code-block{margin-top:50px;background:#071530;border:1px solid rgba(255,255,255,.1);border-radius:14px;overflow:hidden}
+.api-code-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.08)}
+.api-code-header span{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:rgba(255,255,255,.7)}
+.api-code-lang{font-family:ui-monospace,monospace;font-size:10px;color:#FF8A2B;background:rgba(255,106,0,.1);padding:3px 10px;border-radius:6px}
+.api-code-block pre{padding:20px;margin:0;overflow-x:auto}
+.api-code-block code{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:13px;line-height:1.7;color:#E2E8F0}
+.api-code-block code .comment{color:#64748B}
+
+/* ── Feature icons (brand colors) ─────────────────────────────────────────── */
+.feature-icon-blue{background:linear-gradient(135deg, #003ABC, #0077FF);color:#fff}
+.feature-icon-orange{background:linear-gradient(135deg, #FF6A00, #FF8A2B);color:#fff}
+
+/* ── Tech grid (dark) ──────────────────────────────────────────────────────── */
+.tech-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:50px;list-style:none;padding:0}
+.tech-card{padding:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-align:center;transition:all .3s ease}
+.tech-card:hover{background:rgba(255,255,255,.08);border-color:rgba(0,119,255,.3);transform:translateY(-3px)}
+.tech-card strong{display:block;font-size:13px;color:#fff;font-weight:700;margin-bottom:6px}
+.tech-card span{font-size:11px;color:rgba(255,255,255,.5)}
+
+/* ── Trust strip ───────────────────────────────────────────────────────────── */
+.home-trust{padding:80px 0;background:linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)}
+.trust-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:30px}
+.trust-item{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.trust-item svg{color:#FF6A00;width:32px;height:32px}
+.trust-item:nth-child(even) svg{color:#003ABC}
+.trust-item strong{font-size:15px;font-weight:700;color:#1E293B}
+.trust-item p{font-size:13px;line-height:1.6;color:#64748B;margin:0;max-width:200px}
+
+/* ── Work cards (brand colors) ─────────────────────────────────────────────── */
+.work-card{border:1px solid #E2E8F0;border-radius:16px;padding:28px;background:#fff;transition:all .3s ease}
+.work-card:hover{transform:translateY(-4px);box-shadow:0 20px 50px rgba(0,59,188,.08);border-color:rgba(0,119,255,.2)}
+.work-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.work-icon{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg, #003ABC, #0077FF);color:#fff}
+.work-status{font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px}
+.work-status-live{background:rgba(34,197,94,.1);color:#22C55E}
+.work-status-dev{background:rgba(255,106,0,.1);color:#FF6A00}
+.work-status-internal{background:rgba(100,116,139,.1);color:#64748B}
+
+/* ── CTA (brand gradient) ──────────────────────────────────────────────────── */
+.cta-inner{background:linear-gradient(135deg, #003ABC 0%, #001C6B 40%, #FF6A00 100%);position:relative;overflow:hidden}
+.cta-inner::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 80% 20%, rgba(255,138,43,.3), transparent 50%),radial-gradient(circle at 20% 80%, rgba(0,119,255,.3), transparent 50%)}
+
+/* ── Footer contact ────────────────────────────────────────────────────────── */
+.footer-contact{display:flex;flex-direction:column;gap:6px;margin-top:16px}
+.footer-contact a{font-size:12px;color:#64748B;text-decoration:none;transition:color .2s}
+.footer-contact a:hover{color:#FF6A00}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media(max-width:1000px){
+  .services-grid{grid-template-columns:repeat(2,1fr)}
+  .api-visual{grid-template-columns:1fr;gap:40px}
+  .api-connections{grid-template-columns:1fr 1fr}
+  .tech-grid{grid-template-columns:repeat(3,1fr)}
+  .trust-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:760px){
+  .services-grid{grid-template-columns:1fr}
+  .api-connections{grid-template-columns:1fr}
+  .tech-grid{grid-template-columns:repeat(2,1fr)}
+  .trust-grid{grid-template-columns:1fr}
+  .hero-trust{gap:10px}
+  .hero-trust span{font-size:10px}
+}
