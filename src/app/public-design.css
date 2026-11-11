@@ -1,0 +1,70 @@
+/**
+ * ALO Labs — public design tokens.
+ *
+ * CSS variables derived 1:1 from the official brand palette in
+ * src/lib/brand/tokens.ts (BRAND + GRADIENTS). Surfaces, glass treatments and
+ * gradient accents used by the public homepage read from here so a brand
+ * change stays a one-file edit on the token source.
+ *
+ * Imported from src/app/layout.tsx immediately after globals.css, following
+ * the same import pattern as src/app/home.css.
+ */
+
+:root {
+  /* ── Core palette (BRAND) ──────────────────────────────────────────────── */
+  --alo-orange: #ff6a00;
+  --alo-orange-light: #ff8a2b;
+  --alo-orange-amber: #ffb300;
+  --alo-blue: #003abc;
+  --alo-blue-alt: #0d47a1;
+  --alo-blue-deep: #001c6b;
+  --alo-blue-light: #0077ff;
+  --alo-white: #ffffff;
+  --alo-ink: #1e293b;
+  --alo-gray: #64748b;
+  --alo-gray-soft: #94a3b8;
+  --alo-gray-line: #e2e8f0;
+  --alo-canvas: #f8fafc;
+  --alo-navy: #0a1b3d;
+  --alo-tint: #e8effb;
+  --alo-tint-line: #d7e2f6;
+  --alo-tint-soft: #f4f7fc;
+
+  /* ── Official gradients (GRADIENTS) ────────────────────────────────────── */
+  --alo-gradient-orange: linear-gradient(90deg, #ff6a00 0%, #ffb300 100%);
+  --alo-gradient-blue: linear-gradient(90deg, #003abc 0%, #0077ff 100%);
+  --alo-gradient-ribbon: linear-gradient(135deg, #0077ff 0%, #001c6b 100%);
+
+  /* ── Deep-navy surfaces (derived tints of BRAND.navy / BRAND.blueDeep) ── */
+  --alo-navy-raised: #10264e;
+  --alo-navy-line: rgba(125, 169, 247, 0.16);
+  --alo-navy-text: #dce7f8;
+  --alo-navy-muted: #8fa5c9;
+
+  /* ── Glass treatments on dark surfaces ─────────────────────────────────── */
+  --alo-glass-bg: rgba(255, 255, 255, 0.055);
+  --alo-glass-bg-strong: rgba(255, 255, 255, 0.09);
+  --alo-glass-border: rgba(125, 169, 247, 0.22);
+  --alo-glass-highlight: rgba(0, 119, 255, 0.14);
+
+  /* ── Glass / card treatments on light surfaces ─────────────────────────── */
+  --alo-card-border: var(--alo-tint-line);
+  --alo-card-shadow: 0 24px 60px rgba(0, 28, 107, 0.08), 0 4px 14px rgba(0, 28, 107, 0.05);
+
+  /* ── Statuses (truthful labels; no invented metrics) ───────────────────── */
+  --alo-status-live: #0e8a5f;
+  --alo-status-live-bg: #e5f6ef;
+  --alo-status-dev: var(--alo-orange);
+  --alo-status-dev-bg: #fff1e6;
+  --alo-status-internal: var(--alo-gray);
+  --alo-status-internal-bg: #eef2f7;
+
+  /* ── Motion ────────────────────────────────────────────────────────────── */
+  --alo-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --alo-ease: linear;
+  }
+}
