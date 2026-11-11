@@ -9,12 +9,13 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 // InputOTP replaced with simple input (input-otp component was unused elsewhere)
-import { Loader2, Eye, EyeOff, AlertCircle, Shield, ArrowLeft } from 'lucide-react'
+import { Loader2, Eye, EyeOff, AlertCircle, Shield, ArrowLeft, Mail } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { AloLogo } from '@/components/alo-logo'
 
 // ─── Login Step States ────────────────────────────────────────────────────────
 type LoginStep = 'credentials' | 'mfa' | 'error'
+type AuthMode = 'login' | 'register' | 'forgot'
 
 interface MfaPendingData {
   userId: string
@@ -48,8 +49,13 @@ export default function LoginPage() {
   // ── Form State ───────────────────────────────────────────────────────────
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [mode, setMode] = useState<AuthMode>('login')
+  const [resetSent, setResetSent] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null)
 
   // ── UI State ─────────────────────────────────────────────────────────────
   const [step, setStep] = useState<LoginStep>('credentials')
@@ -90,7 +96,81 @@ export default function LoginPage() {
   // ── Clear Errors on Input Change ─────────────────────────────────────────
   useEffect(() => {
     if (error) setError(null)
-  }, [email, password])
+  }, [email, password, name, confirmPassword])
+
+  // ── OAuth Handler ──────────────────────────────────────────────────────
+  const handleOAuth = useCallback((provider: string) => {
+    setOauthLoading(provider)
+    // Redirect to the OAuth provider authorization URL
+    const next = new URLSearchParams(window.location.search).get('next') || '/dashboard'
+    window.location.href = `/api/auth/oauth/${provider}?next=${encodeURIComponent(next)}`
+  }, [])
+
+  // ── Register Handler ────────────────────────────────────────────────────
+  const handleRegister = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!name || !email || !password) {
+        setError('Please fill in all fields.')
+        return
+      }
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters.')
+        return
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.')
+        return
+      }
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password }),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || 'Registration failed.')
+        }
+        const data = await res.json()
+        login(data.user, data.token)
+        toast({ title: 'Welcome to ALO Labs!', description: `Account created as ${data.user.name}` })
+        redirectAfterLogin()
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Registration failed.')
+        setStep('error')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [name, email, password, confirmPassword, login, toast, redirectAfterLogin]
+  )
+
+  // ── Forgot Password Handler ──────────────────────────────────────────────
+  const handleForgotPassword = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!email) { setError('Please enter your email.'); return }
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/auth/password-reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        })
+        if (!res.ok) throw new Error('Reset request failed.')
+        setResetSent(true)
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Reset failed.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [email]
+  )
 
   // ── Submit Handler (Login) ───────────────────────────────────────────────
   const handleSubmit = useCallback(
@@ -257,13 +337,56 @@ export default function LoginPage() {
 
         <CardContent className="px-8 pb-8">
           {/* ═══════ CREDENTIALS STEP ═══════ */}
-          {step === 'credentials' && (
+          {step === 'credentials' && mode === 'login' && (
             <>
               <div className="mb-6">
                 <h2 className="text-lg font-semibold text-[#1E293B]">Sign in to your account</h2>
                 <p className="text-sm text-[#64748B] mt-1">
                   Enter your credentials to access the platform
                 </p>
+              </div>
+
+              {/* OAuth Buttons */}
+              <div className="space-y-3 mb-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleOAuth('google')}
+                    disabled={!!oauthLoading}
+                    className="flex items-center justify-center gap-2 h-10 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#1E293B] hover:bg-[#F8FAFC] transition-colors disabled:opacity-50"
+                  >
+                    {oauthLoading === 'google' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      </svg>
+                    )}
+                    Google
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOAuth('github')}
+                    disabled={!!oauthLoading}
+                    className="flex items-center justify-center gap-2 h-10 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#1E293B] hover:bg-[#F8FAFC] transition-colors disabled:opacity-50"
+                  >
+                    {oauthLoading === 'github' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                      </svg>
+                    )}
+                    GitHub
+                  </button>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#E2E8F0]"/></div>
+                  <div className="relative flex justify-center text-xs"><span className="bg-white px-3 text-[#94A3B8]">or continue with email</span></div>
+                </div>
               </div>
 
               {/* Error Alert */}
@@ -303,12 +426,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       className="text-xs font-medium text-[#003ABC] hover:text-[#002A8F] transition-colors"
-                      onClick={() => {
-                        toast({
-                          title: 'Password Reset',
-                          description: 'Password reset functionality is available through your system administrator.',
-                        })
-                      }}
+                      onClick={() => { setMode('forgot'); setError(null); setResetSent(false) }}
                     >
                       Forgot Password?
                     </button>
@@ -370,10 +488,152 @@ export default function LoginPage() {
                 </Button>
               </form>
 
+              {/* Sign up link */}
+              <p className="mt-6 text-center text-sm text-[#64748B]">
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  className="font-semibold text-[#003ABC] hover:text-[#002A8F] transition-colors"
+                  onClick={() => { setMode('register'); setError(null); setStep('credentials') }}
+                >
+                  Create one
+                </button>
+              </p>
+
               {/* Footer */}
-              <p className="mt-6 text-center text-xs text-[#94A3B8]">
+              <p className="mt-4 text-center text-xs text-[#94A3B8]">
                 &copy; {new Date().getFullYear()} ALO Labs, Inc. All rights reserved.
               </p>
+            </>
+          )}
+
+          {/* ═══════ REGISTER MODE ═══════ */}
+          {step === 'credentials' && mode === 'register' && (
+            <>
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-[#1E293B]">Create your account</h2>
+                <p className="text-sm text-[#64748B] mt-1">
+                  Get started with ALO Labs AgentOS — free to explore
+                </p>
+              </div>
+
+              {/* OAuth Buttons (same as login) */}
+              <div className="space-y-3 mb-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => handleOAuth('google')} disabled={!!oauthLoading} className="flex items-center justify-center gap-2 h-10 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#1E293B] hover:bg-[#F8FAFC] transition-colors disabled:opacity-50">
+                    {oauthLoading === 'google' ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      </svg>
+                    )}
+                    Google
+                  </button>
+                  <button type="button" onClick={() => handleOAuth('github')} disabled={!!oauthLoading} className="flex items-center justify-center gap-2 h-10 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#1E293B] hover:bg-[#F8FAFC] transition-colors disabled:opacity-50">
+                    {oauthLoading === 'github' ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                      </svg>
+                    )}
+                    GitHub
+                  </button>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#E2E8F0]"/></div>
+                  <div className="relative flex justify-center text-xs"><span className="bg-white px-3 text-[#94A3B8]">or sign up with email</span></div>
+                </div>
+              </div>
+
+              {error && (
+                <Alert variant="destructive" className="mb-4 border-red-200 bg-red-50 text-red-700">
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                  <AlertDescription className="text-sm text-red-700">{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reg-name" className="text-sm font-medium text-[#1E293B]">Full name</Label>
+                  <Input id="reg-name" type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-email" className="text-sm font-medium text-[#1E293B]">Email</Label>
+                  <Input id="reg-email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-password" className="text-sm font-medium text-[#1E293B]">Password</Label>
+                  <Input id="reg-password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password" className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-confirm" className="text-sm font-medium text-[#1E293B]">Confirm password</Label>
+                  <Input id="reg-confirm" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required autoComplete="new-password" className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
+                </div>
+                <Button type="submit" className="w-full h-10 bg-[#003ABC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors" disabled={loading}>
+                  {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account...</>) : 'Create account'}
+                </Button>
+              </form>
+
+              <p className="mt-6 text-center text-sm text-[#64748B]">
+                Already have an account?{' '}
+                <button type="button" className="font-semibold text-[#003ABC] hover:text-[#002A8F] transition-colors" onClick={() => { setMode('login'); setError(null); setStep('credentials') }}>
+                  Sign in
+                </button>
+              </p>
+              <p className="mt-4 text-center text-xs text-[#94A3B8]">
+                &copy; {new Date().getFullYear()} ALO Labs, Inc. All rights reserved.
+              </p>
+            </>
+          )}
+
+          {/* ═══════ FORGOT PASSWORD MODE ═══════ */}
+          {step === 'credentials' && mode === 'forgot' && (
+            <>
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-[#1E293B]">Reset your password</h2>
+                <p className="text-sm text-[#64748B] mt-1">
+                  Enter your email and we'll send you a reset link
+                </p>
+              </div>
+
+              {resetSent ? (
+                <div className="text-center py-8">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-[#003ABC]/10 flex items-center justify-center mb-4">
+                    <Mail className="h-6 w-6 text-[#003ABC]" />
+                  </div>
+                  <p className="text-sm text-[#64748B]">
+                    If an account exists for <span className="font-medium text-[#1E293B]">{email}</span>,
+                    a reset link has been sent. Check your inbox.
+                  </p>
+                  <button type="button" className="mt-6 text-sm font-medium text-[#003ABC] hover:text-[#002A8F] transition-colors" onClick={() => { setMode('login'); setResetSent(false); setError(null) }}>
+                    Back to sign in
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {error && (
+                    <Alert variant="destructive" className="mb-4 border-red-200 bg-red-50 text-red-700">
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                      <AlertDescription className="text-sm text-red-700">{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="forgot-email" className="text-sm font-medium text-[#1E293B]">Email</Label>
+                      <Input id="forgot-email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
+                    </div>
+                    <Button type="submit" className="w-full h-10 bg-[#003ABC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors" disabled={loading}>
+                      {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : 'Send reset link'}
+                    </Button>
+                  </form>
+                  <p className="mt-6 text-center text-sm text-[#64748B]">
+                    <button type="button" className="font-semibold text-[#003ABC] hover:text-[#002A8F] transition-colors" onClick={() => { setMode('login'); setError(null) }}>
+                      Back to sign in
+                    </button>
+                  </p>
+                </>
+              )}
             </>
           )}
 
