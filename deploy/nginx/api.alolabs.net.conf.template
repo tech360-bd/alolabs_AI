@@ -1,0 +1,146 @@
+# api.alolabs.net — Nginx reverse-proxy configuration template
+#
+# Decision 1: API hostname support as a separate public entry point.
+# This is a TEMPLATE for later human review — DO NOT deploy without explicit
+# owner approval. The existing Caddy configuration remains active.
+#
+# Requirements met:
+#  - Routes api.alolabs.net to the existing backend (port 3011)
+#  - TLS termination (Let's Encrypt or Cloudflare origin cert)
+#  - Trusted-proxy headers (X-Forwarded-For, X-Forwarded-Proto)
+#  - Rate limiting at the proxy level (burst protection)
+#  - Security headers
+#  - No change to live DNS, Cloudflare, or existing Caddy config
+#
+# To deploy (REQUIRES OWNER APPROVAL):
+#  1. Copy to /etc/nginx/sites-available/api.alolabs.net.conf
+#  2. Adjust upstream, cert paths, and rate-limit zone to match the host.
+#  3. Enable: ln -s /etc/nginx/sites-available/api.alolabs.net.conf /etc/nginx/sites-enabled/
+#  4. Test: nginx -t
+#  5. Reload: systemctl reload nginx
+#  6. Add DNS A record for api.alolabs.net pointing to the origin.
+#  7. Update Cloudflare tunnel to route api.alolabs.net.
+
+# Upstream — the existing Next.js application on port 3011
+upstream alolabs_app {
+    server 127.0.0.1:3011;
+    keepalive 32;
+}
+
+# Rate limit zone — 10 req/s per IP, burst 20
+limit_req_zone $binary_remote_addr zone=api_alolabs:10m rate=10r/s;
+
+# Redirect HTTP → HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.alolabs.net;
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS server
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name api.alolabs.net;
+
+    # TLS — adjust paths to match the host's certificate setup.
+    # Option A: Let's Encrypt (certbot)
+    ssl_certificate     /etc/letsencrypt/live/api.alolabs.net/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.alolabs.net/privkey.pem;
+    # Option B: Cloudflare Origin Certificate
+    # ssl_certificate     /etc/ssl/cloudflare/api.alolabs.net.crt;
+    # ssl_certificate_key /etc/ssl/cloudflare/api.alolabs.net.key;
+
+    # Modern TLS only
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    # CORS — restrictive; only the known portal origin may call the API
+    add_header Access-Control-Allow-Origin "https://alolabs.net" always;
+    add_header Access-Control-Allow-Methods "GET, POST, PATCH, DELETE, OPTIONS" always;
+    add_header Access-Control-Allow-Headers "Authorization, X-API-Key, Content-Type, X-Alolabs-Event-Id, X-Alolabs-Signature, X-Alolabs-Timestamp" always;
+    add_header Access-Control-Max-Age "86400" always;
+
+    # Request size limit
+    client_max_body_size 10m;
+
+    # Rate limiting
+    limit_req zone=api_alolabs burst=20 nodelay;
+
+    # Trusted proxy — set the real client IP from Cloudflare
+    set_real_ip_from 173.245.48.0/20;
+    set_real_ip_from 103.21.244.0/22;
+    set_real_ip_from 103.22.200.0/22;
+    set_real_ip_from 103.31.4.0/22;
+    set_real_ip_from 141.101.64.0/18;
+    set_real_ip_from 108.162.192.0/18;
+    set_real_ip_from 190.93.240.0/20;
+    set_real_ip_from 188.114.96.0/20;
+    set_real_ip_from 197.234.240.0/22;
+    set_real_ip_from 198.41.128.0/17;
+    set_real_ip_from 162.158.0.0/15;
+    set_real_ip_from 104.16.0.0/13;
+    set_real_ip_from 104.24.0.0/14;
+    real_ip_header CF-Connecting-IP;
+
+    # /v1/ai/** — public AI service plane
+    location /v1/ai/ {
+        proxy_pass http://alolabs_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # /v1/health, /v1/services — public catalog
+    location ~ ^/v1/(health|services|ai/health|ai/capabilities|ai/usage)$ {
+        proxy_pass http://alolabs_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # /portal/** — customer portal (session-based, not API keys)
+    location /portal/ {
+        proxy_pass http://alolabs_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+    }
+
+    # /api/public/** — public contact form etc.
+    location /api/public/ {
+        proxy_pass http://alolabs_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Deny everything else on the API hostname
+    location / {
+        return 404;
+    }
+}
