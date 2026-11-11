@@ -295,7 +295,7 @@ function Constellation({
   motionOK: boolean
   onHover: (label: string | null) => void
 }) {
-  const nodes = useMemo(buildNodes, [])
+  const nodes = useMemo(() => buildNodes(), [])
   const rigRef = useRef<THREE.Group>(null)
   const { pointer } = useThree()
 
