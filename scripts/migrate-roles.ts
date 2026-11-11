@@ -20,9 +20,18 @@ async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
   const createRecords = args.includes('--create-records');
-  const applyId = args[args.indexOf('--apply') + 1];
-  const rollbackId = args[args.indexOf('--rollback') + 1];
-  const operatorEmail = args[args.indexOf('--operator') + 1];
+
+  // F9: Robust flag parsing. Use a helper that finds the value AFTER a flag,
+  // returning undefined if the flag is absent (instead of args[0]).
+  function flagValue(name: string): string | undefined {
+    const i = args.indexOf(name);
+    if (i === -1 || i + 1 >= args.length) return undefined;
+    return args[i + 1];
+  }
+
+  const applyId = flagValue('--apply');
+  const rollbackId = flagValue('--rollback');
+  const operatorEmail = flagValue('--operator');
 
   if (dryRun) {
     const result = await dryRunRoleMigration();

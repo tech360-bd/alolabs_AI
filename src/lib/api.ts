@@ -98,3 +98,25 @@ export function buildQueryString(params: Record<string, string | number | boolea
   const qs = searchParams.toString()
   return qs ? `?${qs}` : ''
 }
+
+/**
+ * F3: fetchApiV1 — unwrap the { success, data } envelope used by /v1/* routes.
+ *
+ * The /v1/* gateway wraps every response as { success: true, data: T } or
+ * { success: false, error: { code, message } }. Portal pages that consume
+ * /v1/* endpoints must unwrap this envelope. fetchApi returns the raw JSON,
+ * so callers had to do `data.data ?? data.services` — fragile and inconsistent.
+ * This helper unwraps once and throws on error envelopes.
+ */
+export async function fetchApiV1<T = any>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const json = await fetchApi<{ success?: boolean; data?: T; error?: { code: string; message: string } }>(path, options);
+  if (json && json.success === false) {
+    throw new Error(json.error?.message ?? 'Request failed');
+  }
+  // /v1/* routes return { success, data }. Some legacy /api/* routes return
+  // the raw object. Handle both: prefer data, fall back to the whole object.
+  return (json?.data ?? json) as T;
+}

@@ -12,7 +12,7 @@
  */
 
 import * as React from 'react'
-import { useApiGet } from '@/hooks/use-api-actions'
+import { useApiGetV1 } from '@/hooks/use-api-actions'
 import {
   Table,
   TableBody,
@@ -45,8 +45,6 @@ interface UsageBucket {
 }
 
 interface UsageResponse {
-  data?: UsageRow[]
-  buckets?: UsageBucket[]
   usage?: UsageRow[]
 }
 
@@ -82,18 +80,13 @@ function fmtDay(iso: string): string {
 // ── Component ─────────────────────────────────────────────────────────────
 
 export default function PortalUsagePage() {
-  const { data, loading, error, refresh } = useApiGet<UsageResponse>('/api/v1/ai/usage')
+  const { data, loading, error, refresh } = useApiGetV1<UsageResponse>('/api/v1/ai/usage')
 
   const rows: UsageRow[] = React.useMemo(() => {
     if (!data) return []
-    // Accept { data: [...] }, { usage: [...] }, or { buckets: [...] } shapes.
-    if (Array.isArray(data.data)) {
-      return data.data.map((r) => ({ date: r.date, service: r.service, units: r.units }))
-    }
+    // F3: useApiGetV1 already unwrapped { success, data }. The inner shape is
+    // { usage: [...] }. Accept it directly.
     if (Array.isArray(data.usage)) return data.usage
-    if (Array.isArray(data.buckets)) {
-      return data.buckets.map((b) => ({ date: b.date, service: b.service, units: b.units }))
-    }
     return []
   }, [data])
 

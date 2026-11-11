@@ -38,8 +38,23 @@ function ipToInt(ip: string): number {
 function isBlockedIP(ip: string): { blocked: boolean; reason?: string } {
   const family = isIP(ip);
   if (family === 0) return { blocked: true, reason: 'invalid IP' };
+
+  // F5: Normalize IPv4-mapped IPv6 addresses (::ffff:a.b.c.d) and apply IPv4
+  // private/reserved exclusions to them. Without this, ::ffff:127.0.0.1 would
+  // bypass the IPv4 blocklist because isIP() reports it as IPv6.
   if (family === 6) {
     const lower = ip.toLowerCase();
+    // Strip the IPv4-mapped prefix ::ffff: (and the long form ::ffff:0:) so
+    // the embedded IPv4 address is checked against the IPv4 blocklist.
+    const mappedMatch = lower.match(/^::ffff:(?:0:)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+    if (mappedMatch) {
+      const ipv4 = mappedMatch[1];
+      const ipv4Check = isBlockedIP(ipv4);
+      if (ipv4Check.blocked) {
+        return { blocked: true, reason: `IPv4-mapped IPv6 → ${ipv4}: ${ipv4Check.reason}` };
+      }
+      return { blocked: false };
+    }
     if (lower === '::1' || lower === '::') return { blocked: true, reason: 'loopback/unspecified IPv6' };
     if (lower.startsWith('fc') || lower.startsWith('fd')) return { blocked: true, reason: 'unique-local IPv6' };
     if (lower.startsWith('fe80')) return { blocked: true, reason: 'link-local IPv6' };

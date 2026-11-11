@@ -120,3 +120,42 @@ export function useApiGet<T = any>(endpoint: string, params?: Record<string, str
 
   return { data, loading, error, refresh }
 }
+/**
+ * F3: useApiGetV1 — like useApiGet but unwraps the /v1/* { success, data } envelope.
+ * Use this for any /api/v1/** endpoint so the component receives `data` directly
+ * instead of { success, data }.
+ */
+export function useApiGetV1<T = any>(endpoint: string, params?: Record<string, string | number | undefined>) {
+  const [data, setData] = useState<T | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [refreshCounter, setRefreshCounter] = useState(0)
+  const refresh = () => setRefreshCounter((c) => c + 1)
+
+  const qs = params ? buildQueryString(params) : ''
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    fetchApi<{ success?: boolean; data?: T; error?: { code: string; message: string } }>(`${endpoint}${qs}`)
+      .then((json) => {
+        if (cancelled) return
+        if (json && json.success === false) {
+          setError(json.error?.message ?? 'Request failed')
+          setData(null)
+        } else {
+          setData((json?.data ?? json) as T)
+        }
+      })
+      .catch((e: any) => {
+        if (!cancelled) setError(e.message)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [endpoint, qs, refreshCounter])
+
+  return { data, loading, error, refresh }
+}

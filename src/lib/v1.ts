@@ -44,12 +44,22 @@ export function v1Handler<T>(
       // separately bound to a company membership. Permission naming follows
       // resource:read, resource:write and resource:execute.
       const segments = request.nextUrl.pathname.split('/').filter(Boolean);
-      const resource = segments[2] === 'command' ? 'runs' : segments[2];
-      const action = segments.includes('run') || segments[2] === 'command'
-        ? 'execute'
-        : request.method === 'GET' ? 'read' : 'write';
-      if (identity.kind === 'apiKey' && resource && !hasScope(identity, `${resource}:${action}`)) {
-        throw new V1Error(`Scope required: ${resource}:${action}`, 403, 'FORBIDDEN');
+
+      // F2: /v1/ai/** routes use the documented `ai:<service>` scope form
+      // (e.g. ai:chat, ai:tasks, ai:knowledge:search). The generic path
+      // derivation below would produce `ai:write` / `ai:read` which is not a
+      // documented scope. The /v1/ai/tasks endpoint handles its own scope
+      // check via requireEntitlement(), so v1Handler must NOT additionally
+      // require ai:read/ai:write here (that would block valid keys).
+      const isAiServicePlane = segments[2] === 'ai' && segments.length >= 4 && segments[3] !== 'health';
+      if (!isAiServicePlane) {
+        const resource = segments[2] === 'command' ? 'runs' : segments[2];
+        const action = segments.includes('run') || segments[2] === 'command'
+          ? 'execute'
+          : request.method === 'GET' ? 'read' : 'write';
+        if (identity.kind === 'apiKey' && resource && !hasScope(identity, `${resource}:${action}`)) {
+          throw new V1Error(`Scope required: ${resource}:${action}`, 403, 'FORBIDDEN');
+        }
       }
       const data = await handler({ identity }, request);
       const asyncCommand = request.method === 'POST' && (

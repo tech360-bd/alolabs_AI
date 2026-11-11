@@ -62,9 +62,16 @@ export async function requireEntitlement(
     throw new V1Error('Usage quota exceeded.', 429, 'QUOTA_EXCEEDED');
   }
 
-  // Per-key rate limit (API keys only — sessions are not rate-limited per-key).
+  // F7: Per-key rate limit (API keys only — sessions are not rate-limited
+  // per-key). Reads the ACTUAL CompanyApiKey.rateLimit configured for this
+  // key, NOT a hardcoded default. A key with rateLimit=10 enforces 10/min.
   if (identity.kind === 'apiKey' && identity.keyId) {
-    const rl = checkRateLimit(identity.keyId, 1000); // default 1000/min; per-key limit enforced in v1Handler later
+    const apiKey = await db.companyApiKey.findUnique({
+      where: { id: identity.keyId },
+      select: { rateLimit: true },
+    });
+    const limit = apiKey?.rateLimit ?? 1000; // fail-safe default if row missing
+    const rl = checkRateLimit(identity.keyId, limit);
     if (!rl.allowed) {
       throw new V1Error('Too many requests. Please slow down.', 429, 'RATE_LIMITED');
     }

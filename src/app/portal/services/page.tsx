@@ -15,7 +15,7 @@
  */
 
 import * as React from 'react'
-import { useApiGet } from '@/hooks/use-api-actions'
+import { useApiGetV1 } from '@/hooks/use-api-actions'
 import {
   PortalPageHero,
   SectionCard,
@@ -53,18 +53,17 @@ interface ServiceCapability {
 }
 
 interface CapabilitiesResponse {
-  data?: ServiceCapability[]
   services?: ServiceCapability[]
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function PortalServicesPage() {
-  const { data, loading, error, refresh } = useApiGet<CapabilitiesResponse>('/api/v1/ai/capabilities')
+  const { data, loading, error, refresh } = useApiGetV1<CapabilitiesResponse>('/api/v1/ai/capabilities')
 
   const services = React.useMemo(() => {
     if (!data) return []
-    return data.data ?? data.services ?? []
+    return data.services ?? []
   }, [data])
 
   const activeCount = React.useMemo(
