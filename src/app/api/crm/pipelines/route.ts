@@ -1,5 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { z } from 'zod';
+import { db } from '@/lib/db';
+import { jsonResponse, secureRoute } from '@/lib/api/secure-route';
+
+/**
+ * crm.pipelines — authenticated, authorised, tenant-scoped, audited.
+ *
+ * Replaces a hand-written route that verified a session token inline but
+ * applied no role check and no tenant scope: any authenticated user could
+ * read every company's pipelines and create pipelines with global
+ * "isDefault" semantics. Pipelines with stages/enrichment are hand-assembled
+ * on `secureRoute` (plain `secureCrud` cannot express the create side
+ * effects); the guard is identical.
+ */
 
 const DEFAULT_STAGES = [
   { name: 'Lead', color: '#3B82F6', sortOrder: 0, probability: 10 },
@@ -8,67 +20,56 @@ const DEFAULT_STAGES = [
   { name: 'Negotiation', color: '#F97316', sortOrder: 3, probability: 75 },
   { name: 'Closed Won', color: '#22C55E', sortOrder: 4, probability: 100 },
   { name: 'Closed Lost', color: '#EF4444', sortOrder: 5, probability: 0 },
-]
+];
 
-export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-  try {
+const createSchema = z.object({
+  name: z.string().min(1).max(160),
+  description: z.string().max(2000).optional().nullable(),
+});
+
+const WRITE_ROLES = ['super_admin', 'admin', 'manager', 'operator'] as const;
+
+export const GET = secureRoute(
+  { resource: 'crm.pipelines', action: 'read' },
+  async (context) => {
     const pipelines = await db.crmPipeline.findMany({
-      where: { status: 'active' },
+      where: context.tenantWhere({ status: 'active' }),
       include: {
         stages: { orderBy: { sortOrder: 'asc' } },
         _count: { select: { deals: true } },
       },
       orderBy: { sortOrder: 'asc' },
-    })
+    });
 
-    // Add deal counts per stage and total value
+    // Add deal counts per stage and total value (deals of this tenant's
+    // pipelines are themselves tenant-scoped at write time).
     const enriched = await Promise.all(
       pipelines.map(async (p) => {
         const stageData = await Promise.all(
           p.stages.map(async (s) => {
-            const dealCount = await db.crmDeal.count({ where: { pipelineId: p.id, stageId: s.id } })
-            const deals = await db.crmDeal.findMany({ where: { pipelineId: p.id, stageId: s.id } })
-            const totalValue = deals.reduce((sum, d) => sum + d.value, 0)
-            return { ...s, dealCount, totalValue }
-          })
-        )
-        const allDeals = await db.crmDeal.findMany({ where: { pipelineId: p.id, status: 'active' } })
-        const totalValue = allDeals.reduce((sum, d) => sum + d.value, 0)
-        return { ...p, stages: stageData, totalValue }
-      })
-    )
+            const dealCount = await db.crmDeal.count({ where: { pipelineId: p.id, stageId: s.id } });
+            const deals = await db.crmDeal.findMany({ where: { pipelineId: p.id, stageId: s.id } });
+            const totalValue = deals.reduce((sum, d) => sum + d.value, 0);
+            return { ...s, dealCount, totalValue };
+          }),
+        );
+        const allDeals = await db.crmDeal.findMany({ where: { pipelineId: p.id, status: 'active' } });
+        const totalValue = allDeals.reduce((sum, d) => sum + d.value, 0);
+        return { ...p, stages: stageData, totalValue };
+      }),
+    );
 
-    return NextResponse.json({ data: enriched })
-  } catch (error) {
-    console.error('[CRM Pipelines GET]', error)
-    return NextResponse.json({ error: 'Failed to fetch pipelines' }, { status: 500 })
-  }
-}
+    return jsonResponse({ data: enriched }, context.requestId);
+  },
+);
 
-export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-  try {
-    const body = await request.json()
-    const { name, description } = body
+export const POST = secureRoute(
+  { resource: 'crm.pipelines', action: 'create', roles: WRITE_ROLES, body: createSchema },
+  async (context) => {
+    const { name, description } = context.body;
 
-    if (!name) {
-      return NextResponse.json({ error: 'name is required' }, { status: 400 })
-    }
-
-    const count = await db.crmPipeline.count()
+    // "First pipeline becomes default" — per tenant, not global.
+    const count = await db.crmPipeline.count({ where: context.tenantWhere() });
     const pipeline = await db.crmPipeline.create({
       data: {
         name,
@@ -76,10 +77,10 @@ export async function POST(request: NextRequest) {
         isDefault: count === 0,
         sortOrder: count,
         status: 'active',
+        companyId: context.companyId,
       },
-    })
+    });
 
-    // Create default stages
     await db.crmPipelineStage.createMany({
       data: DEFAULT_STAGES.map((s) => ({
         pipelineId: pipeline.id,
@@ -88,16 +89,22 @@ export async function POST(request: NextRequest) {
         sortOrder: s.sortOrder,
         probability: s.probability,
       })),
-    })
+    });
 
     const stages = await db.crmPipelineStage.findMany({
       where: { pipelineId: pipeline.id },
       orderBy: { sortOrder: 'asc' },
-    })
+    });
 
-    return NextResponse.json({ data: { ...pipeline, stages } }, { status: 201 })
-  } catch (error) {
-    console.error('[CRM Pipelines POST]', error)
-    return NextResponse.json({ error: 'Failed to create pipeline' }, { status: 500 })
-  }
+    return jsonResponse({ data: { ...pipeline, stages } }, context.requestId, 201);
+  },
+);
+
+// PUT/DELETE on the collection route were never part of the contract; exported
+// as explicit 405s so nothing silently treats them as authenticated endpoints.
+import { NextResponse } from 'next/server';
+async function methodNotAllowed() {
+  return NextResponse.json({ error: 'Method not allowed on /api/crm/pipelines' }, { status: 405 });
 }
+export const PUT = methodNotAllowed;
+export const DELETE = methodNotAllowed;

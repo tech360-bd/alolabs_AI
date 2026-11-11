@@ -257,3 +257,14 @@ A watermark or C2PA-style metadata can support provenance but is not proof that 
 - **Phase 7:** repeat evaluation on production-like hardware/telephone paths, failure/soak tests, privacy and backup-restore checks.
 
 **Stop condition:** no production Bangla voice claim, automated Bangla calling, or cloning release without the evidence above and explicit owner approval. See [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) and [SECURITY_AND_COMPLIANCE.md](SECURITY_AND_COMPLIANCE.md).
+
+---
+
+## UPDATE 2026-11-05 — Platform plumbing done; evaluation still pending
+
+The TTS/ASR adapter registries, job pipeline, metering and honest
+unavailability behavior are implemented (`src/lib/voice/speech.ts`,
+`/api/voice/tts`, `/api/voice/asr`): without a deployed engine, jobs fail with
+`no_speech_provider_configured` rather than producing fabricated audio or
+transcripts. Candidate shortlist above unchanged; the dataset, WER/CER/MOS
+runs and native-speaker review remain the gate before any Bangla voice claim.

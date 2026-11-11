@@ -94,9 +94,14 @@ const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'
  * Known auth helpers. A route referencing any of these is considered to perform
  * its own authoritative check. Deliberately broad: the point is to catch routes
  * with NO auth concept at all, not to police which helper they chose.
+ *
+ * `withCompany` (from @/lib/voice/api-helpers) is the Voice & Contact Center
+ * route wrapper: it unconditionally calls requireCompanyAuth() from
+ * @/lib/api-auth and returns 401 before the handler runs, so referencing it is
+ * equivalent to referencing an auth helper directly.
  */
 const AUTH_HELPER_RE =
-  /@\/lib\/api-auth|@\/lib\/route-auth|@\/lib\/auth|@\/lib\/v1\b|@\/lib\/v1'|v1Handler|secureRoute|requireAuth|withAuth|authenticate|verifySession|verifySessionToken|verifyToken|getSession|getLockoutStatus/;
+  /@\/lib\/api-auth|@\/lib\/route-auth|@\/lib\/auth|@\/lib\/v1\b|@\/lib\/v1'|@\/lib\/voice\/api-helpers|v1Handler|secureRoute|requireAuth|withAuth|withCompany|authenticate|verifySession|verifySessionToken|verifyToken|getSession|getLockoutStatus/;
 
 const apiDir = join(root, 'src/app/api');
 if (!existsSync(apiDir)) {

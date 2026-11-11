@@ -45,6 +45,9 @@ describe('GET /api/super-admin/link-coverage', () => {
     const response = await callRoute();
     expect(response.status).toBe(200);
 
+    const { LINK_COVERAGE } = await import('@/lib/link-coverage/registry');
+    const registrySize = LINK_COVERAGE.length;
+
     const data = response.data as {
       summary: { links: number; evidencePaths: number; missingPaths: number; evidenceVerified: number };
       entries: { url: string }[];
@@ -53,9 +56,11 @@ describe('GET /api/super-admin/link-coverage', () => {
     };
 
     expect(data.mode).toBe('live');
-    expect(data.registrySize).toBe(45);
-    expect(data.summary.links).toBe(45);
-    expect(data.entries).toHaveLength(45);
+    // The registry grows with every coverage sweep, so the route is asserted
+    // against the live registry length instead of a hardcoded count.
+    expect(data.registrySize).toBe(registrySize);
+    expect(data.summary.links).toBe(registrySize);
+    expect(data.entries).toHaveLength(registrySize);
     // The route really reads the working tree: every evidence file resolves.
     expect(data.summary.evidencePaths).toBeGreaterThan(100);
     expect(data.summary.evidenceVerified).toBe(data.summary.evidencePaths);

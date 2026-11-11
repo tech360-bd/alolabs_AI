@@ -6,6 +6,13 @@
 **Working branch:** `arena/af56beb2-alolabs-ai`
 **Decision status:** Phase 0 documentation only. **Owner approval is required before Phase 1. Production deployment is not approved.**
 
+> **UPDATE 2026-11-11:** the runtime gaps identified below (conversation brain
+> wiring, campaign lifecycle, dialer worker, webhook HMAC security, handoff
+> execution, CRM caller matching, quotas, metrics, v1 surface) are now
+> implemented — see `docs/VOICE_GAP_CLOSURE_2026-11-11.md` for the per-section
+> implementation map and the honest remaining boundary (real PSTN + media
+> layer still require owner-approved infrastructure).
+
 ## 1. Executive conclusion
 
 ALO Labs already has a substantial AgentOS application. The correct approach is an **additive communications domain inside that application**, not a replacement repository, a second competing tenant system, or a cosmetic call-center dashboard.
@@ -260,3 +267,41 @@ The owner should review these decisions before authorizing implementation:
 **Phase 0 deliverables:** this audit plus [TELEPHONY_ARCHITECTURE.md](TELEPHONY_ARCHITECTURE.md), [BANGLA_VOICE_MODEL_EVALUATION.md](BANGLA_VOICE_MODEL_EVALUATION.md), [PROVIDER_COMPATIBILITY.md](PROVIDER_COMPATIBILITY.md), [SECURITY_AND_COMPLIANCE.md](SECURITY_AND_COMPLIANCE.md), [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md), and the owner-supplied third-party intake register [EXTERNAL_PROJECT_INTAKE.md](EXTERNAL_PROJECT_INTAKE.md). A later owner-directed follow-up added an instruction-only skill pack to the Command Agent; see [AGENT_SKILLS.md](AGENT_SKILLS.md). That follow-up did not authorize telephony Phase 1 or production deployment.
 
 **Status: awaiting explicit owner approval. Do not begin Phase 1, alter databases, install the proposed stack, or connect production telephony based on this document alone.**
+
+---
+
+## UPDATE 2026-11-05 — Implementation progress (this pass)
+
+The Phase 0 conclusion stands; the missing domain has now been **implemented
+and tested** as an additive communications context, exactly as this audit
+prescribed. Nothing existing was deleted; all changes are additive.
+
+**Built and verified (76 new tests, full suite green apart from 4 pre-existing
+baseline failures):**
+
+- 22 new Prisma models (tenant-scoped via `companyId`): PhoneNumber,
+  SipTrunkConfig, IvrFlow, CallQueue/QueueMember, AgentPresence, BusinessHour,
+  VoiceAgent, VoiceLibraryItem, VoiceConsent, TtsJob, AsrJob, CallSession,
+  CallEvent, CallRecording, CallTranscript, CallSummary, Campaign,
+  CampaignCall, DncEntry, RecordingConsentRecord, VoiceUsageEntry.
+- Core libs under `src/lib/voice/`: call state machine (13 states, validated
+  transitions), call service (tenant-checked lifecycle + event audit +
+  metering), IVR/business-hours/ring-strategy routing (fail-closed), consent
+  gates (DNC with irremovable customer opt-outs, default-deny recording,
+  voice-clone consent, mandatory handoff rules), TTS/ASR engine registries
+  (placeholders refuse to fake output), conversation orchestrator
+  (handoff-before-response; unconfirmed actions marked `not_confirmed`),
+  campaign engine (DNC → attempts → calling-hours ordering), usage metering
+  (8 dimensions; simulated usage separated).
+- Telephony adapters: sandbox (simulated, flagged) + NotConnectedAdapter for
+  asterisk/freeswitch/external_sip that fails loudly — no silent fake success.
+- 12 API route groups under `/api/voice/*` (numbers, calls, agents,
+  campaigns, tts, asr, usage, presence, dnc, voices, consents, provider
+  webhook, conversations, overview), all `requireCompanyAuth()`-scoped.
+- 10 dashboard panels under a new "Voice & Contact Center" nav group +
+  public product page `/site/platform/voice-contact-center`.
+- MySQL schema parity maintained (`schema.mysql.prisma` regenerated; static
+  compatibility test updated 192 → 214 models, PASS).
+
+**Still not done (unchanged from Phase 0):** real PSTN connectivity, deployed
+Bangla speech engines, live softphone, payment wiring — see IMPLEMENTATION_ROADMAP.md.

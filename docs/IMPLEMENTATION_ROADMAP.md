@@ -428,3 +428,25 @@ Dates/costs require measured hardware, owner scope and engineering capacity; no 
 ## Acceptance status
 
 Resource dispositions documented; full resource facts/license/dependency verification remain incomplete where evidence is inaccessible or nested. Existing features preserved. Permission enforcement, universal restart/recovery, signed audit, lab isolation, generated-code QA, DB restore/migration gates, real local inference and production approval configuration remain unverified or partial as detailed in companion documents. **The full project is not complete. Stop after Phase 0 and obtain owner approval for Phase 1 design.**
+
+---
+
+## UPDATE 2026-11-05 — Execution status against this roadmap
+
+The owner authorized "DONE FULL PROJECT NOW" for this pass. The additive
+communications context prescribed in §1 has been implemented and tested:
+
+| Roadmap item | Status |
+| --- | --- |
+| Tenant-safe contracts, audit, metering | ✅ implemented (`companyId` everywhere, `CallEvent` audit, `VoiceUsageEntry`) |
+| Replaceable telephony boundary | ✅ adapter interface + registry + sandbox; real providers fail loudly until configured |
+| Local-first speech adapters | ✅ registries with honest unavailable engines; evaluation still pending |
+| Call state, consent, usage ledger | ✅ 13-state machine; DNC/recording/clone gates; 8 metering dimensions |
+| CRM & messaging reuse | ✅ CrmContact/pipelines, WhatsApp/SMS/email modules and Conversation tables reused |
+| Dashboards | ✅ 10 new panels + public product page; simulated data badged |
+| Live SIP/PSTN, speech engines, softphone, payments | ⏳ not started — requires infrastructure decisions & approvals |
+| Production validation (Phase 7) | ⛔ open; production deployment still requires separate explicit approval |
+
+Non-negotiables preserved: no existing code/data deleted (schema purely
+additive), no fabricated records, no unapproved deployment, docs merged not
+replaced.

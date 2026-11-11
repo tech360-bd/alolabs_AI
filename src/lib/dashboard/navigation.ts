@@ -72,11 +72,16 @@ import {
   Megaphone,
   MessageSquare,
   Mic,
+  MicVocal,
   Monitor,
   Music,
   Network,
   OctagonAlert,
   Palette,
+  PhoneCall,
+  PhoneIncoming,
+  PhoneOff,
+  Radio,
   PenTool,
   Play,
   Plug,
@@ -414,6 +419,21 @@ export const DASHBOARD_NAV: DashboardNavGroup[] = [
       { id: "human-avatar-voice", label: "Avatar & Voice", icon: UserCircle },
     ],
   },
+  {
+    label: "Voice & Contact Center",
+    items: [
+      { id: "voice-overview", label: "Contact Center Dashboard", icon: PhoneCall },
+      { id: "voice-numbers", label: "Phone Number Manager", icon: PhoneIncoming },
+      { id: "voice-calls", label: "Call History & Control", icon: PhoneOff },
+      { id: "voice-agents", label: "AI Voice Agent Builder", icon: Bot },
+      { id: "voice-studio", label: "Voice Studio (TTS / ASR)", icon: MicVocal },
+      { id: "voice-library", label: "Voice Library & Cloning", icon: Radio },
+      { id: "voice-workspace", label: "Agent & Supervisor Workspace", icon: Megaphone },
+      { id: "voice-campaigns", label: "Campaigns & DNC", icon: Megaphone },
+      { id: "voice-omni", label: "Shared Inbox", icon: MessageSquare },
+      { id: "voice-billing-api", label: "Usage, Billing & API", icon: Receipt },
+    ],
+  },
 ]
 
 /**
@@ -427,6 +447,16 @@ export const DASHBOARD_NAV: DashboardNavGroup[] = [
 export type DashboardPanelProps = { onNavigate?: (view: string) => void }
 
 export const DASHBOARD_PANELS: Record<string, () => Promise<{ default: ComponentType<DashboardPanelProps> }>> = {
+  "voice-overview": () => import('@/components/voice/voice-overview') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "voice-numbers": () => import('@/components/voice/voice-numbers') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "voice-calls": () => import('@/components/voice/voice-calls') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "voice-agents": () => import('@/components/voice/voice-agents') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "voice-studio": () => import('@/components/voice/voice-studio') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "voice-library": () => import('@/components/voice/voice-library') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "voice-workspace": () => import('@/components/voice/voice-workspace') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "voice-campaigns": () => import('@/components/voice/voice-campaigns') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "voice-omni": () => import('@/components/voice/voice-omni') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "voice-billing-api": () => import('@/components/voice/voice-billing-api') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "agent-command-center": () => import('@/components/enterprise/panels/agent-command-center') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "agent-evaluation": () => import('@/components/panels/agent-evaluation-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "agent-evolution": () => import('@/components/panels/agent-evolution-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,

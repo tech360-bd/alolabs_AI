@@ -353,3 +353,20 @@ The architecture is not accepted for production until evidence exists for:
 - Separate owner approval for production deployment.
 
 **Current status: design complete for review; implementation and operational verification have not started.**
+
+---
+
+## UPDATE 2026-11-05 — Control plane implemented
+
+The architecture above is now materially implemented at the control-plane
+level: `src/lib/voice/telephony/adapter.ts` (adapter contract with capability
+flags), `registry.ts` (sandbox + asterisk/freeswitch/external_sip; unconfigured
+real providers return a `NotConnectedAdapter` that fails loudly and reports
+`reachable:false`), `sandbox-adapter.ts` (full lifecycle simulation stamped
+`simulated:true`), and `/api/voice/telephony/webhook` (tenant
+secret-authenticated provider events driving the server-side state machine).
+Call state machine: 13 states, every transition validated in
+`call-state.ts` and audited in `CallEvent`. Metering is applied exactly once
+at terminal states. The media plane (ARI/ESL, RTP, streaming ASR/TTS,
+SIP.js softphone) remains to be built per the plan above; nothing here
+claims otherwise.

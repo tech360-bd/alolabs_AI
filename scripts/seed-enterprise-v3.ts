@@ -36,10 +36,6 @@ function randInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-function randFloat(min: number, max: number, decimals = 2): number {
-  return parseFloat((Math.random() * (max - min) + min).toFixed(decimals))
-}
-
 function padNum(n: number, width: number = 3): string {
   return String(n).padStart(width, '0')
 }
@@ -765,8 +761,6 @@ async function main() {
               maxTokens: b.maxTokens,
               version: 1,
               isPublic: true,
-              usageCount: randInt(0, 100),
-              rating: randFloat(3.0, 5.0),
               tags: b.tags,
               isActive: true,
             })),
@@ -792,8 +786,6 @@ async function main() {
                   maxTokens: item.maxTokens,
                   version: 1,
                   isPublic: true,
-                  usageCount: randInt(0, 100),
-                  rating: randFloat(3.0, 5.0),
                   tags: item.tags,
                   isActive: true,
                 },
@@ -862,7 +854,7 @@ async function main() {
                 keywords: [baseTitle.toLowerCase(), spec.code.toLowerCase()],
                 createdFor: `seed-v3`,
               }),
-              confidence: randFloat(0.7, 1.0),
+              confidence: 0.9,
               source: 'internal',
               version: 1,
             },
@@ -897,8 +889,8 @@ async function main() {
           fromNodeId: nodeIdList[fromIdx],
           toNodeId: nodeIdList[toIdx],
           relationType: pick(EDGE_RELATION_TYPES as unknown as string[]),
-          weight: randFloat(0.1, 1.0),
-          metadata: JSON.stringify({ source: 'seed-v3', confidence: randFloat(0.6, 1.0) }),
+          weight: 0.8,
+          metadata: JSON.stringify({ source: 'seed-v3', confidence: 0.85 }),
         })
       }
 
@@ -965,7 +957,9 @@ async function main() {
             severity,
             payload,
             departmentId: deptId,
-            processed: Math.random() > 0.5,
+            // Events start unprocessed — processing state is produced by real
+            // runs, never simulated by the seed.
+            processed: false,
           },
         })
         created++
@@ -977,173 +971,18 @@ async function main() {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // 10. ENGINE RECORDS (5000 across 8 engine types)
+  // 10. ENGINE RECORDS — NOT SEEDED ON PURPOSE
   // ────────────────────────────────────────────────────────────────────────────
-  const existingEngines = await db.engineRecord.count()
-  if (existingEngines >= THRESHOLDS.engineRecords) {
-    console.log(`[SKIP] Engine Records: ${existingEngines} already exist (≥${THRESHOLDS.engineRecords})`)
-  } else {
-    console.log(`[SEED] Engine Records: seeding ${THRESHOLDS.engineRecords} across ${ENGINE_TYPES.length} engine types...`)
-    let created = 0
-    const engineBatch: { engineType: string; action: string; status: string; input: string; output: string; departmentId: string; duration: number; score: number; metadata: string }[] = []
-
-    const deptIds = Array.from(deptMap.values())
-    if (deptIds.length === 0) {
-      // Fetch all dept IDs if map is empty
-      const allDepts = await db.department.findMany({ select: { id: true } })
-      allDepts.forEach(d => deptIds.push(d.id))
-    }
-
-    for (const engineType of ENGINE_TYPES) {
-      const actions = ENGINE_ACTIONS[engineType] || []
-      const recordsPerEngine = Math.ceil(THRESHOLDS.engineRecords / ENGINE_TYPES.length)
-
-      for (let i = 0; i < recordsPerEngine; i++) {
-        const action = pick(actions.length > 0 ? actions : ['process'])
-        const status = pick(['completed', 'completed', 'completed', 'completed', 'failed']) // 80% success
-        const deptId = pick(deptIds.length > 0 ? deptIds : ['__none__'])
-
-        const input = JSON.stringify({
-          action,
-          engineType,
-          timestamp: new Date(Date.now() - randInt(0, 7 * 24 * 60 * 60 * 1000)).toISOString(),
-          params: { iterations: randInt(1, 10), threshold: randFloat(0.5, 1.0) },
-        })
-
-        const output = status === 'completed'
-          ? JSON.stringify({ result: 'success', dataPoints: randInt(10, 1000), insights: randInt(1, 20) })
-          : JSON.stringify({ result: 'failed', error: pick(['timeout', 'invalid_input', 'resource_exhausted', 'permission_denied']) })
-
-        engineBatch.push({
-          engineType,
-          action,
-          status,
-          input,
-          output,
-          departmentId: deptId,
-          duration: randInt(10, 30000),
-          score: status === 'completed' ? randFloat(0.6, 1.0) : null as any,
-          metadata: JSON.stringify({ source: 'seed-v3', batch: Math.floor(i / 500) }),
-        })
-      }
-    }
-
-    // Insert in batches of 500
-    const engineBatches = chunk(engineBatch, 500)
-    for (const batch of engineBatches) {
-      try {
-        await db.engineRecord.createMany({
-          data: batch.map(b => ({
-            engineType: b.engineType,
-            action: b.action,
-            status: b.status,
-            input: b.input,
-            output: b.output,
-            departmentId: b.departmentId,
-            duration: b.duration,
-            score: b.score,
-            metadata: b.metadata,
-          })),
-        })
-        created += batch.length
-      } catch (e: any) {
-        // Try one by one
-        for (const record of batch) {
-          try {
-            await db.engineRecord.create({
-              data: {
-                engineType: record.engineType,
-                action: record.action,
-                status: record.status,
-                input: record.input,
-                output: record.output,
-                departmentId: record.departmentId,
-                duration: record.duration,
-                score: record.score,
-                metadata: record.metadata,
-              },
-            })
-            created++
-          } catch {
-            // skip
-          }
-        }
-      }
-    }
-    console.log(`  ✓ Engine Records: ${created} created [${elapsed()}]`)
-  }
-
+  // EngineRecord rows are execution history (status, duration, score). Seeding
+  // them would fabricate success rates and performance numbers that never
+  // happened. They are written exclusively by real engine runs.
+  console.log('[SKIP] Engine Records: execution history is produced by real runs — nothing seeded')
   // ────────────────────────────────────────────────────────────────────────────
-  // 11. DATA LAKE ENTRIES (10000 across 5 source types)
+  // 11. DATA LAKE ENTRIES — NOT SEEDED ON PURPOSE
   // ────────────────────────────────────────────────────────────────────────────
-  const existingDL = await db.dataLakeEntry.count()
-  if (existingDL >= THRESHOLDS.dataLakeEntries) {
-    console.log(`[SKIP] Data Lake Entries: ${existingDL} already exist (≥${THRESHOLDS.dataLakeEntries})`)
-  } else {
-    console.log(`[SEED] Data Lake Entries: seeding ${THRESHOLDS.dataLakeEntries} across ${DATA_LAKE_SOURCES.length} source types...`)
-    let created = 0
-    const dlBatch: { source: string; category: string; format: string; data: string; size: number; departmentId: string; tags: string; retention: string }[] = []
-
-    const deptIds = Array.from(deptMap.values())
-    if (deptIds.length === 0) {
-      const allDepts = await db.department.findMany({ select: { id: true } })
-      allDepts.forEach(d => deptIds.push(d.id))
-    }
-
-    for (const source of DATA_LAKE_SOURCES) {
-      const recordsPerSource = Math.ceil(THRESHOLDS.dataLakeEntries / DATA_LAKE_SOURCES.length)
-
-      for (let i = 0; i < recordsPerSource; i++) {
-        const format = pick(DATA_LAKE_FORMATS as unknown as string[])
-        const category = pick(['raw', 'processed', 'enriched', 'aggregated', 'archived'])
-        const deptId = pick(deptIds.length > 0 ? deptIds : ['__none__'])
-
-        const dataTemplates: Record<string, object> = {
-          agent_logs: { agentId: `AGENT-${padNum(randInt(1, 2000), 4)}`, action: pick(['task_complete', 'error', 'handoff', 'decision']), duration: randInt(100, 5000) },
-          system_metrics: { metric: pick(['cpu', 'memory', 'latency', 'throughput', 'error_rate']), value: randFloat(0, 100), unit: pick(['%', 'ms', 'req/s', 'MB']) },
-          interactions: { type: pick(['user_query', 'agent_response', 'system_alert', 'approval_request']), status: pick(['success', 'pending', 'failed']) },
-          knowledge: { nodeType: pick(KNOWLEDGE_NODE_TYPES as unknown as string[]), operation: pick(['create', 'update', 'query', 'delete']), confidence: randFloat(0.5, 1.0) },
-          compliance: { ruleId: `CONST-${padNum(randInt(1, 500), 3)}`, status: pick(['pass', 'fail', 'warning']), severity: pick(['critical', 'high', 'medium', 'low']) },
-        }
-
-        const data = JSON.stringify(dataTemplates[source] || { source, record: i })
-        const size = randInt(50, 50000)
-
-        dlBatch.push({
-          source,
-          category,
-          format,
-          data,
-          size,
-          departmentId: deptId,
-          tags: JSON.stringify([source, category, format]),
-          retention: pick(['30d', '90d', '180d', '365d', '730d']),
-        })
-      }
-    }
-
-    // Insert in batches of 500
-    const dlBatches = chunk(dlBatch, 500)
-    for (const batch of dlBatches) {
-      try {
-        await db.dataLakeEntry.createMany({
-          data: batch,
-        })
-        created += batch.length
-      } catch (e: any) {
-        // Try one by one
-        for (const entry of batch) {
-          try {
-            await db.dataLakeEntry.create({ data: entry })
-            created++
-          } catch {
-            // skip
-          }
-        }
-      }
-    }
-    console.log(`  ✓ Data Lake Entries: ${created} created [${elapsed()}]`)
-  }
+  // DataLakeEntry rows hold captured agent logs and system metrics. Seeding
+  // them would fabricate telemetry. They are written by the real pipeline.
+  console.log('[SKIP] Data Lake Entries: telemetry is produced by the real pipeline — nothing seeded')
 
   // ────────────────────────────────────────────────────────────────────────────
   // SUMMARY

@@ -1,98 +1,53 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { z } from 'zod';
+import { secureCrud } from '@/lib/api/secure-crud';
 
-export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-  try {
-    const url = request.nextUrl
-    const search = url.searchParams.get('search') || ''
-    const status = url.searchParams.get('status') || ''
-    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10))
-    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '20', 10)))
-    const sortBy = url.searchParams.get('sortBy') || 'createdAt'
-    const sortOrder = url.searchParams.get('sortOrder') || 'desc'
+/**
+ * crm.contacts — authenticated, authorised, tenant-scoped, audited.
+ *
+ * Replaces a hand-written route that verified a session token inline but
+ * applied no role check and no tenant scope: any authenticated user could
+ * read and mutate every company's contacts (CrmContact.companyId).
+ */
 
-    const where: Record<string, unknown> = {}
-    if (search) {
-      where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { email: { contains: search } },
-        { company: { contains: search } },
-      ]
-    }
-    if (status) {
-      where.status = status
-    }
+/** Coerce a tags/metadata payload to a JSON string (or undefined). */
+const jsonString = (max: number) =>
+  z
+    .unknown()
+    .optional()
+    .transform((value) => {
+      if (value === undefined) return undefined;
+      return typeof value === 'string' ? value.slice(0, max) : JSON.stringify(value).slice(0, max);
+    });
 
-    const orderBy: Record<string, string> = {}
-    orderBy[sortBy] = sortOrder
+export const createSchema = z.object({
+  firstName: z.string().min(1).max(120),
+  lastName: z.string().min(1).max(120),
+  email: z.string().email().max(200),
+  phone: z.string().max(60).optional().nullable(),
+  company: z.string().max(160).optional().nullable(),
+  jobTitle: z.string().max(160).optional().nullable(),
+  source: z.string().max(60).optional(),
+  status: z.string().max(40).optional(),
+  tags: jsonString(400),
+  metadata: jsonString(4000),
+  assignedTo: z.string().max(120).optional().nullable(),
+});
 
-    const [contacts, total] = await Promise.all([
-      db.crmContact.findMany({
-        where,
-        include: {
-          _count: { select: { deals: true, activities: true, notes: true } },
-        },
-        orderBy,
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      db.crmContact.count({ where }),
-    ])
+export const updateSchema = createSchema.partial();
 
-    return NextResponse.json({
-      data: contacts,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
-    })
-  } catch (error) {
-    console.error('[CRM Contacts GET]', error)
-    return NextResponse.json({ error: 'Failed to fetch contacts' }, { status: 500 })
-  }
-}
+export const filterSchema = z.object({
+  status: z.string().max(40).optional(),
+});
 
-export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-  try {
-    const body = await request.json()
-    const { firstName, lastName, email, phone, company, jobTitle, source, tags, metadata, assignedTo } = body
-
-    if (!firstName || !lastName || !email) {
-      return NextResponse.json({ error: 'firstName, lastName, and email are required' }, { status: 400 })
-    }
-
-    const contact = await db.crmContact.create({
-      data: {
-        firstName,
-        lastName,
-        email,
-        phone: phone || null,
-        company: company || null,
-        jobTitle: jobTitle || null,
-        source: source || 'manual',
-        status: 'lead',
-        tags: tags ? JSON.stringify(tags) : '[]',
-        metadata: metadata ? JSON.stringify(metadata) : '{}',
-        assignedTo: assignedTo || null,
-      },
-    })
-
-    return NextResponse.json({ data: contact }, { status: 201 })
-  } catch (error: unknown) {
-    console.error('[CRM Contacts POST]', error)
-    const msg = error instanceof Error && error.message.includes('Unique') ? 'Email already exists' : 'Failed to create contact'
-    return NextResponse.json({ error: msg }, { status: 500 })
-  }
-}
+export const { GET, POST, PUT, DELETE } = secureCrud({
+  resource: 'crm.contacts',
+  model: 'crmContact',
+  label: 'CrmContact',
+  tenantField: 'companyId',
+  createSchema,
+  updateSchema,
+  filterSchema,
+  searchFields: ['firstName', 'lastName', 'email', 'company'],
+  include: { _count: { select: { deals: true, activities: true, notes: true } } },
+  writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
+});

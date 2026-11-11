@@ -149,7 +149,10 @@ describe('link coverage registry', () => {
   it('records upstream metadata with a real check date', () => {
     expect(COVERAGE_CHECKED_AT).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     for (const entry of LINK_COVERAGE) {
-      expect(entry.upstreamMeta?.checkedAt, `${entry.id} needs a check date`).toBe(COVERAGE_CHECKED_AT);
+      // Entries are checked in dated sweeps; a later audit legitimately adds
+      // entries with their own (newer, real) check date, so the invariant is
+      // "every entry carries a real ISO check date", not one global constant.
+      expect(entry.upstreamMeta?.checkedAt, `${entry.id} needs a check date`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
     const cline = LINK_COVERAGE.find((entry) => entry.id === 'cline-repo');
     expect(cline?.upstreamMeta?.stars).toBeGreaterThan(0);
@@ -261,7 +264,15 @@ describe('dashboard filters', () => {
 
   it('onlyMissing keeps just the drifted rows', () => {
     const missing = filterEntries(report.entries, { onlyMissing: true });
-    expect(missing).toHaveLength(1);
-    expect(missing[0].missing.length).toBeGreaterThan(0);
+    // The fixture breaks ONE evidence path. Every registry entry that cites
+    // that same path must be returned, and nothing else. The count is derived
+    // from the registry instead of hardcoded, so later sweeps that add entries
+    // citing the same file cannot silently re-break this test.
+    const victimPath = LINK_COVERAGE[1].evidence[0].path;
+    const expectedVictims = LINK_COVERAGE.filter((entry) =>
+      entry.evidence.some((item) => item.path === victimPath),
+    ).map((entry) => entry.id);
+    expect(missing.map((entry) => entry.id).sort()).toEqual(expectedVictims.sort());
+    for (const entry of missing) expect(entry.missing.length).toBeGreaterThan(0);
   });
 });

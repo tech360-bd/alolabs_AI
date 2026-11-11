@@ -84,3 +84,15 @@ tool-results/
 
 # Mini services node_modules
 mini-services/*/node_modules/
+
+# Secrets and local databases — NEVER commit
+.env.backup
+.env*.bak
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-wal
+prisma/*.db-shm
+
+# Editor / backup copies
+*.bak
+*.bak2

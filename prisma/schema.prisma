@@ -3808,3 +3808,589 @@ model BackupRecord {
   @@index([status])
   @@index([createdAt])
 }
+
+// ============================================================
+// ALO LABS — AI VOICE & CONTACT CENTER
+// ------------------------------------------------------------
+// Cloud telephony, AI voice agents, Bangla voice generation,
+// omnichannel contact center. Tenant-scoped via companyId
+// (plain string + index, matching the CrmContact pattern —
+// no FK edits to the existing Company model, purely additive).
+//
+// HONESTY RULE BAKED INTO THE DATA MODEL: every record that can
+// be produced by a simulated provider carries `simulated` (or
+// is referenced from a simulated session). The UI must surface
+// this so demo data can never be mistaken for real calls.
+// ============================================================
+
+// ---- MODULE A — Cloud Business Phone System ----
+
+model PhoneNumber {
+  id                   String    @id @default(cuid())
+  companyId            String
+  e164                 String
+  label                String?
+  country              String    @default("BD")
+  numberType           String    @default("local") // local, toll_free, mobile, shared_cost
+  capabilities         String    @default("[\"voice\"]") // JSON array: voice, sms, mms
+  status               String    @default("pending") // pending, active, suspended, released
+  provider             String    @default("sandbox") // sandbox, asterisk, freeswitch, external_sip
+  monthlyCost          Float? // only set when a real provider reports it — never invented
+  assignedIvrFlowId    String?
+  assignedVoiceAgentId String?
+  assignedQueueId      String?
+  forwardTo            String?
+  recordingMode        String    @default("disabled") // disabled, on_demand, always_with_consent
+  timezone             String    @default("Asia/Dhaka")
+  provisionedAt        DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+
+  @@unique([companyId, e164])
+  @@index([companyId, status])
+}
+
+model SipTrunkConfig {
+  id              String    @id @default(cuid())
+  companyId       String
+  name            String
+  adapter         String    @default("asterisk") // asterisk, freeswitch, external_sip
+  host            String
+  port            Int       @default(5060)
+  transport       String    @default("udp") // udp, tcp, tls, wss
+  credentialRef   String? // External secret-store reference (e.g. IntegrationCredential/secrets manager id) — secrets never stored here
+  status          String    @default("unverified") // unverified, online, offline, error
+  lastVerifiedAt  DateTime?
+  lastError       String?
+  metadata        String    @default("{}")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([companyId, status])
+}
+
+model IvrFlow {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String?
+  nodes       String   @default("[]") // JSON IVR graph: [{id,type(greeting|menu|route|voicemail|hangup),promptKey,options:[{digit,label,targetNodeId,action}]}]
+  entryNodeId String?
+  active      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId, active])
+}
+
+model CallQueue {
+  id                   String   @id @default(cuid())
+  companyId            String
+  name                 String
+  priority             Int      @default(0)
+  ringStrategy         String   @default("round_robin") // round_robin, least_recent, simultaneous
+  maxWaitSeconds       Int      @default(300)
+  overflowVoiceAgentId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  members QueueMember[]
+
+  @@index([companyId])
+}
+
+model QueueMember {
+  id       String   @id @default(cuid())
+  queueId  String
+  userId   String
+  priority Int      @default(0)
+  addedAt  DateTime @default(now())
+
+  queue CallQueue @relation(fields: [queueId], references: [id], onDelete: Cascade)
+
+  @@unique([queueId, userId])
+}
+
+model AgentPresence {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  status    String   @default("offline") // offline, available, busy, after_call_work, break
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, userId])
+  @@index([companyId, status])
+}
+
+model BusinessHour {
+  id             String   @id @default(cuid())
+  companyId      String
+  name           String
+  timezone       String   @default("Asia/Dhaka")
+  weeklySchedule String   @default("[]") // JSON [{day:0-6, open:"09:00", close:"18:00", closed:false}]
+  holidays       String   @default("[]") // JSON ["2026-12-16", ...]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// ---- MODULE B/D — AI Voice Agents, TTS, ASR ----
+
+model VoiceAgent {
+  id                  String   @id @default(cuid())
+  companyId           String
+  name                String
+  description         String?
+  purpose             String?
+  language            String   @default("bn-BD")
+  voiceLibraryItemId  String?
+  speakingStyle       String?
+  personality         String?
+  greeting            String?
+  systemInstructions  String?
+  fallbackMessage     String?
+  escalationRules     String   @default("[]") // JSON [{trigger, action, targetUserId?}]
+  workingHours        String   @default("{}") // JSON BusinessHour-like or reference
+  maxCallSeconds      Int      @default(600)
+  allowBargeIn        Boolean  @default(true)
+  humanFallbackUserId String?
+  knowledgeScope      String   @default("[]") // JSON list of RagCollection/CompanyKnowledgeDocument ids
+  status              String   @default("draft") // draft, testing, active, paused, retired
+  phoneNumberId       String?
+  metadata            String   @default("{}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([companyId, status])
+}
+
+model VoiceLibraryItem {
+  id              String   @id @default(cuid())
+  companyId       String
+  name            String
+  language        String   @default("bn-BD")
+  gender          String   @default("female") // male, female, neutral
+  style           String?
+  provider        String   @default("local") // local, external
+  providerVoiceId String
+  isClone         Boolean  @default(false)
+  consentRecordId String?
+  status          String   @default("active") // active, disabled
+  metadata        String   @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([companyId, language])
+}
+
+model VoiceConsent {
+  id                 String    @id @default(cuid())
+  companyId          String
+  voiceLibraryItemId String?
+  ownerName          String
+  ownerContact       String
+  consentStatement   String
+  verificationMethod String    @default("written") // written, recorded_verbal, identity_verified
+  verifiedBy         String?
+  verifiedAt         DateTime?
+  status             String    @default("pending") // pending, verified, rejected, revoked
+  revokedAt          DateTime?
+  evidenceRef        String?
+  auditNote          String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([companyId, status])
+}
+
+model TtsJob {
+  id                String    @id @default(cuid())
+  companyId         String
+  text              String
+  language          String    @default("bn-BD")
+  voiceLibraryItemId String?
+  settings          String    @default("{}") // JSON: speed, pitch, stability, format, quality
+  status            String    @default("queued") // queued, processing, completed, failed
+  outputKey         String?
+  outputFormat      String?
+  characters        Int       @default(0)
+  durationSeconds   Float?
+  provider          String?
+  simulated         Boolean   @default(false)
+  error             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+}
+
+model AsrJob {
+  id              String   @id @default(cuid())
+  companyId       String
+  audioStorageKey String
+  language        String?
+  status          String   @default("queued") // queued, processing, completed, failed
+  transcript      String?
+  confidence      Float?
+  durationSeconds Float?
+  provider        String?
+  simulated       Boolean  @default(false)
+  error           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([companyId, status])
+}
+
+// ---- MODULES E/F — Calls, recordings, transcripts, campaigns ----
+
+model CallSession {
+  id                String    @id @default(cuid())
+  companyId         String
+  direction         String    // inbound, outbound
+  language          String    @default("bn-BD") // primary conversation language (bn-BD, en-US, mixed)
+  contactId         String? // CrmContact id — set by inbound caller identification (exact normalized-phone match)
+  channel           String    @default("pstn") // pstn, sip, webrtc, sandbox
+  fromNumber        String
+  toNumber          String
+  status            String    @default("queued") // see src/lib/voice/call-state.ts
+  phoneNumberId     String?
+  voiceAgentId      String?
+  agentType         String    @default("ai") // ai, human, ivr
+  assignedUserId    String?
+  campaignCallId    String?
+  parentCallId      String? // set when this call is a transfer/conference leg
+  startedAt         DateTime?
+  answeredAt        DateTime?
+  endedAt           DateTime?
+  ringSeconds       Int       @default(0)
+  durationSeconds   Int       @default(0)
+  holdSeconds       Int       @default(0)
+  transferred       Boolean   @default(false)
+  transferReason    String?
+  disposition       String? // answered, no_answer, busy, voicemail, failed, abandoned
+  endedReason       String?
+  recordingConsent  Boolean   @default(false)
+  outcome           String    @default("{}") // JSON structured outcome
+  simulated         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  events     CallEvent[]
+  recording  CallRecording?
+  transcript CallTranscript?
+  summary    CallSummary?
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+  @@index([companyId, direction])
+  @@index([phoneNumberId])
+  @@index([voiceAgentId])
+  @@index([campaignCallId])
+}
+
+model CallEvent {
+  id            String   @id @default(cuid())
+  callSessionId String
+  companyId     String
+  type          String // state_change, transfer, hold, unhold, dtmf, barge_in, handoff, recording_consent
+  payload       String   @default("{}")
+  createdAt     DateTime @default(now())
+
+  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+
+  @@index([callSessionId])
+  @@index([companyId])
+}
+
+model CallRecording {
+  id              String    @id @default(cuid())
+  callSessionId   String    @unique
+  companyId       String
+  storageKey      String
+  mimeType        String    @default("audio/wav")
+  durationSeconds Int       @default(0)
+  sizeBytes       BigInt?
+  consentRecordId String?
+  retentionUntil  DateTime?
+  createdAt       DateTime  @default(now())
+
+  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model CallTranscript {
+  id            String   @id @default(cuid())
+  callSessionId String   @unique
+  companyId     String
+  language      String   @default("bn-BD")
+  status        String   @default("processing") // processing, ready, failed
+  confidence    Float?
+  segments      String   @default("[]") // JSON [{speaker, text, startMs, endMs, confidence}]
+  provider      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model CallSummary {
+  id            String   @id @default(cuid())
+  callSessionId String   @unique
+  companyId     String
+  summary       String
+  sentiment     String? // positive, neutral, negative, mixed — automated estimate, never a fact about the person
+  intents       String   @default("[]")
+  actionItems   String   @default("[]")
+  keyTopics     String   @default("[]")
+  model         String?
+  confidence    Float?
+  createdAt     DateTime @default(now())
+
+  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model Campaign {
+  id                   String    @id @default(cuid())
+  companyId            String
+  name                 String
+  description          String?
+  type                 String    @default("follow_up") // reminder, survey, follow_up, lead_qualification, appointment
+  status               String    @default("draft") // draft, pending_approval, approved, running, paused, completed, cancelled, expired — see src/lib/voice/campaign-lifecycle.ts
+  script               String?
+  voiceAgentId         String?
+  phoneNumberId        String?
+  scheduledStart       DateTime?
+  scheduledEnd         DateTime?
+  callingHours         String    @default("{\"start\":\"09:00\",\"end\":\"18:00\",\"timezone\":\"Asia/Dhaka\",\"days\":[0,1,2,3,4]}")
+  maxAttemptsPerContact Int      @default(3)
+  retryDelayMinutes    Int       @default(60)
+  minGapMinutesPerContact Int    @default(1440)
+  respectDnc           Boolean   @default(true)
+  recordingDisclosure  String?
+  approvedById         String? // User id who approved the campaign (required before dialing)
+  approvedAt           DateTime?
+  expiresAt            DateTime? // campaign refuses to dial after this instant
+  maxConcurrentCalls   Int       @default(2) // concurrent live calls this campaign may own
+  dailyQuota           Int       @default(200) // max call attempts per local day in the campaign timezone (0 = unlimited)
+  metadata             String    @default("{}")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  campaignCalls CampaignCall[]
+
+  @@index([companyId, status])
+}
+
+model CampaignCall {
+  id               String    @id @default(cuid())
+  campaignId       String
+  companyId        String
+  contactId        String? // CrmContact id
+  destinationNumber String
+  status           String    @default("pending") // pending, dnc_blocked, outside_hours, queued, dialing, in_progress, completed, no_answer, busy, failed, skipped, max_attempts, cancelled
+  attempts         Int       @default(0)
+  lastAttemptAt    DateTime?
+  nextAttemptAt    DateTime?
+  scheduledFor     DateTime?
+  callSessionId    String?
+  outcome          String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  campaign    Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, destinationNumber]) // duplicate-call prevention (§13)
+  @@index([campaignId, status])
+  @@index([companyId, status])
+  @@index([nextAttemptAt])
+}
+
+// ---- MODULE H/C — Consent and compliance ----
+
+model DncEntry {
+  id           String   @id @default(cuid())
+  companyId    String
+  phoneNumber  String
+  reason       String   @default("customer_request")
+  addedById    String?
+  createdAt    DateTime @default(now())
+
+  @@unique([companyId, phoneNumber])
+  @@index([companyId])
+}
+
+model RecordingConsentRecord {
+  id            String   @id @default(cuid())
+  companyId     String
+  callSessionId String?
+  partyContact  String?
+  method        String   @default("ivr_announcement") // ivr_announcement, verbal, written
+  granted       Boolean  @default(false)
+  disclosedText String?
+  createdAt     DateTime @default(now())
+
+  @@index([companyId])
+  @@index([callSessionId])
+}
+
+// ---- MODULE 5 — Usage metering for billing dimensions ----
+
+model VoiceUsageEntry {
+  id             String   @id @default(cuid())
+  companyId      String
+  dimension      String // ai_call_minutes, pstn_minutes, tts_characters, tts_audio_seconds, asr_seconds, recording_storage_mb, active_number, clone_storage_mb
+  quantity       Float
+  unit           String
+  callSessionId  String?
+  campaignId     String?
+  ttsJobId       String?
+  asrJobId       String?
+  phoneNumberId  String?
+  simulated      Boolean  @default(false)
+  recordedAt     DateTime @default(now())
+  metadata       String   @default("{}")
+
+  @@index([companyId, dimension])
+  @@index([companyId, recordedAt])
+}
+
+// ---- Gap-closure models: handoff, appointments, customer consent,
+// provider registry, idempotency (master prompt §12/§14/§16/§18/§22) ----
+
+model Escalation {
+  id              String    @id @default(cuid())
+  companyId       String
+  callSessionId   String
+  trigger         String // customer_requested_human, payment_dispute, legal_or_safety, repeated_recognition_failure, low_confidence, max_duration, agent_error
+  reason          String
+  status          String    @default("open") // open, assigned, callback_scheduled, resolved, cancelled
+  assignedUserId  String?
+  queueId         String?
+  callbackTaskId  String? // Task id created when no human agent was available
+  callbackDueAt   DateTime? // when the promised callback must be dialed — consumed by the voice callback scheduler
+  resolvedAt      DateTime?
+  resolutionNote  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([companyId, status])
+  @@index([callSessionId])
+  @@index([assignedUserId, status])
+}
+
+model Appointment {
+  id             String    @id @default(cuid())
+  companyId      String
+  contactId      String? // CrmContact id
+  callSessionId  String? // CallSession that booked it (source of truth for the action)
+  title          String
+  scheduledFor   DateTime
+  durationMin    Int       @default(30)
+  timezone       String    @default("Asia/Dhaka")
+  status         String    @default("scheduled") // scheduled, confirmed, cancelled, completed, no_show
+  notes          String?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([companyId, scheduledFor])
+  @@index([contactId])
+  @@index([callSessionId])
+}
+
+model CustomerConsent {
+  id              String    @id @default(cuid())
+  companyId       String
+  contactId       String? // CrmContact id when the caller is identified
+  phoneNumber     String // normalized E.164 — consent must survive contact dedup
+  channel         String    @default("voice") // voice, sms, whatsapp
+  purpose         String    @default("outbound_contact") // outbound_contact, recording, marketing
+  granted         Boolean   @default(false)
+  method          String    @default("verbal") // verbal, written, web_form, ivr
+  evidenceRef     String?
+  revokedAt       DateTime?
+  grantedAt       DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([companyId, phoneNumber, channel, purpose])
+  @@index([companyId, granted])
+}
+
+model TelephonyProviderConfig {
+  id            String   @id @default(cuid())
+  companyId     String
+  adapter       String // sandbox, asterisk, freeswitch, external_sip — must match telephony/registry.ts
+  label         String
+  status        String   @default("unverified") // unverified, online, offline, error
+  config        String   @default("{}") // JSON — connection metadata only, NEVER credentials
+  capabilities  String   @default("{}") // JSON TelephonyCapabilities as reported by the last health check
+  lastCheckedAt DateTime?
+  lastError     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([companyId, adapter])
+  @@index([companyId, status])
+}
+
+model VoiceIdempotencyKey {
+  id           String   @id @default(cuid())
+  companyId    String
+  scope        String // e.g. "calls.post", "campaigns.dial"
+  key          String // client-supplied Idempotency-Key
+  status       String   @default("pending") // pending, succeeded, failed
+  responseJson String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([companyId, scope, key])
+  @@index([expiresAt])
+}
+
+// ---- Gap-closure round 2: agent versioning, usage billing, observability
+// (master prompt §10 version+audit history, §20 billing_records) ----
+
+model VoiceAgentVersion {
+  id          String   @id @default(cuid())
+  companyId   String
+  agentId     String // VoiceAgent id
+  version     Int // 1-based, monotonic per agent
+  config      String   @default("{}") // JSON snapshot of the full agent profile at this version
+  changedById String? // User id who made the change (null = system/worker)
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@unique([agentId, version])
+  @@index([companyId, agentId])
+}
+
+model VoiceBillingRecord {
+  id                String    @id @default(cuid())
+  companyId         String
+  periodKey         String // billing period, e.g. "2026-11"
+  dimension         String // VoiceUsageEntry dimension
+  unit              String
+  quantity          Float     @default(0)
+  simulatedQuantity Float     @default(0) // reported separately — simulated usage is never billed by default
+  unitPrice         Float     @default(0) // price-book unit price (0 = informational, not billed)
+  amount            Float     @default(0) // billableQuantity * unitPrice
+  currency          String    @default("USD")
+  priceBookSource   String    @default("default") // default | tenant
+  status            String    @default("draft") // draft, issued
+  issuedAt          DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@unique([companyId, periodKey, dimension])
+  @@index([companyId, periodKey])
+}

@@ -209,3 +209,15 @@ Every production adapter must pass the same contract suite:
 Exit strategy: export normalized numbers/assignments where legally portable, calls/CDRs, recordings/transcripts, contacts/consents, campaigns, usage and audit records; revoke provider credentials; follow carrier port-out/release rules; verify restored data in a replacement adapter. Do not promise number portability where the country/provider does not support it.
 
 **Current compatibility status:** source and documentation reviewed; no carrier, speech model, messaging provider, payment gateway, or production infrastructure integration certified. Owner approval and staged tests remain mandatory.
+
+---
+
+## UPDATE 2026-11-05 — Implementation against this matrix
+
+Telephony adapters (sandbox/asterisk/freeswitch/external_sip) and speech
+engine registries exist as classified; CRM, WhatsApp/SMS/email, billing,
+webhooks, API keys and multi-tenancy are reused from AgentOS (class A).
+Sandbox telephony is implemented and tested (simulated, flagged). Asterisk /
+FreeSWITCH adapters remain class B (interface ready, no server). Speech
+candidates stay class F pending the evaluation protocol. No URL guessing has
+been introduced.

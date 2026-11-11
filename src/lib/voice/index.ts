@@ -1,0 +1,35 @@
+/**
+ * ALO Labs Voice & Contact Center — public library surface.
+ *
+ * See docs/VOICE_CONTACT_CENTER_AUDIT.md for what is implemented vs planned,
+ * and docs/TELEPHONY_ARCHITECTURE.md for the path to real PSTN connectivity.
+ */
+export * from './call-state'
+export * from './call-service'
+export * from './routing'
+export * from './consent'
+export * from './speech'
+export * from './metering'
+export * from './orchestrator'
+export * from './campaigns'
+export * from './campaign-lifecycle'
+export * from './telephony/adapter'
+export * from './telephony/registry'
+export * from './language'
+export * from './disclosure'
+export * from './webhook-security'
+export * from './customers'
+export * from './quotas'
+export * from './idempotency'
+export * from './handoff'
+export * from './responder-llm'
+export * from './conversation-service'
+export * from './dialer'
+export * from './queue-worker'
+export * from './metrics'
+export * from './knowledge'
+export * from './turn-taking'
+export * from './billing'
+export * from './agent-versions'
+export * from './callbacks'
+export * from './recording'

@@ -63,13 +63,14 @@ function startWorker(): void {
   // Lazy Node-only imports — this module is also bundled for the edge
   // runtime, where Prisma/node:crypto must never be loaded.
   void (async () => {
-    const [{ db }, { processQueue, reclaimExpiredLeases }, { RUN_QUEUE, executeRun, expireStaleApprovals }, { executeWorkflowRun }, { dispatchAgentOSJob }, { ensureRouterSynced }] = await Promise.all([
+    const [{ db }, { processQueue, reclaimExpiredLeases }, { RUN_QUEUE, executeRun, expireStaleApprovals }, { executeWorkflowRun }, { dispatchAgentOSJob }, { ensureRouterSynced }, { dispatchVoiceJob }] = await Promise.all([
       import('@/lib/db'),
       import('@/lib/job-queue'),
       import('@/lib/runs'),
       import('@/lib/workflow-engine'),
       import('@/lib/workers/agentos-dispatcher'),
       import('@/lib/ai-router'),
+      import('@/lib/voice/queue-worker'),
     ]);
 
     await recoverStaleJobs(db, reclaimExpiredLeases);
@@ -78,6 +79,24 @@ function startWorker(): void {
     if (router) {
       const summaries = router.getProviderSummaries();
       console.log(`[AgentOS worker] AI providers registered: ${summaries.map((p) => p.provider).join(', ') || '(none — configuration required)'}`);
+    }
+
+    // Wire the in-process Agent Scheduler to the SAME AgentExecutionEngine the
+    // orchestrator and run pipeline use (one runtime, no duplicate executor),
+    // and start the self-healing monitor that re-drives unhealthy agents
+    // through the same runtime state/lifecycle managers. Both are lazy and
+    // best-effort: a wiring failure must never block the queue worker.
+    try {
+      const [{ getAgentScheduler }, { getExecutionEngine }, { getSelfHealingEngine }] = await Promise.all([
+        import('@/lib/agent-runtime/scheduler'),
+        import('@/lib/agent-runtime'),
+        import('@/lib/self-healing'),
+      ]);
+      getAgentScheduler().setEngine(getExecutionEngine());
+      getSelfHealingEngine().start();
+      console.log('[AgentOS worker] agent scheduler wired to runtime engine; self-healing monitor started');
+    } catch (error) {
+      console.error('[AgentOS worker] runtime wiring failed (queue worker continues):', error);
     }
     let lastReclaim = Date.now();
 
@@ -111,9 +130,30 @@ function startWorker(): void {
       }
     };
 
+    // Voice campaign dialer: the durable `voice` queue carries
+    // `voice.campaign.tick` jobs (campaign dialing is compliance-gated in
+    // src/lib/voice/dialer.ts). Same claim/lease machinery, same worker.
+    const pollVoiceQueue = async (): Promise<void> => {
+      try {
+        await db.jobQueue.upsert({
+          where: { name: 'voice' },
+          update: { isActive: true },
+          create: { id: 'voice-queue', name: 'voice', isActive: true, maxRetries: 3 },
+        });
+        await processQueue('voice', (job) => dispatchVoiceJob(job), { workerId: `${WORKER_ID}-voice` });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.includes('not found')) {
+          console.error('[voice worker] campaign tick error:', error);
+        }
+      }
+    };
+
     void pollOnce();
+    void pollVoiceQueue();
     timer = setInterval(() => {
       void pollOnce();
+      void pollVoiceQueue();
     }, POLL_INTERVAL_MS);
     // Do not keep the process alive solely for the poller.
     if (typeof timer.unref === 'function') timer.unref();

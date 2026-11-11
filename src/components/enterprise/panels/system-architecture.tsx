@@ -79,7 +79,7 @@ const layers = [
     name: 'AI Agent Layer',
     icon: Bot,
     components: [
-      { name: '2,000 AI Agents', detail: '100 departments, 20/dept' },
+      { name: 'AI Agent Workforce', detail: 'Plan: 2,000 agents, 100 departments (20/dept)' },
       { name: '8 Cognitive Engines', detail: 'Memory, Planning, Reflection, etc.' },
       { name: 'Collaboration System', detail: 'Delegation, consensus, pipeline' },
       { name: 'Constitution Engine', detail: '500 rules, runtime enforcement' },
@@ -242,7 +242,7 @@ export default function SystemArchitecturePanel(_props: ArchitecturePanelProps) 
           System Architecture
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          6-layer enterprise architecture — 517+ files, 275+ API routes, 134 Prisma models, 2,000 AI agents
+          6-layer enterprise architecture — 214 Prisma models, 2,000-agent workforce plan, provisioned on demand
         </p>
       </div>
 

@@ -287,3 +287,19 @@ Store the counsel memo, regulator/carrier confirmations, policy versions, approv
 | G7 — Production pilot | Load/soak/fault tests, restore drill, monitoring/on-call, privacy/security review, owner approval | NOT STARTED |
 
 **No feature is legally or operationally approved for production by this document.** The next authorized step is owner review of Phase 0 and an explicit decision whether to begin Phase 1 under the roadmap's preservation and approval boundaries.
+
+---
+
+## UPDATE 2026-11-05 — Controls now enforced in code
+
+- **Tenant isolation:** every voice query/lifecycle action filters `companyId`; the call service re-checks ownership on every action; cross-tenant writes return not-found (covered by tests).
+- **Webhook auth:** per-tenant secret header (`x-alolabs-webhook-secret` == `Company.apiSecret`), invalid → 401; payloads redacted of credential-like keys.
+- **Recording default-deny:** requires disclosure text + recorded consent (`recordingAllowed`).
+- **Voice cloning:** verified + unrevoked consent required; revocation instantly disables dependent clones.
+- **Campaigns:** DNC suppression (customer-request opt-outs irremovable via API), fail-closed calling hours in tenant timezone, attempt caps, frequency gaps, per-contact skip audit.
+- **Mandatory human handoff:** customer request, payment dispute, legal/safety, repeated ASR failure, max duration — evaluated before the AI responder and not overridable by it.
+- **Honest data:** `simulated` flags end-to-end; speech jobs fail with `no_speech_provider_configured` rather than fabricating output; structured outcomes mark unconfirmed actions `not_confirmed`.
+
+Open items from §5 (Bangladesh legal checklist) and Phase 7 hardening
+(encryption-at-rest on recording storage, retention defaults, per-endpoint
+rate limits) remain open and are restated in IMPLEMENTATION_ROADMAP.md.
