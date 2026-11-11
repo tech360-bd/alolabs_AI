@@ -25,7 +25,13 @@ const PUBLIC_API_ROUTES: { path: string; methods: string[] }[] = [
   // NOTE: /api/enterprise/agents and /api/enterprise/overview used to be listed
   // here, which made the dashboard's own data endpoints readable by anyone who
   // found the URL. They now require credentials like every other private route.
-  { path: '/api/webhooks/', methods: ['GET', 'POST', 'PUT', 'DELETE'] },
+  // NOTE: /api/webhooks/ (the management CRUD surface — not inbound receivers)
+  // was previously listed here too. Its handlers self-verify sessions, but a
+  // future handler that forgot to verify would be silently public. Removed:
+  // inbound receivers verify their own platform signatures and are listed
+  // individually below.
+  { path: '/api/whatsapp/webhook', methods: ['GET', 'POST'] },
+  { path: '/api/voice/telephony/webhook', methods: ['GET', 'POST'] },
   { path: '/api/public/', methods: ['GET', 'POST', 'PUT', 'DELETE'] },
 ];
 
