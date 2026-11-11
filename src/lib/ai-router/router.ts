@@ -27,6 +27,8 @@ import {
 } from './types';
 import { BaseAIProvider } from './provider-base';
 
+import { isProviderAvailable, recordProviderUsage } from './free-tier-quota-tracker';
+
 // ─── Constants ──────────────────────────────────────────────────────
 
 const CIRCUIT_FAILURE_THRESHOLD = 5;
@@ -318,6 +320,45 @@ export class AIRouter {
       throw new AICircuitOpenError(decision.provider, entry.health.circuitOpenUntil!);
     }
 
+    // Free-tier quota check: if the selected provider is a free-only provider
+    // whose quota is exhausted, immediately trigger failover to the next one.
+    // The provider is NOT removed — it will become available when its quota
+    // period resets.
+    if (!entry.isLocal && entry.provider.freeOnly) {
+      const providerKind = (entry as ProviderEntry & { kind?: string }).kind ?? entry.provider.name;
+      const hasQuota = await isProviderAvailable(decision.provider, providerKind);
+      if (!hasQuota) {
+        // Try failover immediately — don't even attempt the exhausted provider.
+        if (context?.allowFailover !== false) {
+          const fallback = await this.attemptFailover(request, decision.provider, companyId, agentId, entry.provider.freeOnly, context);
+          if (fallback) {
+            this.emitDecision({
+              ...base,
+              selectedProvider: fallback.provider,
+              selectedModel: fallback.response.model,
+              reason: 'failover',
+              attempts: fallback.attempts + 1,
+              fallbackFrom: decision.provider,
+              success: true,
+              errorCode: 'QUOTA_EXHAUSTED',
+              errorMessage: `Free-tier quota exhausted for ${decision.provider}`,
+              latencyMs: Date.now() - startTime,
+              promptTokens: fallback.response.usage.promptTokens,
+              completionTokens: fallback.response.usage.completionTokens,
+              costUsd: null,
+            });
+            return fallback.response;
+          }
+        }
+        throw new AIRouterError(
+          `Provider ${decision.provider} free-tier quota exhausted and no fallback available.`,
+          decision.provider,
+          503,
+          false,
+        );
+      }
+    }
+
     try {
       // Build request with the routed model
       const routedRequest: AIRequest = { ...request, model: decision.model };
@@ -336,6 +377,13 @@ export class AIRouter {
         agentId,
         timestamp: new Date(),
       });
+
+      // Record free-tier quota usage (best-effort — never fails the request).
+      if (!entry.isLocal && entry.provider.freeOnly) {
+        const providerKind = (entry as ProviderEntry & { kind?: string }).kind ?? entry.provider.name;
+        recordProviderUsage(decision.provider, providerKind).catch(() => {});
+      }
+
       this.emitDecision({
         ...base,
         context: { ...context, usageSource: response.usageSource ?? context?.usageSource },
@@ -777,6 +825,19 @@ export class AIRouter {
 
     let attempts = 0;
     for (const entry of available) {
+      // Free-tier quota check: skip providers whose free quota is exhausted.
+      // This implements the "if one doesn't work, the next one will" rotation.
+      // Self-hosted (local) providers have unlimited quota and are always tried.
+      if (!entry.isLocal && entry.provider.freeOnly) {
+        const providerKind = (entry as ProviderEntry & { kind?: string }).kind ?? entry.provider.name;
+        const hasQuota = await isProviderAvailable(entry.provider.name, providerKind);
+        if (!hasQuota) {
+          // Quota exhausted — skip this provider and try the next one.
+          // The provider is NOT removed — it will become available again when
+          // its quota period resets (daily/weekly/monthly).
+          continue;
+        }
+      }
       attempts++;
       try {
         // Restrict the fallback model to the server-authorized set. Preserve the
@@ -800,6 +861,12 @@ export class AIRouter {
           agentId,
           timestamp: new Date(),
         });
+
+        // Record free-tier quota usage for this provider (best-effort).
+        if (!entry.isLocal && entry.provider.freeOnly) {
+          const providerKind = (entry as ProviderEntry & { kind?: string }).kind ?? entry.provider.name;
+          recordProviderUsage(entry.provider.name, providerKind).catch(() => {});
+        }
 
         return {
           response: { ...response, model: response.model || routedRequest.model },

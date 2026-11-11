@@ -4394,3 +4394,115 @@ model VoiceBillingRecord {
   @@unique([companyId, periodKey, dimension])
   @@index([companyId, periodKey])
 }
+
+// ─── Phase 2: Private AI-as-a-Service Platform (additive models) ───────────────
+// These models are added in Phase 2 and are fully additive — no existing model
+// is modified or dropped. They implement the public service plane: service
+// catalog, tenant entitlements, project discovery, and outbound webhook
+// delivery. See docs/audit/private-ai-platform/IMPLEMENTATION_GAP_REPORT.md.
+
+model Service {
+  id          String   @id @default(cuid())
+  slug        String   @unique // e.g. "ai-chat", "ai-knowledge-search"
+  name        String
+  description String @db.LongText
+  category    String   @default("ai") // ai, voice, knowledge, automation, analytics
+  endpoint    String? @db.LongText  // e.g. "/v1/ai/chat" — informational, not enforced here
+  scope       String @db.LongText   // required API scope, e.g. "ai:chat"
+  isActive    Boolean  @default(true)
+  entitlements Entitlement[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category, isActive])
+}
+
+model Entitlement {
+  id          String    @id @default(cuid())
+  companyId   String
+  serviceId   String
+  service     Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  status      String    @default("active") // active, inactive, expired, suspended, revoked
+  quotaLimit  Int       @default(1000) // requests per billing period
+  quotaUsed   Int       @default(0)
+  quotaPeriod String @db.LongText    @default("monthly") // monthly, daily, total
+  grantedAt   DateTime  @default(now())
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  revokedBy   String? @db.LongText   // userId
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([companyId, serviceId])
+  @@index([companyId, status])
+}
+
+model ProjectDiscovery {
+  id              String   @id @default(cuid())
+  companyId       String
+  projectId       String
+  mode            String @db.LongText   // "api" (Mode A) or "connector" (Mode B)
+  targetUrl       String? @db.LongText  // customer-supplied API URL (Mode A)
+  authorization   String? @db.LongText  // scope/permissions approved by customer
+  status          String   @default("pending") // pending, running, completed, failed, revoked
+  startedAt       DateTime?
+  completedAt     DateTime?
+  summary         String? @db.LongText  // JSON summary of discovered capabilities
+  capabilities    CapabilityAssessment[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([companyId, projectId])
+  @@index([status])
+}
+
+model CapabilityAssessment {
+  id              String   @id @default(cuid())
+  discoveryId     String
+  discovery       ProjectDiscovery @relation(fields: [discoveryId], references: [id], onDelete: Cascade)
+  capability      String @db.LongText   // e.g. "chatbot", "voice-ai", "knowledge-retrieval"
+  classification  String   // WORKING, PARTIAL, BROKEN, UNVERIFIED, MISSING, BLOCKED
+  evidence        String? @db.LongText  // JSON: source, timestamp, test result
+  confidence      Float    @default(0.0) // 0.0–1.0
+  recommendation  String? @db.LongText  // recommended ALO Labs service slug
+  createdAt       DateTime @default(now())
+
+  @@index([discoveryId])
+  @@index([classification])
+}
+
+model WebhookDeliveryLog {
+  id              String   @id @default(cuid())
+  webhookId       String   // CompanyApiKey or WebhookConfig id
+  companyId       String
+  eventType       String   // e.g. "task.completed", "entitlement.revoked"
+  eventId         String   @unique // opaque public event id (no internal runId)
+  payload         String @db.LongText   // JSON, redacted (no prompts/secrets/models)
+  signature       String @db.LongText   // HMAC-SHA256 hex
+  targetUrl       String @db.LongText
+  status          String   @default("pending") // pending, delivered, failed, retrying
+  attempts        Int      @default(0)
+  lastAttemptAt  DateTime?
+  deliveredAt     DateTime?
+  lastError       String? @db.LongText
+  createdAt       DateTime @default(now())
+
+  @@index([companyId, eventType])
+  @@index([webhookId, status])
+  @@index([status, createdAt])
+}
+
+model RoleMigration {
+  id              String   @id @default(cuid())
+  userId          String
+  oldRole        String   // e.g. "super_admin"
+  newRole        String   // e.g. "platform_super_admin"
+  mappedBy        String @db.LongText   // userId of the operator who approved the mapping
+  mappedAt        DateTime @default(now())
+  appliedAt       DateTime? // null until the migration is actually applied
+  status          String   @default("pending") // pending, applied, rolled_back, rejected
+  notes           String? @db.LongText
+
+  @@unique([userId, oldRole, newRole])
+  @@index([status])
+}
