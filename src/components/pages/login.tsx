@@ -99,11 +99,29 @@ export default function LoginPage() {
   }, [email, password, name, confirmPassword])
 
   // ── OAuth Handler ──────────────────────────────────────────────────────
-  const handleOAuth = useCallback((provider: string) => {
+  /**
+   * Kick off the OAuth flow: fetch the provider's authorization URL from
+   * `/api/auth/oauth/{provider}` (a JSON API), then jump to the EXTERNAL
+   * provider. Navigating straight to the API route would only render raw
+   * JSON — the button would appear dead. The `?next=` target travels to the
+   * server, gets embedded in the single-use state blob, and is sanitized
+   * there before any callback redirect; it is never trusted client-side.
+   */
+  const handleOAuth = useCallback(async (provider: string) => {
     setOauthLoading(provider)
-    // Redirect to the OAuth provider authorization URL
-    const next = new URLSearchParams(window.location.search).get('next') || '/dashboard'
-    window.location.href = `/api/auth/oauth/${provider}?next=${encodeURIComponent(next)}`
+    setError(null)
+    try {
+      const next = new URLSearchParams(window.location.search).get('next') || ''
+      const res = await fetch(`/api/auth/oauth/${encodeURIComponent(provider)}?next=${encodeURIComponent(next)}`)
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok || !payload?.authorizationUrl) {
+        throw new Error(payload?.error || 'Could not start the sign-in flow. Please try again.')
+      }
+      window.location.href = payload.authorizationUrl as string
+    } catch (err) {
+      setOauthLoading(null)
+      setError(err instanceof Error ? err.message : 'Could not start the sign-in flow. Please try again.')
+    }
   }, [])
 
   // ── Register Handler ────────────────────────────────────────────────────
