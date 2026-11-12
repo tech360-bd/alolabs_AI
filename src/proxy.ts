@@ -20,6 +20,12 @@ const PUBLIC_API_ROUTES: { path: string; methods: string[] }[] = [
   { path: '/api/health/ping', methods: ['GET'] },
   { path: '/api/health', methods: ['GET'] },
   { path: '/api/v1/health', methods: ['GET'] },   // AgentOS liveness (public)
+  // AI service-plane liveness (PR #30). Returns only { status: 'ok',
+  //   service, version, timestamp } — no infrastructure or tenant details.
+  // Listed explicitly (GET only) so a future /api/v1/ai/<sensitive> route
+  // cannot become public by accident of a prefix match; gated by
+  // scripts/validate-route-auth.mjs in CI.
+  { path: '/api/v1/ai/health', methods: ['GET'] },
   { path: '/api/ping', methods: ['GET'] },
   { path: '/api/infra/ping', methods: ['GET'] },
   // NOTE: /api/enterprise/agents and /api/enterprise/overview used to be listed
