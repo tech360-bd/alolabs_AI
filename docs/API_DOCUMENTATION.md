@@ -30,6 +30,14 @@ Base: `/api/v1`. JSON responses: `{ "success": true, "data": ... }` or `{ "succe
 
 Unversioned AgentOS routes remain available for the web UI: `POST /api/runs`, `GET /api/runs/:id`, `DELETE /api/runs/:id`, `GET /api/runs/:id/events` (authenticated SSE), `/api/projects`, `/api/artifacts` and authenticated `/api/artifacts/:id/download` (SHA-256 checksum header). `POST /api/workflows/:id/run` enqueues a workflow. Pagination uses `page`/`limit` for unversioned list routes, `offset`/`limit` for v1 routes.
 
+## AI platform surface (`/ai/**`)
+
+The external-client AI gateway — task submission with idempotency, background
+execution, task history, usage/quotas, capabilities, and the `ai-research`
+service with source citations — is documented in full, with usage examples, in
+**[API_V1_AI.md](./API_V1_AI.md)**. Routes: `POST/GET /ai/tasks`,
+`GET /ai/tasks/:id`, `GET /ai/usage`, `GET /ai/capabilities`, `GET /ai/health`.
+
 ## Example
 
 ```bash
