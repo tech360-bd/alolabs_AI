@@ -3,7 +3,7 @@
  * Seed the Service catalog — idempotent.
  * Run: npx tsx scripts/seed-services.ts
  *
- * Creates the 5 default AI services that the /v1/ai/** gateway exposes.
+ * Creates the 6 default AI services that the /v1/ai/** gateway exposes.
  * Does NOT create entitlements (those are per-tenant, granted by admins).
  */
 
@@ -15,6 +15,7 @@ const SERVICES = [
   { slug: 'ai-tasks', name: 'AI Tasks', description: 'Asynchronous AI task execution.', category: 'ai', endpoint: '/v1/ai/tasks', scope: 'ai:tasks' },
   { slug: 'ai-content', name: 'AI Content Generation', description: 'Generate content from specifications.', category: 'ai', endpoint: '/v1/ai/tasks', scope: 'ai:content' },
   { slug: 'ai-analysis', name: 'AI Analysis', description: 'Analyze data and return insights.', category: 'analytics', endpoint: '/v1/ai/tasks', scope: 'ai:analysis' },
+  { slug: 'ai-research', name: 'AI Web Research', description: 'Background web research and retrieval with source citations and a synthesized answer.', category: 'research', endpoint: '/v1/ai/tasks', scope: 'ai:research' },
 ];
 
 async function main() {

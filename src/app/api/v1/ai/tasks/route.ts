@@ -22,11 +22,14 @@ import { createRun } from '@/lib/runs';
  */
 
 const CreateTaskSchema = z.object({
-  service: z.enum(['ai-chat', 'ai-knowledge-search', 'ai-tasks', 'ai-content', 'ai-analysis']).default('ai-tasks'),
+  service: z.enum(['ai-chat', 'ai-knowledge-search', 'ai-tasks', 'ai-content', 'ai-analysis', 'ai-research']).default('ai-tasks'),
   input: z.record(z.string(), z.unknown()).default({}),
   priority: z.enum(['low', 'normal', 'high']).default('normal'),
   idempotency_key: z.string().min(1).max(128).optional(),
 });
+
+// Exported for contract tests (service catalog acceptance).
+export { CreateTaskSchema };
 
 /** Stable hash of the request body for exact-match idempotency. */
 function hashRequest(body: unknown): string {
