@@ -120,8 +120,10 @@ CREATE TABLE IF NOT EXISTS settings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Add default seed data
+-- SECURITY: seed credential redacted (was a hardcoded plaintext password).
+-- Set a real bcrypt hash via env/secret injection BEFORE running this seed.
 INSERT INTO users (email, password, full_name, role, status) VALUES
-('admin@aloeducation.com', 'admin123', 'ALO Labs Admin Operator', 'admin', 'active');
+('admin@aloeducation.com', '$2b$10$REDACTED-SET-REAL-HASH-BEFORE-SEEDING-THIS-FILE-IS-NOT-DEPLOYED', 'ALO Labs Admin Operator', 'admin', 'active');
 
 INSERT INTO brand_kits (brand_key, brand_name, primary_color, accent_color, cta_text, website, phone, email) VALUES
 ('alo_labs', 'ALO Labs', '#0d1b2a', '#f77f00', 'Automate Local AI with ALO Labs Solutions', 'alolabs.net', '+8801700000000', 'hello@alolabs.net'),
