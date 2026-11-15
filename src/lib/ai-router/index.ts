@@ -216,6 +216,11 @@ export async function ensureRouterSynced(options: { force?: boolean; db?: Provid
     try {
       const database = options.db ?? ((await import('../db')).db as unknown as ProviderConfigDb);
       await syncRouterWithProviderConfigs(router, database, { force: options.force });
+      // Re-apply the persisted FREE-ONLY override so an administrator's
+      // runtime decision survives process restarts. Fail-closed: on read or
+      // apply errors the currently in-force mode is left untouched.
+      const { applyPersistedFreeOnlyMode } = await import('./free-only-admin');
+      await applyPersistedFreeOnlyMode(router);
       lastDbSyncAt = Date.now();
     } catch (err) {
       console.warn('[AI Router] provider config sync failed:', err instanceof Error ? err.message : String(err));
