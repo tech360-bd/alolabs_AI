@@ -7,10 +7,15 @@ const mockSettingsDelete = vi.fn().mockResolvedValue({});
 
 vi.mock('@/lib/db', () => ({
   db: {
+    // Sessions are bound to the owner's stored role: these suites exercise the
+    // internal (staff) path. The client path is covered in session-audience.test.ts.
+    user: { findUnique: async () => ({ id: 'staff-user', role: 'admin', isActive: true }) },
     settings: {
       upsert: (...args: unknown[]) => mockSettingsUpsert(...args),
       findUnique: (...args: unknown[]) => mockSettingsFindUnique(...args),
       delete: (...args: unknown[]) => mockSettingsDelete(...args),
+      // A pre-separation session is stamped with its audience on first use.
+      update: async () => ({}),
     },
   },
 }));

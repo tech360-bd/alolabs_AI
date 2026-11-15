@@ -38,7 +38,7 @@ function Header() {
       <div className="home-nav-wrap">
         <Link href="/" className="home-logo" aria-label="ALO Labs home">
           <Mark size={36} />
-          <span>alo<span className="home-logo-light">labs</span><small>AGENTOS</small></span>
+          <span>alo<span className="home-logo-light">labs</span><small>AI SERVICES</small></span>
         </Link>
         <nav className="home-desktop-nav" aria-label="Main navigation">
           {navigation.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}
@@ -84,7 +84,7 @@ function Hero() {
             <label className="sr-only" htmlFor="home-prompt">Describe what you want to work on</label>
             <Sparkles size={19} className="hero-prompt-icon"/>
             <input id="home-prompt" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="What would you like to build with AI?"/>
-            <button type="submit" aria-label="Continue to AgentOS login"><ArrowRight size={19}/></button>
+            <button type="submit" aria-label="Continue to sign in"><ArrowRight size={19}/></button>
           </form>
           <p className="hero-prompt-note">One API key. Every AI service. Your data stays yours.</p>
           <div className="hero-examples">
@@ -104,7 +104,7 @@ function Hero() {
         </div>
         <div className="hero-visual">
           <div className="hero-visual-label">
-            <span className="visual-spark">✳</span> THE AGENTOS CONSTELLATION — LIVE <span>✦</span>
+            <span className="visual-spark">✳</span> ALO LABS AI SERVICES — LIVE <span>✦</span>
           </div>
           <Hero3D />
         </div>
@@ -120,7 +120,7 @@ function Hero() {
 // ─── AI Services section — what ALO Labs provides via API ────────────────────
 const services = [
   { icon: MessageSquare, name: 'AI Chat', scope: 'ai:chat', desc: 'Conversational AI for your website or app. Multi-turn, context-aware, human-handoff ready.', color: 'blue' },
-  { icon: Network, name: 'Knowledge Search', scope: 'ai:knowledge:search', desc: 'Hybrid RAG over your documents. Vector + keyword retrieval with citations.', color: 'orange' },
+  { icon: Network, name: 'Knowledge Search', scope: 'ai:knowledge:search', desc: 'Search across your own documents, with citations.', color: 'orange' },
   { icon: Bot, name: 'AI Tasks', scope: 'ai:tasks', desc: 'Async task execution — analyze leads, score opportunities, automate workflows.', color: 'blue' },
   { icon: Code2, name: 'Content Generation', scope: 'ai:content', desc: 'Generate marketing copy, reports, summaries, structured documents.', color: 'orange' },
   { icon: PhoneCall, name: 'AI Voice', scope: 'ai:voice', desc: 'Voice sessions, call intelligence, telephony integration via the same API.', color: 'blue' },
@@ -222,10 +222,10 @@ const result = await alo.ai.chat({
 
 // ─── Platform section ────────────────────────────────────────────────────────
 const features = [
-  { icon: MessageSquare, color: 'blue', name: 'Command Center', label: 'START HERE', description: 'A single prompt box that routes to the right AI service — chat, search, tasks, voice.' },
-  { icon: Bot, color: 'orange', name: '2,000 AI Agents', label: 'YOUR AI TEAM', description: 'A workforce of specialized agents across 100 departments — research, analysis, writing, engineering.' },
-  { icon: Layers3, color: 'blue', name: 'Knowledge & Memory', label: 'YOUR CONTEXT', description: 'Hybrid RAG over your documents. Vector + keyword search with citations and access control.' },
-  { icon: Workflow, color: 'orange', name: 'Workflows & Runs', label: 'AUTOMATION', description: 'Chain AI tasks into workflows. Durable, resumable, with human approval gates.' },
+  { icon: MessageSquare, color: 'blue', name: 'One place to ask', label: 'START HERE', description: 'Tell us what you need once. We scope it, quote it and keep you updated at every step.' },
+  { icon: Bot, color: 'orange', name: 'A dedicated service team', label: 'YOUR TEAM', description: 'Specialists in research, analysis, writing and engineering deliver your work, with a named account manager as your point of contact.' },
+  { icon: Layers3, color: 'blue', name: 'Your context, kept private', label: 'YOUR CONTEXT', description: 'Share your documents and requirements securely. They stay private to your account and are used only for your work.' },
+  { icon: Workflow, color: 'orange', name: 'Reviewed before delivery', label: 'QUALITY', description: 'Every deliverable is reviewed by our team before it reaches you, and nothing is final until you approve it.' },
 ]
 
 function Platform() {
@@ -234,11 +234,11 @@ function Platform() {
       <div className="home-container">
         <div className="section-topline">
           <span className="section-kicker"><span>✳</span> THE PLATFORM</span>
-          <span className="section-index">03 / AGENTOS</span>
+          <span className="section-index">03 / HOW WE DELIVER</span>
         </div>
         <div className="section-heading-row">
-          <h2>Behind the API,<br/><em className="heading-accent-orange">a real AI platform.</em></h2>
-          <p>AgentOS is the private control plane that powers every API call. 12 model providers, 2,000 agent profiles, a real orchestrator, and a RAG engine — not a wrapper around someone else's API.</p>
+          <h2>Behind every project,<br/><em className="heading-accent-orange">a team that delivers.</em></h2>
+          <p>You describe the outcome. ALO Labs plans the work, delivers it with AI-assisted specialists, reviews it, and hands it over in your client portal — with clear progress, pricing and support throughout.</p>
         </div>
         <div className="feature-grid">
           {features.map(({ icon: Icon, ...feature }, index) => (
@@ -305,9 +305,8 @@ function HowItWorks() {
 
 // ─── Selected work ───────────────────────────────────────────────────────────
 const selectedWork = [
-  { icon: Bot, name: 'AgentOS', status: 'Live', tone: 'live', description: 'The AI agent operating system — 2,000 agents, 12 model providers, orchestrator, RAG engine, voice runtime. Behind authenticated sign-in at agents.alolabs.net.' },
-  { icon: PhoneCall, name: 'Voice Contact Center', status: 'In development', tone: 'dev', description: 'AI voice calling + telephony runtime — conversation brain, campaign dialer, recording pipeline, human handoff. Present in the codebase, nearing availability.' },
-  { icon: Cpu, name: 'Engineering Intelligence', status: 'Internal', tone: 'internal', description: 'ALO Labs internal tooling for studying and improving how AgentOS itself is engineered. Not a public product.' },
+  { icon: Bot, name: 'Client Portal', status: 'Live', tone: 'live', description: 'Request services, follow project progress, review deliverables, manage invoices and reach support — one secure place for everything you do with ALO Labs.' },
+  { icon: PhoneCall, name: 'Voice Contact Center', status: 'In development', tone: 'dev', description: 'AI-assisted voice and messaging for customer contact — campaigns, call handling and handoff to your team. Nearing availability.' },
 ]
 
 function SelectedWork() {
@@ -347,8 +346,6 @@ const stack = [
   { name: 'Prisma', note: 'Data layer & migrations' },
   { name: 'Tailwind CSS', note: 'Styling system' },
   { name: 'three.js / R3F', note: 'WebGL 3D scenes' },
-  { name: '12 AI Providers', note: 'Ollama, OpenAI, Groq, Z.AI...' },
-  { name: 'Qdrant', note: 'Vector search engine' },
   { name: 'MySQL / MariaDB', note: 'Production database' },
   { name: 'Vitest', note: '450+ tests' },
 ]
@@ -380,12 +377,12 @@ function Technology() {
 
 // ─── FAQ ─────────────────────────────────────────────────────────────────────
 const faqs = [
-  { q: 'How does the API work?', a: 'You get an API key, choose which AI services you need (chat, search, tasks, voice, analytics), and call our REST endpoints. Every request is authenticated, tenant-scoped, rate-limited, and audited.' },
-  { q: 'What can I connect?', a: 'Any system that can make HTTP calls — websites, CRMs, ERPs, eCommerce platforms, SaaS apps, mobile apps. Connect once and every AI service becomes available to all your connected projects.' },
-  { q: 'Is my data isolated?', a: 'Yes. Every request is tenant-scoped via companyId resolved server-side from your API key. Cross-tenant access returns 404. We never expose your data to other customers, and the internal AI workforce is hidden from API consumers.' },
-  { q: 'What does it cost?', a: 'Pricing is per-service with transparent usage units. You see exactly how many requests you have made and how many remain. No hidden model costs — we absorb the infrastructure. Contact us for a quote.' },
-  { q: 'Can I see my usage?', a: 'Yes — the customer portal at /portal shows your API keys, usage per service, task history, webhook deliveries, and service catalog in real time.' },
-  { q: 'What about security?', a: 'API keys are SHA-256 hashed at rest. Sessions use opaque tokens with idle timeout + TTL. Rate limiting is per-key. Webhooks are HMAC-signed. SSRF prevention blocks internal targets. Every privileged change is audited.' },
+  { q: 'How do I get started?', a: 'Create a client account, choose a service and tell us what you need. We review the request, send a quotation where one is required, and start once you approve it.' },
+  { q: 'What can you help with?', a: 'Business process automation, CRM and marketing automation, education and student operations, voice and SMS communications, knowledge and content work, and custom software and integrations.' },
+  { q: 'Is my data isolated?', a: 'Yes. Your projects, documents, deliverables, invoices and messages are private to your account. No other client can see them, and access is checked on every request.' },
+  { q: 'What does it cost?', a: 'Each service shows its pricing. Where the work needs scoping, we send a quotation for you to accept or decline before anything starts. Invoices and payments are visible in your portal.' },
+  { q: 'Can I follow my project?', a: 'Yes — the client portal shows each project\'s status, progress, milestones and messages, plus every deliverable ready for your review.' },
+  { q: 'What about security?', a: 'Your account is protected by authenticated sign-in with session expiry, and your data is isolated from every other client. Uploaded files are validated and can only be downloaded by your own account.' },
 ]
 
 function FAQ() {
@@ -466,7 +463,7 @@ function Footer() {
             <div>
               <Link href="/" className="home-logo" aria-label="ALO Labs home">
                 <Mark size={34}/>
-                <span>alo<span className="home-logo-light">labs</span><small>AGENTOS</small></span>
+                <span>alo<span className="home-logo-light">labs</span><small>AI SERVICES</small></span>
               </Link>
               <p>Private AI as a Service.<br/>One API, every AI capability.</p>
               <div className="footer-contact">
@@ -485,7 +482,7 @@ function Footer() {
               </div>
               <div>
                 <strong>PLATFORM</strong>
-                <a href="#platform">AgentOS</a>
+                <a href="#platform">How we deliver</a>
                 <a href="#how-it-works">How it works</a>
                 <a href="#selected-work">Selected work</a>
                 <a href="#technology">Technology</a>
@@ -494,7 +491,7 @@ function Footer() {
                 <strong>COMPANY</strong>
                 <a href="/site/about">About</a>
                 <a href="/site/contact">Contact</a>
-                <a href="/site/pricing">Pricing</a>
+                <a href="/portal">Client portal</a>
                 <a href="#faq">FAQ</a>
                 <Link href="/login">Log in</Link>
               </div>

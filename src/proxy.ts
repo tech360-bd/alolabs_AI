@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  audienceForToken,
+  audienceMayCallApi,
+  isClientPagePath,
+  isInternalPagePath,
+} from '@/lib/access/surfaces';
 
 // ─── Public API routes (no Bearer token required) ────────────────────────────
 // Each entry specifies the path prefix and the allowed HTTP methods.
@@ -209,14 +215,28 @@ function isBlockedBot(request: NextRequest): boolean {
 // check lives in `src/lib/server-session.ts`, which the /dashboard page awaits
 // before rendering. A forged cookie therefore gets past this line and is then
 // rejected by the server component.
-const PRIVATE_PAGE_PREFIXES = ['/dashboard'];
+//
+// SURFACE SEPARATION
+// ------------------
+// There are two private page groups and they never mix: the internal AgentOS
+// pages (`INTERNAL_PAGE_PREFIXES` in src/lib/access/surfaces.ts) and the client
+// portal (`/portal/**`). Client session tokens carry a fixed prefix that is
+// part of the hashed token, so this layer can tell the two classes apart
+// without a database and turn a client away from an internal page — or an
+// internal API — before any handler runs. The token class is NOT trusted as
+// proof of anything: `verifySessionToken` re-derives the surface from the
+// stored session and the user's current role on every request.
 const SESSION_COOKIE_NAME = 'session-token';
 
 function isPrivatePageRoute(pathname: string): boolean {
-  return PRIVATE_PAGE_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
+  return isInternalPagePath(pathname) || isClientPagePath(pathname);
 }
+
+/** Where the proxy sends a refused cross-surface API call to be audited. */
+const ACCESS_DENIED_ROUTE = '/api/access-denied';
+/** Request headers stamped here for the audit trail; inbound values are discarded. */
+const REQUEST_PATH_HEADER = 'x-alo-request-path';
+const REQUEST_METHOD_HEADER = 'x-alo-request-method';
 
 // ─── IP Extraction ────────────────────────────────────────────────────────────
 
@@ -245,8 +265,15 @@ export function proxy(request: NextRequest) {
     method === 'PATCH' ||
     method === 'DELETE';
 
+  // ── Trusted request metadata ─────────────────────────────────────────────
+  // Overwrite (never append to) the audit headers so a caller cannot forge the
+  // path that gets recorded against a denied request.
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set(REQUEST_PATH_HEADER, pathname);
+  forwardedHeaders.set(REQUEST_METHOD_HEADER, method);
+
   // ── Security headers (applied to every matched route) ────────────────────
-  const response = NextResponse.next();
+  const response = NextResponse.next({ request: { headers: forwardedHeaders } });
   response.headers.set('X-Request-Id', crypto.randomUUID());
   response.headers.set('X-Content-Type-Options', 'nosniff');
   // The dev preview embeds the app in the sandbox frame; every other
@@ -264,6 +291,17 @@ export function proxy(request: NextRequest) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('next', pathname + search);
       const redirectResponse = NextResponse.redirect(loginUrl);
+      redirectResponse.headers.set('Cache-Control', 'private, no-store');
+      return redirectResponse;
+    }
+    // Each surface has its own pages. A client cookie on an internal page, or
+    // an internal cookie on the portal, is sent to its own home. The server
+    // components repeat this check against the database before rendering.
+    const cookieAudience = audienceForToken(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+    const wantsClientPage = isClientPagePath(pathname);
+    if ((cookieAudience === 'client') !== wantsClientPage) {
+      const home = new URL(cookieAudience === 'client' ? '/portal' : '/dashboard', request.url);
+      const redirectResponse = NextResponse.redirect(home);
       redirectResponse.headers.set('Cache-Control', 'private, no-store');
       return redirectResponse;
     }
@@ -291,6 +329,25 @@ export function proxy(request: NextRequest) {
         { error: 'Unauthorized', message: 'Empty bearer token' },
         { status: 401 },
       );
+    }
+
+    // ── Route-group separation ────────────────────────────────────────────
+    // A client session may call `/api/portal/**` and the shared account
+    // endpoints — nothing else. An internal session may call everything except
+    // the client route group. The refused request never reaches its handler:
+    // it is rewritten to the audit endpoint, which records the attempt and
+    // answers every client probe with the same 404, so the shape of the
+    // internal API cannot be mapped by guessing URLs.
+    if (!hasV1Key && pathname !== ACCESS_DENIED_ROUTE) {
+      const bearerAudience = audienceForToken(authHeader!.substring(7).trim());
+      if (!audienceMayCallApi(bearerAudience, pathname, method)) {
+        const denied = NextResponse.rewrite(new URL(ACCESS_DENIED_ROUTE, request.url), {
+          request: { headers: forwardedHeaders },
+        });
+        denied.headers.set('Cache-Control', 'private, no-store');
+        denied.headers.set('X-Content-Type-Options', 'nosniff');
+        return denied;
+      }
     }
   }
 

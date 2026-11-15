@@ -1,14 +1,22 @@
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { PrismaClient } from '@prisma/client'
+import { handshakeToken, verifyInternalSessionToken, type SessionDb } from '../shared/internal-auth'
 
 const db = new PrismaClient()
+
+// Browsers allowed to open a socket. Same-origin deployments go through the
+// gateway and need no entry; set QUEUE_CORS_ORIGIN for anything else.
+const CORS_ORIGIN = (process.env.QUEUE_CORS_ORIGIN ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
 
 const httpServer = createServer()
 const io = new Server(httpServer, {
   path: '/',
   cors: {
-    origin: '*',
+    origin: CORS_ORIGIN.length ? CORS_ORIGIN : false,
     methods: ['GET', 'POST'],
   },
   pingTimeout: 60000,
@@ -132,6 +140,40 @@ async function broadcastQueueUpdate(queueId: string) {
     io.emit('queue:update', { queue, items: items.map(formatItem) })
   }
 }
+
+// ─── Authentication ───────────────────────────────────────────────────────────
+//
+// The job queue is internal infrastructure: its events describe how work is
+// routed and executed inside ALO Labs. Every connection must present an
+// INTERNAL session token in the handshake (`auth.token` or a Bearer header)
+// before it receives a single event or may enqueue, dequeue or cancel a job.
+// Client-portal sessions are refused. See ../shared/internal-auth.ts.
+//
+// Trusted workers that have no user session may use QUEUE_SERVICE_TOKEN
+// (a long random secret shared out-of-band) instead.
+
+function isServiceToken(token: string): boolean {
+  const expected = process.env.QUEUE_SERVICE_TOKEN ?? ''
+  if (expected.length < 32 || token.length !== expected.length) return false
+  let diff = 0
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ token.charCodeAt(i)
+  return diff === 0
+}
+
+io.use(async (socket, next) => {
+  const token = handshakeToken(socket.handshake)
+  if (!token) return next(new Error('Authentication required'))
+  if (isServiceToken(token)) {
+    socket.data.userId = 'service'
+    socket.data.role = 'service'
+    return next()
+  }
+  const identity = await verifyInternalSessionToken(db as unknown as SessionDb, token)
+  if (!identity) return next(new Error('Authentication required'))
+  socket.data.userId = identity.userId
+  socket.data.role = identity.role
+  next()
+})
 
 // ─── Socket.IO Connection ─────────────────────────────────────────────────────
 

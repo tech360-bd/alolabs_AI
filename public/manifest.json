@@ -1,7 +1,7 @@
 {
-  "name": "ALO Labs AgentOS",
-  "short_name": "ALO AgentOS",
-  "description": "ALO Labs Private AI Agent Operating System",
+  "name": "ALO Labs",
+  "short_name": "ALO Labs",
+  "description": "ALO Labs — AI-powered business services",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F8FAFC",

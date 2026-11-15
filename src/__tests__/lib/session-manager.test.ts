@@ -8,6 +8,9 @@ const sha256 = (value: string): string =>
 // Mock @/lib/db before importing session-manager
 vi.mock('@/lib/db', () => ({
   db: {
+    // Sessions are bound to the owner's stored role: these suites exercise the
+    // internal (staff) path. The client path is covered in session-audience.test.ts.
+    user: { findUnique: async () => ({ id: 'staff-user', role: 'admin', isActive: true }) },
     settings: {
       upsert: vi.fn().mockResolvedValue({}),
       findUnique: vi.fn().mockResolvedValue(null),
@@ -40,6 +43,8 @@ function makeSessionData(overrides: Partial<SessionData> = {}): SessionData {
     createdAt: new Date().toISOString(),
     expiresAt: future,
     lastUsedAt: new Date().toISOString(),
+    // Minted for the internal surface (this module is internal-only).
+    aud: 'internal',
     ...overrides,
   };
 }
@@ -340,6 +345,7 @@ describe('Session Manager', () => {
       // removeUserSessionToken: findUnique for user:sessions → return token list
       // removeUserSessionToken: update user sessions list → ok
       mockedDb.settings.findUnique
+        .mockResolvedValueOnce({ key: 'session:old', value: JSON.stringify(sessionData) }) // verifySession: surface check (verifySessionToken)
         .mockResolvedValueOnce({ key: 'session:old', value: JSON.stringify(sessionData) }) // verifySession lookup
         .mockResolvedValueOnce(null) // addUserSessionToken: no existing user session list
         .mockResolvedValueOnce({ key: 'session:new', value: JSON.stringify({ ...sessionData, isRefreshToken: false }) }) // refreshSession: find new session

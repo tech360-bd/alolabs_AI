@@ -1,295 +1,234 @@
 'use client'
 
 /**
- * /portal — portal home.
- *
- * Shows a welcome message, quick links to every portal surface, and the
- * caller's service catalog (fetched live from /api/v1/ai/capabilities when it
- * ships this phase; until then the page renders an honest empty state — no
- * fake services, no marketing placeholders).
- *
- * Data is fetched via the shared `fetchApi` helper from `@/lib/api` (the same
- * one every dashboard panel uses). The hook shape — loading / error / empty /
- * data — comes from <StateList/> so the four states are rendered identically
- * everywhere.
+ * /portal — the client's dashboard: what they have bought, what is in
+ * progress, what is waiting on them, what has been delivered, what is owed and
+ * any open support requests. Everything here is read from /api/portal/dashboard.
  */
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useApiGetV1 } from '@/hooks/use-api-actions'
 import { Button } from '@/components/ui/button'
+import { BRAND } from '@/lib/brand/tokens'
+import { ArrowRight } from 'lucide-react'
 import {
-  PortalPageHero,
-  SectionCard,
-  StateList,
-  Pill,
-  usePortalUser,
+  EmptyState, ErrorBanner, LoadingRows, PortalPageHero, ProgressBar, SectionCard, StatCard, StatusPill,
+  fmtDate, fmtDay, fmtMoney, usePortalData, usePortalUser,
 } from '@/components/portal/portal-primitives'
-import { BRAND, BRAND_FONTS } from '@/lib/brand/tokens'
-import {
-  KeyRound,
-  Activity,
-  ListChecks,
-  Webhook,
-  Boxes,
-  ArrowRight,
-  CheckCircle2,
-} from 'lucide-react'
 
-interface ServiceCatalogItem {
-  slug: string
-  name: string
-  description?: string
-  endpoint?: string
-  scope?: string
-  isActive?: boolean
-  entitled?: boolean
+interface Project { id: string; reference: string; title: string; serviceName: string; status: string; statusLabel: string; stageLabel: string; progress: number; pendingAction: string | null }
+interface Dashboard {
+  account: { company: { name: string }; accountManager: { name: string; title: string | null; email: string | null; phone: string | null } | null }
+  summary: { activeProjects: number; completedProjects: number; pendingActions: number; openTickets: number; outstandingBalance: number; unreadNotifications: number; currency: string }
+  services: string[]
+  activeProjects: Project[]
+  pendingActions: { type: string; title: string; description: string; link: string }[]
+  recentDeliverables: { id: string; title: string; projectTitle?: string; status: string; deliveredAt: string | null; projectId: string }[]
+  invoices: { id: string; number: string; total: number; balanceDue: number; status: string; dueDate: string | null; currency: string }[]
+  tickets: { id: string; reference: string; subject: string; status: string; updatedAt: string | null }[]
+  notifications: { id: string; title: string; message: string; link: string | null; read: boolean; createdAt: string | null }[]
 }
 
-interface ServiceCatalogResponse {
-  services?: ServiceCatalogItem[]
+function Row({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 hover:bg-slate-50"
+      style={{ borderColor: BRAND.grayLine }}
+    >
+      {children}
+    </Link>
+  )
 }
 
-const QUICK_LINKS: {
-  href: string
-  label: string
-  hint: string
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
-}[] = [
-  {
-    href: '/portal/api-keys',
-    label: 'API Keys',
-    hint: 'Create, rotate, revoke',
-    icon: KeyRound,
-  },
-  {
-    href: '/portal/usage',
-    label: 'Usage',
-    hint: 'Per-service, per-day',
-    icon: Activity,
-  },
-  {
-    href: '/portal/tasks',
-    label: 'Tasks',
-    hint: 'History & detail',
-    icon: ListChecks,
-  },
-  {
-    href: '/portal/webhooks',
-    label: 'Webhooks',
-    hint: 'Configs & deliveries',
-    icon: Webhook,
-  },
-  {
-    href: '/portal/services',
-    label: 'Services',
-    hint: 'Catalog & entitlements',
-    icon: Boxes,
-  },
-]
-
-// The services that will be seeded by the platform phase. We surface them here
-// as *expected* catalog entries so the portal reads as functional even when
-// the /api/v1/ai/capabilities route has not yet shipped. The actual fetch
-// decides what to render — this list only informs the "expected" hint text.
-const EXPECTED_SERVICE_SLUGS = ['ai-chat', 'ai-knowledge-search', 'ai-tasks']
-
-export default function PortalHomePage() {
-  const { data, loading, error, refresh } = useApiGetV1<ServiceCatalogResponse>('/api/v1/ai/capabilities')
-
-  // The capabilities endpoint may return either { data: [...] } or { services: [...] }
-  // depending on the eventual implementation. Accept both.
-  const services: ServiceCatalogItem[] = React.useMemo(() => {
-    if (!data) return []
-    return data.services ?? []
-  }, [data])
-
-  const isEmpty = services.length === 0
+export default function PortalDashboardPage() {
+  const user = usePortalUser()
+  const { data, loading, error, reload } = usePortalData<Dashboard>('/dashboard')
+  const firstName = (user.name || '').split(' ')[0]
 
   return (
     <>
       <PortalPageHero
-        eyebrow="Customer Portal"
-        title="Your API workspace"
-        lead="Manage API keys, watch real-time usage, inspect task history, and wire up webhooks. Everything here is tenant-scoped to your company — no internal workforce data, ever."
+        eyebrow={user.companyName || 'Client portal'}
+        title={firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
+        lead="Your services, projects, deliverables, invoices and support with ALO Labs — all in one place."
         actions={
-          <Button asChild size="sm" className="gap-2">
-            <Link href="/portal/api-keys">
-              <KeyRound className="size-3.5" /> Manage API keys
-            </Link>
-          </Button>
+          <>
+            <Button asChild style={{ background: BRAND.orange, color: '#FFFFFF' }}>
+              <Link href="/portal/services">Request a service <ArrowRight className="ml-1 size-4" /></Link>
+            </Button>
+            <Button asChild variant="outline"><Link href="/portal/support">Contact support</Link></Button>
+          </>
         }
       />
 
-      {/* Quick links */}
-      <section className="mb-10">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          {QUICK_LINKS.map((item) => {
-            const Icon = item.icon
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="group flex flex-col gap-2 rounded-lg border p-4 transition-colors hover:border-slate-300 hover:bg-slate-50"
-                style={{ borderColor: '#E2E8F0', background: '#FFFFFF' }}
-              >
-                <span
-                  className="inline-flex size-8 items-center justify-center rounded-md"
-                  style={{ background: 'rgba(0,58,188,0.08)' }}
-                >
-                  <Icon className="size-4" style={{ color: BRAND.blue }} />
-                </span>
-                <span
-                  className="text-[14px] font-semibold"
-                  style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}
-                >
-                  {item.label}
-                </span>
-                <span className="text-[11px]" style={{ color: BRAND.gray }}>
-                  {item.hint}
-                </span>
-                <ArrowRight
-                  className="size-3.5 mt-auto opacity-0 transition-opacity group-hover:opacity-100"
-                  style={{ color: BRAND.orange }}
-                />
-              </Link>
-            )
-          })}
-        </div>
-      </section>
+      {loading ? <LoadingRows rows={4} /> : error ? <ErrorBanner message={error} onRetry={reload} /> : data ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard label="Active projects" value={data.summary.activeProjects} hint={`${data.summary.completedProjects} completed`} href="/portal/projects" />
+            <StatCard label="Awaiting your action" value={data.summary.pendingActions} hint="Reviews, quotations, payments" />
+            <StatCard label="Outstanding balance" value={fmtMoney(data.summary.outstandingBalance, data.summary.currency)} href="/portal/billing" />
+            <StatCard label="Open support requests" value={data.summary.openTickets} href="/portal/support" />
+          </div>
 
-      {/* Service catalog */}
-      <SectionCard
-        title="Your service catalog"
-        description="Services your company can call through the ALO Labs public API plane."
-        action={
-          <Button variant="outline" size="sm" onClick={refresh}>
-            Refresh
-          </Button>
-        }
-      >
-        <StateList
-          loading={loading}
-          error={error}
-          isEmpty={isEmpty}
-          onRetry={refresh}
-          emptyTitle="No services provisioned yet"
-          emptyHint={
-            EXPECTED_SERVICE_SLUGS.length
-              ? `Expected catalog: ${EXPECTED_SERVICE_SLUGS.join(', ')}. Services will appear here automatically once your tenant is entitled.`
-              : 'Contact your account manager to enable services.'
-          }
-        >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {services.map((service) => {
-              const entitled = service.entitled !== false
-              return (
-                <div
-                  key={service.slug}
-                  className="flex flex-col rounded-md border p-4"
-                  style={{ borderColor: BRAND.grayLine, background: '#FFFFFF' }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: BRAND.gray }}
-                    >
-                      {service.slug}
+          {data.pendingActions.length > 0 ? (
+            <SectionCard title="Waiting on you" description="Completing these keeps your work moving.">
+              <div className="space-y-2">
+                {data.pendingActions.map((a, i) => (
+                  <Row key={`${a.type}-${i}`} href={a.link}>
+                    <span>
+                      <span className="block text-[13px] font-semibold" style={{ color: BRAND.ink }}>{a.title}</span>
+                      <span className="block text-[12px]" style={{ color: BRAND.gray }}>{a.description}</span>
                     </span>
-                    {entitled ? (
-                      <Pill tone="green">
-                        <CheckCircle2 className="size-3" /> Entitled
-                      </Pill>
+                    <span className="inline-flex items-center gap-1 text-[12px] font-semibold" style={{ color: BRAND.orange }}>
+                      Open <ArrowRight className="size-3.5" />
+                    </span>
+                  </Row>
+                ))}
+              </div>
+            </SectionCard>
+          ) : null}
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <SectionCard
+              className="lg:col-span-2"
+              title="Active projects"
+              description="Progress on the work we are delivering for you."
+              action={<Button asChild variant="outline" size="sm"><Link href="/portal/projects">All projects</Link></Button>}
+            >
+              {data.activeProjects.length === 0 ? (
+                <EmptyState
+                  title="No active projects"
+                  hint="Choose a service to start your first project with us."
+                  action={<Button asChild size="sm"><Link href="/portal/services">Browse services</Link></Button>}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {data.activeProjects.map((p) => (
+                    <Link key={p.id} href={`/portal/projects/${p.id}`} className="block rounded-md border p-4 hover:bg-slate-50" style={{ borderColor: BRAND.grayLine }}>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[14px] font-semibold" style={{ color: BRAND.ink }}>{p.title}</p>
+                          <p className="text-[12px]" style={{ color: BRAND.gray }}>{p.serviceName} · {p.reference}</p>
+                        </div>
+                        <StatusPill status={p.status} label={p.statusLabel} />
+                      </div>
+                      <div className="mt-3 flex items-center gap-3">
+                        <ProgressBar value={p.progress} />
+                        <span className="w-10 text-right text-[12px] font-semibold" style={{ color: BRAND.blue }}>{p.progress}%</span>
+                      </div>
+                      <p className="mt-2 text-[12px]" style={{ color: p.pendingAction ? BRAND.orange : BRAND.gray }}>
+                        {p.pendingAction ?? p.stageLabel}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+
+            <div className="space-y-6">
+              <SectionCard title="Your account">
+                <dl className="space-y-3 text-[13px]">
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-[0.1em]" style={{ color: BRAND.gray }}>Organisation</dt>
+                    <dd className="font-semibold" style={{ color: BRAND.ink }}>{data.account.company.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-[0.1em]" style={{ color: BRAND.gray }}>Services with us</dt>
+                    <dd style={{ color: BRAND.ink }}>{data.services.length ? data.services.join(', ') : 'None yet'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-[0.1em]" style={{ color: BRAND.gray }}>Account manager</dt>
+                    {data.account.accountManager ? (
+                      <dd style={{ color: BRAND.ink }}>
+                        <span className="font-semibold">{data.account.accountManager.name}</span>
+                        {data.account.accountManager.title ? <span className="block text-[12px]" style={{ color: BRAND.gray }}>{data.account.accountManager.title}</span> : null}
+                        {data.account.accountManager.email ? <a className="block text-[12px] underline" style={{ color: BRAND.blue }} href={`mailto:${data.account.accountManager.email}`}>{data.account.accountManager.email}</a> : null}
+                        {data.account.accountManager.phone ? <span className="block text-[12px]">{data.account.accountManager.phone}</span> : null}
+                      </dd>
                     ) : (
-                      <Pill tone="gray">Not entitled</Pill>
+                      <dd style={{ color: BRAND.gray }}>To be assigned — contact support in the meantime.</dd>
                     )}
                   </div>
-                  <h3
-                    className="mt-2 text-[15px] font-semibold"
-                    style={{ color: BRAND.blue }}
-                  >
-                    {service.name}
-                  </h3>
-                  {service.description ? (
-                    <p className="mt-1 text-[12px] leading-relaxed" style={{ color: BRAND.gray }}>
-                      {service.description}
-                    </p>
-                  ) : null}
-                  <div className="mt-3 flex flex-col gap-1 text-[11px] font-mono" style={{ color: BRAND.gray }}>
-                    {service.endpoint ? (
-                      <span className="truncate" title={service.endpoint}>
-                        <span style={{ color: BRAND.orange }}>POST</span> {service.endpoint}
-                      </span>
-                    ) : null}
-                    {service.scope ? (
-                      <span>
-                        scope: <span style={{ color: BRAND.ink }}>{service.scope}</span>
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-3 pt-3 border-t flex items-center justify-between" style={{ borderColor: BRAND.grayLine }}>
-                    <span className="text-[11px]" style={{ color: BRAND.graySoft }}>
-                      {service.isActive === false ? 'Inactive' : 'Active'}
-                    </span>
-                    <Link
-                      href="/portal/services"
-                      className="text-[12px] font-semibold inline-flex items-center gap-1"
-                      style={{ color: BRAND.orange }}
-                    >
-                      Details <ArrowRight className="size-3" />
-                    </Link>
-                  </div>
-                </div>
-              )
-            })}
+                </dl>
+              </SectionCard>
+
+              <SectionCard title="Notifications" action={<Link href="/portal/notifications" className="text-[12px] font-semibold" style={{ color: BRAND.blue }}>View all</Link>}>
+                {data.notifications.length === 0 ? (
+                  <p className="text-[13px]" style={{ color: BRAND.gray }}>You are all caught up.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {data.notifications.map((n) => (
+                      <li key={n.id} className="text-[13px]">
+                        <Link href={n.link ?? '/portal/notifications'} className="block hover:underline">
+                          <span className="font-semibold" style={{ color: n.read ? BRAND.gray : BRAND.ink }}>{n.title}</span>
+                          <span className="block text-[11px]" style={{ color: BRAND.gray }}>{fmtDate(n.createdAt)}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </SectionCard>
+            </div>
           </div>
-        </StateList>
-      </SectionCard>
 
-      {/* Account context */}
-      <PortalAccountContext />
+          <div className="grid gap-6 lg:grid-cols-3">
+            <SectionCard title="Recent deliverables" action={<Link href="/portal/deliverables" className="text-[12px] font-semibold" style={{ color: BRAND.blue }}>View all</Link>}>
+              {data.recentDeliverables.length === 0 ? (
+                <p className="text-[13px]" style={{ color: BRAND.gray }}>Completed work will appear here.</p>
+              ) : (
+                <div className="space-y-2">
+                  {data.recentDeliverables.map((d) => (
+                    <Row key={d.id} href={`/portal/projects/${d.projectId}`}>
+                      <span>
+                        <span className="block text-[13px] font-semibold" style={{ color: BRAND.ink }}>{d.title}</span>
+                        <span className="block text-[11px]" style={{ color: BRAND.gray }}>{d.projectTitle} · {fmtDay(d.deliveredAt)}</span>
+                      </span>
+                      <StatusPill status={d.status} />
+                    </Row>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Invoices" action={<Link href="/portal/billing" className="text-[12px] font-semibold" style={{ color: BRAND.blue }}>Billing</Link>}>
+              {data.invoices.length === 0 ? (
+                <p className="text-[13px]" style={{ color: BRAND.gray }}>No invoices yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {data.invoices.map((i) => (
+                    <Row key={i.id} href="/portal/billing">
+                      <span>
+                        <span className="block text-[13px] font-semibold" style={{ color: BRAND.ink }}>{i.number}</span>
+                        <span className="block text-[11px]" style={{ color: BRAND.gray }}>{fmtMoney(i.total, i.currency)} · due {fmtDay(i.dueDate)}</span>
+                      </span>
+                      <StatusPill status={i.status} />
+                    </Row>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Support requests" action={<Link href="/portal/support" className="text-[12px] font-semibold" style={{ color: BRAND.blue }}>Support</Link>}>
+              {data.tickets.length === 0 ? (
+                <p className="text-[13px]" style={{ color: BRAND.gray }}>No open requests.</p>
+              ) : (
+                <div className="space-y-2">
+                  {data.tickets.map((t) => (
+                    <Row key={t.id} href={`/portal/support/${t.id}`}>
+                      <span>
+                        <span className="block text-[13px] font-semibold" style={{ color: BRAND.ink }}>{t.subject}</span>
+                        <span className="block text-[11px]" style={{ color: BRAND.gray }}>{t.reference}</span>
+                      </span>
+                      <StatusPill status={t.status} />
+                    </Row>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </div>
+        </div>
+      ) : null}
     </>
-  )
-}
-
-/** Renders the signed-in user's account context. Pure presentation. */
-function PortalAccountContext() {
-  const user = usePortalUser()
-  return (
-    <section className="mt-8">
-      <SectionCard
-        title="Account"
-        description="The identity used for every portal request."
-      >
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-[13px]">
-          <Definition label="Name" value={user.name || '—'} />
-          <Definition label="Email" value={user.email} mono />
-          <Definition label="Role" value={user.role} mono />
-          <Definition label="Company ID" value={user.companyId ?? '—'} mono />
-        </dl>
-      </SectionCard>
-    </section>
-  )
-}
-
-function Definition({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <dt
-        className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em]"
-        style={{ color: BRAND.gray }}
-      >
-        {label}
-      </dt>
-      <dd
-        className="mt-1 break-all"
-        style={{
-          color: BRAND.ink,
-          fontFamily: mono ? BRAND_FONTS.primary.stack : undefined,
-        }}
-      >
-        {value}
-      </dd>
-    </div>
   )
 }

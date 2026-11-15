@@ -36,7 +36,7 @@ beforeEach(() => {
     data: { id: 'user-1', email: 'admin@alo.com', name: 'Admin', role: 'admin', isActive: true },
   });
   fakeDb.db.company.create({
-    data: { id: 'company-1', name: 'ALO Education', slug: 'alo-education', status: 'active' },
+    data: { id: 'company-1', name: 'ALO Education', slug: 'alo-education', status: 'active', accountType: 'internal' },
   });
   fakeDb.db.companyUser.create({
     data: { id: 'cu-1', companyId: 'company-1', userId: 'user-1', role: 'admin' },
@@ -45,7 +45,7 @@ beforeEach(() => {
 
 describe('authenticateV1', () => {
   it('authenticates a session Bearer token and resolves the tenant', async () => {
-    vi.mocked(verifySessionToken).mockResolvedValue({ userId: 'user-1' });
+    vi.mocked(verifySessionToken).mockResolvedValue({ userId: 'user-1', audience: 'internal', role: 'admin' } as never);
 
     const identity = await authenticateV1(req({ authorization: 'Bearer session-token' }));
     expect(identity).toBeTruthy();
@@ -97,6 +97,41 @@ describe('authenticateV1', () => {
     const identity = await authenticateV1(req({ authorization: `Bearer ${rawKey}` }));
     expect(identity).toBeTruthy();
     expect(identity!.kind).toBe('apiKey');
+  });
+
+  it('refuses a CLIENT company key on the internal API, and admits it only where client keys are allowed', async () => {
+    fakeDb.db.company.create({
+      data: { id: 'client-co', name: 'Customer Ltd', slug: 'customer-ltd', status: 'active', accountType: 'client' },
+    });
+    const rawKey = ['alo', 'labs', 'test', 'fixture', 'client'].join('_');
+    fakeDb.db.companyApiKey.create({
+      data: {
+        id: 'key-client',
+        keyHash: sha256(rawKey),
+        keyPrefix: 'alo_labs',
+        keySuffix: 'c111',
+        scopes: JSON.stringify(['*']),
+        isActive: true,
+        companyId: 'client-co',
+      },
+    });
+
+    // Default: the internal surface. A wildcard scope does not help.
+    expect(await authenticateV1(req({ 'x-api-key': rawKey }))).toBeNull();
+
+    // The published service plane opts in explicitly and sees a client identity.
+    const identity = await authenticateV1(req({ 'x-api-key': rawKey }), { allowClientKeys: true });
+    expect(identity?.audience).toBe('client');
+    expect(identity?.companyId).toBe('client-co');
+  });
+
+  it('treats a company with no account type as a client (fail closed)', async () => {
+    fakeDb.db.company.create({ data: { id: 'untyped-co', name: 'Untyped', slug: 'untyped', status: 'active' } });
+    const rawKey = ['alo', 'labs', 'test', 'fixture', 'untyped'].join('_');
+    fakeDb.db.companyApiKey.create({
+      data: { id: 'key-untyped', keyHash: sha256(rawKey), keyPrefix: 'alo_labs', keySuffix: 'u111', scopes: JSON.stringify(['*']), isActive: true, companyId: 'untyped-co' },
+    });
+    expect(await authenticateV1(req({ 'x-api-key': rawKey }))).toBeNull();
   });
 
   it('rejects an unknown API key', async () => {

@@ -732,6 +732,11 @@ model Company {
   slug                 String   @unique
   domain               String?
   status               String   @default("active")
+  // Which access surface this tenant belongs to: "internal" (an ALO Labs
+  // business unit that operates AgentOS) or "client" (a customer that buys
+  // services). Defaults to "client" so an unclassified tenant never gets
+  // internal access. See src/lib/access/surfaces.ts.
+  accountType          String   @default("client")
   allowedWorkflows     String @db.LongText   @default("[]")
   allowedDepartments   String @db.LongText   @default("[]")
   monthlyUsageLimit    Int      @default(10000)
@@ -797,6 +802,8 @@ model Company {
   auditEvents            AuditEvent[]
   customRoles           CompanyRole[]
   aiEmployeeIdentities  AIEmployeeIdentity[]
+  clientAccount         ClientAccount?
+  @@index([accountType])
 }
 
 model CompanyUser {
@@ -4520,4 +4527,335 @@ model IdempotencyKey {
 
   @@unique([companyId, key]) // exact match + tenant-scoped uniqueness
   @@index([companyId, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLIENT SERVICE DELIVERY — the customer-facing half of the platform.
+//
+// Everything a client can see lives in the `Client*` tables below (plus the
+// public `ServiceOffering` catalogue). They are deliberately separate from the
+// AgentOS tables: no row here references an agent, department, model, provider,
+// prompt, run or internal employee, so a client query can never join into the
+// production engine. Every tenant-owned table carries a mandatory `companyId`
+// and is only ever read through `tenantDb(companyId)` (src/lib/portal/tenant-db.ts).
+//
+// `ClientProjectExecution` is the one bridge to AgentOS. It is INTERNAL ONLY and
+// is never selected by any `/api/portal/**` handler.
+// ═══════════════════════════════════════════════════════════════════════════
+
+model ClientAccount {
+  id                  String   @id @default(cuid())
+  companyId           String   @unique
+  status              String   @default("active") // active, suspended, closed
+  // The human contact a client is told about. Entered explicitly by staff —
+  // never derived from an internal User row, so no employee id can leak.
+  accountManagerName  String?
+  accountManagerTitle String?
+  accountManagerEmail String?
+  accountManagerPhone String?
+  billingEmail        String?
+  billingAddress      String? @db.LongText
+  currency            String   @default("USD")
+  internalNotes       String? @db.LongText // INTERNAL ONLY
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  company       Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projects      ClientProject[]
+  milestones    ClientProjectMilestone[]
+  messages      ClientMessage[]
+  documents     ClientDocument[]
+  deliverables  ClientDeliverable[]
+  activities    ClientActivity[]
+  quotations    ClientQuotation[]
+  invoices      ClientInvoice[]
+  payments      ClientPayment[]
+  tickets       ClientSupportTicket[]
+  notifications ClientNotification[]
+
+  @@index([status])
+}
+
+model ServiceOffering {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  name              String
+  category          String   @default("general")
+  summary           String @db.LongText   @default("")
+  description       String @db.LongText   @default("")
+  benefits          String @db.LongText   @default("[]") // JSON string[]
+  deliverables      String @db.LongText   @default("[]") // JSON string[]
+  scope             String @db.LongText   @default("")
+  pricingModel      String   @default("quote") // fixed, starting_at, quote, subscription
+  priceAmount       Float?
+  currency          String   @default("USD")
+  billingInterval   String? // month, year (subscription only)
+  deliveryTimeframe String   @default("")
+  terms             String @db.LongText   @default("")
+  isActive          Boolean  @default(true)
+  sortOrder         Int      @default(0)
+  // INTERNAL ONLY — how the service is produced (workflow, department hints).
+  internalFulfilment String @db.LongText  @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@index([category])
+}
+
+model ClientProject {
+  id                  String    @id @default(cuid())
+  companyId           String
+  reference           String    @unique
+  serviceOfferingId   String?
+  serviceName         String    @default("")
+  title               String
+  requirements        String @db.LongText    @default("")
+  // requested, reviewing, quotation, approved, in_progress, client_review,
+  // revision, completed, cancelled — see src/lib/client-services/status.ts
+  status              String    @default("requested")
+  progress            Int       @default(0)
+  pendingClientAction String? @db.LongText
+  targetDate          DateTime?
+  requestedByUserId   String?
+  completedAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+}
+
+model ClientProjectMilestone {
+  id          String    @id @default(cuid())
+  companyId   String
+  projectId   String
+  title       String
+  description String? @db.LongText
+  status      String    @default("pending") // pending, in_progress, completed
+  sortOrder   Int       @default(0)
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, projectId])
+}
+
+model ClientMessage {
+  id           String   @id @default(cuid())
+  companyId    String
+  threadType   String // project, ticket
+  threadId     String
+  senderType   String // client, service_team
+  senderName   String
+  senderUserId String? // INTERNAL ONLY when senderType = service_team
+  body         String @db.LongText
+  createdAt    DateTime @default(now())
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, threadType, threadId])
+}
+
+model ClientDocument {
+  id               String   @id @default(cuid())
+  companyId        String
+  projectId        String?
+  ticketId         String?
+  kind             String   @default("requirement") // requirement, deliverable, attachment
+  fileName         String
+  mimeType         String   @default("application/octet-stream")
+  size             Int      @default(0)
+  checksum         String   @default("")
+  storageKey       String // INTERNAL ONLY — never returned to a client
+  uploadedByType   String   @default("client") // client, service_team
+  uploadedByUserId String? // INTERNAL ONLY when uploadedByType = service_team
+  createdAt        DateTime @default(now())
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, projectId])
+  @@index([companyId, ticketId])
+}
+
+model ClientDeliverable {
+  id           String    @id @default(cuid())
+  companyId    String
+  projectId    String
+  title        String
+  description  String? @db.LongText
+  type         String    @default("document") // document, report, software_release, project_file
+  version      Int       @default(1)
+  isFinal      Boolean   @default(false)
+  status       String    @default("delivered") // delivered, approved, revision_requested, superseded
+  documentId   String?
+  downloadUrl  String? @db.LongText // external release link, when the work is not a stored file
+  revisionNote String? @db.LongText
+  deliveredAt  DateTime  @default(now())
+  reviewedAt   DateTime?
+  reviewedByUserId String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, projectId])
+  @@index([companyId, status])
+}
+
+model ClientActivity {
+  id         String   @id @default(cuid())
+  companyId  String
+  projectId  String?
+  entityType String // project, deliverable, quotation, invoice, ticket
+  entityId   String
+  type       String // e.g. project.status_changed, deliverable.approved
+  summary    String @db.LongText // client-facing sentence; never mentions internal systems
+  actorType  String   @default("service_team") // client, service_team, system
+  createdAt  DateTime @default(now())
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, projectId, createdAt])
+  @@index([companyId, entityType, entityId])
+}
+
+model ClientQuotation {
+  id          String    @id @default(cuid())
+  companyId   String
+  projectId   String?
+  number      String    @unique
+  title       String
+  lineItems   String @db.LongText    @default("[]") // JSON [{ description, quantity, unitPrice, amount }]
+  subtotal    Float     @default(0)
+  tax         Float     @default(0)
+  total       Float     @default(0)
+  currency    String    @default("USD")
+  status      String    @default("sent") // sent, accepted, declined, expired, withdrawn
+  validUntil  DateTime?
+  notes       String? @db.LongText
+  terms       String? @db.LongText
+  issuedAt    DateTime  @default(now())
+  respondedAt DateTime?
+  respondedByUserId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([companyId, projectId])
+}
+
+model ClientInvoice {
+  id          String    @id @default(cuid())
+  companyId   String
+  projectId   String?
+  quotationId String?
+  number      String    @unique
+  title       String    @default("")
+  lineItems   String @db.LongText    @default("[]")
+  subtotal    Float     @default(0)
+  tax         Float     @default(0)
+  total       Float     @default(0)
+  amountPaid  Float     @default(0)
+  currency    String    @default("USD")
+  status      String    @default("issued") // issued, partially_paid, paid, overdue, void
+  issuedAt    DateTime  @default(now())
+  dueDate     DateTime
+  paidAt      DateTime?
+  notes       String? @db.LongText
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([companyId, projectId])
+}
+
+model ClientPayment {
+  id            String   @id @default(cuid())
+  companyId     String
+  invoiceId     String
+  receiptNumber String   @unique
+  amount        Float
+  currency      String   @default("USD")
+  method        String   @default("bank_transfer") // bank_transfer, card, mobile_banking, cash, other
+  reference     String?
+  status        String   @default("completed") // completed, refunded
+  paidAt        DateTime @default(now())
+  recordedByUserId String? // INTERNAL ONLY
+  createdAt     DateTime @default(now())
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, invoiceId])
+}
+
+model ClientSupportTicket {
+  id                String    @id @default(cuid())
+  companyId         String
+  reference         String    @unique
+  subject           String
+  category          String    @default("general") // general, project, billing, technical, account
+  priority          String    @default("normal") // low, normal, high, urgent
+  status            String    @default("open") // open, awaiting_support, awaiting_client, resolved, closed
+  projectId         String?
+  createdByUserId   String?
+  firstResponseAt   DateTime?
+  resolvedAt        DateTime?
+  resolutionSummary String? @db.LongText
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+}
+
+model ClientNotification {
+  id        String    @id @default(cuid())
+  companyId String
+  userId    String? // null = every user of the account
+  type      String
+  title     String
+  message   String @db.LongText
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  account ClientAccount @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId, userId, readAt])
+  @@index([companyId, createdAt])
+}
+
+// INTERNAL ONLY — links a client project to the AgentOS work that produces it.
+// Never selected by the client route group; never serialised to a client.
+model ClientProjectExecution {
+  id               String   @id @default(cuid())
+  companyId        String
+  projectId        String
+  runId            String?
+  taskId           String?
+  workflowId       String?
+  objective        String @db.LongText   @default("")
+  status           String   @default("queued") // queued, running, awaiting_review, approved, rejected, failed
+  reviewStatus     String   @default("pending") // pending, approved, rejected
+  reviewedByUserId String?
+  reviewNotes      String? @db.LongText
+  startedByUserId  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([runId])
+  @@index([status])
 }

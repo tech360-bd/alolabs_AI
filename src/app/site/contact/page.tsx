@@ -3,11 +3,11 @@ import { ContactPage } from '@/components/site/pages/contact'
 
 export const metadata: Metadata = {
   title: 'Contact — ALO Labs',
-  description: 'Talk to the team behind AgentOS. One form, straight into our CRM — replies within one business day.',
+  description: 'Talk to the ALO Labs team. One form — replies within one business day.',
   openGraph: {
     title: 'Contact — ALO Labs',
-    description: 'Talk to the team behind AgentOS. One form, straight into our CRM — replies within one business day.',
-    siteName: 'ALO Labs AgentOS',
+    description: 'Talk to the ALO Labs team. One form — replies within one business day.',
+    siteName: 'ALO Labs',
     images: ['/brand/alo-logo-horizontal.svg'],
   },
 }

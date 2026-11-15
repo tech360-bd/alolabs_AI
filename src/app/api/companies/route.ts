@@ -1,3 +1,4 @@
+import { isInternalRole } from '@/lib/access/surfaces';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -60,8 +61,12 @@ export async function POST(request: NextRequest) {
     const duplicate = await db.company.findUnique({ where: { slug }, select: { id: true } });
     if (duplicate) return NextResponse.json({ error: 'Company with this slug already exists' }, { status: 409 });
     if (parsed.data.ownerUserId) {
-      const owner = await db.user.findUnique({ where: { id: parsed.data.ownerUserId }, select: { id: true, isActive: true } });
+      const owner = await db.user.findUnique({ where: { id: parsed.data.ownerUserId }, select: { id: true, isActive: true, role: true } });
       if (!owner || !owner.isActive) return NextResponse.json({ error: 'Active owner account not found' }, { status: 404 });
+      // A customer login must never be made the owner of an internal tenant.
+      if (!isInternalRole(owner.role)) {
+        return NextResponse.json({ error: 'The owner of an AgentOS company must be an internal account' }, { status: 400 });
+      }
     }
 
     const company = await db.$transaction(async (transaction) => {
@@ -71,6 +76,11 @@ export async function POST(request: NextRequest) {
           slug,
           domain: parsed.data.domain || null,
           status: 'active',
+          // This route provisions AgentOS tenants — ALO Labs' own operating
+          // companies. Customer accounts are a different thing entirely and are
+          // only ever created through the client-services flow
+          // (provisionClientAccount), which sets accountType 'client'.
+          accountType: 'internal',
           paidApiAllowed: false,
           settings: { create: {} },
           budget: { create: { maxPaidBudgetUsd: 0, paidApiAllowed: false, autoBillingEnabled: false } },

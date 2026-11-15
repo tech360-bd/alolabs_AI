@@ -9,7 +9,9 @@ export async function GET(request: NextRequest) {
     const token = authHeader?.replace('Bearer ', '') || request.cookies.get('session-token')?.value;
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const session = await verifySessionToken(token);
+    // Shared account endpoint: both surfaces may ask "who am I". It returns the
+    // caller's own account record and nothing else.
+    const session = await verifySessionToken(token, { audience: 'any' });
     if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
     const userId = session.userId;
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ user });
+    return NextResponse.json({ user, audience: session.audience });
   } catch (error) {
     console.error('Me error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

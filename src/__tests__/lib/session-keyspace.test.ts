@@ -28,6 +28,9 @@ vi.mock('@/lib/db', () => {
 
   return {
     db: {
+      // Sessions are bound to the owner's stored role: these suites exercise the
+      // internal (staff) path. The client path is covered in session-audience.test.ts.
+      user: { findUnique: async () => ({ id: 'staff-user', role: 'admin', isActive: true }) },
       settings: {
         findUnique: vi.fn(async ({ where }: { where: { key: string } }) => {
           const row = store.get(where.key);

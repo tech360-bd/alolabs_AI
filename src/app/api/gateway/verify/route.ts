@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateGatewayRequest, GatewayRequest } from '@/lib/api-gateway';
+import { requireAuth } from '@/lib/api-auth';
 
 export async function POST(request: NextRequest) {
   try {
+    // Internal surface only: this is a signature-verification oracle for the
+    // API gateway and must not be callable by clients or anonymous bearers.
+    try {
+      await requireAuth();
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const body = await request.json();
 
     const gatewayReq: GatewayRequest = {

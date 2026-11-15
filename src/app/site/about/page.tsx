@@ -3,11 +3,11 @@ import { AboutPage } from '@/components/site/pages/about'
 
 export const metadata: Metadata = {
   title: 'About — ALO Labs',
-  description: 'ALO Labs builds AgentOS, the AI Agent Operating System. Harrisonville, Missouri. Secure. Smart. Scalable. Built for the Future.',
+  description: 'ALO Labs delivers AI-powered business services. Harrisonville, Missouri. Secure. Smart. Scalable. Built for the Future.',
   openGraph: {
     title: 'About — ALO Labs',
-    description: 'ALO Labs builds AgentOS, the AI Agent Operating System. Harrisonville, Missouri. Secure. Smart. Scalable. Built for the Future.',
-    siteName: 'ALO Labs AgentOS',
+    description: 'ALO Labs delivers AI-powered business services. Harrisonville, Missouri. Secure. Smart. Scalable. Built for the Future.',
+    siteName: 'ALO Labs',
     images: ['/brand/alo-logo-horizontal.svg'],
   },
 }

@@ -49,5 +49,9 @@ async function requireAuth(request: NextRequest) {
   if (!authHeader?.startsWith('Bearer ')) throw new Error('Unauthorized');
   const token = authHeader.substring(7);
   if (!token) throw new Error('Unauthorized');
-  return { userId: (await verifySessionToken(token))?.userId };
+  // Shared account endpoint: a user of either surface may change their own
+  // password. An invalid session is a 401, never an undefined user id.
+  const session = await verifySessionToken(token, { audience: 'any' });
+  if (!session) throw new Error('Unauthorized');
+  return { userId: session.userId };
 }

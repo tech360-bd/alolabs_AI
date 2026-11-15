@@ -3,6 +3,9 @@ import { requireAuth } from '@/lib/api-auth';
 
 export async function GET() {
   try {
+    // Internal surface only: without this call the route was reachable with any
+    // bearer string, because the request proxy checks only that one is present.
+    await requireAuth();
 
     const data = [
       {

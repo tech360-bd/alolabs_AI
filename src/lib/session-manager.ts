@@ -48,6 +48,8 @@ export interface SessionData {
   deviceInfo?: string;
   ipAddress?: string;
   isRefreshToken?: boolean;
+  /** Surface the session was minted for. See src/lib/access/surfaces.ts. */
+  aud?: 'internal' | 'client';
 }
 
 export interface SessionInfo {
@@ -126,6 +128,11 @@ export async function createSession(
     deviceInfo: options?.deviceInfo,
     ipAddress: options?.ipAddress,
     isRefreshToken: false,
+    // Sessions minted here are internal-surface sessions. This is a label, not
+    // a grant: verifySessionToken re-reads the owner's role on every use and
+    // revokes the session if the owner is not internal personnel, so calling
+    // this for a client account yields a token that never verifies.
+    aud: 'internal',
   };
 
   await db.settings.upsert({
@@ -147,6 +154,15 @@ export async function verifySession(
   token: string,
 ): Promise<SessionData | null> {
   if (!token) return null;
+
+  // This module reads the same `session:` keyspace as src/lib/auth.ts but has
+  // its own expiry rules. The surface decision must not have a second
+  // implementation: ask the authoritative verifier first, so a client session
+  // (or a deactivated account) is refused here exactly as it is everywhere
+  // else. Session management through this module is an internal-surface
+  // feature.
+  const { verifySessionToken } = await import('./auth');
+  if (!(await verifySessionToken(token))) return null;
 
   const resolved = await resolveSessionRow(token);
   if (!resolved) return null;

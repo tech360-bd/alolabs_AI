@@ -33,13 +33,13 @@ import {
 const SERVICES = [
   {
     icon: Bot,
-    title: 'AI agents & workforce automation',
-    body: 'Departments of specified AI agents that take real work off your team: reports, follow-ups, data entry, research and operations — inside an approval gate.',
+    title: 'Business process automation',
+    body: 'We take real work off your team — reports, follow-ups, data entry, research and operations — with every result reviewed before it reaches you.',
     items: [
       'Agent specification & registry build-out',
       'Workflow automation with human approvals',
-      'Command centre & operations dashboards',
-      'Audit trails and QA rules per department',
+      'Progress tracking in your client portal',
+      'Review and sign-off on every deliverable',
     ],
     anchor: 'automation',
   },
@@ -49,7 +49,7 @@ const SERVICES = [
     body: 'Lead capture, enrichment, scoring and nurture wired into your CRM — with AI marketing campaigns, SEO content and reporting running as scheduled agent work.',
     items: [
       'CRM implementation & pipeline design',
-      'Lead enrichment & scoring (n8n / AgentOS)',
+      'Lead enrichment & scoring',
       'Email, SMS and social campaign automation',
       'Attribution dashboards and weekly reports',
     ],
@@ -70,7 +70,7 @@ const SERVICES = [
   {
     icon: PhoneCall,
     title: 'Voice, SMS & communications',
-    body: 'AI call-centre and telephony integrations: inbound routing, call intelligence, SMS automation and VoIP — connected to the same agent workforce.',
+    body: 'AI call-centre and telephony integrations: inbound routing, call intelligence, SMS automation and VoIP — delivered and supported by the same team.',
     items: [
       'AI call-centre intelligence',
       'SMS gateways & automated follow-up',
@@ -82,9 +82,9 @@ const SERVICES = [
   {
     icon: PenTool,
     title: 'Knowledge, content & media',
-    body: 'Hybrid RAG over your own corpus, editorial diagram generation, AI video and image pipelines — everything your teams publish, grounded in your data.',
+    body: 'Search and answers over your own documents, editorial diagrams, and AI-assisted video and image production — everything your teams publish, grounded in your data.',
     items: [
-      'Hybrid RAG (classic · graph · agentic)',
+      'Search & answers over your documents',
       'Editorial diagram & report generation',
       'AI image / video / caption pipelines',
       'Marketing kit & brand system production',
@@ -97,7 +97,7 @@ const SERVICES = [
     body: 'When the need is a product, not a service: multi-tenant SaaS, internal platforms, API integrations and white-label AI assistants engineered to last.',
     items: [
       'SaaS & multi-tenant product engineering',
-      'LLM applications & tool-calling agents',
+      'Custom AI applications',
       'Data pipelines & system integrations',
       'Long-term support and evolution',
     ],
@@ -109,7 +109,7 @@ const PROCESS = [
   {
     step: '1',
     title: 'Assess',
-    body: 'We map your departments, workflows, data and risk surface — and agree what the agents should and should not do.',
+    body: 'We map your teams, workflows, data and risks — and agree exactly what will and will not be automated.',
   },
   {
     step: '2',
@@ -119,12 +119,12 @@ const PROCESS = [
   {
     step: '3',
     title: 'Deploy',
-    body: 'We stand up the command centre, provision the agent workforce and integrate your tools — in your cloud or ours.',
+    body: 'We build the solution and integrate your tools, keeping you updated in the client portal.',
   },
   {
     step: '4',
     title: 'Run',
-    body: 'Agents work inside the approval gate while you watch the dashboards. We tune, report and extend department by department.',
+    body: 'You review and approve each deliverable. We tune, report and extend team by team.',
   },
 ]
 
@@ -142,7 +142,7 @@ const INDUSTRIES = [
 const FAQS: FaqItem[] = [
   {
     q: 'Do we need to replace our existing tools?',
-    a: 'No. AgentOS sits between your team and the tools they already use — CRM, email, sheets, telephony, storage — and automates the work across them. Integrations are the starting point, not a rip-and-replace.',
+    a: 'No. Our work sits between your team and the tools they already use — CRM, email, sheets, telephony, storage — and automates the work across them. Integrations are the starting point, not a rip-and-replace.',
   },
   {
     q: 'What stops an agent from doing something harmful?',
@@ -150,19 +150,19 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'How long does a first deployment take?',
-    a: 'A focused first department — one command centre, 10–40 agents, 2–4 workflows — typically goes live in 2–4 weeks. Broader workforce rollouts run department by department on a shared roadmap.',
+    a: 'A focused first project — two to four workflows for one team — typically goes live in 2–4 weeks. Broader rollouts run team by team on a shared roadmap.',
   },
   {
-    q: 'Can we start with a single department?',
-    a: 'Yes, and that is the recommended path. Prove one department end to end — its agents, workflows, approvals and reporting — then extend the same pattern to the next.',
+    q: 'Can we start with a single team?',
+    a: 'Yes, and that is the recommended path. Prove the workflows of one team end to end — delivery, approvals and reporting — then extend the same pattern to the next.',
   },
   {
     q: 'Is our data used to train models?',
-    a: 'No. Your data stays in your tenant: retrieval runs against your own corpus, model calls are routed through configured providers with your keys, and nothing is used to train third-party models.',
+    a: 'No. Your data stays in your tenant: your documents are used only for your own work, they are never shared with another client, and nothing is used to train third-party models.',
   },
   {
     q: 'How is this priced?',
-    a: 'Platform subscription plus a deployment/implementation scope. Managed cloud and self-hosted options are both available — see the pricing page, or talk to us for a department-sized quote.',
+    a: 'Each service is priced on its own: fixed price, a starting price, a subscription, or a quotation after scoping. Prices are shown with each service in the client portal, or talk to us for a quote.',
   },
 ]
 
@@ -173,7 +173,7 @@ export function SolutionsPage() {
         crumbs={[{ href: '/site/solutions', label: 'Solutions' }]}
         eyebrow="Services & automation"
         title={<>Six service lines. One accountable team.</>}
-        lead="AI agents, CRM and marketing automation, education operations, communications, knowledge systems and custom AI products — designed, deployed and run by the people who build AgentOS."
+        lead="Process automation, CRM and marketing automation, education operations, communications, knowledge systems and custom AI products — designed, delivered and supported by ALO Labs."
       >
         <div className="flex flex-wrap items-center gap-3">
           <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
@@ -182,7 +182,7 @@ export function SolutionsPage() {
             </Link>
           </Button>
           <Button size="lg" variant="outline" asChild>
-            <Link href="/site/work">See the work</Link>
+            <Link href="/portal">Client portal</Link>
           </Button>
         </div>
       </PageHero>
@@ -191,7 +191,7 @@ export function SolutionsPage() {
         id="services"
         eyebrow="What we do"
         title="Services first, automation where it earns its place."
-        lead="Each line stands on its own — take one, combine them later, with the same team and the same command centre underneath."
+        lead="Each line stands on its own — take one, combine them later, with the same team and the same client portal."
       >
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {SERVICES.map((service, i) => (
@@ -213,7 +213,7 @@ export function SolutionsPage() {
         id="process"
         eyebrow="How we deliver"
         title="Assess, design, deploy, run."
-        lead="The same four steps on every engagement, whether it is one workflow or a hundred-department workforce."
+        lead="The same four steps on every engagement, whether it is one workflow or a company-wide programme."
         ground="canvas"
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -235,7 +235,7 @@ export function SolutionsPage() {
           ))}
         </div>
         <div className="mt-8 flex flex-wrap gap-2">
-          {['Fixed-scope pilots', 'Department rollouts', 'Managed operations', 'Training & handover'].map((tag) => (
+          {['Fixed-scope pilots', 'Team-by-team rollouts', 'Managed operations', 'Training & handover'].map((tag) => (
             <Pill key={tag} tone="orange">
               {tag}
             </Pill>
@@ -246,7 +246,7 @@ export function SolutionsPage() {
       <Section
         id="industries"
         eyebrow="Industries"
-        title="Where the agents work today."
+        title="Where we work today."
         lead="The platform is horizontal; the workflows are not. We bring industry-specific workflow libraries and tune the rest with you."
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -269,7 +269,7 @@ export function SolutionsPage() {
 
       <CtaBand
         title="Tell us which department hurts most."
-        lead="We will map it, propose the first agents to deploy against it, and show you the command centre running your workflow."
+        lead="We will map it, propose a first scope and show you how you will follow the work in your client portal."
       />
     </>
   )

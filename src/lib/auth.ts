@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import { db } from './db';
 import { sessionKey, legacySessionKey } from './session-token';
 import { addSessionToIndex, removeSessionFromIndex, clearSessionIndex } from './session-index';
+import { CLIENT_TOKEN_PREFIX, audienceForRole, audienceForToken, type Audience } from './access/surfaces';
+import { recordAccessViolation } from './access/audit';
 
 const SALT_ROUNDS = 12;
 const TOKEN_LENGTH = 48;
@@ -92,11 +94,49 @@ export interface SessionRecord {
   lastUsedAt: string;
   /** Free-form origin marker: password, oauth:<provider>, mfa */
   method?: string;
+  /**
+   * The access surface this session was minted for. Absent only on sessions
+   * created before the surfaces were separated; those are classified on first
+   * use from the owner's role.
+   */
+  aud?: Audience;
 }
 
 export interface SessionCreateOptions {
   method?: string;
   ttlHours?: number;
+}
+
+export interface SessionVerifyOptions {
+  /**
+   * Which surface the caller serves. Defaults to `internal`, so every existing
+   * call site — and any future one that forgets to choose — refuses client
+   * sessions. Only the client route group passes `client`; only the shared
+   * account endpoints pass `any`.
+   */
+  audience?: Audience | 'any';
+}
+
+export interface VerifiedSession {
+  userId: string;
+  session: SessionRecord;
+  audience: Audience;
+  role: string;
+}
+
+/**
+ * The owner's current role, read on every verification. A session is only as
+ * good as the account behind it: a deleted or deactivated user, or one whose
+ * role has moved to the other surface, must stop working immediately rather
+ * than when the token happens to expire.
+ */
+async function loadSessionOwner(userId: string): Promise<{ role: string; isActive: boolean } | null> {
+  const owner = await db.user.findUnique({
+    where: { id: userId },
+    select: { role: true, isActive: true },
+  });
+  if (!owner || typeof owner.role !== 'string') return null;
+  return { role: owner.role, isActive: owner.isActive !== false };
 }
 
 // Key derivation is shared with src/lib/session-manager.ts on purpose: both
@@ -124,7 +164,13 @@ async function migrateLegacySessionKey(token: string, value: string): Promise<vo
 }
 
 export async function createSessionToken(userId: string, options: SessionCreateOptions = {}): Promise<string> {
-  const token = crypto.randomBytes(TOKEN_LENGTH).toString('hex');
+  // The surface is decided here, from the stored role, and nowhere else. No
+  // caller can ask for an internal session: an account that cannot be proven
+  // to hold an internal role gets a client one.
+  const owner = await loadSessionOwner(userId).catch(() => null);
+  const audience: Audience = owner ? audienceForRole(owner.role) : 'client';
+  const secret = crypto.randomBytes(TOKEN_LENGTH).toString('hex');
+  const token = audience === 'client' ? `${CLIENT_TOKEN_PREFIX}${secret}` : secret;
   const now = new Date();
   const ttlHours = options.ttlHours && options.ttlHours > 0 ? options.ttlHours : SESSION_TTL_HOURS;
   const record: SessionRecord = {
@@ -133,6 +179,7 @@ export async function createSessionToken(userId: string, options: SessionCreateO
     expiresAt: new Date(now.getTime() + ttlHours * 60 * 60 * 1000).toISOString(),
     lastUsedAt: now.toISOString(),
     method: options.method,
+    aud: audience,
   };
   await db.settings.upsert({
     where: { key: sessionKey(token) },
@@ -164,6 +211,7 @@ function parseSessionRecord(raw: string): SessionRecord | null {
       expiresAt: data.expiresAt,
       lastUsedAt: typeof data.lastUsedAt === 'string' ? data.lastUsedAt : data.createdAt,
       method: typeof data.method === 'string' ? data.method : undefined,
+      ...(data.aud === 'internal' || data.aud === 'client' ? { aud: data.aud } : {}),
     };
   } catch {
     return null;
@@ -182,10 +230,22 @@ export function isSessionExpired(record: SessionRecord, now: Date = new Date()):
 
 /**
  * Validates an opaque session token: it must exist, be well-formed, be
- * unexpired (absolute TTL and idle timeout). Expired sessions are deleted.
- * Successful validation refreshes lastUsedAt at most every few minutes.
+ * unexpired (absolute TTL and idle timeout), belong to an active account, and
+ * have been minted for the surface the caller serves. Expired sessions are
+ * deleted. Successful validation refreshes lastUsedAt at most every few minutes.
+ *
+ * SURFACE SEPARATION
+ * ------------------
+ * This is the single point every session-authenticated request passes through
+ * — `requireAuth`, `withAuth`, `secureRoute`, the v1 handlers, the server page
+ * gate and the ~90 routes that call it directly. It refuses client sessions
+ * unless the caller explicitly asks for them, so the whole internal API is
+ * closed to clients by default rather than route by route.
  */
-export async function verifySessionToken(token: string): Promise<{ userId: string; session: SessionRecord } | null> {
+export async function verifySessionToken(
+  token: string,
+  options: SessionVerifyOptions = {},
+): Promise<VerifiedSession | null> {
   if (!token || typeof token !== 'string' || token.length > 512) return null;
 
   let session = await db.settings.findUnique({ where: { key: sessionKey(token) } });
@@ -213,14 +273,47 @@ export async function verifySessionToken(token: string): Promise<{ userId: strin
     await deleteSessionToken(token);
     return null;
   }
-  if (now.getTime() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_INTERVAL_MS) {
+
+  // ── Account + surface checks ────────────────────────────────────────────
+  const owner = await loadSessionOwner(record.userId);
+  if (!owner) {
+    // The account no longer exists: the session is meaningless.
+    await deleteSessionToken(token);
+    return null;
+  }
+  if (!owner.isActive) return null;
+
+  const audience = audienceForRole(owner.role);
+  // The role moved to the other surface after this session was minted, or the
+  // token class does not match the account (a pre-separation session held by
+  // a customer). Either way the session is revoked: the user signs in again
+  // and receives a token for the surface they actually belong to.
+  if ((record.aud && record.aud !== audience) || audienceForToken(token) !== audience) {
+    await deleteSessionToken(token);
+    return null;
+  }
+
+  const expected = options.audience ?? 'internal';
+  if (expected !== 'any' && expected !== audience) {
+    await recordAccessViolation({
+      type: audience === 'client' ? 'client_to_internal_denied' : 'internal_to_client_denied',
+      userId: record.userId,
+      role: owner.role,
+      reason: `session audience "${audience}" presented to the ${expected} surface`,
+    });
+    return null;
+  }
+
+  const needsAudienceStamp = !record.aud;
+  if (needsAudienceStamp) record.aud = audience;
+  if (needsAudienceStamp || now.getTime() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_INTERVAL_MS) {
     record.lastUsedAt = now.toISOString();
     await db.settings.update({
       where: { key: sessionKey(token) },
       data: { value: JSON.stringify(record), updatedAt: now },
     }).catch(() => { /* best-effort touch */ });
   }
-  return { userId: record.userId, session: record };
+  return { userId: record.userId, session: record, audience, role: owner.role };
 }
 
 /** Deletes every session that belongs to a user (password change, admin revoke). */

@@ -335,7 +335,7 @@ function supportsWebGL(): boolean {
 
 function StaticFallback({ reason }: { reason: 'no-webgl' | 'small-viewport' }) {
   return (
-    <div className="hero3d-fallback" role="img" aria-label="AgentOS constellation, static preview">
+    <div className="hero3d-fallback" role="img" aria-label="ALO Labs services constellation, static preview">
       <svg viewBox="0 0 480 480" className="hero3d-fallback-orbits" aria-hidden="true" focusable="false">
         <ellipse cx="240" cy="240" rx="200" ry="82" fill="none" stroke="rgba(125,169,247,0.28)" strokeWidth="1" />
         <ellipse cx="240" cy="240" rx="150" ry="196" fill="none" stroke="rgba(125,169,247,0.2)" strokeWidth="1" />
@@ -437,7 +437,7 @@ export function Hero3D() {
     <div
       ref={wrapperRef}
       className={`hero3d${useFallback ? '' : ' hero3d-live'}`}
-      aria-label="Interactive AgentOS constellation. Each node highlights on hover and scrolls to a homepage section. All sections are also reachable from the navigation."
+      aria-label="Interactive services constellation. Each node highlights on hover and scrolls to a homepage section. All sections are also reachable from the navigation."
     >
       {useFallback ? (
         <>

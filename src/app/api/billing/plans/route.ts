@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireRole } from '@/lib/api-auth';
+import { requireAuth, requireRole } from '@/lib/api-auth';
 
 export async function GET() {
   try {
+    // Internal surface only. Plans carry internal capacity limits (agent,
+    // skill and token quotas) that must never reach a client; clients see
+    // pricing through the service catalogue in the portal instead.
+    await requireAuth();
     const plans = await db.subscriptionPlan.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
@@ -28,6 +32,9 @@ export async function GET() {
 
     return NextResponse.json({ data });
   } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

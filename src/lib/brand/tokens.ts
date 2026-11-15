@@ -118,8 +118,10 @@ export const BRAND_FONTS = {
 
 export const COMPANY = {
   legalName: 'ALO Labs',
-  product: 'AgentOS',
-  tagline: 'AI Agent Operating System',
+  // Client-facing names. These appear on invoices, letterheads, e-mails and
+  // the public site, so they never name the internal platform.
+  product: 'AI Services',
+  tagline: 'AI-Powered Business Services',
   /** Line one of the registered address, as printed on the letterhead. */
   entity: 'SOLE MBR',
   address: ['117 S LEXINGTON ST STE 100', 'HARRISONVILLE, MO 64701'],
@@ -133,19 +135,17 @@ export const COMPANY = {
   /** Footer strip of the guideline sheet. */
   domains: [
     { label: 'Domain', value: 'alolabs.net' },
-    { label: 'Command Center', value: 'command.alolabs.net' },
-    { label: 'AgentOS Dashboard', value: 'agents.alolabs.net' },
-    { label: 'API', value: 'api.alolabs.net' },
+    { label: 'Client Portal', value: 'alolabs.net/portal' },
   ],
   promise: 'Secure. Smart. Scalable. Built for the Future.',
   promiseShort: 'Building the Future with AI',
 } as const
 
-/** "1 Command Center · 1020 AI Agents · 100+ Departments · Unlimited Possibilities" */
+/** Client-facing headline figures. Nothing here describes how work is produced. */
 export const HEADLINE_STATS = [
-  { value: '1', label: 'Command Center' },
-  { value: '1020', label: 'AI Agents' },
-  { value: '100+', label: 'Departments' },
+  { value: '6', label: 'Service Lines' },
+  { value: '1', label: 'Client Portal' },
+  { value: '1 Day', label: 'Reply Time' },
   { value: 'Unlimited', label: 'Possibilities' },
 ] as const
 

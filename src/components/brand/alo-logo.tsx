@@ -21,7 +21,7 @@ export interface AloLabsLogoProps {
   size?: number
   /** `dark` is for placement on the dark paper ground. */
   theme?: 'light' | 'dark'
-  /** Show “AI AGENT OPERATING SYSTEM” under the wordmark. */
+  /** Show the tagline under the wordmark. */
   tagline?: boolean
   className?: string
   /** Alt text; pass "" when the logo sits next to a visible product name. */
@@ -34,7 +34,7 @@ export function AloLabsLogo({
   theme = 'light',
   tagline = true,
   className,
-  title = 'ALO Labs AgentOS',
+  title = 'ALO Labs',
 }: AloLabsLogoProps) {
   const mark = <Mark size={size} />
   const words = <Words size={size} theme={theme} tagline={tagline} />
@@ -215,14 +215,14 @@ export function Badge({ size = 160 }: { size?: number }) {
       <text x="256" y="322" textAnchor="middle" fontFamily={BRAND_FONTS.secondary.stack} fontSize="46" fontWeight="600" fill={BRAND.orange}>
         ALO Labs
       </text>
-      <text x="256" y="378" textAnchor="middle" fontFamily={BRAND_FONTS.secondary.stack} fontSize="52" fontWeight="700" letterSpacing="1.2" fill="url(#aloBadgeWord)">
-        AGENTOS
+      <text x="256" y="378" textAnchor="middle" fontFamily={BRAND_FONTS.secondary.stack} fontSize="42" fontWeight="700" letterSpacing="1.2" fill="url(#aloBadgeWord)">
+        {COMPANY.product.toUpperCase()}
       </text>
       <path d="M136 400 H246" stroke={BRAND.blue} strokeWidth="2" />
       <path d="M266 400 H376" stroke={BRAND.blue} strokeWidth="2" />
       <circle cx="256" cy="400" r="6" fill={BRAND.orange} />
-      <text x="256" y="432" textAnchor="middle" fontFamily={BRAND_FONTS.primary.stack} fontSize="20" fontWeight="600" letterSpacing="5.4" fill={BRAND.gray}>
-        AI AGENT OPERATING SYSTEM
+      <text x="256" y="432" textAnchor="middle" fontFamily={BRAND_FONTS.primary.stack} fontSize="16" fontWeight="600" letterSpacing="3.2" fill={BRAND.gray}>
+        {COMPANY.tagline.toUpperCase()}
       </text>
     </svg>
   )

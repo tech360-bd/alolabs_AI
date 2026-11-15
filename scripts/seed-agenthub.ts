@@ -101,6 +101,8 @@ async function main() {
         webCrmConnected: c.webCrmConnected,
         monthlyUsageLimit: 10000,
         status: "active",
+        // An ALO Labs operating company (AgentOS tenant), not a customer account.
+        accountType: "internal",
       },
     });
     companies.push(company);

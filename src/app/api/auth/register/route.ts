@@ -2,12 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword, createSessionToken } from '@/lib/auth';
 import { z } from 'zod';
+import { CLIENT_ROLE } from '@/lib/access/surfaces';
+import { recordAccessViolation } from '@/lib/access/audit';
+import { provisionClientAccount } from '@/lib/client-services/operations';
 
+// Public self-registration creates CLIENT accounts and nothing else. The
+// schema names every field that is read; `role`, `accountType`, `isActive`
+// and anything else in the body are never looked at, so a caller cannot
+// register themselves into the internal workforce.
 const RegisterSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().min(1, 'Name is required').max(100),
+  companyName: z.string().trim().min(2).max(120).optional(),
 });
+
+/** Body fields that only make sense as an attempt to gain privileges. */
+const PRIVILEGE_FIELDS = ['role', 'roles', 'accountType', 'audience', 'isAdmin', 'permissions', 'companyId'];
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,8 +32,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, password, name } = parsed.data;
+    const { email, password, name, companyName } = parsed.data;
     const normalizedEmail = email.toLowerCase();
+
+    const attempted = PRIVILEGE_FIELDS.filter((field) => body && typeof body === 'object' && field in body);
+    if (attempted.length) {
+      await recordAccessViolation({
+        type: 'privilege_escalation_denied',
+        resource: 'auth.register',
+        path: '/api/auth/register',
+        method: 'POST',
+        reason: 'registration body tried to set privileged fields; they were ignored',
+        details: { fields: attempted.join(',') },
+      });
+    }
 
     // Check if user already exists
     const existing = await db.user.findUnique({
@@ -44,9 +67,17 @@ export async function POST(request: NextRequest) {
         email: normalizedEmail,
         passwordHash,
         name,
-        role: 'viewer',
+        role: CLIENT_ROLE,
         isActive: true,
       },
+    });
+
+    // Every client login belongs to exactly one client company, which is the
+    // tenant boundary for everything they can see in the portal.
+    await provisionClientAccount({
+      userId: user.id,
+      companyName: companyName ?? `${name}'s organisation`,
+      billingEmail: normalizedEmail,
     });
 
     // Create session token

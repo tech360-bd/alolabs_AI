@@ -24,8 +24,8 @@ const makeRequest = (url: string, method: string, headers: Record<string, string
 
 beforeEach(async () => {
   resetAgentOsMocks();
-  await fakeDb.db.company.create({ data: { id: 'c1', status: 'active' } });
-  await fakeDb.db.company.create({ data: { id: 'c2', status: 'active' } });
+  await fakeDb.db.company.create({ data: { id: 'c1', status: 'active', accountType: 'internal' } });
+  await fakeDb.db.company.create({ data: { id: 'c2', status: 'active', accountType: 'internal' } });
   await fakeDb.db.user.create({ data: { id: 'u1', isActive: true, role: 'admin', email: 'u1@example.test', name: 'User 1' } });
   await fakeDb.db.companyUser.create({ data: { id: 'cu1', userId: 'u1', companyId: 'c1' } });
   const key = 'alo_read_only_test_key';
