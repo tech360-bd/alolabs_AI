@@ -126,6 +126,32 @@ const SOURCES = [
     include: /^plugins\/claude-code\/skills\/[^/]+\/SKILL\.md$/, categoryOf: () => 'memory',
     quarantineReason: 'External persistent-memory CLI could leak customer data or bypass AgentOS tenant memory controls.',
   },
+  {
+    // 318 division-organized AI expert role definitions (instruction-only
+    // markdown with frontmatter). The security/ division is dual-use and is
+    // quarantined, mirroring the rea source policy.
+    id: 'agency-agents', repo: 'msitarzewski/agency-agents', commit: '8ae6164602c95ca78828b148b9052460ee426885',
+    license: 'MIT', licensePath: 'LICENSE', defaultStatus: 'advisory',
+    include: /^(academic|design|engineering|finance|game-development|gis|healthcare|integrations|marketing|paid-media|product|project-management|research|sales|security|spatial-computing|specialized|strategy|support|testing)\/(?:[a-z0-9-]+\/)?[a-z0-9][a-z0-9-]*\.md$/,
+    categoryOf: (p) => p.split('/')[0] ?? 'agency',
+    statusOf: (p) => (p.startsWith('security/') ? 'quarantined' : 'advisory'),
+    quarantineReason: 'Dual-use security-offensive role instructions; require written authorization and an isolated engagement before use.',
+  },
+  {
+    // 72 department-organized AI agency roles (instruction-only markdown).
+    id: 'open-agency', repo: 'Anas-Khan93/ai-agency-agents', commit: '1c06454211dc5ba301f278fb8c884ea2664ddf46',
+    license: 'MIT', licensePath: 'LICENSE', defaultStatus: 'advisory',
+    include: /^(design|engineering|marketing|product|project-management|spatial-computing|specialized|strategy|support|testing)\/[a-z0-9][a-z0-9-]*\.md$/,
+    categoryOf: (p) => p.split('/')[0] ?? 'agency',
+  },
+  {
+    // One unique skill from the agency-orchestrator app (Apache-2.0). The
+    // orchestrator application itself is NOT vendored: AgentOS already has
+    // its own orchestration; only instruction content is imported.
+    id: 'agency-orchestrator', repo: 'jnMetaCode/agency-orchestrator', commit: '8fa9963e4f835efeb5e4481a861689dc99d5ce8d',
+    license: 'Apache-2.0', licensePath: 'LICENSE', defaultStatus: 'advisory',
+    include: /^ao-skills\/shortfilm-prompt\/SKILL\.md$/, categoryOf: () => 'media',
+  },
 ];
 
 function ghAvailable() {
