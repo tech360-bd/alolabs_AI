@@ -217,7 +217,7 @@ export default function UserManagementPanel() {
             className="bg-white rounded-xl border border-[#E2E8F0] p-4 flex items-center gap-3"
           >
             <div className="w-10 h-10 rounded-lg bg-[#F8FAFC] flex items-center justify-center shrink-0">
-              <s.icon className={`w-5 h-5 ${s.color ?? 'text-[#003ABC]'}`} />
+              <s.icon className={`w-5 h-5 ${s.color ?? 'text-[#0066CC]'}`} />
             </div>
             <div>
               <p className="text-2xl font-bold text-[#1E293B]">{s.value}</p>
@@ -235,7 +235,7 @@ export default function UserManagementPanel() {
             placeholder="Search by name, email, or company..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-white border-[#E2E8F0] focus-visible:ring-[#003ABC]"
+            className="pl-9 bg-white border-[#E2E8F0] focus-visible:ring-[#0066CC]"
           />
         </div>
         <Select value={companyFilter} onValueChange={setCompanyFilter}>
@@ -307,7 +307,7 @@ export default function UserManagementPanel() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8 border border-[#E2E8F0]">
-                          <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-xs font-bold">
+                          <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-xs font-bold">
                             {user.name.slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
@@ -353,7 +353,7 @@ export default function UserManagementPanel() {
                           variant="ghost"
                           size="sm"
                           onClick={() => setDetailUser(user)}
-                          className="text-[#003ABC] hover:text-[#002A99] hover:bg-[#003ABC]/5"
+                          className="text-[#0066CC] hover:text-[#002A99] hover:bg-[#0066CC]/5"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -363,7 +363,7 @@ export default function UserManagementPanel() {
                               checked={user.status === 'active'}
                               disabled={togglingId === user.id}
                               onCheckedChange={() => handleToggle(user)}
-                              className="data-[state=checked]:bg-[#003ABC]"
+                              className="data-[state=checked]:bg-[#0066CC]"
                             />
                           </div>
                         )}
@@ -392,7 +392,7 @@ export default function UserManagementPanel() {
               {/* Avatar + Name */}
               <div className="flex items-center gap-4">
                 <Avatar className="h-14 w-14 border-2 border-[#E2E8F0]">
-                  <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-lg font-bold">
+                  <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-lg font-bold">
                     {detailUser.name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>

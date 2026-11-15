@@ -491,7 +491,7 @@ export default function EducationHubPanel() {
               <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><TrendingUp className="size-3" /> +12% this month</p>
             </div>
             <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center">
-              <Users className="size-5 text-[#003ABC]" />
+              <Users className="size-5 text-[#0066CC]" />
             </div>
           </div>
         </div>
@@ -534,7 +534,7 @@ export default function EducationHubPanel() {
               </div>
             </div>
             <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center">
-              <Award className="size-5 text-[#FF6A00]" />
+              <Award className="size-5 text-[#E8501A]" />
             </div>
           </div>
         </div>
@@ -569,32 +569,32 @@ export default function EducationHubPanel() {
       {/* ── Tabs ── */}
       <Tabs defaultValue="tutors" className="space-y-4">
         <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-white border border-slate-100 rounded-xl shadow-sm">
-          <TabsTrigger value="tutors" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="tutors" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white data-[state=active]:shadow-sm">
             <GraduationCap className="size-4" />
             <span className="hidden sm:inline">AI Tutor</span>
             <span className="sm:hidden">Tutor</span>
           </TabsTrigger>
-          <TabsTrigger value="courses" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="courses" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white data-[state=active]:shadow-sm">
             <BookOpen className="size-4" />
             <span className="hidden sm:inline">Course Builder</span>
             <span className="sm:hidden">Courses</span>
           </TabsTrigger>
-          <TabsTrigger value="classroom" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="classroom" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white data-[state=active]:shadow-sm">
             <Video className="size-4" />
             <span className="hidden sm:inline">AI Classroom</span>
             <span className="sm:hidden">Class</span>
           </TabsTrigger>
-          <TabsTrigger value="assignments" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="assignments" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white data-[state=active]:shadow-sm">
             <ClipboardList className="size-4" />
             <span className="hidden sm:inline">Assignments</span>
             <span className="sm:hidden">Work</span>
           </TabsTrigger>
-          <TabsTrigger value="exams" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="exams" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white data-[state=active]:shadow-sm">
             <FileText className="size-4" />
             <span className="hidden sm:inline">Exams</span>
             <span className="sm:hidden">Exam</span>
           </TabsTrigger>
-          <TabsTrigger value="speaking" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="speaking" className="gap-1.5 text-xs sm:text-sm px-3 py-2 rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white data-[state=active]:shadow-sm">
             <Mic className="size-4" />
             <span className="hidden sm:inline">Speaking Coach</span>
             <span className="sm:hidden">Speak</span>
@@ -651,7 +651,7 @@ export default function EducationHubPanel() {
                     <Button
                       size="sm"
                       disabled={tutor.availability === 'offline'}
-                      className="h-8 text-xs bg-[#003ABC] hover:bg-[#002D99] text-white gap-1.5"
+                      className="h-8 text-xs bg-[#0066CC] hover:bg-[#002D99] text-white gap-1.5"
                     >
                       <Play className="size-3.5" />
                       Start Session
@@ -674,7 +674,7 @@ export default function EducationHubPanel() {
           <div className="flex justify-end mb-4">
             <Dialog open={createCourseOpen} onOpenChange={setCreateCourseOpen}>
               <DialogTrigger asChild>
-                <Button className="h-9 text-xs bg-[#003ABC] hover:bg-[#002D99] text-white gap-1.5">
+                <Button className="h-9 text-xs bg-[#0066CC] hover:bg-[#002D99] text-white gap-1.5">
                   <Plus className="size-3.5" />
                   Create Course
                 </Button>
@@ -742,7 +742,7 @@ export default function EducationHubPanel() {
                   <DialogClose asChild>
                     <Button variant="outline" className="h-9 text-xs">Cancel</Button>
                   </DialogClose>
-                  <Button onClick={handleCreateCourse} disabled={submitting || !newCourse.title} className="h-9 text-xs bg-[#003ABC] hover:bg-[#002D99] text-white">
+                  <Button onClick={handleCreateCourse} disabled={submitting || !newCourse.title} className="h-9 text-xs bg-[#0066CC] hover:bg-[#002D99] text-white">
                     {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
                     Create Course
                   </Button>
@@ -774,7 +774,7 @@ export default function EducationHubPanel() {
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <span className="text-slate-500">Progress</span>
-                      <span className="font-semibold text-[#003ABC]">{course.progress}%</span>
+                      <span className="font-semibold text-[#0066CC]">{course.progress}%</span>
                     </div>
                     <Progress value={course.progress} className="h-2" />
                   </div>
@@ -790,7 +790,7 @@ export default function EducationHubPanel() {
                   <div className="flex flex-wrap gap-1.5">
                     {course.modules.map((m, i) => (
                       <span key={i} className="inline-flex items-center gap-1 text-[10px] text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#003ABC] text-white flex items-center justify-center text-[8px] font-bold">{i + 1}</span>
+                        <span className="w-3.5 h-3.5 rounded-full bg-[#0066CC] text-white flex items-center justify-center text-[8px] font-bold">{i + 1}</span>
                         {m}
                       </span>
                     ))}
@@ -885,7 +885,7 @@ export default function EducationHubPanel() {
                           className={`h-8 text-xs gap-1.5 ${
                             cls.status === 'active'
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                              : 'border-[#003ABC] text-[#003ABC] hover:bg-[#003ABC] hover:text-white'
+                              : 'border-[#0066CC] text-[#0066CC] hover:bg-[#0066CC] hover:text-white'
                           }`}
                         >
                           {cls.status === 'active' ? (
@@ -914,7 +914,7 @@ export default function EducationHubPanel() {
           <div className="flex justify-end mb-4">
             <Dialog open={createAssignmentOpen} onOpenChange={setCreateAssignmentOpen}>
               <DialogTrigger asChild>
-                <Button className="h-9 text-xs bg-[#FF6A00] hover:bg-[#E05E00] text-white gap-1.5">
+                <Button className="h-9 text-xs bg-[#E8501A] hover:bg-[#E05E00] text-white gap-1.5">
                   <Plus className="size-3.5" />
                   Create Assignment
                 </Button>
@@ -970,7 +970,7 @@ export default function EducationHubPanel() {
                   <DialogClose asChild>
                     <Button variant="outline" className="h-9 text-xs">Cancel</Button>
                   </DialogClose>
-                  <Button onClick={handleCreateAssignment} disabled={submitting || !newAssignment.title} className="h-9 text-xs bg-[#FF6A00] hover:bg-[#E05E00] text-white">
+                  <Button onClick={handleCreateAssignment} disabled={submitting || !newAssignment.title} className="h-9 text-xs bg-[#E8501A] hover:bg-[#E05E00] text-white">
                     {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
                     Create Assignment
                   </Button>
@@ -1030,7 +1030,7 @@ export default function EducationHubPanel() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 text-xs text-[#003ABC] hover:bg-blue-50 gap-1"
+                      className="h-7 text-xs text-[#0066CC] hover:bg-blue-50 gap-1"
                     >
                       View <ChevronRight className="size-3" />
                     </Button>
@@ -1052,7 +1052,7 @@ export default function EducationHubPanel() {
           <div className="flex justify-end mb-4">
             <Dialog open={scheduleExamOpen} onOpenChange={setScheduleExamOpen}>
               <DialogTrigger asChild>
-                <Button className="h-9 text-xs bg-[#003ABC] hover:bg-[#002D99] text-white gap-1.5">
+                <Button className="h-9 text-xs bg-[#0066CC] hover:bg-[#002D99] text-white gap-1.5">
                   <Plus className="size-3.5" />
                   Schedule Exam
                 </Button>
@@ -1127,7 +1127,7 @@ export default function EducationHubPanel() {
                   <DialogClose asChild>
                     <Button variant="outline" className="h-9 text-xs">Cancel</Button>
                   </DialogClose>
-                  <Button onClick={handleScheduleExam} disabled={submitting || !newExam.title} className="h-9 text-xs bg-[#003ABC] hover:bg-[#002D99] text-white">
+                  <Button onClick={handleScheduleExam} disabled={submitting || !newExam.title} className="h-9 text-xs bg-[#0066CC] hover:bg-[#002D99] text-white">
                     {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
                     Schedule Exam
                   </Button>
@@ -1154,7 +1154,7 @@ export default function EducationHubPanel() {
             </div>
             <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
-                <BarChart3 className="size-4 text-[#FF6A00]" />
+                <BarChart3 className="size-4 text-[#E8501A]" />
                 <span className="text-xs font-medium text-slate-500">Avg Score</span>
               </div>
               <p className="text-xl font-bold text-slate-900">
@@ -1204,7 +1204,7 @@ export default function EducationHubPanel() {
                         <p className="text-[10px] text-slate-400">{exam.totalTaken} taken</p>
                       </div>
                     ) : exam.status === 'upcoming' ? (
-                      <Button size="sm" className="h-8 text-xs bg-[#003ABC] hover:bg-[#002D99] text-white gap-1.5">
+                      <Button size="sm" className="h-8 text-xs bg-[#0066CC] hover:bg-[#002D99] text-white gap-1.5">
                         <Calendar className="size-3.5" /> View Details
                       </Button>
                     ) : (
@@ -1233,7 +1233,7 @@ export default function EducationHubPanel() {
             <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <Headphones className="size-5 text-[#003ABC]" />
+                  <Headphones className="size-5 text-[#0066CC]" />
                   <span className="text-sm font-semibold text-slate-900">Practice Language</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1241,7 +1241,7 @@ export default function EducationHubPanel() {
                     variant="outline"
                     size="sm"
                     className={`h-8 text-xs gap-1.5 rounded-full ${
-                      selectedLanguage === 'English' ? 'bg-[#003ABC] text-white border-[#003ABC] hover:bg-[#002D99]' : ''
+                      selectedLanguage === 'English' ? 'bg-[#0066CC] text-white border-[#0066CC] hover:bg-[#002D99]' : ''
                     }`}
                     onClick={() => setSelectedLanguage('English')}
                   >
@@ -1251,7 +1251,7 @@ export default function EducationHubPanel() {
                     variant="outline"
                     size="sm"
                     className={`h-8 text-xs gap-1.5 rounded-full ${
-                      selectedLanguage === 'Bangla' ? 'bg-[#003ABC] text-white border-[#003ABC] hover:bg-[#002D99]' : ''
+                      selectedLanguage === 'Bangla' ? 'bg-[#0066CC] text-white border-[#0066CC] hover:bg-[#002D99]' : ''
                     }`}
                     onClick={() => setSelectedLanguage('Bangla')}
                   >
@@ -1263,7 +1263,7 @@ export default function EducationHubPanel() {
                       variant="outline"
                       size="sm"
                       className={`h-8 text-xs gap-1.5 rounded-full ${
-                        selectedLanguage === lang ? 'bg-[#003ABC] text-white border-[#003ABC] hover:bg-[#002D99]' : ''
+                        selectedLanguage === lang ? 'bg-[#0066CC] text-white border-[#0066CC] hover:bg-[#002D99]' : ''
                       }`}
                       onClick={() => setSelectedLanguage(lang)}
                     >
@@ -1274,7 +1274,7 @@ export default function EducationHubPanel() {
                     variant="outline"
                     size="sm"
                     className={`h-8 text-xs gap-1.5 rounded-full ${
-                      selectedLanguage === '__all__' ? 'bg-[#003ABC] text-white border-[#003ABC] hover:bg-[#002D99]' : ''
+                      selectedLanguage === '__all__' ? 'bg-[#0066CC] text-white border-[#0066CC] hover:bg-[#002D99]' : ''
                     }`}
                     onClick={() => setSelectedLanguage('__all__')}
                   >
@@ -1282,7 +1282,7 @@ export default function EducationHubPanel() {
                   </Button>
                 </div>
                 <div className="sm:ml-auto">
-                  <Button aria-label="Start speaking practice session" className="h-8 text-xs bg-[#FF6A00] hover:bg-[#E05E00] text-white gap-1.5">
+                  <Button aria-label="Start speaking practice session" className="h-8 text-xs bg-[#E8501A] hover:bg-[#E05E00] text-white gap-1.5">
                     <Mic className="size-3.5" /> Start Practice
                   </Button>
                 </div>

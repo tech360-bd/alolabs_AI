@@ -129,20 +129,20 @@ export default function CrmConnectionsPanel() {
     <div className="space-y-6 p-6">
       {/* Toast */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-white rounded-xl border border-[#E2E8F0] px-4 py-3 text-sm text-[#1E293B] border border-[#FF6A00]/30 ">
+        <div className="fixed top-4 right-4 z-50 bg-white rounded-xl border border-[#E2E8F0] px-4 py-3 text-sm text-[#1E293B] border border-[#E8501A]/30 ">
           {toast}
         </div>
       )}
 
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <ArrowRightLeft className="w-6 h-6 text-[#003ABC]" />
+          <ArrowRightLeft className="w-6 h-6 text-[#0066CC]" />
           <h2 className="text-xl font-semibold text-[#1E293B]">CRM Connections</h2>
           <Badge className={summary?.overallSyncStatus === 'all_synced' ? 'bg-emerald-600/10 text-emerald-600' : 'bg-amber-600/10 text-amber-600'}>
             {summary?.overallSyncStatus === 'all_synced' ? 'All Synced' : 'Partial Sync'}
           </Badge>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData} className="border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC]">
+        <Button variant="outline" size="sm" onClick={fetchData} className="border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC]">
           <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
           Refresh
         </Button>
@@ -151,17 +151,17 @@ export default function CrmConnectionsPanel() {
       {/* Architecture Overview */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] p-5">
         <h3 className="text-sm font-semibold text-[#1E293B] mb-4 flex items-center gap-2">
-          <Database className="w-4 h-4 text-[#003ABC]" />
+          <Database className="w-4 h-4 text-[#0066CC]" />
           How Agent Hub Connects to Sister Company CRMs
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div className="space-y-2">
-            <p className="text-[#003ABC] font-semibold uppercase tracking-wider text-[10px]">1. Hub Registers Company</p>
+            <p className="text-[#0066CC] font-semibold uppercase tracking-wider text-[10px]">1. Hub Registers Company</p>
             <p className="text-[#64748B]">Each sister company (ALO Education, English AI, ICLA, TECH360, etc.) is registered in the Hub with its domain and API credentials.</p>
           </div>
           <div className="space-y-2">
-            <p className="text-[#FF6A00] font-semibold uppercase tracking-wider text-[10px]">2. Bidirectional Data Flow</p>
-            <p className="text-[#64748B]">The Hub sends <span className="text-[#003ABC]">agents &amp; workflows</span> to the company CRM. The CRM sends back <span className="text-[#FF6A00]">leads, contacts, deals</span> to the Hub for AI processing.</p>
+            <p className="text-[#E8501A] font-semibold uppercase tracking-wider text-[10px]">2. Bidirectional Data Flow</p>
+            <p className="text-[#64748B]">The Hub sends <span className="text-[#0066CC]">agents &amp; workflows</span> to the company CRM. The CRM sends back <span className="text-[#E8501A]">leads, contacts, deals</span> to the Hub for AI processing.</p>
           </div>
           <div className="space-y-2">
             <p className="text-emerald-600 font-semibold uppercase tracking-wider text-[10px]">3. Agents Work in CRM</p>
@@ -172,15 +172,15 @@ export default function CrmConnectionsPanel() {
         {/* Visual flow */}
         <div className="mt-4 p-3 rounded-lg bg-gray-50 border border-[#E2E8F0]">
           <div className="flex items-center justify-center gap-2 flex-wrap text-xs">
-            <span className="px-2 py-1 rounded bg-[#FF6A00]/10 text-[#FF6A00] font-medium">Agent Hub</span>
-            <ArrowRightLeft className="w-4 h-4 text-[#003ABC]" />
+            <span className="px-2 py-1 rounded bg-[#E8501A]/10 text-[#E8501A] font-medium">Agent Hub</span>
+            <ArrowRightLeft className="w-4 h-4 text-[#0066CC]" />
             <span className="px-2 py-1 rounded bg-[#F8FAFC] text-[#1E293B] font-medium">REST API + WebSocket</span>
-            <ArrowRightLeft className="w-4 h-4 text-[#003ABC]" />
+            <ArrowRightLeft className="w-4 h-4 text-[#0066CC]" />
             <span className="px-2 py-1 rounded bg-emerald-600/10 text-emerald-600 font-medium">Sister Company CRM</span>
-            <ArrowRightLeft className="w-4 h-4 text-[#003ABC]" />
+            <ArrowRightLeft className="w-4 h-4 text-[#0066CC]" />
             <span className="px-2 py-1 rounded bg-amber-600/10 text-amber-600 font-medium">Leads/Deals/Contacts</span>
-            <ArrowRightLeft className="w-4 h-4 text-[#003ABC]" />
-            <span className="px-2 py-1 rounded bg-[#003ABC]/10 text-[#003ABC] font-medium">AI Processing</span>
+            <ArrowRightLeft className="w-4 h-4 text-[#0066CC]" />
+            <span className="px-2 py-1 rounded bg-[#0066CC]/10 text-[#0066CC] font-medium">AI Processing</span>
           </div>
         </div>
       </div>
@@ -188,10 +188,10 @@ export default function CrmConnectionsPanel() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Companies', value: summary?.totalCompanies ?? 0, icon: Building2, color: 'text-[#FF6A00]' },
+          { label: 'Total Companies', value: summary?.totalCompanies ?? 0, icon: Building2, color: 'text-[#E8501A]' },
           { label: 'Connected', value: summary?.connected ?? 0, icon: Wifi, color: 'text-emerald-600' },
           { label: 'Disconnected', value: summary?.disconnected ?? 0, icon: WifiOff, color: 'text-red-600' },
-          { label: 'Total Usage', value: summary?.totalUsage ?? 0, icon: Activity, color: 'text-[#003ABC]' },
+          { label: 'Total Usage', value: summary?.totalUsage ?? 0, icon: Activity, color: 'text-[#0066CC]' },
         ].map((s) => {
           const Icon = s.icon
           return (
@@ -256,7 +256,7 @@ export default function CrmConnectionsPanel() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-[#64748B] hover:text-[#003ABC]"
+                        className="h-8 w-8 text-[#64748B] hover:text-[#0066CC]"
                         onClick={() => handleAction(conn.id, 'sync')}
                         disabled={isLoading}
                         title="Sync"
@@ -266,7 +266,7 @@ export default function CrmConnectionsPanel() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-[#64748B] hover:text-[#003ABC]"
+                        className="h-8 w-8 text-[#64748B] hover:text-[#0066CC]"
                         onClick={() => handleAction(conn.id, 'test')}
                         disabled={isLoading}
                         title="Test Connection"
@@ -349,7 +349,7 @@ export default function CrmConnectionsPanel() {
                         </div>
                         <div className="h-1.5 bg-[#F8FAFC] rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${conn.stats.usagePercent > 80 ? 'bg-red-600' : 'bg-[#FF6A00]'}`}
+                            className={`h-full rounded-full transition-all ${conn.stats.usagePercent > 80 ? 'bg-red-600' : 'bg-[#E8501A]'}`}
                             style={{ width: `${Math.min(conn.stats.usagePercent, 100)}%` }}
                           />
                         </div>
@@ -378,7 +378,7 @@ export default function CrmConnectionsPanel() {
                       />
                       <Button
                         size="sm"
-                        className="h-8 bg-[#FF6A00]/10 text-[#003ABC] hover:bg-[#FF6A00]/10 border border-[#FF6A00]/30"
+                        className="h-8 bg-[#E8501A]/10 text-[#0066CC] hover:bg-[#E8501A]/10 border border-[#E8501A]/30"
                         onClick={() => handleDispatch(conn.id)}
                         disabled={isLoading}
                       >

@@ -180,7 +180,7 @@ export default function RagEnginePanel() {
                   onKeyDown={(event) => event.key === 'Enter' && void handleSearch()}
                   className="flex-1"
                 />
-                <Button onClick={() => void handleSearch()} disabled={searching || !query.trim()} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+                <Button onClick={() => void handleSearch()} disabled={searching || !query.trim()} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
                   {searching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   <span className="ml-2">Search</span>
                 </Button>

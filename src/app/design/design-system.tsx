@@ -56,7 +56,7 @@ export default function DesignSystemPage() {
             <a
               href="/brand"
               className="rounded-[6px] px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-white"
-              style={{ background: '#FF6A00' }}
+              style={{ background: '#E8501A' }}
             >
               Brand book →
             </a>

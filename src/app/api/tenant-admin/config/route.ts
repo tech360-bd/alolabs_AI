@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       config = await db.tenantConfig.create({
         data: {
           companyId,
-          primaryColor: '#003ABC',
+          primaryColor: '#0066CC',
           locale: 'en',
           timezone: 'Asia/Dhaka',
           notificationsEnabled: true,
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       update: data,
       create: {
         companyId,
-        primaryColor: (data.primaryColor as string) || '#003ABC',
+        primaryColor: (data.primaryColor as string) || '#0066CC',
         locale: (data.locale as string) || 'en',
         timezone: (data.timezone as string) || 'Asia/Dhaka',
         notificationsEnabled: (data.notificationsEnabled as boolean) ?? true,

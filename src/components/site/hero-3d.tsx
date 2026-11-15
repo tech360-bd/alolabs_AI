@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * AgentOS constellation — the interactive 3D hero scene.
+ * The Intelligent Network — the interactive 3D hero scene.
  *
  * A WebGL scene built with React Three Fiber + three.js: an emissive
  * brand-blue core, twelve floating satellite nodes (each maps to a homepage
@@ -29,12 +29,13 @@ import { BRAND } from '@/lib/brand/tokens'
 // ─── Section anchors ─────────────────────────────────────────────────────────
 
 const SECTIONS = [
-  { id: 'platform', label: 'The platform' },
-  { id: 'how-it-works', label: 'How it works' },
-  { id: 'use-cases', label: 'For teams' },
-  { id: 'selected-work', label: 'Selected work' },
+  { id: 'introduction', label: 'Who we are' },
+  { id: 'capabilities', label: 'Capabilities' },
+  { id: 'solutions', label: 'Solutions' },
+  { id: 'process', label: 'How we work' },
+  { id: 'work', label: 'Selected work' },
   { id: 'technology', label: 'Technology' },
-  { id: 'faq', label: 'FAQ' },
+  { id: 'why', label: 'Why ALO Labs' },
 ] as const
 
 const NODE_COUNT = 12

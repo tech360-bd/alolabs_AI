@@ -368,7 +368,7 @@ export default function AgentFactoryPanel() {
                 <TableRow key={item.id} className="border-[#E2E8F0] hover:bg-[#F8FAFC]">
                   <TableCell className="text-[#1E293B] font-medium text-sm">{item.agentName}</TableCell>
                   <TableCell>
-                    <Badge className="text-[10px] py-0 border-0 bg-[#003ABC]/10 text-[#003ABC]">
+                    <Badge className="text-[10px] py-0 border-0 bg-[#0066CC]/10 text-[#0066CC]">
                       Agent
                     </Badge>
                   </TableCell>
@@ -412,7 +412,7 @@ export default function AgentFactoryPanel() {
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg">
+            <Button className="bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg">
               <Plus className="w-4 h-4 mr-2" />
               New Build
             </Button>
@@ -455,7 +455,7 @@ export default function AgentFactoryPanel() {
                 />
               </div>
               <Button
-                className="w-full bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg"
+                className="w-full bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg"
                 onClick={handleCreate}
                 disabled={!formName.trim() || submitting}
               >
@@ -496,15 +496,15 @@ export default function AgentFactoryPanel() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-white border border-[#E2E8F0] rounded-lg h-10 p-1">
-          <TabsTrigger value="agents" className="rounded-md text-xs data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-[#64748B]">
+          <TabsTrigger value="agents" className="rounded-md text-xs data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-[#64748B]">
             <Bot className="w-3.5 h-3.5 mr-1.5" />
             Agents
           </TabsTrigger>
-          <TabsTrigger value="skills" className="rounded-md text-xs data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-[#64748B]">
+          <TabsTrigger value="skills" className="rounded-md text-xs data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-[#64748B]">
             <Wrench className="w-3.5 h-3.5 mr-1.5" />
             Skills
           </TabsTrigger>
-          <TabsTrigger value="workflows" className="rounded-md text-xs data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-[#64748B]">
+          <TabsTrigger value="workflows" className="rounded-md text-xs data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-[#64748B]">
             <GitBranch className="w-3.5 h-3.5 mr-1.5" />
             Workflows
           </TabsTrigger>

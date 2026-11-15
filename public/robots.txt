@@ -1,18 +1,60 @@
-# ALO Labs AgentOS — robots.txt
+# ALO Labs — robots.txt
+# Public marketing site only. Private surfaces (client portal, internal
+# AgentOS pages, login, API) are never exposed to search engines.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /portal
+Disallow: /dashboard
+Disallow: /brand
+Disallow: /design
+Disallow: /invoice
+Disallow: /site/platform
+Disallow: /site/pricing
+Disallow: /site/diagrams
+Disallow: /site/press
+Disallow: /site/insights
+Disallow: /site/work
+
 User-agent: Googlebot
 Allow: /
 Disallow: /api/
+Disallow: /login
+Disallow: /portal
+Disallow: /dashboard
+Disallow: /brand
+Disallow: /design
+Disallow: /invoice
+Disallow: /site/platform
+Disallow: /site/pricing
+Disallow: /site/diagrams
+Disallow: /site/press
+Disallow: /site/insights
+Disallow: /site/work
 
 User-agent: Bingbot
 Allow: /
 Disallow: /api/
+Disallow: /login
+Disallow: /portal
+Disallow: /dashboard
+Disallow: /brand
+Disallow: /design
+Disallow: /invoice
+Disallow: /site/platform
+Disallow: /site/pricing
+Disallow: /site/diagrams
+Disallow: /site/press
+Disallow: /site/insights
+Disallow: /site/work
 
+# Social preview fetchers may read public pages.
 User-agent: Twitterbot
 Allow: /
 
 User-agent: facebookexternalhit
 Allow: /
 
-User-agent: *
-Allow: /
-Disallow: /api/
+Sitemap: https://www.alolabs.net/sitemap.xml

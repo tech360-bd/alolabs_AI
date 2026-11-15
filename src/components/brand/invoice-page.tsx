@@ -125,7 +125,7 @@ export function InvoicePage({ invoice = sampleInvoice() }: { invoice?: Invoice }
             </dl>
             <div
               className="mt-4 rounded-lg p-4"
-              style={{ background: 'rgba(255,106,0,0.08)', border: `1px solid ${BRAND.orange}` }}
+              style={{ background: 'rgba(232,80,26,0.08)', border: `1px solid ${BRAND.orange}` }}
             >
               <div className="flex items-center gap-2">
                 <TrendingDown className="size-4" style={{ color: BRAND.orange }} />

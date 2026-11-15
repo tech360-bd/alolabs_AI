@@ -292,7 +292,7 @@ export default function TicketsPanel() {
           <h2 className="text-2xl font-bold text-[#1E293B]">Support Tickets</h2>
           <p className="text-sm text-[#64748B] mt-1">Track and manage support requests</p>
         </div>
-        <Button onClick={openCreate} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+        <Button onClick={openCreate} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
           <Plus className="w-4 h-4 mr-2" />
           New Ticket
         </Button>
@@ -304,7 +304,7 @@ export default function TicketsPanel() {
           { label: 'Open', value: stats.open, icon: CircleDot, color: 'text-blue-500', bg: 'bg-blue-50' },
           { label: 'In Progress', value: stats.in_progress, icon: Loader2, color: 'text-amber-500', bg: 'bg-amber-50' },
           { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-          { label: 'Total', value: stats.total, icon: Ticket, color: 'text-[#003ABC]', bg: 'bg-blue-50' },
+          { label: 'Total', value: stats.total, icon: Ticket, color: 'text-[#0066CC]', bg: 'bg-blue-50' },
         ].map((stat) => (
           <Card key={stat.label} className="border-[#E2E8F0]">
             <CardContent className="p-4 flex items-center gap-3">
@@ -364,13 +364,13 @@ export default function TicketsPanel() {
                       key={ticket.id}
                       onClick={() => selectTicket(ticket)}
                       className={`w-full text-left px-4 py-3 hover:bg-[#F8FAFC] transition-colors ${
-                        selectedTicket?.id === ticket.id ? 'bg-[#F0F7FF] border-l-2 border-l-[#003ABC]' : ''
+                        selectedTicket?.id === ticket.id ? 'bg-[#F0F7FF] border-l-2 border-l-[#0066CC]' : ''
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-mono font-semibold text-[#003ABC]">
+                            <span className="text-[10px] font-mono font-semibold text-[#0066CC]">
                               {ticket.ticketId}
                             </span>
                             <Badge className={`text-[9px] ${priorityConfig[ticket.priority] || ''}`}>
@@ -400,7 +400,7 @@ export default function TicketsPanel() {
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono font-semibold text-[#003ABC]">
+                      <span className="text-xs font-mono font-semibold text-[#0066CC]">
                         {selectedTicket.ticketId}
                       </span>
                       <Badge className={`text-[10px] ${statusConfig[selectedTicket.status] || ''}`}>
@@ -500,7 +500,7 @@ export default function TicketsPanel() {
                         onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
                         className="flex-1 h-9 text-sm"
                       />
-                      <Button size="sm" onClick={handleAddComment} disabled={saving || !newComment.trim()} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+                      <Button size="sm" onClick={handleAddComment} disabled={saving || !newComment.trim()} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
                         <Send className="w-4 h-4" />
                       </Button>
                     </div>
@@ -516,7 +516,7 @@ export default function TicketsPanel() {
                   <div className="mt-2 space-y-2">
                     {(selectedTicket.timeline || []).map((entry, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-xs">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#003ABC]" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#0066CC]" />
                         <span className="text-[#64748B]">{entry.event}</span>
                         <span className="text-[#CBD5E1]">&bull;</span>
                         <span className="text-[#94A3B8]">{entry.by}</span>
@@ -542,7 +542,7 @@ export default function TicketsPanel() {
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#003ABC]" />
+              <Plus className="w-5 h-5 text-[#0066CC]" />
               New Ticket
             </DialogTitle>
             <DialogDescription>Create a new support ticket</DialogDescription>
@@ -588,7 +588,7 @@ export default function TicketsPanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+            <Button onClick={handleCreate} disabled={saving} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Create Ticket
             </Button>

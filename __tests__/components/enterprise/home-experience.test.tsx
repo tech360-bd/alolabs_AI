@@ -13,16 +13,20 @@ global.IntersectionObserver = TestIntersectionObserver as unknown as typeof Inte
 afterEach(cleanup)
 
 describe('home experience', () => {
-  it('shows the product story and links to login', () => {
+  it('shows the company story and links the hero CTAs to the right places', () => {
     render(<HomeExperience />)
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/supercharged with AI/i)
-    expect(screen.getAllByRole('link', { name: /get started/i })[0]).toHaveAttribute('href', '/site/contact')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Building Intelligent/i)
+    expect(screen.getAllByRole('link', { name: /Start a Project/i })[0]).toHaveAttribute('href', '/site/contact')
+    expect(screen.getAllByRole('link', { name: /Explore Our Solutions/i })[0]).toHaveAttribute('href', '/site/solutions')
   })
 
-  it('fills an example prompt without claiming to run it', () => {
+  it('offers a client login entry alongside the public navigation', () => {
     render(<HomeExperience />)
-    fireEvent.click(screen.getByRole('button', { name: /Analyze my sales leads/ }))
-    expect(screen.getByRole('textbox', { name: /Describe what you want to work on/ })).toHaveValue('Analyze my sales leads')
+    expect(screen.getAllByRole('link', { name: /Client Login/i })[0]).toHaveAttribute('href', '/login')
+    // Every primary nav item resolves to a real anchor or public page.
+    for (const label of ['Solutions', 'Services', 'How we work', 'About', 'Contact']) {
+      expect(screen.getAllByRole('link', { name: label }).length).toBeGreaterThan(0)
+    }
   })
 
   it('opens and closes mobile navigation', () => {

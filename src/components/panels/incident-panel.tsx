@@ -253,7 +253,7 @@ export default function IncidentPanel() {
           <h2 className="text-2xl font-bold text-[#1E293B]">Incident Center</h2>
           <p className="text-sm text-[#64748B] mt-1">Track and manage security incidents</p>
         </div>
-        <Button onClick={openAdd} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+        <Button onClick={openAdd} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
           <Plus className="w-4 h-4 mr-2" />
           Report Incident
         </Button>
@@ -265,7 +265,7 @@ export default function IncidentPanel() {
           { label: 'Active', value: stats.active, icon: ShieldAlert, color: 'text-red-500', bg: 'bg-red-50' },
           { label: 'Investigating', value: stats.investigating, icon: Search, color: 'text-amber-500', bg: 'bg-amber-50' },
           { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-          { label: 'Total', value: stats.total, icon: AlertTriangle, color: 'text-[#003ABC]', bg: 'bg-blue-50' },
+          { label: 'Total', value: stats.total, icon: AlertTriangle, color: 'text-[#0066CC]', bg: 'bg-blue-50' },
         ].map((stat) => (
           <Card key={stat.label} className="border-[#E2E8F0]">
             <CardContent className="p-4 flex items-center gap-3">
@@ -320,7 +320,7 @@ export default function IncidentPanel() {
                           onClick={() => openDetail(incident)}
                         >
                           <td className="px-4 py-3">
-                            <span className="text-xs font-mono font-semibold text-[#003ABC]">{incident.incidentId}</span>
+                            <span className="text-xs font-mono font-semibold text-[#0066CC]">{incident.incidentId}</span>
                           </td>
                           <td className="px-4 py-3">
                             <Badge className={`text-[10px] ${severityColors[incident.severity] || ''}`}>
@@ -362,7 +362,7 @@ export default function IncidentPanel() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#003ABC]" />
+              <Plus className="w-5 h-5 text-[#0066CC]" />
               Report Incident
             </DialogTitle>
             <DialogDescription>Report a new security or operational incident</DialogDescription>
@@ -410,7 +410,7 @@ export default function IncidentPanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={saving} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+            <Button onClick={handleAdd} disabled={saving} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Report
             </Button>

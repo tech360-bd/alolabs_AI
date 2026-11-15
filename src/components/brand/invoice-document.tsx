@@ -115,7 +115,7 @@ export function InvoiceDocument({ invoice }: { invoice: Invoice }) {
           </div>
           <div
             className="mt-3 rounded-md px-3 py-3"
-            style={{ background: 'rgba(255,106,0,0.08)', border: `1px solid ${BRAND.orange}` }}
+            style={{ background: 'rgba(232,80,26,0.08)', border: `1px solid ${BRAND.orange}` }}
           >
             <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em]" style={{ color: BRAND.orange }}>
               Cost avoided

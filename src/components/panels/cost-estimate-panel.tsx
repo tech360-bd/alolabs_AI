@@ -229,7 +229,7 @@ export default function CostEstimatePanel() {
         <h2 className="text-xl font-semibold text-[#1E293B]">Cost Estimation Center</h2>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg">
+            <Button className="bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg">
               <Plus className="w-4 h-4 mr-2" />
               New Estimate
             </Button>
@@ -290,7 +290,7 @@ export default function CostEstimatePanel() {
                 />
               </div>
               <Button
-                className="w-full bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg"
+                className="w-full bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg"
                 onClick={handleCreate}
                 disabled={!newEst.provider.trim() || !newEst.service.trim() || !newEst.cost || submitting}
               >
@@ -313,10 +313,10 @@ export default function CostEstimatePanel() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { icon: DollarSign, label: 'Total Estimates', value: totalEstimates, color: 'text-[#003ABC]' },
+          { icon: DollarSign, label: 'Total Estimates', value: totalEstimates, color: 'text-[#0066CC]' },
           { icon: AlertTriangle, label: 'Pending', value: pendingCount, color: 'text-amber-500' },
           { icon: CheckCircle, label: 'Approved', value: approvedCount, color: 'text-green-500' },
-          { icon: DollarSign, label: 'Total Est. Cost', value: `$${totalCost.toFixed(2)}`, color: 'text-[#FF6A00]' },
+          { icon: DollarSign, label: 'Total Est. Cost', value: `$${totalCost.toFixed(2)}`, color: 'text-[#E8501A]' },
           { icon: Ban, label: 'Rejected', value: rejectedCount, color: 'text-red-500' },
         ].map((s) => {
           const Icon = s.icon

@@ -212,7 +212,7 @@ export default function JobMonitorPanel() {
                 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors
                 ${
                   isActive
-                    ? 'bg-[#003ABC] text-white shadow-sm'
+                    ? 'bg-[#0066CC] text-white shadow-sm'
                     : 'bg-white text-[#64748B] border border-[#E2E8F0] hover:bg-slate-50 hover:text-[#1E293B]'
                 }
               `}
@@ -239,7 +239,7 @@ export default function JobMonitorPanel() {
             label: 'Total Jobs',
             value: stats.total,
             icon: <Activity className="w-4 h-4" />,
-            color: 'text-[#003ABC]',
+            color: 'text-[#0066CC]',
             bg: 'bg-blue-50',
           },
           {
@@ -267,7 +267,7 @@ export default function JobMonitorPanel() {
             label: 'Avg Duration',
             value: stats.avgDuration,
             icon: <Clock className="w-4 h-4" />,
-            color: 'text-[#FF6A00]',
+            color: 'text-[#E8501A]',
             bg: 'bg-orange-50',
           },
         ].map((s) => (
@@ -378,7 +378,7 @@ export default function JobMonitorPanel() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 w-7 p-0 text-[#64748B] hover:text-[#003ABC]"
+                          className="h-7 w-7 p-0 text-[#64748B] hover:text-[#0066CC]"
                           onClick={(e) => {
                             e.stopPropagation()
                             openJobDetail(job)
@@ -429,7 +429,7 @@ export default function JobMonitorPanel() {
               {/* Input */}
               <div>
                 <h4 className="text-sm font-semibold text-[#1E293B] mb-2 flex items-center gap-1.5">
-                  <Play className="w-3.5 h-3.5 text-[#003ABC]" />
+                  <Play className="w-3.5 h-3.5 text-[#0066CC]" />
                   Input
                 </h4>
                 <pre className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-3 text-xs text-[#1E293B] font-mono overflow-x-auto whitespace-pre-wrap">
@@ -461,7 +461,7 @@ export default function JobMonitorPanel() {
               {selectedJob.timeline && selectedJob.timeline.length > 0 && (
                 <div>
                   <h4 className="text-sm font-semibold text-[#1E293B] mb-3 flex items-center gap-1.5">
-                    <Activity className="w-3.5 h-3.5 text-[#FF6A00]" />
+                    <Activity className="w-3.5 h-3.5 text-[#E8501A]" />
                     Execution Timeline
                   </h4>
                   <div className="relative pl-6 space-y-0">
@@ -475,7 +475,7 @@ export default function JobMonitorPanel() {
                               ? 'bg-green-500'
                               : entry.status === 'error'
                                 ? 'bg-red-500'
-                                : 'bg-[#003ABC]'
+                                : 'bg-[#0066CC]'
                           }`}
                         />
                         <div className="flex-1 min-w-0">
@@ -507,7 +507,7 @@ export default function JobMonitorPanel() {
                 {(selectedJob.status === 'failed' || selectedJob.status === 'cancelled') && (
                   <Button
                     size="sm"
-                    className="gap-1.5 bg-[#003ABC] hover:bg-[#002D9E] text-white"
+                    className="gap-1.5 bg-[#0066CC] hover:bg-[#002D9E] text-white"
                     onClick={() => {
                       setDialogOpen(false)
                       setSelectedJob(null)

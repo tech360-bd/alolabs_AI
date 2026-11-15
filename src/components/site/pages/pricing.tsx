@@ -150,7 +150,7 @@ export function PricingPage() {
                 <div className="flex items-center gap-2.5">
                   <span
                     className="flex size-10 items-center justify-center rounded-xl"
-                    style={{ background: tier.featured ? 'rgba(255,106,0,0.18)' : BRAND.tint }}
+                    style={{ background: tier.featured ? 'rgba(232,80,26,0.18)' : BRAND.tint }}
                   >
                     <tier.icon className="size-5" style={{ color: tier.featured ? '#FF8A2B' : BRAND.blue }} />
                   </span>

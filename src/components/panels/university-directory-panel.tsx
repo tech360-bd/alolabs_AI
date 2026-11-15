@@ -459,7 +459,7 @@ export function UniversityDirectoryPanel() {
                     href={selectedUniversity.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-[#003ABC] hover:underline"
+                    className="flex items-center gap-1.5 text-[#0066CC] hover:underline"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     Visit Website
@@ -483,8 +483,8 @@ export function UniversityDirectoryPanel() {
         {/* Stats Bar */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#003ABC]/10">
-              <Building2 className="w-5 h-5 text-[#003ABC]" />
+            <div className="p-2 rounded-lg bg-[#0066CC]/10">
+              <Building2 className="w-5 h-5 text-[#0066CC]" />
             </div>
             <div>
               <p className="text-2xl font-bold text-[#0F172A]">{universities.length}</p>
@@ -492,8 +492,8 @@ export function UniversityDirectoryPanel() {
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#003ABC]/10">
-              <Globe className="w-5 h-5 text-[#003ABC]" />
+            <div className="p-2 rounded-lg bg-[#0066CC]/10">
+              <Globe className="w-5 h-5 text-[#0066CC]" />
             </div>
             <div>
               <p className="text-2xl font-bold text-[#0F172A]">{totalCountries}</p>
@@ -501,8 +501,8 @@ export function UniversityDirectoryPanel() {
             </div>
           </Card>
           <Card className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#003ABC]/10">
-              <Trophy className="w-5 h-5 text-[#003ABC]" />
+            <div className="p-2 rounded-lg bg-[#0066CC]/10">
+              <Trophy className="w-5 h-5 text-[#0066CC]" />
             </div>
             <div>
               <p className="text-2xl font-bold text-[#0F172A]">{avgQsRanking || '—'}</p>
@@ -999,7 +999,7 @@ export function UniversityDirectoryPanel() {
     <div className="space-y-6 p-6">
       <div>
         <h2 className="text-2xl font-bold text-[#0F172A] flex items-center gap-2">
-          <GraduationCap className="w-6 h-6 text-[#003ABC]" />
+          <GraduationCap className="w-6 h-6 text-[#0066CC]" />
           University Directory
         </h2>
         <p className="text-sm text-[#64748B] mt-1">

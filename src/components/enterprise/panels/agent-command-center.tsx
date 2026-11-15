@@ -181,8 +181,8 @@ function ConversationsSkeleton() {
 function StatsBar({ stats }: { stats: OrchestratorStats | null }) {
   const items = stats
     ? [
-        { icon: Users, label: 'Total Agents', value: stats.totalAgents, color: 'bg-[#003ABC]' },
-        { icon: MessageSquare, label: 'Active Conversations', value: stats.totalConversations, color: 'bg-[#FF6A00]' },
+        { icon: Users, label: 'Total Agents', value: stats.totalAgents, color: 'bg-[#0066CC]' },
+        { icon: MessageSquare, label: 'Active Conversations', value: stats.totalConversations, color: 'bg-[#E8501A]' },
         { icon: Zap, label: 'Total Executions', value: stats.totalExecutions, color: 'bg-emerald-600' },
         { icon: MessageSquare, label: 'Messages', value: stats.totalMessages, color: 'bg-purple-600' },
       ]
@@ -227,8 +227,8 @@ function RoutingCard({ routing }: { routing: RoutingInfo }) {
   return (
     <div className="mb-3 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/20 p-3 transition-all duration-300">
       <div className="flex items-center gap-2 mb-2">
-        <Target className="h-4 w-4 text-[#FF6A00]" />
-        <span className="text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">Orchestrator Routing</span>
+        <Target className="h-4 w-4 text-[#E8501A]" />
+        <span className="text-xs font-semibold text-[#E8501A] uppercase tracking-wider">Orchestrator Routing</span>
         <Badge variant="secondary" className="ml-auto text-[10px] font-medium bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
           {routing.routingTimeMs}ms
         </Badge>
@@ -236,8 +236,8 @@ function RoutingCard({ routing }: { routing: RoutingInfo }) {
 
       {/* Selected Agent */}
       <div className="flex items-center gap-3 mb-2.5">
-        <Avatar className="h-9 w-9 border-2 border-[#FF6A00]/30">
-          <AvatarFallback className="bg-[#FF6A00] text-white text-xs font-bold">
+        <Avatar className="h-9 w-9 border-2 border-[#E8501A]/30">
+          <AvatarFallback className="bg-[#E8501A] text-white text-xs font-bold">
             {routing.selectedAgent.agentName.split(' ').map(n => n[0]).join('').slice(0, 2)}
           </AvatarFallback>
         </Avatar>
@@ -298,7 +298,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       <Avatar className={`h-8 w-8 shrink-0 mt-0.5 ${isUser ? '' : 'border border-slate-200 dark:border-slate-700'}`}>
         <AvatarFallback className={
           isUser
-            ? 'bg-[#003ABC] text-white text-xs font-bold'
+            ? 'bg-[#0066CC] text-white text-xs font-bold'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold'
         }>
           {isUser ? 'U' : <Bot className="h-4 w-4" />}
@@ -322,7 +322,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         {/* Message bubble */}
         <div className={`rounded-xl px-4 py-3 text-sm leading-relaxed ${
           isUser
-            ? 'bg-[#003ABC] text-white rounded-tr-sm'
+            ? 'bg-[#0066CC] text-white rounded-tr-sm'
             : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-sm'
         }`}>
           {message.content.split('\n').map((line, i) => (
@@ -387,7 +387,7 @@ function TypingIndicator() {
   return (
     <div className="flex gap-3">
       <Avatar className="h-8 w-8 shrink-0 mt-0.5 border border-slate-200 dark:border-slate-700">
-        <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-xs font-bold">
+        <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-xs font-bold">
           <Brain className="h-4 w-4" />
         </AvatarFallback>
       </Avatar>
@@ -395,13 +395,13 @@ function TypingIndicator() {
         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Orchestrator</span>
         <div className="rounded-xl rounded-tl-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-            <Loader2 className="h-4 w-4 animate-spin text-[#FF6A00]" />
+            <Loader2 className="h-4 w-4 animate-spin text-[#E8501A]" />
             <span className="animate-pulse">Routing your task to the best AI employee...</span>
           </div>
           <div className="mt-2 flex gap-1">
-            <div className="h-1.5 w-1.5 rounded-full bg-[#003ABC] animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="h-1.5 w-1.5 rounded-full bg-[#003ABC] animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="h-1.5 w-1.5 rounded-full bg-[#003ABC] animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="h-1.5 w-1.5 rounded-full bg-[#0066CC] animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="h-1.5 w-1.5 rounded-full bg-[#0066CC] animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="h-1.5 w-1.5 rounded-full bg-[#0066CC] animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
         </div>
       </div>
@@ -465,8 +465,8 @@ function ActivityFeed({ runs, loading }: { runs: RecentRun[] | null; loading: bo
           key={run.id}
           className="flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 transition-colors hover:border-slate-300 dark:hover:border-slate-600"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#003ABC]/10 dark:bg-[#003ABC]/20">
-            <Bot className="h-4 w-4 text-[#003ABC]" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0066CC]/10 dark:bg-[#0066CC]/20">
+            <Bot className="h-4 w-4 text-[#0066CC]" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -535,7 +535,7 @@ function ConversationList({
           onClick={() => onSelect(conv.id)}
           className={`w-full flex items-start gap-2.5 rounded-lg p-3 text-left transition-all duration-150 ${
             activeId === conv.id
-              ? 'bg-[#003ABC]/8 dark:bg-[#003ABC]/15 border border-[#003ABC]/20 dark:border-[#003ABC]/30'
+              ? 'bg-[#0066CC]/8 dark:bg-[#0066CC]/15 border border-[#0066CC]/20 dark:border-[#0066CC]/30'
               : 'border border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'
           }`}
         >
@@ -795,7 +795,7 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
         <div className="shrink-0 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80 px-4 py-4 sm:px-6">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#003ABC] shadow-lg shadow-[#003ABC]/20">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0066CC] shadow-lg shadow-[#0066CC]/20">
                 <Brain className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -840,14 +840,14 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
                     disabled={isSending}
-                    className="h-12 text-sm border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:border-[#003ABC] focus:ring-[#003ABC]/20 placeholder:text-slate-400 dark:placeholder:text-slate-500 pr-12"
+                    className="h-12 text-sm border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:border-[#0066CC] focus:ring-[#0066CC]/20 placeholder:text-slate-400 dark:placeholder:text-slate-500 pr-12"
                   />
                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
                     <Button
                       size="icon"
                       onClick={handleSend}
                       disabled={!inputValue.trim() || isSending}
-                      className="h-9 w-9 bg-[#003ABC] hover:bg-[#003ABC]/90 text-white shadow-md shadow-[#003ABC]/20"
+                      className="h-9 w-9 bg-[#0066CC] hover:bg-[#0066CC]/90 text-white shadow-md shadow-[#0066CC]/20"
                     >
                       {isSending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -860,7 +860,7 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
               </div>
               {currentConversationId && (
                 <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="outline" className="text-[10px] border-[#003ABC]/30 text-[#003ABC] dark:text-blue-400">
+                  <Badge variant="outline" className="text-[10px] border-[#0066CC]/30 text-[#0066CC] dark:text-blue-400">
                     <MessageSquare className="h-2.5 w-2.5 mr-0.5" />
                     Multi-turn conversation active
                   </Badge>
@@ -885,10 +885,10 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
                 {isEmpty ? (
                   <div className="flex flex-col items-center justify-center py-16 sm:py-24">
                     <div className="relative mb-6">
-                      <div className="h-16 w-16 rounded-2xl bg-[#003ABC]/10 dark:bg-[#003ABC]/20 flex items-center justify-center">
-                        <Brain className="h-8 w-8 text-[#003ABC]" />
+                      <div className="h-16 w-16 rounded-2xl bg-[#0066CC]/10 dark:bg-[#0066CC]/20 flex items-center justify-center">
+                        <Brain className="h-8 w-8 text-[#0066CC]" />
                       </div>
-                      <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-[#FF6A00] flex items-center justify-center">
+                      <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-[#E8501A] flex items-center justify-center">
                         <Sparkles className="h-3 w-3 text-white" />
                       </div>
                     </div>
@@ -908,7 +908,7 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
                         <button
                           key={suggestion}
                           onClick={() => setInputValue(suggestion)}
-                          className="flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs text-slate-600 dark:text-slate-400 hover:border-[#003ABC]/30 hover:text-[#003ABC] dark:hover:text-blue-400 transition-colors"
+                          className="flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs text-slate-600 dark:text-slate-400 hover:border-[#0066CC]/30 hover:text-[#0066CC] dark:hover:text-blue-400 transition-colors"
                         >
                           <ArrowRight className="h-3 w-3" />
                           {suggestion}

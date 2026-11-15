@@ -3,12 +3,18 @@ import { AboutPage } from '@/components/site/pages/about'
 
 export const metadata: Metadata = {
   title: 'About — ALO Labs',
-  description: 'ALO Labs delivers AI-powered business services. Harrisonville, Missouri. Secure. Smart. Scalable. Built for the Future.',
+  description:
+    'ALO Labs is a global AI & software technology company: our vision, mission, engineering philosophy, responsible AI principles and approach to long-term partnerships. Harrisonville, Missouri.',
+  alternates: {
+    canonical: 'https://www.alolabs.net/site/about',
+  },
   openGraph: {
     title: 'About — ALO Labs',
-    description: 'ALO Labs delivers AI-powered business services. Harrisonville, Missouri. Secure. Smart. Scalable. Built for the Future.',
+    description:
+      'A global AI & software technology company — vision, mission, engineering philosophy and responsible AI principles.',
     siteName: 'ALO Labs',
-    images: ['/brand/alo-logo-horizontal.svg'],
+    url: 'https://www.alolabs.net/site/about',
+    images: ['/brand/alo-mark.svg'],
   },
 }
 

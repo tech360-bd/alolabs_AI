@@ -78,7 +78,7 @@ export default function AgentOSRunsPanel() {
         <div>
           <button
             onClick={() => setSelected(null)}
-            className="text-sm text-[#003ABC] hover:underline"
+            className="text-sm text-[#0066CC] hover:underline"
           >
             ← Back to runs
           </button>
@@ -102,8 +102,8 @@ export default function AgentOSRunsPanel() {
               onClick={() => setFilter(f)}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 filter === f
-                  ? 'bg-[#003ABC] text-white'
-                  : 'border border-slate-200 text-slate-600 hover:border-[#003ABC]/40 hover:text-[#003ABC] dark:border-slate-700 dark:text-slate-400'
+                  ? 'bg-[#0066CC] text-white'
+                  : 'border border-slate-200 text-slate-600 hover:border-[#0066CC]/40 hover:text-[#0066CC] dark:border-slate-700 dark:text-slate-400'
               }`}
             >
               {f.replace(/_/g, ' ')}

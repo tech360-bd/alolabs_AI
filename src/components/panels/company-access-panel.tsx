@@ -333,8 +333,8 @@ export default function CompanyAccessPanel() {
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-          <Shield className="w-5 h-5 text-[#003ABC]" />
+        <div className="w-9 h-9 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+          <Shield className="w-5 h-5 text-[#0066CC]" />
         </div>
         <div>
           <h2 className="text-xl font-bold text-[#1E293B]">Company Access Matrix</h2>
@@ -345,10 +345,10 @@ export default function CompanyAccessPanel() {
       </div>
 
       {/* Security Banner */}
-      <div className="bg-[#003ABC]/5 border border-[#003ABC]/20 rounded-xl p-4">
+      <div className="bg-[#0066CC]/5 border border-[#0066CC]/20 rounded-xl p-4">
         <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#003ABC]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <Lock className="w-4 h-4 text-[#003ABC]" />
+          <div className="w-8 h-8 rounded-lg bg-[#0066CC]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Lock className="w-4 h-4 text-[#0066CC]" />
           </div>
           <div>
             <p className="text-sm font-semibold text-[#1E293B]">
@@ -368,15 +368,15 @@ export default function CompanyAccessPanel() {
             label: 'Total Companies',
             value: companies.length,
             icon: Building2,
-            color: 'text-[#003ABC]',
-            bg: 'bg-[#003ABC]/10',
+            color: 'text-[#0066CC]',
+            bg: 'bg-[#0066CC]/10',
           },
           {
             label: 'ALO Labs Departments',
             value: aloLabsDeptCount,
             icon: Shield,
-            color: 'text-[#FF6A00]',
-            bg: 'bg-[#FF6A00]/10',
+            color: 'text-[#E8501A]',
+            bg: 'bg-[#E8501A]/10',
           },
           {
             label: 'Total Agents Owned',
@@ -409,7 +409,7 @@ export default function CompanyAccessPanel() {
       <div className="flex items-center gap-3">
         <Button
           onClick={() => setGrantDialogOpen(true)}
-          className="rounded-lg bg-[#003ABC] hover:bg-[#002A99] text-white"
+          className="rounded-lg bg-[#0066CC] hover:bg-[#002A99] text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           Grant Access
@@ -501,19 +501,19 @@ export default function CompanyAccessPanel() {
                     key={company.id}
                     className={`border-b border-[#E2E8F0]/50 hover:bg-[#F8FAFC] transition-colors cursor-pointer ${
                       company.isOwner ? 'bg-green-50/50' : ''
-                    } ${isSelected ? 'ring-2 ring-inset ring-[#003ABC]/30' : ''}`}
+                    } ${isSelected ? 'ring-2 ring-inset ring-[#0066CC]/30' : ''}`}
                     onClick={() => setSelectedCompany(isSelected ? null : company.id)}
                   >
                     <td className="px-4 py-3 sticky left-0 bg-white z-10">
                       <div className="flex items-center gap-2.5">
                         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getCompanyDotColor(company)}`} />
                         <div className="flex items-center gap-2">
-                          {company.isOwner && <Crown className="w-4 h-4 text-[#FF6A00] flex-shrink-0" />}
+                          {company.isOwner && <Crown className="w-4 h-4 text-[#E8501A] flex-shrink-0" />}
                           <div>
-                            <p className={`text-sm font-medium ${company.isOwner ? 'text-[#003ABC]' : 'text-[#1E293B]'}`}>
+                            <p className={`text-sm font-medium ${company.isOwner ? 'text-[#0066CC]' : 'text-[#1E293B]'}`}>
                               {company.name}
                               {company.isOwner && (
-                                <Badge className="ml-1.5 text-[9px] py-0 bg-[#003ABC]/10 text-[#003ABC] border-[#003ABC]/20">
+                                <Badge className="ml-1.5 text-[9px] py-0 bg-[#0066CC]/10 text-[#0066CC] border-[#0066CC]/20">
                                   OWNER
                                 </Badge>
                               )}
@@ -547,12 +547,12 @@ export default function CompanyAccessPanel() {
       {selectedCompany && (
         <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-[#003ABC]" />
+            <Building2 className="w-4 h-4 text-[#0066CC]" />
             <h3 className="text-sm font-semibold text-[#1E293B]">Access Details</h3>
             {(() => {
               const company = companies.find((c) => c.id === selectedCompany)
               return company ? (
-                <Badge className="text-[10px] py-0 bg-[#003ABC]/10 text-[#003ABC] border-[#003ABC]/20">
+                <Badge className="text-[10px] py-0 bg-[#0066CC]/10 text-[#0066CC] border-[#0066CC]/20">
                   {company.name}
                 </Badge>
               ) : null
@@ -566,7 +566,7 @@ export default function CompanyAccessPanel() {
               if (company.isOwner) {
                 return (
                   <div className="text-center py-8">
-                    <Crown className="w-10 h-10 text-[#FF6A00] mx-auto mb-3" />
+                    <Crown className="w-10 h-10 text-[#E8501A] mx-auto mb-3" />
                     <p className="text-sm font-semibold text-[#1E293B]">ALO Labs — Full Owner Access</p>
                     <p className="text-xs text-[#94A3B8] mt-1">All {DEPT_GROUPS.length} departments and {totalAgents.toLocaleString()} agents are fully accessible.</p>
                     <Separator className="my-4" />
@@ -767,7 +767,7 @@ export default function CompanyAccessPanel() {
             <Button
               onClick={handleGrantAccess}
               disabled={!grantForm.companyId || !grantForm.groupName}
-              className="rounded-lg bg-[#003ABC] hover:bg-[#002A99] text-white"
+              className="rounded-lg bg-[#0066CC] hover:bg-[#002A99] text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
               Grant Access
@@ -834,7 +834,7 @@ export default function CompanyAccessPanel() {
             <AlertDialogCancel className="rounded-lg border-[#E2E8F0] text-[#1E293B]">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmAccess}
-              className="rounded-lg bg-[#003ABC] hover:bg-[#002A99] text-white"
+              className="rounded-lg bg-[#0066CC] hover:bg-[#002A99] text-white"
             >
               Confirm
             </AlertDialogAction>

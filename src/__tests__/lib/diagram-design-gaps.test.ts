@@ -498,10 +498,10 @@ describe('skin onboarding — URL / skill / folder token extraction', () => {
 
   it('reads Style Dictionary JSON, markdown tables and HTML style blocks', () => {
     const json = JSON.stringify({
-      color: { brand: { primary: { value: '#003abc' } }, background: { value: 'rgb(248, 250, 252)' } },
+      color: { brand: { primary: { value: '#0066cc' } }, background: { value: 'rgb(248, 250, 252)' } },
     })
     const fromJson = extractFromJson(json)
-    expect(fromJson.values.accent).toBe('#003abc')
+    expect(fromJson.values.accent).toBe('#0066cc')
     expect(fromJson.values.paper).toBe('#f8fafc')
 
     const fromMd = extractFromMarkdown('| Accent | #eb6c36 |\n| Paper | #f5f5f5 |\n')
@@ -516,12 +516,12 @@ describe('skin onboarding — URL / skill / folder token extraction', () => {
   it('emits a brand fidelity receipt with exact/fallback font roles and never guesses unmapped values', () => {
     const proposal = proposeSkin({
       url: 'https://acme.example',
-      css: ':root{--bg:#101010;--ink:#f2f2f2;--brand:#ff6a00;--neon-cyan:#00fff0}',
+      css: ':root{--bg:#101010;--ink:#f2f2f2;--brand:#e8501a;--neon-cyan:#00fff0}',
     })
-    expect(proposal.tokens).toEqual({ paper: '#101010', ink: '#f2f2f2', accent: '#ff6a00' })
+    expect(proposal.tokens).toEqual({ paper: '#101010', ink: '#f2f2f2', accent: '#e8501a' })
     expect(proposal.unmapped).toContain('neon-cyan')
     expect(proposal.receipt.sampled).toEqual(['https://acme.example'])
-    expect(proposal.receipt.detected.accent).toBe('#ff6a00')
+    expect(proposal.receipt.detected.accent).toBe('#e8501a')
     const title = proposal.fonts.find((f) => f.role === 'title')!
     expect(title.match).toBe('fallback') // no brand font found — default, marked
     const body = proposal.fonts.find((f) => f.role === 'body')!

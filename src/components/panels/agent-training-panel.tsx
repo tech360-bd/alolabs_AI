@@ -246,7 +246,7 @@ export default function AgentTrainingPanel() {
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-[#003ABC] text-white hover:bg-[#003ABC]/90">
+              <Button size="sm" className="bg-[#0066CC] text-white hover:bg-[#0066CC]/90">
                 <Plus className="w-4 h-4 mr-2" />
                 New Training
               </Button>
@@ -293,7 +293,7 @@ export default function AgentTrainingPanel() {
                 <Button
                   onClick={handleCreateTraining}
                   disabled={!newProgram.agentId || submitting}
-                  className="bg-[#003ABC] text-white hover:bg-[#003ABC]/90"
+                  className="bg-[#0066CC] text-white hover:bg-[#0066CC]/90"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Create Program
@@ -401,7 +401,7 @@ export default function AgentTrainingPanel() {
           <p className="text-xs text-[#64748B] mt-1">Training programs you create will appear here</p>
           <Button
             size="sm"
-            className="mt-4 bg-[#003ABC] text-white hover:bg-[#003ABC]/90"
+            className="mt-4 bg-[#0066CC] text-white hover:bg-[#0066CC]/90"
             onClick={() => setDialogOpen(true)}
           >
             <Plus className="w-4 h-4 mr-2" />

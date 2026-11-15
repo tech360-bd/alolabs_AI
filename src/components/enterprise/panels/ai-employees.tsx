@@ -386,9 +386,9 @@ export default function AIEmployees() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Total Agents', value: total, color: 'text-[#003ABC]' },
+          { label: 'Total Agents', value: total, color: 'text-[#0066CC]' },
           { label: 'Active', value: activeTotal, color: 'text-emerald-600' },
-          { label: 'Departments', value: deptList.length - 1, color: 'text-[#FF6A00]' },
+          { label: 'Departments', value: deptList.length - 1, color: 'text-[#E8501A]' },
           { label: 'Agent Types', value: agentTypes.length - 1, color: 'text-purple-600' },
         ].map(s => (
           <Card key={s.label} className="rounded-xl shadow-sm border-0 bg-white dark:bg-slate-800">
@@ -435,14 +435,14 @@ export default function AIEmployees() {
                 <div className="flex items-start gap-3">
                   <button onClick={(e) => openDetail(agent, e)} className="shrink-0 focus:outline-none">
                     <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-[#003ABC] text-white text-xs font-bold">
+                      <AvatarFallback className="bg-[#0066CC] text-white text-xs font-bold">
                         {agent.name.slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                   </button>
                   <div className="flex-1 min-w-0">
                     <button onClick={(e) => openDetail(agent, e)} className="text-left focus:outline-none w-full">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate hover:text-[#003ABC] dark:hover:text-blue-400 transition-colors">{agent.name}</p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate hover:text-[#0066CC] dark:hover:text-blue-400 transition-colors">{agent.name}</p>
                     </button>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{agent.departmentName || agent.department}</p>
                   </div>
@@ -480,9 +480,9 @@ export default function AIEmployees() {
                   <span className="font-mono text-slate-400">{agent.id.replace('agent-', '')}</span>
                   <div className="flex items-center gap-2 min-w-0">
                     <button onClick={(e) => openDetail(agent, e)} className="shrink-0 focus:outline-none">
-                      <Avatar className="h-6 w-6"><AvatarFallback className="bg-[#003ABC] text-white text-[8px] font-bold">{agent.name.slice(0, 2)}</AvatarFallback></Avatar>
+                      <Avatar className="h-6 w-6"><AvatarFallback className="bg-[#0066CC] text-white text-[8px] font-bold">{agent.name.slice(0, 2)}</AvatarFallback></Avatar>
                     </button>
-                    <button onClick={(e) => openDetail(agent, e)} className="truncate text-slate-700 dark:text-slate-200 font-medium text-left hover:text-[#003ABC] dark:hover:text-blue-400 transition-colors focus:outline-none">
+                    <button onClick={(e) => openDetail(agent, e)} className="truncate text-slate-700 dark:text-slate-200 font-medium text-left hover:text-[#0066CC] dark:hover:text-blue-400 transition-colors focus:outline-none">
                       {agent.name}
                     </button>
                   </div>
@@ -521,7 +521,7 @@ export default function AIEmployees() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 min-w-0">
                 <Avatar className="h-9 w-9 shrink-0">
-                  <AvatarFallback className="bg-[#003ABC] text-white text-xs font-bold">
+                  <AvatarFallback className="bg-[#0066CC] text-white text-xs font-bold">
                     {selectedAgent?.name.slice(0, 2).toUpperCase() || 'AI'}
                   </AvatarFallback>
                 </Avatar>
@@ -568,7 +568,7 @@ export default function AIEmployees() {
                       <div
                         className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
                           msg.role === 'user'
-                            ? 'bg-[#003ABC] text-white rounded-br-md'
+                            ? 'bg-[#0066CC] text-white rounded-br-md'
                             : 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-bl-md'
                         }`}
                       >
@@ -637,7 +637,7 @@ export default function AIEmployees() {
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
             <div className="flex items-center gap-3">
               <Avatar className="h-9 w-9 shrink-0">
-                <AvatarFallback className="bg-[#003ABC] text-white text-xs font-bold">
+                <AvatarFallback className="bg-[#0066CC] text-white text-xs font-bold">
                   {runAgent?.name.slice(0, 2).toUpperCase() || 'AI'}
                 </AvatarFallback>
               </Avatar>
@@ -710,7 +710,7 @@ export default function AIEmployees() {
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <Avatar className="h-10 w-10 shrink-0">
-                  <AvatarFallback className="bg-[#003ABC] text-white text-xs font-bold">
+                  <AvatarFallback className="bg-[#0066CC] text-white text-xs font-bold">
                     {detailAgent?.name.slice(0, 2).toUpperCase() || 'AI'}
                   </AvatarFallback>
                 </Avatar>
@@ -751,7 +751,7 @@ export default function AIEmployees() {
                   {/* Stats Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {[
-                      { label: 'Total Runs', value: detailData.stats.totalRuns.toLocaleString(), icon: BarChart3, color: 'text-[#003ABC]' },
+                      { label: 'Total Runs', value: detailData.stats.totalRuns.toLocaleString(), icon: BarChart3, color: 'text-[#0066CC]' },
                       { label: 'Success Rate', value: `${Math.round(detailData.stats.successRate * 100)}%`, icon: Zap, color: 'text-emerald-600' },
                       { label: 'Avg Latency', value: `${Math.round(detailData.stats.avgLatency)}ms`, icon: Clock, color: 'text-amber-600' },
                       { label: 'Avg Confidence', value: `${Math.round(detailData.stats.avgConfidence * 100)}%`, icon: Brain, color: 'text-purple-600' },

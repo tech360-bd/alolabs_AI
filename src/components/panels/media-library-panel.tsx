@@ -170,11 +170,11 @@ function FolderItem({
       onClick={onClick}
       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
         active
-          ? 'bg-[#003ABC]/8 text-[#003ABC] font-medium'
+          ? 'bg-[#0066CC]/8 text-[#0066CC] font-medium'
           : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#F1F5F9]'
       }`}
     >
-      <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-[#003ABC]' : folder.color}`} />
+      <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-[#0066CC]' : folder.color}`} />
       <span className="truncate text-[13px]">{folder.name}</span>
       {count > 0 && (
         <span className="ml-auto text-[10px] text-[#94A3B8] tabular-nums">{count}</span>
@@ -279,7 +279,7 @@ export default function MediaLibraryPanel() {
 
   const customFolders = folders
     .filter((f) => f.type === 'custom')
-    .map((f) => ({ id: f.name, name: f.name, type: 'custom', icon: Folder, color: 'text-[#003ABC]' }))
+    .map((f) => ({ id: f.name, name: f.name, type: 'custom', icon: Folder, color: 'text-[#0066CC]' }))
 
   const allFolders = [...builtInFolders, ...customFolders]
 
@@ -490,8 +490,8 @@ export default function MediaLibraryPanel() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <ImageIconLucide className="h-5 w-5 text-[#003ABC]" />
+          <div className="h-10 w-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <ImageIconLucide className="h-5 w-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1E293B]">Media Library</h2>
@@ -505,7 +505,7 @@ export default function MediaLibraryPanel() {
             size="sm"
             variant="outline"
             onClick={() => { setLoading(true); fetchFiles(); fetchFolders() }}
-            className="gap-1.5 text-xs border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC] hover:border-[#003ABC]"
+            className="gap-1.5 text-xs border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC] hover:border-[#0066CC]"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Refresh
@@ -515,7 +515,7 @@ export default function MediaLibraryPanel() {
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-1.5 text-xs border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC] hover:border-[#003ABC]"
+                className="gap-1.5 text-xs border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC] hover:border-[#0066CC]"
               >
                 <FolderPlus className="h-3.5 w-3.5" />
                 New Folder
@@ -530,13 +530,13 @@ export default function MediaLibraryPanel() {
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
-                className="border-[#E2E8F0] focus:border-[#003ABC]"
+                className="border-[#E2E8F0] focus:border-[#0066CC]"
               />
               <DialogFooter>
                 <Button variant="outline" size="sm" onClick={() => setCreateFolderOpen(false)} className="border-[#E2E8F0] text-[#64748B]">
                   Cancel
                 </Button>
-                <Button size="sm" onClick={handleCreateFolder} className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white">
+                <Button size="sm" onClick={handleCreateFolder} className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white">
                   Create
                 </Button>
               </DialogFooter>
@@ -544,7 +544,7 @@ export default function MediaLibraryPanel() {
           </Dialog>
           <Button
             size="sm"
-            className="gap-1.5 text-xs bg-[#FF6A00] hover:bg-[#FF6A00]/90 text-white"
+            className="gap-1.5 text-xs bg-[#E8501A] hover:bg-[#E8501A]/90 text-white"
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="h-3.5 w-3.5" />
@@ -566,7 +566,7 @@ export default function MediaLibraryPanel() {
           { label: 'Images', value: imageCount, icon: Image, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'Videos', value: videoCount, icon: Video, color: 'text-purple-600', bg: 'bg-purple-50' },
           { label: 'Documents', value: docCount, icon: File, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Total Size', value: formatFileSize(totalSize), icon: FolderOpen, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
+          { label: 'Total Size', value: formatFileSize(totalSize), icon: FolderOpen, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
         ].map((stat) => (
           <Card key={stat.label} className="border-[#E2E8F0]">
             <CardContent className="p-3 flex items-center gap-3">
@@ -602,7 +602,7 @@ export default function MediaLibraryPanel() {
                 </div>
                 {up.status === 'success' && <Check className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
                 {up.status === 'error' && <X className="h-4 w-4 text-red-500 flex-shrink-0" />}
-                {up.status === 'uploading' && <Loader2 className="h-4 w-4 text-[#003ABC] animate-spin flex-shrink-0" />}
+                {up.status === 'uploading' && <Loader2 className="h-4 w-4 text-[#0066CC] animate-spin flex-shrink-0" />}
               </div>
             ))}
           </CardContent>
@@ -642,7 +642,7 @@ export default function MediaLibraryPanel() {
                     placeholder="Search files..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 h-8 text-xs border-[#E2E8F0] focus:border-[#003ABC]"
+                    className="pl-8 h-8 text-xs border-[#E2E8F0] focus:border-[#0066CC]"
                   />
                 </div>
                 <Tabs value={activeTypeFilter} onValueChange={setActiveTypeFilter}>
@@ -656,7 +656,7 @@ export default function MediaLibraryPanel() {
                       <TabsTrigger
                         key={tab.value}
                         value={tab.value}
-                        className="text-[11px] px-3 data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm"
+                        className="text-[11px] px-3 data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm"
                       >
                         {tab.label}
                       </TabsTrigger>
@@ -667,7 +667,7 @@ export default function MediaLibraryPanel() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`h-8 w-8 rounded-r-none ${viewMode === 'grid' ? 'bg-[#003ABC]/10 text-[#003ABC]' : 'text-[#94A3B8]'}`}
+                    className={`h-8 w-8 rounded-r-none ${viewMode === 'grid' ? 'bg-[#0066CC]/10 text-[#0066CC]' : 'text-[#94A3B8]'}`}
                     onClick={() => setViewMode('grid')}
                   >
                     <Grid className="h-3.5 w-3.5" />
@@ -675,7 +675,7 @@ export default function MediaLibraryPanel() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`h-8 w-8 rounded-l-none ${viewMode === 'list' ? 'bg-[#003ABC]/10 text-[#003ABC]' : 'text-[#94A3B8]'}`}
+                    className={`h-8 w-8 rounded-l-none ${viewMode === 'list' ? 'bg-[#0066CC]/10 text-[#0066CC]' : 'text-[#94A3B8]'}`}
                     onClick={() => setViewMode('list')}
                   >
                     <List className="h-3.5 w-3.5" />
@@ -687,8 +687,8 @@ export default function MediaLibraryPanel() {
 
           {/* Bulk actions bar */}
           {selectedFiles.size > 0 && (
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#003ABC]/5 border border-[#003ABC]/20">
-              <span className="text-xs font-medium text-[#003ABC]">{selectedFiles.size} selected</span>
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#0066CC]/5 border border-[#0066CC]/20">
+              <span className="text-xs font-medium text-[#0066CC]">{selectedFiles.size} selected</span>
               <Button
                 size="sm"
                 variant="outline"
@@ -703,7 +703,7 @@ export default function MediaLibraryPanel() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-[11px] gap-1 border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC] hover:border-[#003ABC]"
+                    className="h-7 text-[11px] gap-1 border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC] hover:border-[#0066CC]"
                   >
                     <FolderPlus className="h-3 w-3" />
                     Move
@@ -746,7 +746,7 @@ export default function MediaLibraryPanel() {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             className={`rounded-xl transition-all duration-200 ${
-              isDragOver ? 'ring-2 ring-dashed ring-[#003ABC] bg-[#003ABC]/5' : ''
+              isDragOver ? 'ring-2 ring-dashed ring-[#0066CC] bg-[#0066CC]/5' : ''
             }`}
           >
             {loading ? (
@@ -764,7 +764,7 @@ export default function MediaLibraryPanel() {
                   </p>
                   <Button
                     size="sm"
-                    className="gap-1.5 text-xs bg-[#FF6A00] hover:bg-[#FF6A00]/90 text-white"
+                    className="gap-1.5 text-xs bg-[#E8501A] hover:bg-[#E8501A]/90 text-white"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Upload className="h-3.5 w-3.5" />
@@ -774,10 +774,10 @@ export default function MediaLibraryPanel() {
               </Card>
             ) : isDragOver ? (
               /* Drag over state */
-              <Card className="border-dashed border-2 border-[#003ABC] bg-[#003ABC]/5">
+              <Card className="border-dashed border-2 border-[#0066CC] bg-[#0066CC]/5">
                 <CardContent className="py-16 flex flex-col items-center justify-center">
-                  <Upload className="h-10 w-10 text-[#003ABC] mb-3 animate-bounce" />
-                  <p className="text-sm font-semibold text-[#003ABC]">Drop files to upload</p>
+                  <Upload className="h-10 w-10 text-[#0066CC] mb-3 animate-bounce" />
+                  <p className="text-sm font-semibold text-[#0066CC]">Drop files to upload</p>
                   <p className="text-xs text-[#94A3B8] mt-1">Supports images, videos, and documents</p>
                 </CardContent>
               </Card>
@@ -791,7 +791,7 @@ export default function MediaLibraryPanel() {
                     <Card
                       key={file.id}
                       className={`border-[#E2E8F0] overflow-hidden group hover:shadow-md transition-shadow ${
-                        selectedFiles.has(file.id) ? 'ring-2 ring-[#003ABC] border-[#003ABC]' : ''
+                        selectedFiles.has(file.id) ? 'ring-2 ring-[#0066CC] border-[#0066CC]' : ''
                       }`}
                     >
                       {/* Thumbnail / preview area */}
@@ -810,7 +810,7 @@ export default function MediaLibraryPanel() {
                           <div
                             className={`h-5 w-5 rounded border flex items-center justify-center transition-colors cursor-pointer ${
                               selectedFiles.has(file.id)
-                                ? 'bg-[#003ABC] border-[#003ABC]'
+                                ? 'bg-[#0066CC] border-[#0066CC]'
                                 : 'bg-white/80 border-[#CBD5E1] opacity-0 group-hover:opacity-100'
                             }`}
                             onClick={() => toggleSelect(file.id)}
@@ -833,7 +833,7 @@ export default function MediaLibraryPanel() {
                             <DropdownMenuContent align="end" className="w-40 bg-white border-[#E2E8F0]">
                               {file.url && (
                                 <DropdownMenuItem
-                                  className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#003ABC]"
+                                  className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#0066CC]"
                                   onClick={() => window.open(file.url, '_blank')}
                                 >
                                   <Download className="h-3.5 w-3.5 mr-2" />
@@ -841,7 +841,7 @@ export default function MediaLibraryPanel() {
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem
-                                className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#003ABC]"
+                                className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#0066CC]"
                                 onClick={() => handleCopyLink(file)}
                               >
                                 <Copy className="h-3.5 w-3.5 mr-2" />
@@ -849,7 +849,7 @@ export default function MediaLibraryPanel() {
                               </DropdownMenuItem>
                               {file.type === 'image' && (
                                 <DropdownMenuItem
-                                  className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#003ABC]"
+                                  className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#0066CC]"
                                   onClick={() => handleAiTag(file)}
                                   disabled={aiTagging === file.id}
                                 >
@@ -935,7 +935,7 @@ export default function MediaLibraryPanel() {
                       <div
                         key={file.id}
                         className={`flex items-center gap-3 px-4 py-2.5 hover:bg-[#F8FAFC] transition-colors cursor-pointer ${
-                          selectedFiles.has(file.id) ? 'bg-[#003ABC]/5' : ''
+                          selectedFiles.has(file.id) ? 'bg-[#0066CC]/5' : ''
                         }`}
                         onClick={() => toggleSelect(file.id)}
                       >
@@ -992,7 +992,7 @@ export default function MediaLibraryPanel() {
                           <DropdownMenuContent align="end" className="w-40 bg-white border-[#E2E8F0]">
                             {file.url && (
                               <DropdownMenuItem
-                                className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#003ABC]"
+                                className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#0066CC]"
                                 onClick={(e) => { e.stopPropagation(); window.open(file.url, '_blank') }}
                               >
                                 <Download className="h-3.5 w-3.5 mr-2" />
@@ -1000,7 +1000,7 @@ export default function MediaLibraryPanel() {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
-                              className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#003ABC]"
+                              className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#0066CC]"
                               onClick={(e) => { e.stopPropagation(); handleCopyLink(file) }}
                             >
                               <Copy className="h-3.5 w-3.5 mr-2" />
@@ -1008,7 +1008,7 @@ export default function MediaLibraryPanel() {
                             </DropdownMenuItem>
                             {file.type === 'image' && (
                               <DropdownMenuItem
-                                className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#003ABC]"
+                                className="text-xs text-[#1E293B] focus:bg-[#F1F5F9] focus:text-[#0066CC]"
                                 onClick={(e) => { e.stopPropagation(); handleAiTag(file) }}
                                 disabled={aiTagging === file.id}
                               >
@@ -1050,7 +1050,7 @@ export default function MediaLibraryPanel() {
                   variant="outline"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="h-7 text-xs border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC] hover:border-[#003ABC] disabled:opacity-40"
+                  className="h-7 text-xs border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC] hover:border-[#0066CC] disabled:opacity-40"
                 >
                   Previous
                 </Button>
@@ -1065,8 +1065,8 @@ export default function MediaLibraryPanel() {
                       onClick={() => setPage(pageNum)}
                       className={`h-7 w-7 text-xs p-0 ${
                         page === pageNum
-                          ? 'bg-[#003ABC] text-white hover:bg-[#003ABC]/90'
-                          : 'border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC] hover:border-[#003ABC]'
+                          ? 'bg-[#0066CC] text-white hover:bg-[#0066CC]/90'
+                          : 'border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC] hover:border-[#0066CC]'
                       }`}
                     >
                       {pageNum}
@@ -1078,7 +1078,7 @@ export default function MediaLibraryPanel() {
                   variant="outline"
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
-                  className="h-7 text-xs border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC] hover:border-[#003ABC] disabled:opacity-40"
+                  className="h-7 text-xs border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC] hover:border-[#0066CC] disabled:opacity-40"
                 >
                   Next
                 </Button>

@@ -1,276 +1,373 @@
 'use client'
 
 /**
- * /site/solutions — the services catalogue: six numbered service lines, the
- * delivery process, the industries served and the questions buyers ask.
- * Structured after the reference agency sites: numbered cards with concrete
- * deliverables and a per-line call to action.
+ * /site/solutions — the nine solution areas ALO Labs delivers.
+ *
+ * Each area states the business problem, the solution we propose, the key
+ * capabilities behind it and the value a client can expect — and is honestly
+ * labelled: delivered today as a service, or available through project
+ * engagement. No solution is presented as a finished product unless it is one.
  */
 
 import * as React from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { BRAND, BRAND_FONTS } from '@/lib/brand/tokens'
+import { BRAND } from '@/lib/brand/tokens'
 import {
-  ArrowRight,
-  Bot,
-  GraduationCap,
-  MessageSquare,
-  PenTool,
-  PhoneCall,
-  Workflow,
+  ArrowRight, Bot, Building2, Cloud, Code2, Globe, Layers3, MessageSquare,
+  Smartphone, Workflow,
 } from 'lucide-react'
 import {
-  CtaBand,
-  FaqList,
-  NumberedCard,
-  PageHero,
-  Pill,
-  Section,
-  type FaqItem,
+  CtaBand, FaqList, PageHero, Pill, Section, type FaqItem,
 } from '@/components/site/chrome'
 
-const SERVICES = [
+interface Solution {
+  id: string
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties; size?: number }>
+  title: string
+  /** Honest availability label. */
+  availability: 'Existing service' | 'Project engagement'
+  problem: string
+  solution: string
+  capabilities: string[]
+  value: string
+}
+
+const SOLUTIONS: Solution[] = [
   {
+    id: 'ai-automation',
     icon: Bot,
-    title: 'Business process automation',
-    body: 'We take real work off your team — reports, follow-ups, data entry, research and operations — with every result reviewed before it reaches you.',
-    items: [
-      'Agent specification & registry build-out',
-      'Workflow automation with human approvals',
-      'Progress tracking in your client portal',
-      'Review and sign-off on every deliverable',
+    title: 'AI Solutions & Intelligent Automation',
+    availability: 'Existing service',
+    problem:
+      'Skilled people spend hours on repetitive, rules-based work — data handling, follow-ups, reporting, document checks — that slows the business down and invites errors.',
+    solution:
+      'We identify the work worth automating, design AI-assisted workflows around your real processes and keep people in control: every automated step is scoped, reviewable and reversible.',
+    capabilities: [
+      'Process discovery and automation scoping',
+      'AI-assisted data processing, research and reporting',
+      'Human-in-the-loop review and approval steps',
+      'Monitoring, logging and graceful failure handling',
     ],
-    anchor: 'automation',
+    value:
+      'Hours returned to your team each week, faster cycle times and fewer manual errors — with a clear audit trail of what was done.',
   },
   {
+    id: 'custom-software',
+    icon: Code2,
+    title: 'Custom Software Development',
+    availability: 'Project engagement',
+    problem:
+      'Off-the-shelf tools almost fit — but the last 20% forces your business to work around the software instead of the other way around.',
+    solution:
+      'We design and build software shaped around your operations: discovery and architecture first, then iterative engineering with reviews, tests and documentation throughout.',
+    capabilities: [
+      'Requirements discovery and solution architecture',
+      'Web and service engineering with type-safe codebases',
+      'Database design, migrations and data integrity',
+      'Automated testing, code review and documentation',
+    ],
+    value:
+      'Software that fits how your business actually works — owned by you, maintainable for years, and extensible as you grow.',
+  },
+  {
+    id: 'web-platforms',
+    icon: Globe,
+    title: 'Web Applications & Digital Platforms',
+    availability: 'Project engagement',
+    problem:
+      'Customer expectations for web products keep rising: fast, accessible, mobile-ready and trustworthy — while most business sites and tools lag behind.',
+    solution:
+      'We build modern web applications and digital platforms on proven foundations, with performance, accessibility and search visibility treated as release criteria.',
+    capabilities: [
+      'Marketing sites, product portals and web applications',
+      'Design systems and responsive component libraries',
+      'Performance, accessibility and SEO engineering',
+      'Content workflows and analytics integration',
+    ],
+    value:
+      'A web presence that loads fast, converts visitors and scales with your roadmap instead of being rebuilt every two years.',
+  },
+  {
+    id: 'mobile',
+    icon: Smartphone,
+    title: 'Mobile Application Development',
+    availability: 'Project engagement',
+    problem:
+      'Your customers and teams live on their phones — but your services stop at the desktop browser.',
+    solution:
+      'We extend your products and operations to mobile — planning the right approach for your case, from responsive web apps to native-quality mobile experiences connected to your existing systems.',
+    capabilities: [
+      'Mobile product planning and UX design',
+      'Cross-platform application development',
+      'API and system integration with your back office',
+      'Release management and post-launch iteration',
+    ],
+    value:
+      'Your services available wherever your users are — with one connected data model behind every screen.',
+  },
+  {
+    id: 'business-systems',
+    icon: Building2,
+    title: 'Business Systems & CRM',
+    availability: 'Existing service',
+    problem:
+      'Customer and operational data is scattered across spreadsheets, inboxes and disconnected tools — so nobody sees the whole picture.',
+    solution:
+      'We implement and customise CRM and business systems around your processes: clean data, clear pipelines, and the reporting your team needs to act with confidence.',
+    capabilities: [
+      'CRM implementation, migration and pipeline design',
+      'Lead capture, enrichment and scoring workflows',
+      'Operational dashboards and reporting',
+      'Marketing automation and campaign tooling',
+    ],
+    value:
+      'One source of truth for customers and operations — better follow-up, better forecasting and less time reconciling tools.',
+  },
+  {
+    id: 'workflow-integrations',
     icon: Workflow,
-    title: 'CRM & marketing automation',
-    body: 'Lead capture, enrichment, scoring and nurture wired into your CRM — with AI marketing campaigns, SEO content and reporting running as scheduled agent work.',
-    items: [
-      'CRM implementation & pipeline design',
-      'Lead enrichment & scoring',
-      'Email, SMS and social campaign automation',
-      'Attribution dashboards and weekly reports',
+    title: 'Workflow Automation & Integrations',
+    availability: 'Existing service',
+    problem:
+      'The tools you use do not talk to each other, so people become the integration layer — copying data, chasing approvals and re-keying information.',
+    solution:
+      'We connect your systems and automate the hand-offs between them: scheduled jobs, event-driven workflows and integration layers designed for reliability and observability.',
+    capabilities: [
+      'System integration and API engineering',
+      'Workflow automation with approvals and notifications',
+      'Scheduled and event-driven job pipelines',
+      'Error handling, retry logic and monitoring',
     ],
-    anchor: 'crm',
+    value:
+      'Fewer manual hand-offs, faster end-to-end processes and a technology stack that behaves like one system.',
   },
   {
-    icon: GraduationCap,
-    title: 'Education & student operations',
-    body: 'Student recruitment, applications, compliance and pastoral operations for consultancies and institutions — UKVI-aware workflows included.',
-    items: [
-      'Applicant pipelines & document checks',
-      'UKVI / compliance workflow automation',
-      'Agent-led student support & enquiries',
-      'Partner and institution portals',
+    id: 'portals-saas',
+    icon: Layers3,
+    title: 'Client Portals & SaaS Platforms',
+    availability: 'Project engagement',
+    problem:
+      'Serving clients well means giving them secure self-service — but building a multi-user platform is a serious engineering commitment.',
+    solution:
+      'We design and build portals and SaaS products end to end: onboarding, role-based access, dashboards, billing flows and the operational tooling behind them. Our own client portal is built and run on this foundation.',
+    capabilities: [
+      'Multi-tenant architecture and access control',
+      'Onboarding, accounts and role-based permissions',
+      'Dashboards, notifications and document delivery',
+      'Billing, invoicing and support workflows',
     ],
-    anchor: 'education',
+    value:
+      'A professional client experience that scales your service without scaling your admin — with security designed in from day one.',
   },
   {
-    icon: PhoneCall,
-    title: 'Voice, SMS & communications',
-    body: 'AI call-centre and telephony integrations: inbound routing, call intelligence, SMS automation and VoIP — delivered and supported by the same team.',
-    items: [
-      'AI call-centre intelligence',
-      'SMS gateways & automated follow-up',
-      'VoIP / SIP integration',
-      'Conversation logging into the CRM',
+    id: 'cloud-infrastructure',
+    icon: Cloud,
+    title: 'Cloud & Infrastructure Engineering',
+    availability: 'Project engagement',
+    problem:
+      'Great software fails on weak foundations: brittle deployments, no monitoring, slow recovery and security bolted on afterwards.',
+    solution:
+      'We engineer the infrastructure around your software — repeatable deployments, environment parity, monitoring, backups and recovery plans that are tested, not assumed.',
+    capabilities: [
+      'Cloud architecture and containerised deployments',
+      'CI/CD pipelines and environment management',
+      'Monitoring, alerting and log aggregation',
+      'Backups, disaster recovery and security hardening',
     ],
-    anchor: 'comms',
+    value:
+      'Systems that deploy safely, recover quickly and give your team — and your auditors — real confidence.',
   },
   {
-    icon: PenTool,
-    title: 'Knowledge, content & media',
-    body: 'Search and answers over your own documents, editorial diagrams, and AI-assisted video and image production — everything your teams publish, grounded in your data.',
-    items: [
-      'Search & answers over your documents',
-      'Editorial diagram & report generation',
-      'AI image / video / caption pipelines',
-      'Marketing kit & brand system production',
-    ],
-    anchor: 'knowledge',
-  },
-  {
+    id: 'ai-customer-experience',
     icon: MessageSquare,
-    title: 'Custom AI products & integrations',
-    body: 'When the need is a product, not a service: multi-tenant SaaS, internal platforms, API integrations and white-label AI assistants engineered to last.',
-    items: [
-      'SaaS & multi-tenant product engineering',
-      'Custom AI applications',
-      'Data pipelines & system integrations',
-      'Long-term support and evolution',
+    title: 'AI-assisted Customer Experience',
+    availability: 'Project engagement',
+    problem:
+      'Customer conversations multiply across channels while response quality drops — and generic chatbots frustrate more than they help.',
+    solution:
+      'We build AI-assisted support, voice and messaging experiences where the AI handles the routine and your team handles what matters — with clean hand-offs and full conversation context.',
+    capabilities: [
+      'AI-assisted support chat and knowledge search',
+      'Voice and messaging automation with human hand-off',
+      'Conversation logging into your CRM and helpdesk',
+      'Quality monitoring and continuous improvement',
     ],
-    anchor: 'products',
+    value:
+      'Faster, more consistent customer responses at any hour — without losing the human judgement your brand depends on.',
   },
 ]
 
-const PROCESS = [
-  {
-    step: '1',
-    title: 'Assess',
-    body: 'We map your teams, workflows, data and risks — and agree exactly what will and will not be automated.',
-  },
-  {
-    step: '2',
-    title: 'Design',
-    body: 'Agent specifications, workflows, approval rules and integrations are designed as a system, with diagrams and a rollout plan.',
-  },
-  {
-    step: '3',
-    title: 'Deploy',
-    body: 'We build the solution and integrate your tools, keeping you updated in the client portal.',
-  },
-  {
-    step: '4',
-    title: 'Run',
-    body: 'You review and approve each deliverable. We tune, report and extend team by team.',
-  },
-]
-
-const INDUSTRIES = [
-  { title: 'Education & study abroad', note: 'Recruitment, applications, compliance, student success' },
-  { title: 'Professional services', note: 'Proposals, research, reporting, client operations' },
-  { title: 'Trading & distribution', note: 'Orders, collections, inventory, supplier follow-up' },
-  { title: 'SaaS & technology', note: 'Support, onboarding, growth marketing, product ops' },
-  { title: 'Real estate & construction', note: 'Lead handling, site reporting, document workflows' },
-  { title: 'Healthcare & clinics', note: 'Scheduling, patient follow-up, admin automation' },
-  { title: 'Retail & e-commerce', note: 'Campaigns, catalogue ops, customer service' },
-  { title: 'Finance & accounting', note: 'Bookkeeping workflows, reconciliation, reporting' },
+const ENGAGEMENT_STEPS = [
+  { n: '01', title: 'Tell us the problem', body: 'A short conversation about your business, the outcome you want and the constraints we should design around.' },
+  { n: '02', title: 'Receive a clear scope', body: 'We propose the approach, deliverables and commercial model — fixed scope, retainer or phased project.' },
+  { n: '03', title: 'Approve and start', body: 'Work begins once you approve the scope. You follow progress in your client portal at every step.' },
 ]
 
 const FAQS: FaqItem[] = [
   {
-    q: 'Do we need to replace our existing tools?',
-    a: 'No. Our work sits between your team and the tools they already use — CRM, email, sheets, telephony, storage — and automates the work across them. Integrations are the starting point, not a rip-and-replace.',
+    q: 'How do I know which solution area fits my situation?',
+    a: 'You do not need to. Describe the business problem in your own words and we will propose the right combination of solution areas — most engagements span two or three.',
   },
   {
-    q: 'What stops an agent from doing something harmful?',
-    a: 'Every action passes the approval engine: risk scoring, policy checks and, for anything with an external side effect — spend, outbound messages, production changes — a human approval. Every hop is recorded in a tamper-evident audit log.',
+    q: 'Are these finished products or custom work?',
+    a: 'Both exist. Business automation, CRM and workflow work are delivered as established services. Portals, custom software and mobile applications are delivered as scoped projects built for you. Every page label states which is which.',
   },
   {
-    q: 'How long does a first deployment take?',
-    a: 'A focused first project — two to four workflows for one team — typically goes live in 2–4 weeks. Broader rollouts run team by team on a shared roadmap.',
+    q: 'Can you work with our existing systems and vendors?',
+    a: 'Yes. Most of our work integrates with tools you already run. We document every integration point and keep your existing vendors in the loop where needed.',
   },
   {
-    q: 'Can we start with a single team?',
-    a: 'Yes, and that is the recommended path. Prove the workflows of one team end to end — delivery, approvals and reporting — then extend the same pattern to the next.',
+    q: 'What does an engagement cost?',
+    a: 'It depends on scope. Small automation work can start in the low thousands; platform builds are phased with clear milestones. You receive a quotation before anything starts — and budget guidance is welcome in the first conversation.',
   },
   {
-    q: 'Is our data used to train models?',
-    a: 'No. Your data stays in your tenant: your documents are used only for your own work, they are never shared with another client, and nothing is used to train third-party models.',
-  },
-  {
-    q: 'How is this priced?',
-    a: 'Each service is priced on its own: fixed price, a starting price, a subscription, or a quotation after scoping. Prices are shown with each service in the client portal, or talk to us for a quote.',
+    q: 'Who owns what you build?',
+    a: 'You do. Deliverables, code and documentation produced for your project are yours on delivery, as defined in the agreed scope and our terms.',
   },
 ]
+
+function SolutionBlock({ solution, index }: { solution: Solution; index: number }) {
+  const Icon = solution.icon
+  const even = index % 2 === 0
+  return (
+    <article
+      id={solution.id}
+      className="grid scroll-mt-24 gap-8 rounded-2xl border border-slate-200 bg-white p-8 lg:grid-cols-[0.9fr_1.1fr] lg:p-10"
+    >
+      <div>
+        <div className="flex items-center gap-3">
+          <span
+            className="flex size-11 items-center justify-center rounded-xl"
+            style={{ background: even ? 'rgba(232,80,26,0.10)' : BRAND.tint, color: even ? BRAND.orange : BRAND.blue }}
+          >
+            <Icon size={20} />
+          </span>
+          <span className="font-mono text-[11px] font-bold tracking-[0.18em]" style={{ color: BRAND.graySoft }}>
+            {String(index + 1).padStart(2, '0')} / 09
+          </span>
+        </div>
+        <h3 className="mt-5 text-[22px] font-bold leading-snug" style={{ color: BRAND.blue }}>
+          {solution.title}
+        </h3>
+        <div className="mt-3">
+          <Pill tone={solution.availability === 'Existing service' ? 'blue' : 'orange'}>{solution.availability}</Pill>
+        </div>
+        <div className="mt-6">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orange }}>
+            The business problem
+          </p>
+          <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
+            {solution.problem}
+          </p>
+        </div>
+        <div className="mt-6">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orange }}>
+            Expected business value
+          </p>
+          <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.ink }}>
+            {solution.value}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col">
+        <div>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.blue }}>
+            Our proposed solution
+          </p>
+          <p className="mt-2 text-[13.5px] leading-relaxed" style={{ color: BRAND.gray }}>
+            {solution.solution}
+          </p>
+        </div>
+        <div className="mt-6">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.blue }}>
+            Key capabilities
+          </p>
+          <ul className="mt-3 grid gap-2">
+            {solution.capabilities.map((item) => (
+              <li key={item} className="flex items-start gap-2.5 text-[12.5px] leading-relaxed" style={{ color: BRAND.ink }}>
+                <span className="mt-[7px] size-[5px] shrink-0 rounded-full" style={{ background: BRAND.orange }} />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="mt-6 flex-1" />
+        <Link
+          href="/site/contact"
+          className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold"
+          style={{ color: BRAND.orange }}
+        >
+          Discuss this solution <ArrowRight className="size-3.5" />
+        </Link>
+      </div>
+    </article>
+  )
+}
 
 export function SolutionsPage() {
   return (
     <>
       <PageHero
         crumbs={[{ href: '/site/solutions', label: 'Solutions' }]}
-        eyebrow="Services & automation"
-        title={<>Six service lines. One accountable team.</>}
-        lead="Process automation, CRM and marketing automation, education operations, communications, knowledge systems and custom AI products — designed, delivered and supported by ALO Labs."
+        eyebrow="Solutions"
+        title={<>Nine ways we solve real business problems.</>}
+        lead="Every ALO Labs solution starts with a business problem and ends with measurable value — delivered as an established service or as a project built for you. Here is exactly what each one covers."
       >
-        <div className="flex flex-wrap items-center gap-3">
-          <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
-            <Link href="/site/contact">
-              Talk to an expert <ArrowRight className="size-4" />
-            </Link>
-          </Button>
-          <Button size="lg" variant="outline" asChild>
-            <Link href="/portal">Client portal</Link>
-          </Button>
+        <div className="flex flex-wrap gap-2">
+          <Pill tone="blue">Existing service</Pill>
+          <Pill tone="orange">Project engagement</Pill>
+          <Pill tone="plain">Honest labels, always</Pill>
         </div>
       </PageHero>
 
       <Section
-        id="services"
-        eyebrow="What we do"
-        title="Services first, automation where it earns its place."
-        lead="Each line stands on its own — take one, combine them later, with the same team and the same client portal."
+        eyebrow="The solution areas"
+        title="Problem → solution → capabilities → value."
+        lead="Each block below follows the same structure, so you can compare offers like a buyer should — on substance."
       >
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {SERVICES.map((service, i) => (
-            <div key={service.title} id={service.anchor} className="scroll-mt-20">
-              <NumberedCard
-                index={String(i + 1).padStart(2, '0')}
-                title={service.title}
-                body={service.body}
-                items={service.items}
-                href="/site/contact"
-                ctaLabel="Talk to an expert"
-              />
-            </div>
+        <div className="space-y-6">
+          {SOLUTIONS.map((solution, index) => (
+            <SolutionBlock key={solution.id} solution={solution} index={index} />
           ))}
         </div>
       </Section>
 
       <Section
-        id="process"
-        eyebrow="How we deliver"
-        title="Assess, design, deploy, run."
-        lead="The same four steps on every engagement, whether it is one workflow or a company-wide programme."
+        eyebrow="Project engagement"
+        title="How a project starts."
+        lead="Whether it is an established service or a custom build, the way in is the same: a conversation, a clear scope and your approval before anything begins."
         ground="canvas"
       >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {PROCESS.map((p) => (
-            <div key={p.step} className="rounded-2xl border border-slate-200 bg-white p-6">
-              <span
-                className="flex size-10 items-center justify-center rounded-full text-[15px] font-bold text-white"
-                style={{ background: BRAND.orange, fontFamily: BRAND_FONTS.secondary.stack }}
-              >
-                {p.step}
+        <div className="grid gap-4 md:grid-cols-3">
+          {ENGAGEMENT_STEPS.map((step) => (
+            <div key={step.n} className="rounded-2xl border border-slate-200 bg-white p-6">
+              <span className="font-mono text-[12px] font-bold tracking-[0.18em]" style={{ color: BRAND.orange }}>
+                {step.n}
               </span>
-              <h3 className="mt-4 text-[17px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-                {p.title}
+              <h3 className="mt-3 text-[16px] font-semibold" style={{ color: BRAND.blue }}>
+                {step.title}
               </h3>
-              <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
-                {p.body}
+              <p className="mt-2 text-[12.5px] leading-relaxed" style={{ color: BRAND.gray }}>
+                {step.body}
               </p>
             </div>
           ))}
         </div>
-        <div className="mt-8 flex flex-wrap gap-2">
-          {['Fixed-scope pilots', 'Team-by-team rollouts', 'Managed operations', 'Training & handover'].map((tag) => (
-            <Pill key={tag} tone="orange">
-              {tag}
-            </Pill>
-          ))}
+        <div className="mt-8">
+          <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
+            <Link href="/site/contact">
+              Start a Project <ArrowRight className="size-4" />
+            </Link>
+          </Button>
         </div>
       </Section>
 
-      <Section
-        id="industries"
-        eyebrow="Industries"
-        title="Where we work today."
-        lead="The platform is horizontal; the workflows are not. We bring industry-specific workflow libraries and tune the rest with you."
-      >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {INDUSTRIES.map((ind) => (
-            <div key={ind.title} className="rounded-xl border border-slate-200 bg-white p-5">
-              <h3 className="text-[14px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-                {ind.title}
-              </h3>
-              <p className="mt-1.5 text-[12px] leading-relaxed" style={{ color: BRAND.gray }}>
-                {ind.note}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section id="faq" eyebrow="FAQ" title="Questions we often hear." lead="Can't find your answer? Our team replies within one business day." ground="canvas">
+      <Section eyebrow="Buyer questions" title="Straight answers." narrow>
         <FaqList items={FAQS} />
       </Section>
 
-      <CtaBand
-        title="Tell us which department hurts most."
-        lead="We will map it, propose a first scope and show you how you will follow the work in your client portal."
-      />
+      <CtaBand />
     </>
   )
 }

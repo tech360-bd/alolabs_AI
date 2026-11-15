@@ -179,7 +179,7 @@ export default function DealPipelinePanel() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-[#1E293B] flex items-center gap-2">
-            <GitBranch className="w-5 h-5 text-[#003ABC]" />
+            <GitBranch className="w-5 h-5 text-[#0066CC]" />
             Deal Pipeline
           </h2>
           <p className="text-sm text-[#64748B] mt-0.5">
@@ -209,8 +209,8 @@ export default function DealPipelinePanel() {
         <Card className="bg-white border-[#E2E8F0]">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#003ABC]/10 flex items-center justify-center flex-shrink-0">
-                <GitBranch className="w-5 h-5 text-[#003ABC]" />
+              <div className="w-10 h-10 rounded-lg bg-[#0066CC]/10 flex items-center justify-center flex-shrink-0">
+                <GitBranch className="w-5 h-5 text-[#0066CC]" />
               </div>
               <div>
                 <p className="text-xs text-[#64748B]">Total Deals</p>
@@ -269,7 +269,7 @@ export default function DealPipelinePanel() {
               placeholder="Search deals by title or contact name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]"
+              className="pl-9 h-9 border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B] placeholder:text-[#94A3B8]"
             />
           </div>
         </CardContent>
@@ -364,8 +364,8 @@ export default function DealPipelinePanel() {
                         deals.map((deal) => (
                           <Card
                             key={deal.id}
-                            className={`bg-white border-[#E2E8F0] cursor-pointer transition-all hover:shadow-md hover:border-[#003ABC]/20 ${
-                              selectedDeal?.id === deal.id ? 'ring-2 ring-[#003ABC]/30 border-[#003ABC]/30' : ''
+                            className={`bg-white border-[#E2E8F0] cursor-pointer transition-all hover:shadow-md hover:border-[#0066CC]/20 ${
+                              selectedDeal?.id === deal.id ? 'ring-2 ring-[#0066CC]/30 border-[#0066CC]/30' : ''
                             }`}
                             onClick={() => setSelectedDeal(deal)}
                           >
@@ -421,7 +421,7 @@ export default function DealPipelinePanel() {
                               )}
 
                               {/* Probability Bar */}
-                              <Progress value={deal.probability} className="h-1 [&>div]:bg-[#003ABC]" />
+                              <Progress value={deal.probability} className="h-1 [&>div]:bg-[#0066CC]" />
                             </CardContent>
                           </Card>
                         ))
@@ -479,7 +479,7 @@ export default function DealPipelinePanel() {
                       <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Win Probability</p>
                       <span className="text-sm font-bold text-[#1E293B]">{selectedDeal.probability}%</span>
                     </div>
-                    <Progress value={selectedDeal.probability} className="h-2 [&>div]:bg-[#003ABC]" />
+                    <Progress value={selectedDeal.probability} className="h-2 [&>div]:bg-[#0066CC]" />
                     <p className="text-xs text-[#94A3B8] mt-1">
                       Weighted: {formatCurrency(selectedDeal.value * (selectedDeal.probability / 100), selectedDeal.currency)}
                     </p>
@@ -492,8 +492,8 @@ export default function DealPipelinePanel() {
                     <div>
                       <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Contact</p>
                       <div className="flex items-center gap-3 p-3 rounded-lg bg-[#F8FAFC]">
-                        <div className="w-9 h-9 rounded-full bg-[#003ABC]/10 flex items-center justify-center">
-                          <User className="w-4 h-4 text-[#003ABC]" />
+                        <div className="w-9 h-9 rounded-full bg-[#0066CC]/10 flex items-center justify-center">
+                          <User className="w-4 h-4 text-[#0066CC]" />
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-[#1E293B]">

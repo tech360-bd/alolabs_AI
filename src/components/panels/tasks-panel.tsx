@@ -238,7 +238,7 @@ export default function TasksPanel() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#003ABC] to-[#0077FF] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0066CC] to-[#0077FF] flex items-center justify-center">
             <ListTodo className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -249,7 +249,7 @@ export default function TasksPanel() {
         <div className="flex items-center gap-2">
           {selectedTasks.size > 0 && (
             <div className="flex items-center gap-2 mr-2">
-              <Badge variant="secondary" className="bg-[#003ABC]/10 text-[#003ABC] text-xs">{selectedTasks.size} selected</Badge>
+              <Badge variant="secondary" className="bg-[#0066CC]/10 text-[#0066CC] text-xs">{selectedTasks.size} selected</Badge>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-8 text-xs border-[#E2E8F0]">
@@ -268,10 +268,10 @@ export default function TasksPanel() {
               </Button>
             </div>
           )}
-          <Button variant="outline" size="icon" className={`h-9 w-9 ${viewMode === 'kanban' ? 'bg-[#003ABC]/10 border-[#003ABC]/30 text-[#003ABC]' : 'border-[#E2E8F0] text-[#64748B]'}`} onClick={() => setViewMode('kanban')}>
+          <Button variant="outline" size="icon" className={`h-9 w-9 ${viewMode === 'kanban' ? 'bg-[#0066CC]/10 border-[#0066CC]/30 text-[#0066CC]' : 'border-[#E2E8F0] text-[#64748B]'}`} onClick={() => setViewMode('kanban')}>
             <LayoutGrid className="w-4 h-4" />
           </Button>
-          <Button size="sm" className="bg-[#FF6A00] hover:bg-[#E5600A] text-white gap-1.5" onClick={() => setShowCreateDialog(true)}>
+          <Button size="sm" className="bg-[#E8501A] hover:bg-[#E5600A] text-white gap-1.5" onClick={() => setShowCreateDialog(true)}>
             <Plus className="w-3.5 h-3.5" /> New Task
           </Button>
         </div>
@@ -285,7 +285,7 @@ export default function TasksPanel() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {['all', 'critical', 'high', 'medium', 'low'].map((p) => (
-            <Button key={p} variant={priorityFilter === p ? 'default' : 'outline'} size="sm" className={`h-7 text-[11px] px-2.5 ${priorityFilter === p ? 'bg-[#003ABC] text-white hover:bg-[#003ABC]/90' : 'border-[#E2E8F0] text-[#64748B] hover:text-[#1E293B]'}`} onClick={() => setPriorityFilter(p)}>
+            <Button key={p} variant={priorityFilter === p ? 'default' : 'outline'} size="sm" className={`h-7 text-[11px] px-2.5 ${priorityFilter === p ? 'bg-[#0066CC] text-white hover:bg-[#0066CC]/90' : 'border-[#E2E8F0] text-[#64748B] hover:text-[#1E293B]'}`} onClick={() => setPriorityFilter(p)}>
               {p === 'all' ? 'All' : p.charAt(0).toUpperCase() + p.slice(1)}
             </Button>
           ))}
@@ -339,13 +339,13 @@ export default function TasksPanel() {
                     return (
                       <div
                         key={task.id}
-                        className={`bg-white rounded-lg border border-[#E2E8F0] p-3 space-y-2.5 hover:shadow-md transition-all cursor-pointer group ${selectedTasks.has(task.id) ? 'ring-2 ring-[#003ABC]/30' : ''} ${overdue ? 'border-l-2 border-l-red-400' : ''}`}
+                        className={`bg-white rounded-lg border border-[#E2E8F0] p-3 space-y-2.5 hover:shadow-md transition-all cursor-pointer group ${selectedTasks.has(task.id) ? 'ring-2 ring-[#0066CC]/30' : ''} ${overdue ? 'border-l-2 border-l-red-400' : ''}`}
                         onClick={() => setSelectedTask(task)}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-2 min-w-0 flex-1">
                             <button onClick={(e) => { e.stopPropagation(); toggleSelect(task.id) }} className="mt-0.5">
-                              <Checkbox checked={selectedTasks.has(task.id)} className="data-[state=checked]:bg-[#003ABC] data-[state=checked]:border-[#003ABC] h-4 w-4" />
+                              <Checkbox checked={selectedTasks.has(task.id)} className="data-[state=checked]:bg-[#0066CC] data-[state=checked]:border-[#0066CC] h-4 w-4" />
                             </button>
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-[#1E293B] leading-snug">{task.title}</p>
@@ -397,7 +397,7 @@ export default function TasksPanel() {
                           </div>
                           {task.assignee && (
                             <Avatar className="w-6 h-6">
-                              <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-[9px] font-medium">{getInitials(task.assignee.name)}</AvatarFallback>
+                              <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-[9px] font-medium">{getInitials(task.assignee.name)}</AvatarFallback>
                             </Avatar>
                           )}
                         </div>
@@ -555,7 +555,7 @@ export default function TasksPanel() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="text-[#64748B]">Cancel</Button>
-            <Button className="bg-[#FF6A00] hover:bg-[#E5600A] text-white gap-1.5" onClick={handleCreate} disabled={!createForm.title.trim()}>
+            <Button className="bg-[#E8501A] hover:bg-[#E5600A] text-white gap-1.5" onClick={handleCreate} disabled={!createForm.title.trim()}>
               <Send className="w-3.5 h-3.5" /> Create Task
             </Button>
           </DialogFooter>

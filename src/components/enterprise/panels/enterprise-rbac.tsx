@@ -22,7 +22,7 @@ interface Role { id: string; name: string; description: string | null; permissio
 
 const roleColors: Record<string, string> = {
   super_admin: 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400',
-  admin: 'bg-[#FF6A00]/10 text-[#FF6A00]',
+  admin: 'bg-[#E8501A]/10 text-[#E8501A]',
   manager: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400',
   operator: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
   viewer: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
@@ -30,7 +30,7 @@ const roleColors: Record<string, string> = {
 
 const roleDistribution = [
   { role: 'super_admin', label: 'Super Admin', count: 3, color: 'bg-red-500' },
-  { role: 'admin', label: 'Admin', count: 12, color: 'bg-[#FF6A00]' },
+  { role: 'admin', label: 'Admin', count: 12, color: 'bg-[#E8501A]' },
   { role: 'manager', label: 'Manager', count: 25, color: 'bg-blue-500' },
   { role: 'operator', label: 'Operator', count: 30, color: 'bg-emerald-500' },
   { role: 'viewer', label: 'Viewer', count: 17, color: 'bg-slate-400' },
@@ -100,8 +100,8 @@ export default function EnterpriseRBAC() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF6A00]/10">
-          <Lock className="h-5 w-5 text-[#FF6A00]" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#E8501A]/10">
+          <Lock className="h-5 w-5 text-[#E8501A]" />
         </div>
         <div>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Enterprise RBAC</h2>
@@ -111,8 +111,8 @@ export default function EnterpriseRBAC() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Users', value: (users.length || totalUsers).toLocaleString(), icon: Users, color: 'text-[#003ABC]' },
-          { label: 'Roles', value: (roles.length || 5).toString(), icon: Shield, color: 'text-[#FF6A00]' },
+          { label: 'Total Users', value: (users.length || totalUsers).toLocaleString(), icon: Users, color: 'text-[#0066CC]' },
+          { label: 'Roles', value: (roles.length || 5).toString(), icon: Shield, color: 'text-[#E8501A]' },
           { label: 'Active Sessions', value: users.filter(u => u.isActive).length.toString(), icon: UserCheck, color: 'text-emerald-600' },
           { label: 'Permissions', value: (totalPermissions || 42).toString(), icon: Key, color: 'text-violet-600' },
         ].map((s, i) => (
@@ -154,7 +154,7 @@ export default function EnterpriseRBAC() {
             variant={activeTab === tab ? 'default' : 'outline'}
             size="sm"
             onClick={() => setActiveTab(tab)}
-            className={activeTab === tab ? 'bg-[#003ABC] hover:bg-[#002A99] text-white' : ''}
+            className={activeTab === tab ? 'bg-[#0066CC] hover:bg-[#002A99] text-white' : ''}
           >
             {tab === 'users' ? 'Users' : tab === 'roles' ? 'Roles' : 'Permission Matrix'}
           </Button>

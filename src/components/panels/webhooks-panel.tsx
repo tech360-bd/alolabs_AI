@@ -307,7 +307,7 @@ export default function WebhooksPanel() {
         </div>
         <Button
           onClick={openCreate}
-          className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+          className="bg-[#0066CC] hover:bg-[#002A99] text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Webhook
@@ -319,7 +319,7 @@ export default function WebhooksPanel() {
         {/* Total */}
         <div className="bg-white rounded-xl border border-[#E2E8F0] p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-[#F8FAFC] flex items-center justify-center shrink-0">
-            <Webhook className="w-5 h-5 text-[#003ABC]" />
+            <Webhook className="w-5 h-5 text-[#0066CC]" />
           </div>
           <div>
             <p className="text-2xl font-bold text-[#1E293B]">{totalWebhooks}</p>
@@ -352,7 +352,7 @@ export default function WebhooksPanel() {
                     <span className="text-sm text-[#1E293B] truncate max-w-[140px]">{name}</span>
                     <Badge
                       variant="secondary"
-                      className="bg-[#003ABC]/10 text-[#003ABC] text-[10px] hover:bg-[#003ABC]/10"
+                      className="bg-[#0066CC]/10 text-[#0066CC] text-[10px] hover:bg-[#0066CC]/10"
                     >
                       {count}
                     </Badge>
@@ -468,11 +468,11 @@ export default function WebhooksPanel() {
                           size="sm"
                           onClick={() => handleTest(w.id)}
                           disabled={testingId === w.id || !w.active}
-                          className="text-[#FF6A00] hover:text-[#E55D00] hover:bg-orange-50"
+                          className="text-[#E8501A] hover:text-[#E55D00] hover:bg-orange-50"
                         >
                           {testingId === w.id ? (
                             <span className="flex items-center gap-1">
-                              <span className="w-3 h-3 border-2 border-[#FF6A00] border-t-transparent rounded-full animate-spin" />
+                              <span className="w-3 h-3 border-2 border-[#E8501A] border-t-transparent rounded-full animate-spin" />
                               Testing
                             </span>
                           ) : (
@@ -573,7 +573,7 @@ export default function WebhooksPanel() {
                     size="sm"
                     onClick={() => handleTest(w.id)}
                     disabled={testingId === w.id || !w.active}
-                    className="text-[#FF6A00] hover:text-[#E55D00] hover:bg-orange-50 h-7 text-xs"
+                    className="text-[#E8501A] hover:text-[#E55D00] hover:bg-orange-50 h-7 text-xs"
                   >
                     {testingId === w.id ? 'Testing...' : 'Test'}
                   </Button>
@@ -642,7 +642,7 @@ export default function WebhooksPanel() {
                 placeholder="e.g. Task Completion Notifier"
                 value={form.name}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                className="border-[#E2E8F0] focus-visible:ring-[#003ABC]"
+                className="border-[#E2E8F0] focus-visible:ring-[#0066CC]"
               />
             </div>
 
@@ -653,7 +653,7 @@ export default function WebhooksPanel() {
                 placeholder="https://your-server.com/webhooks/..."
                 value={form.url}
                 onChange={(e) => setForm((p) => ({ ...p, url: e.target.value }))}
-                className="border-[#E2E8F0] focus-visible:ring-[#003ABC] font-mono text-sm"
+                className="border-[#E2E8F0] focus-visible:ring-[#0066CC] font-mono text-sm"
               />
             </div>
 
@@ -667,7 +667,7 @@ export default function WebhooksPanel() {
                       id={`event-${event}`}
                       checked={form.events.includes(event)}
                       onCheckedChange={() => toggleEvent(event)}
-                      className="border-[#E2E8F0] data-[state=checked]:bg-[#003ABC] data-[state=checked]:border-[#003ABC]"
+                      className="border-[#E2E8F0] data-[state=checked]:bg-[#0066CC] data-[state=checked]:border-[#0066CC]"
                     />
                     <label
                       htmlFor={`event-${event}`}
@@ -689,7 +689,7 @@ export default function WebhooksPanel() {
               <Switch
                 checked={form.active}
                 onCheckedChange={(checked) => setForm((p) => ({ ...p, active: checked }))}
-                className="data-[state=checked]:bg-[#003ABC]"
+                className="data-[state=checked]:bg-[#0066CC]"
               />
             </div>
           </div>
@@ -705,7 +705,7 @@ export default function WebhooksPanel() {
             <Button
               onClick={handleSubmit}
               disabled={!form.companyId || !form.name || !form.url || form.events.length === 0 || submitting}
-              className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+              className="bg-[#0066CC] hover:bg-[#002A99] text-white"
             >
               {submitting ? 'Saving...' : editingId ? 'Update Webhook' : 'Create Webhook'}
             </Button>
@@ -765,7 +765,7 @@ export default function WebhooksPanel() {
           <DialogFooter>
             <Button
               onClick={() => setTestResult((p) => ({ ...p, open: false }))}
-              className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+              className="bg-[#0066CC] hover:bg-[#002A99] text-white"
             >
               Close
             </Button>

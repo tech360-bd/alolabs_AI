@@ -1,23 +1,27 @@
 'use client'
 
 /**
- * /site/about — the company page: what ALO Labs is, how it works, the numbers
- * on the letterhead, and where to find the team.
+ * /site/about — the company page: vision, mission, engineering philosophy,
+ * approach to responsible AI, quality and security principles, and the
+ * long-term partnership approach. Company facts come from the letterhead
+ * tokens — no invented founding dates, headcounts or achievements.
  */
 
 import * as React from 'react'
 import Link from 'next/link'
-import { AloLabsLogo, Badge, BrandRule } from '@/components/brand/alo-logo'
+import { Badge, BrandRule } from '@/components/brand/alo-logo'
 import { Button } from '@/components/ui/button'
 import { BRAND, BRAND_FONTS, COMPANY, HEADLINE_STATS, USAGE_RULES } from '@/lib/brand/tokens'
-import { ArrowRight, Compass, Lightbulb, Scale, ShieldCheck, Users, Zap } from 'lucide-react'
+import {
+  ArrowRight, Compass, Handshake, Lightbulb, Scale, Search, ShieldCheck, Sparkles, Users, Zap,
+} from 'lucide-react'
 import { CtaBand, CheckList, PageHero, Pill, Section } from '@/components/site/chrome'
 
-const VALUES = [
+const PHILOSOPHY = [
   {
-    icon: ShieldCheck,
-    title: 'Secure by protocol',
-    body: 'Approval before execution, tenant isolation, full audit trails. Security is a design constraint here, never a feature ticket.',
+    icon: Search,
+    title: 'Understand before building',
+    body: 'Every engagement starts with the business, its people and its constraints. Technology choices follow understanding — never the other way around.',
   },
   {
     icon: Scale,
@@ -27,7 +31,7 @@ const VALUES = [
   {
     icon: Lightbulb,
     title: 'Intelligence where it earns its place',
-    body: 'AI is measured, never bolted on. If a workflow is better as plain software, we build plain software.',
+    body: 'AI is measured, never bolted on. If a workflow is better as plain, reliable software, we build plain, reliable software.',
   },
   {
     icon: Users,
@@ -37,20 +41,40 @@ const VALUES = [
   {
     icon: Zap,
     title: 'Ship, then evolve',
-    body: 'First project live in weeks, then compound: we extend team by team on a shared roadmap.',
+    body: 'First value delivered early, then compound: we extend system by system on a shared roadmap instead of boiling the ocean.',
   },
   {
     icon: Compass,
     title: 'Long-horizon engineering',
-    body: 'Architecture, data and infrastructure designed to hold up over years — with backups, monitoring and disaster recovery from day one.',
+    body: 'Architecture, data and infrastructure designed to hold up over years — with backups, monitoring and recovery designed in from day one.',
   },
 ]
 
-const MILESTONES = [
-  { year: '2023', title: 'The thesis', body: 'AI that does real, accountable work for a business — scoped, reviewed and approved — rather than another chatbot.' },
-  { year: '2024', title: 'First services', body: 'Process automation and CRM work delivered for our first clients, with human review on every deliverable.' },
-  { year: '2025', title: 'Six service lines', body: 'Automation, CRM and marketing, education operations, communications, knowledge and content, and custom software.' },
-  { year: '2026', title: 'The client portal', body: 'One secure place for clients to request services, follow progress, review deliverables, pay invoices and reach support.' },
+const RESPONSIBLE_AI = [
+  'AI assists people; it does not replace judgement where judgement matters.',
+  'Automated actions are scoped, logged and reversible — sensitive steps require human approval.',
+  'Client data is tenant-isolated and never used to train shared models.',
+  'We are honest about what AI can and cannot do — no inflated capability claims.',
+  'Outputs that matter are reviewed before they reach customers, regulators or auditors.',
+]
+
+const QUALITY_SECURITY = [
+  {
+    title: 'Quality is a release criterion',
+    body: 'Automated tests, code review and verification are part of every delivery — not a phase squeezed in at the end. Deliverables are reviewed before handover and documented so they can be operated without us.',
+  },
+  {
+    title: 'Security is a design constraint',
+    body: 'Access control, tenant isolation, session security and auditability are designed in from the first architecture decision. Security is never a feature ticket bolted on after launch.',
+  },
+  {
+    title: 'Privacy by default',
+    body: 'Client data stays private to the client account, is used only to deliver their work, and is never exposed to other clients or published without permission.',
+  },
+  {
+    title: 'Operated responsibly',
+    body: 'Backups, monitoring, disaster recovery and dependency hygiene are part of how we run what we build — for our own platform and for client systems.',
+  },
 ]
 
 export function AboutPage() {
@@ -59,13 +83,13 @@ export function AboutPage() {
       <PageHero
         crumbs={[{ href: '/site/about', label: 'About' }]}
         eyebrow="About ALO Labs"
-        title={<>We build the operating system for AI work.</>}
-        lead={`ALO Labs is a technology company headquartered in Harrisonville, Missouri. We deliver AI-powered business services — automation, CRM, communications, content and custom software — for the teams who rely on us. ${COMPANY.promise}`}
+        title={<>A global AI &amp; software technology company.</>}
+        lead={`ALO Labs designs and builds software, AI-powered solutions and connected digital platforms for businesses that take technology seriously. Headquartered in Harrisonville, Missouri, working with clients wherever they operate. ${COMPANY.promise}`}
       >
         <div className="flex flex-wrap items-center gap-3">
           <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
             <Link href="/site/contact">
-              Talk to the team <ArrowRight className="size-4" />
+              Start a Project <ArrowRight className="size-4" />
             </Link>
           </Button>
           <Button size="lg" variant="outline" asChild>
@@ -74,21 +98,91 @@ export function AboutPage() {
         </div>
       </PageHero>
 
-      {/* Numbers on the letterhead */}
-      <Section eyebrow="By the numbers" title="Six service lines. One client portal. A reply within one business day.">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {HEADLINE_STATS.map((stat) => (
-            <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-6">
-              <p className="text-[32px] font-bold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-                {stat.value}
-              </p>
-              <p className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: BRAND.gray }}>
-                {stat.label}
+      {/* Vision & mission */}
+      <Section eyebrow="Vision & mission" title="Why we exist.">
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-8">
+            <Pill tone="orange">Vision</Pill>
+            <p className="mt-4 text-[17px] leading-relaxed" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
+              A world where businesses of any size can use intelligent technology with confidence —
+              systems that are engineered properly, behave predictably and stay accountable to the
+              people who depend on them.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-8">
+            <Pill tone="blue">Mission</Pill>
+            <p className="mt-4 text-[17px] leading-relaxed" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
+              To design, build and evolve software, AI solutions and digital platforms that solve
+              real business problems — delivered with engineering discipline, honest communication
+              and a partnership mindset that lasts beyond launch.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* Engineering philosophy */}
+      <Section
+        eyebrow="Engineering philosophy"
+        title="Six rules we do not bend."
+        lead="The principles behind every architecture decision, every review and every delivery."
+        ground="canvas"
+      >
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {PHILOSOPHY.map((v) => (
+            <div key={v.title} className="rounded-2xl border border-slate-200 bg-white p-7">
+              <span className="flex size-11 items-center justify-center rounded-xl" style={{ background: BRAND.tint }}>
+                <v.icon className="size-5" style={{ color: BRAND.blue }} />
+              </span>
+              <h3 className="mt-4 text-[17px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
+                {v.title}
+              </h3>
+              <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
+                {v.body}
               </p>
             </div>
           ))}
         </div>
-        <div className="mt-8 flex flex-wrap items-center gap-6 rounded-2xl border border-slate-200 bg-white p-6">
+      </Section>
+
+      {/* Responsible AI */}
+      <Section eyebrow="Responsible AI" title="Intelligent, with guardrails." ground="navy" narrow>
+        <p className="text-[14px] leading-relaxed text-white/75">
+          AI creates value when it is applied carefully and governed honestly. Our approach to
+          responsible AI is practical, and it applies to everything we build:
+        </p>
+        <div className="mt-8">
+          <CheckList tone="white" items={RESPONSIBLE_AI} />
+        </div>
+      </Section>
+
+      {/* Quality & security */}
+      <Section eyebrow="Quality & security" title="How we keep systems dependable.">
+        <div className="grid gap-5 md:grid-cols-2">
+          {QUALITY_SECURITY.map((item) => (
+            <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-7">
+              <span className="flex size-11 items-center justify-center rounded-xl" style={{ background: 'rgba(232,80,26,0.10)', color: BRAND.orange }}>
+                <ShieldCheck className="size-5" />
+              </span>
+              <h3 className="mt-4 text-[16px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
+                {item.title}
+              </h3>
+              <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
+                {item.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* Partnership */}
+      <Section
+        eyebrow="Long-term partnership"
+        title="We plan for the years after launch."
+        lead="The measure of our work is not the demo — it is whether the system is still serving your business, reliably, years later. That is why documentation, maintenance and honest roadmap advice are part of how we deliver, and why many of our relationships grow with each project."
+        ground="canvas"
+        narrow
+      >
+        <div className="flex flex-wrap items-center gap-6 rounded-2xl border border-slate-200 bg-white p-6">
           <Badge size={104} />
           <div className="max-w-[520px]">
             <p className="text-[15px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
@@ -112,55 +206,12 @@ export function AboutPage() {
         </div>
       </Section>
 
-      {/* Story */}
-      <Section
-        eyebrow="Our story"
-        title="From a first project to a lasting partnership."
-        lead="The company was founded on a simple observation: teams do not need more AI demos, they need AI that does specified work, is checked before it acts, and can be audited after it does."
-        ground="canvas"
-      >
-        <div className="grid gap-4 lg:grid-cols-4">
-          {MILESTONES.map((m) => (
-            <div key={m.year} className="rounded-2xl border border-slate-200 bg-white p-6">
-              <p className="font-mono text-[11px] font-bold tracking-[0.2em]" style={{ color: BRAND.orange }}>
-                {m.year}
-              </p>
-              <h3 className="mt-2.5 text-[16px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-                {m.title}
-              </h3>
-              <p className="mt-2 text-[12.5px] leading-relaxed" style={{ color: BRAND.gray }}>
-                {m.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* Values */}
-      <Section id="values" eyebrow="How we work" title="Six rules we do not bend.">
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {VALUES.map((v) => (
-            <div key={v.title} className="rounded-2xl border border-slate-200 bg-white p-7">
-              <span className="flex size-11 items-center justify-center rounded-xl" style={{ background: BRAND.tint }}>
-                <v.icon className="size-5" style={{ color: BRAND.blue }} />
-              </span>
-              <h3 className="mt-4 text-[17px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-                {v.title}
-              </h3>
-              <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
-                {v.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* Where we are */}
+      {/* Facts & offices */}
       <Section
         id="offices"
         eyebrow="Where we are"
-        title="A US company with a global delivery bench."
-        lead="Head office in Harrisonville, Missouri, with delivery teams working across time zones — and the four branded domains that carry the platform."
+        title="A US company working across borders."
+        lead="Head office in Harrisonville, Missouri, serving clients wherever they operate."
         ground="navy"
       >
         <div className="grid gap-10 lg:grid-cols-2">
@@ -191,19 +242,26 @@ export function AboutPage() {
               ))}
             </div>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">What we believe</p>
-            <div className="mt-4 space-y-2">
-              <Pill tone="orange">Secure · Smart · Scalable</Pill>
+          <div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {HEADLINE_STATS.map((stat) => (
+                <div key={stat.label} className="rounded-xl border border-white/10 bg-white/5 p-5">
+                  <p className="text-[26px] font-bold text-white" style={{ fontFamily: BRAND_FONTS.secondary.stack }}>
+                    {stat.value}
+                  </p>
+                  <p className="mt-1 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-white/55">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
             </div>
-            <div className="mt-5">
+            <div className="mt-4">
               <CheckList
                 tone="white"
                 items={[
-                  'The owner stays in command — automation answers to people.',
+                  'The people who own the outcome stay in command — automation answers to them.',
                   'Specified work beats improvised work.',
                   'Every capability ships with its audit trail.',
-                  'Open surfaces — the brand kit, the diagram system, the playbooks — are part of the product.',
                   'We build what we would want to operate ourselves.',
                 ]}
               />
@@ -213,8 +271,8 @@ export function AboutPage() {
       </Section>
 
       <CtaBand
-        title="Come build the operating system for AI work."
-        lead="Whether you want to deploy it or help build it — we should talk."
+        title="Let's build something that lasts."
+        lead="If you are looking for a technology partner who takes quality as seriously as you do — we should talk."
       />
     </>
   )

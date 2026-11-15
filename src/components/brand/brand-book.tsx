@@ -243,7 +243,7 @@ function LogosSection() {
             <div className="rounded-lg p-5" style={{ background: BRAND.canvas }}>
               <AloLabsLogo variant="stacked" size={40} />
             </div>
-            <div className="rounded-lg p-5" style={{ background: 'rgba(255,106,0,0.08)' }}>
+            <div className="rounded-lg p-5" style={{ background: 'rgba(232,80,26,0.08)' }}>
               <AloLabsLogo size={40} />
             </div>
           </div>
@@ -306,7 +306,7 @@ function LockupCard({ label, file, children }: { label: string; file: string; ch
 
 function MisuseCard({ label }: { label: string }) {
   return (
-    <div className="rounded-lg border p-4" style={{ borderColor: 'rgba(255,106,0,0.4)', background: 'rgba(255,106,0,0.05)' }}>
+    <div className="rounded-lg border p-4" style={{ borderColor: 'rgba(232,80,26,0.4)', background: 'rgba(232,80,26,0.05)' }}>
       <div className="flex items-start gap-2">
         <XCircle className="mt-0.5 size-4 shrink-0" style={{ color: BRAND.orange }} />
         <p className="text-[12px] font-semibold" style={{ color: BRAND.ink }}>
@@ -610,8 +610,8 @@ function DocumentsSection() {
             include a Command Center, Master Router, Department Router, Workflow Engine, Approval Engine, Learning
             Engine, Agent Registry, Memory System, Audit System and a Hybrid RAG Engine. Create 1020 AI Agents across
             100+ Departments. Every agent must have an ID, name, role, mission, skills, tools, memory, workflow, QA,
-            protection rules, approval rules, audit logs and self-improvement. Use orange (#FF6A00) for primary actions
-            and highlights, blue (#003ABC) for system, navigation and trust, white for clean UI, and gray for text and
+            protection rules, approval rules, audit logs and self-improvement. Use orange (#E8501A) for primary actions
+            and highlights, blue (#0066CC) for system, navigation and trust, white for clean UI, and gray for text and
             borders. Tech stack: Next.js, TailwindCSS, NestJS, PostgreSQL, Redis, Qdrant, Neo4j, n8n, Docker. Provide a
             complete folder structure, database schema, API routes, flows, UI design, security, deployment and a
             mobile-responsive interface. Make it production ready.

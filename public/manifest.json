@@ -1,11 +1,11 @@
 {
   "name": "ALO Labs",
   "short_name": "ALO Labs",
-  "description": "ALO Labs — AI-powered business services",
+  "description": "ALO Labs — global AI & software technology company",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F8FAFC",
-  "theme_color": "#003ABC",
+  "background_color": "#0A1B3D",
+  "theme_color": "#0066CC",
   "orientation": "any",
   "icons": [
     {

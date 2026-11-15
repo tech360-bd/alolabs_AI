@@ -27,7 +27,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'Press and media requests?',
-    a: 'Use the Press & media topic, or take the boilerplate, logos and fact sheet directly from the marketing kit page.',
+    a: 'Use the Press & media topic in the form, or email us directly — we will send you the company boilerplate and brand materials.',
   },
 ]
 
@@ -148,7 +148,7 @@ export function ContactPage() {
               </p>
             </div>
             <h3 className="mt-3 text-[17px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-              Four branded domains
+              Branded domains
             </h3>
             <ul className="mt-2 space-y-1.5">
               {COMPANY.domains.map((d) => (

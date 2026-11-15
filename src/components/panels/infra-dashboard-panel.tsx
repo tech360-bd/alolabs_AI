@@ -317,7 +317,7 @@ function ConnectDialog({
               <Button
                 onClick={handleConnect}
                 disabled={loading}
-                className="w-full bg-[#003ABC] hover:bg-[#003ABC]/90 text-white mt-4"
+                className="w-full bg-[#0066CC] hover:bg-[#0066CC]/90 text-white mt-4"
               >
                 {loading ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -601,7 +601,7 @@ export default function InfraDashboardPanel() {
         <Button
           onClick={handlePingAll}
           disabled={pinging}
-          className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white gap-2"
+          className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white gap-2"
         >
           <RefreshCw className={`w-4 h-4 ${pinging ? 'animate-spin' : ''}`} />
           {pinging ? 'Pinging All...' : 'Ping All Services'}
@@ -654,14 +654,14 @@ export default function InfraDashboardPanel() {
       <Card className="bg-white border-[#E2E8F0] shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-[#1E293B] flex items-center gap-2">
-            <Activity className="w-4 h-4 text-[#003ABC]" />
+            <Activity className="w-4 h-4 text-[#0066CC]" />
             Aggregated Stats
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="text-center p-3 rounded-lg bg-[#F8FAFC]">
-              <p className="text-2xl font-bold text-[#003ABC]">{services.length}</p>
+              <p className="text-2xl font-bold text-[#0066CC]">{services.length}</p>
               <p className="text-xs text-[#94A3B8] mt-1">Total Services</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-emerald-50">
@@ -673,7 +673,7 @@ export default function InfraDashboardPanel() {
               <p className="text-xs text-[#94A3B8] mt-1">Total Latency</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-[#F8FAFC]">
-              <p className="text-2xl font-bold text-[#FF6A00]">
+              <p className="text-2xl font-bold text-[#E8501A]">
                 {services.reduce((sum, s) => sum + s.errorCount, 0)}
               </p>
               <p className="text-xs text-[#94A3B8] mt-1">Total Errors</p>
@@ -687,7 +687,7 @@ export default function InfraDashboardPanel() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold text-[#1E293B] flex items-center gap-2">
-              <Server className="w-4 h-4 text-[#003ABC]" />
+              <Server className="w-4 h-4 text-[#0066CC]" />
               Connection Log
             </CardTitle>
             {logs.length > 0 && (

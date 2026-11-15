@@ -91,9 +91,9 @@ export default function DataLakePanel() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Entries', value: stats?.total.toLocaleString() ?? '—', icon: Database, color: 'text-[#003ABC]' },
+          { label: 'Total Entries', value: stats?.total.toLocaleString() ?? '—', icon: Database, color: 'text-[#0066CC]' },
           { label: 'Total Size', value: stats ? fmtSize(stats.totalSize) : '—', icon: HardDrive, color: 'text-cyan-600' },
-          { label: 'Sources', value: sources.length.toString(), icon: FolderTree, color: 'text-[#FF6A00]' },
+          { label: 'Sources', value: sources.length.toString(), icon: FolderTree, color: 'text-[#E8501A]' },
           { label: 'Categories', value: categories.length.toString(), icon: Tag, color: 'text-violet-600' },
         ].map((s, i) => (
           <Card key={i} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
@@ -112,7 +112,7 @@ export default function DataLakePanel() {
           {sources.map(src => (
             <div key={src} className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
               <p className="text-xs text-slate-500 mb-1">{sourceLabels[src] || src}</p>
-              <p className="text-lg font-bold text-[#003ABC]">{stats.bySource[src]}</p>
+              <p className="text-lg font-bold text-[#0066CC]">{stats.bySource[src]}</p>
             </div>
           ))}
         </div>

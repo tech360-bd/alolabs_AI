@@ -73,8 +73,8 @@ export default function WorkflowOrchestration() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#003ABC]/10">
-          <GitBranch className="h-5 w-5 text-[#003ABC]" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0066CC]/10">
+          <GitBranch className="h-5 w-5 text-[#0066CC]" />
         </div>
         <div>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Workflow Orchestration</h2>
@@ -84,9 +84,9 @@ export default function WorkflowOrchestration() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Workflows', value: stats?.total.toLocaleString() ?? '—', icon: GitBranch, color: 'text-[#003ABC]' },
+          { label: 'Total Workflows', value: stats?.total.toLocaleString() ?? '—', icon: GitBranch, color: 'text-[#0066CC]' },
           { label: 'Active', value: stats?.active.toLocaleString() ?? '—', icon: PlayCircle, color: 'text-emerald-600' },
-          { label: 'Success Rate', value: stats ? `${stats.successRate}%` : '—', icon: TrendingUp, color: 'text-[#FF6A00]' },
+          { label: 'Success Rate', value: stats ? `${stats.successRate}%` : '—', icon: TrendingUp, color: 'text-[#E8501A]' },
           { label: 'Avg Duration', value: stats ? `${stats.avgDuration}s` : '—', icon: Clock, color: 'text-slate-600' },
         ].map((s, i) => (
           <Card key={i} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">

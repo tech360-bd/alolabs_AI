@@ -198,7 +198,7 @@ export default function MasterRoadmapPanel({ onNavigate }: PanelProps) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#003ABC] text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0066CC] text-white">
               <Calendar className="h-5 w-5" />
             </div>
             Master Roadmap
@@ -226,11 +226,11 @@ export default function MasterRoadmapPanel({ onNavigate }: PanelProps) {
 
       {/* ─── KPI Summary Cards ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <KPICard icon={Calendar} label="Total Weeks" value="52" sub="6 Phases" color="text-[#003ABC]" />
+        <KPICard icon={Calendar} label="Total Weeks" value="52" sub="6 Phases" color="text-[#0066CC]" />
         <KPICard icon={Target} label="Tasks" value={String(data.summary.totalTasks)} sub={`${tasksByStatus.completed} done`} color="text-orange-600" />
         <KPICard icon={Flag} label="Milestones" value={String(data.summary.totalMilestones)} sub="4 types" color="text-emerald-600" />
         <KPICard icon={DollarSign} label="Budget" value={`$${(data.summary.totalBudget / 1000).toFixed(0)}K`} sub="Total investment" color="text-purple-600" />
-        <KPICard icon={TrendingUp} label="Progress" value={`${totalProgress}%`} sub="Overall" color="text-[#FF6A00]" />
+        <KPICard icon={TrendingUp} label="Progress" value={`${totalProgress}%`} sub="Overall" color="text-[#E8501A]" />
         <KPICard icon={AlertTriangle} label="Risks" value={String(data.phases.reduce((a, p) => a + p.risks.length, 0))} sub="Tracked" color="text-red-500" />
       </div>
 
@@ -255,7 +255,7 @@ export default function MasterRoadmapPanel({ onNavigate }: PanelProps) {
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">Overall Roadmap Progress</span>
-            <span className="text-sm font-bold text-[#003ABC]">{totalProgress}%</span>
+            <span className="text-sm font-bold text-[#0066CC]">{totalProgress}%</span>
           </div>
           <div className="h-3 bg-muted rounded-full overflow-hidden flex">
             {data.phases.map((phase) => {

@@ -150,7 +150,7 @@ const QUOTA_LABELS: Record<string, string> = {
 function quotaBarColor(pct: number): string {
   if (pct > 100) return 'bg-red-500'
   if (pct >= 80) return 'bg-amber-500'
-  return 'bg-[#003ABC]'
+  return 'bg-[#0066CC]'
 }
 
 function scoreColor(score: number): string {
@@ -167,7 +167,7 @@ function scoreBadgeBg(score: number): string {
 
 function roleBadgeColor(role: string): string {
   switch (role) {
-    case 'admin': return 'bg-[#003ABC]/10 text-[#003ABC] border-[#003ABC]/20'
+    case 'admin': return 'bg-[#0066CC]/10 text-[#0066CC] border-[#0066CC]/20'
     case 'manager': return 'bg-purple-100 text-purple-700 border-purple-200'
     case 'operator': return 'bg-green-100 text-green-700 border-green-200'
     case 'viewer': return 'bg-gray-100 text-gray-600 border-gray-200'
@@ -267,7 +267,7 @@ export default function TenantAdminPanel() {
           setConfig(cfg)
           setConfigForm({
             logoUrl: cfg.logoUrl || '',
-            primaryColor: cfg.primaryColor || '#003ABC',
+            primaryColor: cfg.primaryColor || '#0066CC',
             customDomain: cfg.customDomain || '',
             emailFrom: cfg.emailFrom || '',
             supportEmail: cfg.supportEmail || '',
@@ -427,8 +427,8 @@ export default function TenantAdminPanel() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-[#003ABC]" />
+          <div className="w-9 h-9 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <Building2 className="w-5 h-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-xl font-bold text-[#1E293B]">Tenant Administration</h2>
@@ -465,8 +465,8 @@ export default function TenantAdminPanel() {
       {/* Company info bar */}
       {selectedCompanyData && (
         <div className="flex items-center gap-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3">
-          <div className="w-8 h-8 rounded-lg bg-[#003ABC]/10 flex items-center justify-center">
-            <Building2 className="w-4 h-4 text-[#003ABC]" />
+          <div className="w-8 h-8 rounded-lg bg-[#0066CC]/10 flex items-center justify-center">
+            <Building2 className="w-4 h-4 text-[#0066CC]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-[#1E293B] truncate">{selectedCompanyData.name}</p>
@@ -497,19 +497,19 @@ export default function TenantAdminPanel() {
       ) : (
         <Tabs defaultValue="config" className="space-y-4">
           <TabsList className="bg-[#F1F5F9] rounded-lg">
-            <TabsTrigger value="config" className="rounded-md data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm text-[#64748B] text-xs">
+            <TabsTrigger value="config" className="rounded-md data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm text-[#64748B] text-xs">
               <Palette className="w-3.5 h-3.5 mr-1.5" />
               Configuration
             </TabsTrigger>
-            <TabsTrigger value="quotas" className="rounded-md data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm text-[#64748B] text-xs">
+            <TabsTrigger value="quotas" className="rounded-md data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm text-[#64748B] text-xs">
               <Gauge className="w-3.5 h-3.5 mr-1.5" />
               Quotas & Limits
             </TabsTrigger>
-            <TabsTrigger value="users" className="rounded-md data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm text-[#64748B] text-xs">
+            <TabsTrigger value="users" className="rounded-md data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm text-[#64748B] text-xs">
               <Users className="w-3.5 h-3.5 mr-1.5" />
               Users
             </TabsTrigger>
-            <TabsTrigger value="quality" className="rounded-md data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm text-[#64748B] text-xs">
+            <TabsTrigger value="quality" className="rounded-md data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm text-[#64748B] text-xs">
               <Star className="w-3.5 h-3.5 mr-1.5" />
               Quality
             </TabsTrigger>
@@ -534,8 +534,8 @@ export default function TenantAdminPanel() {
                   {/* Branding Section */}
                   <div className="md:col-span-2">
                     <div className="flex items-center gap-2 mb-3">
-                      <Palette className="w-4 h-4 text-[#003ABC]" />
-                      <span className="text-xs font-semibold text-[#003ABC] uppercase tracking-wider">Branding</span>
+                      <Palette className="w-4 h-4 text-[#0066CC]" />
+                      <span className="text-xs font-semibold text-[#0066CC] uppercase tracking-wider">Branding</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -554,7 +554,7 @@ export default function TenantAdminPanel() {
                             <div className="w-8 h-8 rounded-lg border border-[#E2E8F0] shrink-0" style={{ backgroundColor: configForm.primaryColor }} />
                           )}
                           <Input
-                            placeholder="#003ABC"
+                            placeholder="#0066CC"
                             value={configForm.primaryColor}
                             onChange={(e) => setConfigForm((f) => ({ ...f, primaryColor: e.target.value }))}
                             className="border-[#E2E8F0] text-[#1E293B] flex-1"
@@ -569,8 +569,8 @@ export default function TenantAdminPanel() {
                   {/* Domain & Email Section */}
                   <div className="md:col-span-2">
                     <div className="flex items-center gap-2 mb-3">
-                      <Mail className="w-4 h-4 text-[#FF6A00]" />
-                      <span className="text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">Domain & Email</span>
+                      <Mail className="w-4 h-4 text-[#E8501A]" />
+                      <span className="text-xs font-semibold text-[#E8501A] uppercase tracking-wider">Domain & Email</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -626,8 +626,8 @@ export default function TenantAdminPanel() {
                   {/* Regional & Notifications Section */}
                   <div className="md:col-span-2">
                     <div className="flex items-center gap-2 mb-3">
-                      <Clock className="w-4 h-4 text-[#003ABC]" />
-                      <span className="text-xs font-semibold text-[#003ABC] uppercase tracking-wider">Regional & Notifications</span>
+                      <Clock className="w-4 h-4 text-[#0066CC]" />
+                      <span className="text-xs font-semibold text-[#0066CC] uppercase tracking-wider">Regional & Notifications</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -663,8 +663,8 @@ export default function TenantAdminPanel() {
                   {/* Advanced Section */}
                   <div className="md:col-span-2">
                     <div className="flex items-center gap-2 mb-3">
-                      <Shield className="w-4 h-4 text-[#FF6A00]" />
-                      <span className="text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">Advanced</span>
+                      <Shield className="w-4 h-4 text-[#E8501A]" />
+                      <span className="text-xs font-semibold text-[#E8501A] uppercase tracking-wider">Advanced</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -693,7 +693,7 @@ export default function TenantAdminPanel() {
                   </div>
                 </div>
                 <div className="mt-6 flex justify-end">
-                  <Button onClick={handleSaveConfig} disabled={configSaving} className="rounded-lg bg-[#003ABC] hover:bg-[#003ABC]/90 text-white">
+                  <Button onClick={handleSaveConfig} disabled={configSaving} className="rounded-lg bg-[#0066CC] hover:bg-[#0066CC]/90 text-white">
                     <Save className="w-4 h-4 mr-2" />
                     {configSaving ? 'Saving...' : 'Save Configuration'}
                   </Button>
@@ -711,7 +711,7 @@ export default function TenantAdminPanel() {
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-[#003ABC]" />
+                        <Shield className="w-4 h-4 text-[#0066CC]" />
                         <CardTitle className="text-sm font-semibold text-[#1E293B]">Subscription</CardTitle>
                       </div>
                       <Badge variant="secondary" className={`text-[10px] py-0 border ${subStatusBadge(quotaData.subscription.status)}`}>
@@ -749,7 +749,7 @@ export default function TenantAdminPanel() {
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Gauge className="w-4 h-4 text-[#003ABC]" />
+                          <Gauge className="w-4 h-4 text-[#0066CC]" />
                           <CardTitle className="text-sm font-semibold text-[#1E293B]">Monthly Token Budget</CardTitle>
                         </div>
                         <Badge
@@ -783,7 +783,7 @@ export default function TenantAdminPanel() {
                   <Card className="bg-white border-[#E2E8F0] rounded-xl shadow-sm">
                     <CardHeader className="pb-3">
                       <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-[#FF6A00]" />
+                        <Zap className="w-4 h-4 text-[#E8501A]" />
                         <CardTitle className="text-sm font-semibold text-[#1E293B]">Daily Token Budget</CardTitle>
                       </div>
                     </CardHeader>
@@ -841,7 +841,7 @@ export default function TenantAdminPanel() {
                           <DialogClose asChild>
                             <Button variant="outline" className="rounded-lg border-[#E2E8F0] text-[#1E293B]">Cancel</Button>
                           </DialogClose>
-                          <Button onClick={handleSaveQuota} disabled={quotaSaving} className="rounded-lg bg-[#003ABC] hover:bg-[#003ABC]/90 text-white">
+                          <Button onClick={handleSaveQuota} disabled={quotaSaving} className="rounded-lg bg-[#0066CC] hover:bg-[#0066CC]/90 text-white">
                             {quotaSaving ? 'Saving...' : 'Save Limits'}
                           </Button>
                         </DialogFooter>
@@ -918,7 +918,7 @@ export default function TenantAdminPanel() {
                 </div>
                 <Dialog open={addUserDialogOpen} onOpenChange={setAddUserDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button onClick={handleOpenAddUser} className="rounded-lg bg-[#003ABC] hover:bg-[#003ABC]/90 text-white h-8 text-xs">
+                    <Button onClick={handleOpenAddUser} className="rounded-lg bg-[#0066CC] hover:bg-[#0066CC]/90 text-white h-8 text-xs">
                       <Plus className="w-3.5 h-3.5 mr-1.5" />
                       Add User
                     </Button>
@@ -961,7 +961,7 @@ export default function TenantAdminPanel() {
                       <DialogClose asChild>
                         <Button variant="outline" className="rounded-lg border-[#E2E8F0] text-[#1E293B]">Cancel</Button>
                       </DialogClose>
-                      <Button onClick={handleAddUser} disabled={!addUserForm.userId} className="rounded-lg bg-[#003ABC] hover:bg-[#003ABC]/90 text-white">
+                      <Button onClick={handleAddUser} disabled={!addUserForm.userId} className="rounded-lg bg-[#0066CC] hover:bg-[#0066CC]/90 text-white">
                         Add User
                       </Button>
                     </DialogFooter>

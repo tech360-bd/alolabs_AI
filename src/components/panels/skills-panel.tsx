@@ -143,7 +143,7 @@ export default function SkillsPanel() {
   const statusColor = (status: string) => {
     switch (status) {
       case 'approved': return 'bg-emerald-600/10 text-emerald-600'
-      case 'private': return 'bg-[#FF6A00]/10 text-[#FF6A00]'
+      case 'private': return 'bg-[#E8501A]/10 text-[#E8501A]'
       case 'quarantined': return 'bg-amber-600/10 text-amber-600'
       case 'disabled': return 'bg-red-600/10 text-red-600'
       default: return 'bg-gray-100 text-[#64748B]'
@@ -169,7 +169,7 @@ export default function SkillsPanel() {
   }
 
   const statCards = [
-    { icon: Wrench, label: 'Total Skills', value: stats.total, color: 'text-[#003ABC]', bgColor: 'bg-[#003ABC]/10' },
+    { icon: Wrench, label: 'Total Skills', value: stats.total, color: 'text-[#0066CC]', bgColor: 'bg-[#0066CC]/10' },
     { icon: CheckCircle2, label: 'Approved', value: stats.approved, color: 'text-emerald-600', bgColor: 'bg-emerald-600/10' },
     { icon: AlertTriangle, label: 'Quarantined', value: stats.quarantined, color: 'text-amber-600', bgColor: 'bg-amber-600/10' },
     { icon: Ban, label: 'Disabled', value: stats.disabled, color: 'text-red-600', bgColor: 'bg-red-600/10' },
@@ -179,7 +179,7 @@ export default function SkillsPanel() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <Wrench className="w-6 h-6 text-[#003ABC]" />
+          <Wrench className="w-6 h-6 text-[#0066CC]" />
           <h2 className="text-xl font-semibold text-[#1E293B]">Skills Registry</h2>
         </div>
         <span className="text-sm text-[#64748B]">
@@ -206,7 +206,7 @@ export default function SkillsPanel() {
                   </div>
                   <h3 className="text-sm font-semibold text-[#1E293B]">{card.label}</h3>
                 </div>
-                <p className="text-3xl font-bold text-[#003ABC] mb-1">{card.value.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-[#0066CC] mb-1">{card.value.toLocaleString()}</p>
               </div>
             )
           })}
@@ -312,7 +312,7 @@ export default function SkillsPanel() {
                         <TableCell className="text-[#64748B] font-mono text-xs hidden lg:table-cell">{skill.version}</TableCell>
                         <TableCell className="text-[#64748B] text-xs hidden lg:table-cell capitalize">{skill.runtime}</TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-[#64748B] hover:text-[#FF6A00]" onClick={() => openDetail(skill)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-[#64748B] hover:text-[#E8501A]" onClick={() => openDetail(skill)}>
                             <Eye className="w-3.5 h-3.5" />
                           </Button>
                         </TableCell>
@@ -384,7 +384,7 @@ export default function SkillsPanel() {
                     <div className="bg-white rounded-xl border border-[#E2E8F0] p-3 max-h-32 overflow-y-auto custom-scrollbar">
                       {inputs.map((inp: { name?: string; type?: string; description?: string }, i: number) => (
                         <div key={i} className="flex items-center gap-2 py-1 text-xs">
-                          <code className="text-[#FF6A00] font-mono">{inp.name || `input_${i}`}</code>
+                          <code className="text-[#E8501A] font-mono">{inp.name || `input_${i}`}</code>
                           {inp.type && <span className="text-[#64748B]">({inp.type})</span>}
                           {inp.description && <span className="text-[#64748B]">— {inp.description}</span>}
                         </div>
@@ -404,7 +404,7 @@ export default function SkillsPanel() {
                     <div className="bg-white rounded-xl border border-[#E2E8F0] p-3 max-h-32 overflow-y-auto custom-scrollbar">
                       {outputs.map((out: { name?: string; type?: string; description?: string }, i: number) => (
                         <div key={i} className="flex items-center gap-2 py-1 text-xs">
-                          <code className="text-[#003ABC] font-mono">{out.name || `output_${i}`}</code>
+                          <code className="text-[#0066CC] font-mono">{out.name || `output_${i}`}</code>
                           {out.type && <span className="text-[#64748B]">({out.type})</span>}
                           {out.description && <span className="text-[#64748B]">— {out.description}</span>}
                         </div>

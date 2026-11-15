@@ -204,7 +204,7 @@ export default function SEOChallengePanel() {
           <h2 className="text-2xl font-bold text-[#1E293B]">SEO Challenges</h2>
           <p className="text-sm text-[#64748B] mt-1">Structured SEO improvement programs with daily tasks</p>
         </div>
-        <Button onClick={openCreate} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+        <Button onClick={openCreate} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
           <Plus className="w-4 h-4 mr-2" /> New Challenge
         </Button>
       </div>
@@ -213,8 +213,8 @@ export default function SEOChallengePanel() {
         {[
           { label: 'Active', value: stats.active, icon: Target, color: 'text-blue-500', bg: 'bg-blue-50' },
           { label: 'Tasks Completed', value: stats.completedTasks, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-          { label: 'Total Tasks', value: stats.totalTasks, icon: ListChecks, color: 'text-[#003ABC]', bg: 'bg-blue-50' },
-          { label: 'Completed', value: stats.completed, icon: Trophy, color: 'text-[#FF6A00]', bg: 'bg-orange-50' },
+          { label: 'Total Tasks', value: stats.totalTasks, icon: ListChecks, color: 'text-[#0066CC]', bg: 'bg-blue-50' },
+          { label: 'Completed', value: stats.completed, icon: Trophy, color: 'text-[#E8501A]', bg: 'bg-orange-50' },
         ].map((stat) => (
           <Card key={stat.label} className="border-[#E2E8F0]">
             <CardContent className="p-4 flex items-center gap-3">
@@ -284,7 +284,7 @@ export default function SEOChallengePanel() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[10px] font-medium text-[#64748B]">Progress</span>
-                          <span className="text-[10px] font-bold text-[#003ABC]">{challenge.progress}%</span>
+                          <span className="text-[10px] font-bold text-[#0066CC]">{challenge.progress}%</span>
                         </div>
                         <Progress value={challenge.progress} className="h-2" />
                       </div>
@@ -353,7 +353,7 @@ export default function SEOChallengePanel() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#003ABC]" />
+              <Plus className="w-5 h-5 text-[#0066CC]" />
               New SEO Challenge
             </DialogTitle>
             <DialogDescription>Start a structured SEO improvement program</DialogDescription>
@@ -378,7 +378,7 @@ export default function SEOChallengePanel() {
                   <button
                     key={opt.value}
                     onClick={() => setFormDuration(opt.value)}
-                    className={`p-2 rounded-lg border text-center transition-colors ${formDuration === opt.value ? 'border-[#003ABC] bg-blue-50 text-[#003ABC]' : 'border-[#E2E8F0] text-[#64748B] hover:border-[#CBD5E1]'}`}
+                    className={`p-2 rounded-lg border text-center transition-colors ${formDuration === opt.value ? 'border-[#0066CC] bg-blue-50 text-[#0066CC]' : 'border-[#E2E8F0] text-[#64748B] hover:border-[#CBD5E1]'}`}
                   >
                     <span className="text-xs font-semibold block">{opt.label}</span>
                     <span className="text-[9px] text-[#94A3B8]">{opt.desc}</span>
@@ -389,7 +389,7 @@ export default function SEOChallengePanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+            <Button onClick={handleCreate} disabled={saving} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Start Challenge
             </Button>

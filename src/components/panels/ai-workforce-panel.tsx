@@ -78,7 +78,7 @@ export default function AiWorkforcePanel() {
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {[
-          { label: 'Catalog Items', value: catalog.length, icon: Bot, color: 'text-[#003ABC]' },
+          { label: 'Catalog Items', value: catalog.length, icon: Bot, color: 'text-[#0066CC]' },
           { label: 'Active Agents', value: activeInstances, icon: Activity, color: 'text-emerald-600' },
           { label: 'Recent Executions', value: executions.length, icon: Zap, color: 'text-amber-600' },
           { label: 'Recent Success Rate', value: recentSuccessRate, icon: TrendingUp, color: 'text-emerald-600' },
@@ -100,7 +100,7 @@ export default function AiWorkforcePanel() {
         <TabsContent value="catalog">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {catalog.map((item) => (
-              <Card key={item.id} className="border-[#E2E8F0] hover:border-[#003ABC]/30 hover:shadow-md transition-all">
+              <Card key={item.id} className="border-[#E2E8F0] hover:border-[#0066CC]/30 hover:shadow-md transition-all">
                 <CardHeader className="pb-2"><div className="flex items-start justify-between"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: item.color + '15' }}><Bot className="w-5 h-5" style={{ color: item.color }} /></div><div><CardTitle className="text-sm font-semibold text-[#1E293B]">{item.name}</CardTitle><p className="text-xs text-[#94A3B8]">{item.category}</p></div></div><Badge variant="outline" className="text-xs">v{item.version}</Badge></div></CardHeader>
                 <CardContent className="pt-0"><p className="text-xs text-[#64748B] line-clamp-2 mb-3">{item.description}</p><div className="flex items-center justify-between text-xs text-[#94A3B8]"><span className="flex items-center gap-1"><Heart className="w-3 h-3" />{item.avgRating > 0 ? item.avgRating.toFixed(1) : 'New'}</span><span>{item.installCount} installs</span></div></CardContent>
               </Card>
@@ -116,7 +116,7 @@ export default function AiWorkforcePanel() {
               <table className="w-full text-sm"><thead className="bg-[#F8FAFC] sticky top-0"><tr><th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Agent</th><th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Status</th><th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Health</th><th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Executions</th><th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Last Check</th></tr></thead>
               <tbody>{instances.map((inst) => (
                 <tr key={inst.id} className="border-t border-[#F1F5F9] hover:bg-[#F8FAFC] transition-colors">
-                  <td className="px-4 py-3"><div className="flex items-center gap-2"><Bot className="w-4 h-4 text-[#003ABC]" /><span className="font-medium text-[#1E293B]">{inst.agent?.name ?? inst.agent?.agentId ?? inst.agentId}</span></div></td>
+                  <td className="px-4 py-3"><div className="flex items-center gap-2"><Bot className="w-4 h-4 text-[#0066CC]" /><span className="font-medium text-[#1E293B]">{inst.agent?.name ?? inst.agent?.agentId ?? inst.agentId}</span></div></td>
                   <td className="px-4 py-3"><Badge className={statusColor(inst.status)}>{inst.status}</Badge></td>
                   <td className="px-4 py-3"><span className={`font-medium ${healthColor(inst.healthStatus)}`}>{inst.healthStatus}</span></td>
                   <td className="px-4 py-3 text-[#64748B]">{inst._count?.executions ?? 0}</td>
@@ -155,7 +155,7 @@ export default function AiWorkforcePanel() {
               { label: 'Flagged', value: secStats.flagged, icon: AlertTriangle, color: 'text-amber-600' },
               { label: 'Passed', value: secStats.passed, icon: CheckCircle2, color: 'text-emerald-600' },
             ].map((s, i) => (
-              <Card key={i} className="border-[#E2E8F0]"><CardContent className="p-4 flex items-center gap-3"><s.icon className={`w-8 h-8 ${s.color || 'text-[#003ABC]'} opacity-80`} /><div><p className="text-xs text-[#94A3B8]">{s.label}</p><p className="text-2xl font-bold text-[#1E293B]">{s.value}</p></div></CardContent></Card>
+              <Card key={i} className="border-[#E2E8F0]"><CardContent className="p-4 flex items-center gap-3"><s.icon className={`w-8 h-8 ${s.color || 'text-[#0066CC]'} opacity-80`} /><div><p className="text-xs text-[#94A3B8]">{s.label}</p><p className="text-2xl font-bold text-[#1E293B]">{s.value}</p></div></CardContent></Card>
             ))}
           </div>
           <Card className="border-[#E2E8F0]"><CardHeader><CardTitle className="text-base">Security Rules</CardTitle></CardHeader><CardContent><p className="text-sm text-[#64748B]">Security rules protect against prompt injection, jailbreak, data leakage, tool abuse, and output validation. Block rate: <span className="font-semibold text-[#1E293B]">{secStats?.blockRate || 0}%</span></p></CardContent></Card>

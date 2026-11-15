@@ -13,12 +13,14 @@
 // ─── Palette ─────────────────────────────────────────────────────────────────
 
 export const BRAND = {
-  /** Primary Brand — action, important, warning, highlight, primary buttons. */
-  orange: '#FF6A00',
+  /** ALO Orange (approved 2026 identity) — action, important, warning, highlight, primary buttons. */
+  orange: '#E8501A',
   /** Lighter stop of the orange gradient. */
   orangeLight: '#FF8A2B',
-  /** System & Trust — trust, system, backgrounds, navigation, secondary buttons. */
-  blue: '#003ABC',
+  /** Sunshine — selective emphasis and the warm end of the orange gradient. */
+  sunshine: '#FFB347',
+  /** ALO Blue (approved 2026 identity) — trust, system, backgrounds, navigation, secondary buttons. */
+  blue: '#0066CC',
   /**
    * Alternate blue carried by the second revision of the guideline sheet.
    * Kept as a named token so older collateral can be matched on request.
@@ -46,8 +48,8 @@ export const BRAND = {
 } as const
 
 export const GRADIENTS = {
-  orange: { from: BRAND.orange, to: '#FFB300', css: 'linear-gradient(90deg, #FF6A00 0%, #FFB300 100%)' },
-  blue: { from: BRAND.blue, to: BRAND.blueLight, css: 'linear-gradient(90deg, #003ABC 0%, #0077FF 100%)' },
+  orange: { from: BRAND.orange, to: BRAND.sunshine, css: 'linear-gradient(90deg, #E8501A 0%, #FFB347 100%)' },
+  blue: { from: BRAND.blue, to: BRAND.blueLight, css: 'linear-gradient(90deg, #0066CC 0%, #0077FF 100%)' },
   /** The mark's folded ribbon uses the diagonal form of the blue gradient. */
   ribbon: { from: BRAND.blueLight, to: BRAND.blueDeep, css: 'linear-gradient(135deg, #0077FF 0%, #001C6B 100%)' },
 } as const

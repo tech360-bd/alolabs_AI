@@ -70,8 +70,8 @@ const CATEGORIES = [
 ]
 
 const categoryColors: Record<string, string> = {
-  system_prompts: 'bg-[#003ABC]/10 text-[#003ABC]',
-  agent_prompts: 'bg-[#FF6A00]/10 text-[#FF6A00]',
+  system_prompts: 'bg-[#0066CC]/10 text-[#0066CC]',
+  agent_prompts: 'bg-[#E8501A]/10 text-[#E8501A]',
   skill_prompts: 'bg-emerald-100 text-emerald-700',
   workflow_prompts: 'bg-purple-100 text-purple-700',
   brand_prompts: 'bg-pink-100 text-pink-700',
@@ -272,7 +272,7 @@ export default function PromptVaultPanel() {
           <h2 className="text-2xl font-bold text-[#1E293B]">Prompt Vault</h2>
           <p className="text-sm text-[#64748B] mt-1">Secure storage for system, agent, and workflow prompts</p>
         </div>
-        <Button onClick={openAdd} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+        <Button onClick={openAdd} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
           <Plus className="w-4 h-4 mr-2" />
           Add Prompt
         </Button>
@@ -381,7 +381,7 @@ export default function PromptVaultPanel() {
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#003ABC]" />
+              <Plus className="w-5 h-5 text-[#0066CC]" />
               Add Prompt
             </DialogTitle>
             <DialogDescription>Create a new prompt template in the vault</DialogDescription>
@@ -419,7 +419,7 @@ export default function PromptVaultPanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={saving} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+            <Button onClick={handleAdd} disabled={saving} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Create
             </Button>
@@ -432,7 +432,7 @@ export default function PromptVaultPanel() {
         <DialogContent className="sm:max-w-[650px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[#003ABC]" />
+              <FileText className="w-5 h-5 text-[#0066CC]" />
               {selectedPrompt?.name}
             </DialogTitle>
             <DialogDescription>
@@ -472,7 +472,7 @@ export default function PromptVaultPanel() {
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Pencil className="w-5 h-5 text-[#FF6A00]" />
+              <Pencil className="w-5 h-5 text-[#E8501A]" />
               Edit Prompt
             </DialogTitle>
             <DialogDescription>Update the prompt content and version</DialogDescription>
@@ -494,7 +494,7 @@ export default function PromptVaultPanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleEdit} disabled={saving} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+            <Button onClick={handleEdit} disabled={saving} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save Changes
             </Button>

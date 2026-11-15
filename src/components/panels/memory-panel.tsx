@@ -142,7 +142,7 @@ export default function MemoryPanel() {
     switch (t) {
       case 'hot': return 'bg-red-600/10 text-red-600'
       case 'warm': return 'bg-amber-600/10 text-amber-600'
-      case 'cold': return 'bg-[#FF6A00]/10 text-[#FF6A00]'
+      case 'cold': return 'bg-[#E8501A]/10 text-[#E8501A]'
       default: return 'bg-gray-100 text-[#64748B]'
     }
   }
@@ -178,26 +178,26 @@ export default function MemoryPanel() {
   const tabs: { id: TabType; label: string; icon: React.ElementType; desc: string; countKey: keyof MemoryStats; color: string; bgColor: string }[] = [
     { id: 'hot', label: 'Hot', icon: Flame, desc: 'Recently accessed', countKey: 'hot', color: 'text-red-600', bgColor: 'bg-red-600/10' },
     { id: 'warm', label: 'Warm', icon: Thermometer, desc: 'Frequently used', countKey: 'warm', color: 'text-amber-600', bgColor: 'bg-amber-600/10' },
-    { id: 'cold', label: 'Cold', icon: Snowflake, desc: 'Archived', countKey: 'cold', color: 'text-[#FF6A00]', bgColor: 'bg-[#FF6A00]/10' },
+    { id: 'cold', label: 'Cold', icon: Snowflake, desc: 'Archived', countKey: 'cold', color: 'text-[#E8501A]', bgColor: 'bg-[#E8501A]/10' },
   ]
 
   const statCards = [
-    { icon: Database, label: 'Total Memories', value: stats.total, color: 'text-[#003ABC]', bgColor: 'bg-[#003ABC]/10' },
+    { icon: Database, label: 'Total Memories', value: stats.total, color: 'text-[#0066CC]', bgColor: 'bg-[#0066CC]/10' },
     { icon: Flame, label: 'Hot', value: stats.hot, color: 'text-red-600', bgColor: 'bg-red-600/10' },
     { icon: Thermometer, label: 'Warm', value: stats.warm, color: 'text-amber-600', bgColor: 'bg-amber-600/10' },
-    { icon: Snowflake, label: 'Cold', value: stats.cold, color: 'text-[#FF6A00]', bgColor: 'bg-[#FF6A00]/10' },
+    { icon: Snowflake, label: 'Cold', value: stats.cold, color: 'text-[#E8501A]', bgColor: 'bg-[#E8501A]/10' },
   ]
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <Brain className="w-6 h-6 text-[#003ABC]" />
+          <Brain className="w-6 h-6 text-[#0066CC]" />
           <h2 className="text-xl font-semibold text-[#1E293B]">RAG Memory Center</h2>
         </div>
         <Button
           size="sm"
-          className="bg-[#003ABC] text-white hover:bg-[#003ABC]/90 text-xs"
+          className="bg-[#0066CC] text-white hover:bg-[#0066CC]/90 text-xs"
           onClick={() => setAddOpen(true)}
         >
           <Plus className="w-3.5 h-3.5 mr-1" /> Add Memory
@@ -223,7 +223,7 @@ export default function MemoryPanel() {
                   </div>
                   <h3 className="text-sm font-semibold text-[#1E293B]">{card.label}</h3>
                 </div>
-                <p className="text-3xl font-bold text-[#003ABC] mb-1">{card.value.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-[#0066CC] mb-1">{card.value.toLocaleString()}</p>
               </div>
             )
           })}
@@ -241,7 +241,7 @@ export default function MemoryPanel() {
               onClick={() => { setTab(t.id); setPage(1) }}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
                 active
-                  ? 'bg-[#003ABC]/10 text-[#003ABC] border border-[#003ABC]/30'
+                  ? 'bg-[#0066CC]/10 text-[#0066CC] border border-[#0066CC]/30'
                   : 'bg-white rounded-xl border border-[#E2E8F0] text-[#64748B] hover:text-[#1E293B]'
               }`}
             >
@@ -312,7 +312,7 @@ export default function MemoryPanel() {
                     memories.map((mem) => (
                       <TableRow key={mem.id} className="border-[#E2E8F0] hover:bg-gray-50">
                         <TableCell className="text-[#1E293B] text-xs max-w-[300px] truncate">{mem.content}</TableCell>
-                        <TableCell className="font-mono text-[10px] text-[#FF6A00] hidden md:table-cell">{mem.agentId.slice(0, 12)}</TableCell>
+                        <TableCell className="font-mono text-[10px] text-[#E8501A] hidden md:table-cell">{mem.agentId.slice(0, 12)}</TableCell>
                         <TableCell className="text-[#64748B] text-xs hidden sm:table-cell capitalize">{mem.category}</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className={`text-[10px] py-0 ${tempColor(mem.temperature)}`}>
@@ -380,7 +380,7 @@ export default function MemoryPanel() {
                 onChange={(e) => setNewContent(e.target.value)}
                 placeholder="Memory content..."
                 rows={3}
-                className="mt-1 w-full rounded-lg bg-gray-50 border border-[#E2E8F0] text-[#1E293B] placeholder:text-gray-400 p-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-[#FF6A00]"
+                className="mt-1 w-full rounded-lg bg-gray-50 border border-[#E2E8F0] text-[#1E293B] placeholder:text-gray-400 p-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-[#E8501A]"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -420,7 +420,7 @@ export default function MemoryPanel() {
             <Button
               onClick={handleAdd}
               disabled={submitting || !newAgentId || !newContent.trim()}
-              className="bg-[#003ABC] text-white hover:bg-[#003ABC]/90 text-xs"
+              className="bg-[#0066CC] text-white hover:bg-[#0066CC]/90 text-xs"
             >
               {submitting ? 'Adding...' : 'Add Memory'}
             </Button>

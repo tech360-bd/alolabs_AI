@@ -523,14 +523,14 @@ export default function AutomationPanel() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-[#1E293B] flex items-center gap-2">
-                <Zap className="h-5 w-5 text-[#003ABC]" />
+                <Zap className="h-5 w-5 text-[#0066CC]" />
                 Automation Center
               </h1>
               <p className="text-sm text-slate-500 mt-0.5">Build, monitor, and manage automated workflows</p>
             </div>
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-[#003ABC] hover:bg-[#002d8f] text-white">
+                <Button className="bg-[#0066CC] hover:bg-[#002d8f] text-white">
                   <Plus className="h-4 w-4 mr-1.5" /> Create Automation
                 </Button>
               </DialogTrigger>
@@ -577,7 +577,7 @@ export default function AutomationPanel() {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-                  <Button className="bg-[#003ABC] hover:bg-[#002d8f] text-white" onClick={createAutomation}>Create</Button>
+                  <Button className="bg-[#0066CC] hover:bg-[#002d8f] text-white" onClick={createAutomation}>Create</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -587,13 +587,13 @@ export default function AutomationPanel() {
         {/* Tabs */}
         <Tabs defaultValue="automations" className="flex-1 flex flex-col min-h-0 px-6">
           <TabsList className="bg-white border border-slate-200 rounded-lg p-0.5 h-10 flex-shrink-0 w-fit">
-            <TabsTrigger value="automations" className="text-xs font-medium data-[state=active]:bg-[#003ABC] data-[state=active]:text-white rounded-md px-3">Automations</TabsTrigger>
-            <TabsTrigger value="triggers" className="text-xs font-medium data-[state=active]:bg-[#003ABC] data-[state=active]:text-white rounded-md px-3">Triggers</TabsTrigger>
-            <TabsTrigger value="workflow" className="text-xs font-medium data-[state=active]:bg-[#003ABC] data-[state=active]:text-white rounded-md px-3">Workflow Builder</TabsTrigger>
-            <TabsTrigger value="actions" className="text-xs font-medium data-[state=active]:bg-[#003ABC] data-[state=active]:text-white rounded-md px-3">Actions Library</TabsTrigger>
-            <TabsTrigger value="executions" className="text-xs font-medium data-[state=active]:bg-[#003ABC] data-[state=active]:text-white rounded-md px-3">Executions</TabsTrigger>
-            <TabsTrigger value="templates" className="text-xs font-medium data-[state=active]:bg-[#003ABC] data-[state=active]:text-white rounded-md px-3">Templates</TabsTrigger>
-            <TabsTrigger value="metrics" className="text-xs font-medium data-[state=active]:bg-[#003ABC] data-[state=active]:text-white rounded-md px-3">Metrics</TabsTrigger>
+            <TabsTrigger value="automations" className="text-xs font-medium data-[state=active]:bg-[#0066CC] data-[state=active]:text-white rounded-md px-3">Automations</TabsTrigger>
+            <TabsTrigger value="triggers" className="text-xs font-medium data-[state=active]:bg-[#0066CC] data-[state=active]:text-white rounded-md px-3">Triggers</TabsTrigger>
+            <TabsTrigger value="workflow" className="text-xs font-medium data-[state=active]:bg-[#0066CC] data-[state=active]:text-white rounded-md px-3">Workflow Builder</TabsTrigger>
+            <TabsTrigger value="actions" className="text-xs font-medium data-[state=active]:bg-[#0066CC] data-[state=active]:text-white rounded-md px-3">Actions Library</TabsTrigger>
+            <TabsTrigger value="executions" className="text-xs font-medium data-[state=active]:bg-[#0066CC] data-[state=active]:text-white rounded-md px-3">Executions</TabsTrigger>
+            <TabsTrigger value="templates" className="text-xs font-medium data-[state=active]:bg-[#0066CC] data-[state=active]:text-white rounded-md px-3">Templates</TabsTrigger>
+            <TabsTrigger value="metrics" className="text-xs font-medium data-[state=active]:bg-[#0066CC] data-[state=active]:text-white rounded-md px-3">Metrics</TabsTrigger>
           </TabsList>
 
           <div className="flex-1 min-h-0 mt-4 pb-6">
@@ -649,7 +649,7 @@ export default function AutomationPanel() {
                                     <Switch
                                       checked={auto.enabled}
                                       onCheckedChange={() => toggleAutomation(auto.id)}
-                                      className="data-[state=checked]:bg-[#003ABC]"
+                                      className="data-[state=checked]:bg-[#0066CC]"
                                     />
                                   </div>
                                 </TooltipTrigger>
@@ -657,7 +657,7 @@ export default function AutomationPanel() {
                               </Tooltip>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-[#003ABC]">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-[#0066CC]">
                                     <Play className="h-3.5 w-3.5" />
                                   </Button>
                                 </TooltipTrigger>
@@ -665,7 +665,7 @@ export default function AutomationPanel() {
                               </Tooltip>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-[#003ABC]">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-[#0066CC]">
                                     <Edit className="h-3.5 w-3.5" />
                                   </Button>
                                 </TooltipTrigger>
@@ -699,7 +699,7 @@ export default function AutomationPanel() {
                   </div>
                   <Dialog open={triggerDialogOpen} onOpenChange={setTriggerDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button className="bg-[#003ABC] hover:bg-[#002d8f] text-white text-xs">
+                      <Button className="bg-[#0066CC] hover:bg-[#002d8f] text-white text-xs">
                         <Plus className="h-3.5 w-3.5 mr-1.5" /> Create Trigger
                       </Button>
                     </DialogTrigger>
@@ -764,7 +764,7 @@ export default function AutomationPanel() {
                       </div>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setTriggerDialogOpen(false)}>Cancel</Button>
-                        <Button className="bg-[#003ABC] hover:bg-[#002d8f] text-white">Create Trigger</Button>
+                        <Button className="bg-[#0066CC] hover:bg-[#002d8f] text-white">Create Trigger</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
@@ -794,7 +794,7 @@ export default function AutomationPanel() {
                           </div>
                           <h3 className="font-semibold text-[#1E293B] text-sm mt-3">{trigger.name}</h3>
                           <p className="text-xs text-slate-500 mt-1 leading-relaxed">{trigger.description}</p>
-                          <Button variant="ghost" size="sm" className="mt-3 text-[#003ABC] text-xs p-0 h-auto hover:bg-transparent">
+                          <Button variant="ghost" size="sm" className="mt-3 text-[#0066CC] text-xs p-0 h-auto hover:bg-transparent">
                             Configure <ArrowRight className="h-3 w-3 ml-1" />
                           </Button>
                         </CardContent>
@@ -817,7 +817,7 @@ export default function AutomationPanel() {
                     <Button variant="outline" size="sm" className="text-xs">
                       <Eye className="h-3.5 w-3.5 mr-1.5" /> Preview
                     </Button>
-                    <Button size="sm" className="bg-[#003ABC] hover:bg-[#002d8f] text-white text-xs">
+                    <Button size="sm" className="bg-[#0066CC] hover:bg-[#002d8f] text-white text-xs">
                       <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Node
                     </Button>
                   </div>
@@ -846,7 +846,7 @@ export default function AutomationPanel() {
                             const nodeColors: Record<NodeKind, { bg: string; border: string; icon: string }> = {
                               trigger: { bg: 'bg-emerald-50', border: 'border-emerald-300', icon: 'text-emerald-600' },
                               condition: { bg: 'bg-amber-50', border: 'border-amber-300', icon: 'text-amber-600' },
-                              action: { bg: 'bg-blue-50', border: 'border-blue-300', icon: 'text-[#003ABC]' },
+                              action: { bg: 'bg-blue-50', border: 'border-blue-300', icon: 'text-[#0066CC]' },
                               output: { bg: 'bg-purple-50', border: 'border-purple-300', icon: 'text-purple-600' },
                             }
                             const statusColors: Record<string, string> = {
@@ -989,7 +989,7 @@ export default function AutomationPanel() {
                         key={cat}
                         variant={actionCategory === cat ? 'default' : 'outline'}
                         size="sm"
-                        className={`text-xs h-8 ${actionCategory === cat ? 'bg-[#003ABC] hover:bg-[#002d8f] text-white' : ''}`}
+                        className={`text-xs h-8 ${actionCategory === cat ? 'bg-[#0066CC] hover:bg-[#002d8f] text-white' : ''}`}
                         onClick={() => setActionCategory(cat)}
                       >
                         {cat}
@@ -1011,11 +1011,11 @@ export default function AutomationPanel() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {filteredActions.map(action => (
-                      <Card key={action.id} className="bg-white border-slate-200 hover:border-[#003ABC]/30 hover:shadow-md transition-all cursor-pointer group">
+                      <Card key={action.id} className="bg-white border-slate-200 hover:border-[#0066CC]/30 hover:shadow-md transition-all cursor-pointer group">
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
                             <div className="p-2 rounded-lg bg-slate-50 group-hover:bg-blue-50 transition-colors">
-                              <action.icon className="h-4 w-4 text-[#003ABC]" />
+                              <action.icon className="h-4 w-4 text-[#0066CC]" />
                             </div>
                             <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-600">
                               {action.category}
@@ -1023,7 +1023,7 @@ export default function AutomationPanel() {
                           </div>
                           <h3 className="font-semibold text-[#1E293B] text-sm mt-3">{action.name}</h3>
                           <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">{action.description}</p>
-                          <Button variant="ghost" size="sm" className="mt-3 text-[#003ABC] text-xs p-0 h-auto hover:bg-transparent">
+                          <Button variant="ghost" size="sm" className="mt-3 text-[#0066CC] text-xs p-0 h-auto hover:bg-transparent">
                             Use Action <ArrowRight className="h-3 w-3 ml-1" />
                           </Button>
                         </CardContent>
@@ -1049,7 +1049,7 @@ export default function AutomationPanel() {
                       key={s}
                       variant={execFilter === s ? 'default' : 'outline'}
                       size="sm"
-                      className={`text-xs h-8 ${execFilter === s ? 'bg-[#003ABC] hover:bg-[#002d8f] text-white' : ''}`}
+                      className={`text-xs h-8 ${execFilter === s ? 'bg-[#0066CC] hover:bg-[#002d8f] text-white' : ''}`}
                       onClick={() => setExecFilter(s)}
                     >
                       {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -1158,7 +1158,7 @@ export default function AutomationPanel() {
                       key={cat}
                       variant={templateCategory === cat ? 'default' : 'outline'}
                       size="sm"
-                      className={`text-xs h-8 ${templateCategory === cat ? 'bg-[#003ABC] hover:bg-[#002d8f] text-white' : ''}`}
+                      className={`text-xs h-8 ${templateCategory === cat ? 'bg-[#0066CC] hover:bg-[#002d8f] text-white' : ''}`}
                       onClick={() => setTemplateCategory(cat)}
                     >
                       {cat}
@@ -1179,18 +1179,18 @@ export default function AutomationPanel() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredTemplates.map(tpl => (
-                      <Card key={tpl.id} className="bg-white border-slate-200 hover:border-[#003ABC]/30 hover:shadow-lg transition-all overflow-hidden group">
+                      <Card key={tpl.id} className="bg-white border-slate-200 hover:border-[#0066CC]/30 hover:shadow-lg transition-all overflow-hidden group">
                         {/* Template Preview Header */}
-                        <div className="h-20 bg-gradient-to-br from-[#003ABC]/5 to-[#FF6A00]/5 flex items-center justify-center border-b border-slate-100">
+                        <div className="h-20 bg-gradient-to-br from-[#0066CC]/5 to-[#E8501A]/5 flex items-center justify-center border-b border-slate-100">
                           <div className="p-3 rounded-xl bg-white shadow-sm group-hover:scale-110 transition-transform">
-                            <tpl.icon className="h-6 w-6 text-[#003ABC]" />
+                            <tpl.icon className="h-6 w-6 text-[#0066CC]" />
                           </div>
                         </div>
                         <CardContent className="p-4">
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-semibold text-[#1E293B] text-sm flex-1">{tpl.name}</h3>
                             {tpl.popular && (
-                              <Badge className="bg-[#FF6A00]/10 text-[#FF6A00] border-[#FF6A00]/20 text-[10px]">
+                              <Badge className="bg-[#E8501A]/10 text-[#E8501A] border-[#E8501A]/20 text-[10px]">
                                 <Star className="h-2.5 w-2.5 mr-0.5 fill-current" /> Popular
                               </Badge>
                             )}
@@ -1199,7 +1199,7 @@ export default function AutomationPanel() {
                           <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 mb-3">{tpl.description}</p>
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] text-slate-400">{tpl.steps} steps</span>
-                            <Button size="sm" className="bg-[#003ABC] hover:bg-[#002d8f] text-white text-xs h-7" onClick={() => handleUseTemplate(tpl)}>
+                            <Button size="sm" className="bg-[#0066CC] hover:bg-[#002d8f] text-white text-xs h-7" onClick={() => handleUseTemplate(tpl)}>
                               <Copy className="h-3 w-3 mr-1" /> Use Template
                             </Button>
                           </div>
@@ -1225,7 +1225,7 @@ export default function AutomationPanel() {
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <div className="p-1.5 rounded-md bg-blue-50">
-                          <Zap className="h-4 w-4 text-[#003ABC]" />
+                          <Zap className="h-4 w-4 text-[#0066CC]" />
                         </div>
                         <span className="text-xs text-slate-500">Total Automations</span>
                       </div>
@@ -1285,7 +1285,7 @@ export default function AutomationPanel() {
                           <div key={i} className="flex-1 flex flex-col items-center gap-2">
                             <span className="text-xs font-medium text-[#1E293B]">{d.runs}</span>
                             <div
-                              className="w-full rounded-t-md bg-gradient-to-t from-[#003ABC] to-[#003ABC]/60 transition-all hover:from-[#FF6A00] hover:to-[#FF6A00]/60 cursor-pointer min-h-[8px]"
+                              className="w-full rounded-t-md bg-gradient-to-t from-[#0066CC] to-[#0066CC]/60 transition-all hover:from-[#E8501A] hover:to-[#E8501A]/60 cursor-pointer min-h-[8px]"
                               style={{ height: `${(d.runs / maxRuns) * 140}px` }}
                             />
                             <span className="text-[10px] text-slate-500">{d.day}</span>

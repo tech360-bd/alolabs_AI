@@ -161,9 +161,9 @@ export default function SelfImprovementPanel() {
     .map(([date, count]) => ({ date, count }))
 
   const statCards = [
-    { icon: FileText, label: 'Learning Reports', value: s?.learningReports ?? 0, desc: 'Task analysis reports', color: 'text-[#FF6A00]', bgColor: 'bg-[#FF6A00]/10' },
+    { icon: FileText, label: 'Learning Reports', value: s?.learningReports ?? 0, desc: 'Task analysis reports', color: 'text-[#E8501A]', bgColor: 'bg-[#E8501A]/10' },
     { icon: Lightbulb, label: 'Suggestions', value: s?.automationSuggestions ?? 0, desc: 'Automation ideas', color: 'text-amber-600', bgColor: 'bg-amber-600/10' },
-    { icon: TrendingUp, label: 'Improvements', value: s?.workflowImprovements ?? 0, desc: 'Workflow enhancements', color: 'text-[#003ABC]', bgColor: 'bg-[#003ABC]/10' },
+    { icon: TrendingUp, label: 'Improvements', value: s?.workflowImprovements ?? 0, desc: 'Workflow enhancements', color: 'text-[#0066CC]', bgColor: 'bg-[#0066CC]/10' },
   ]
 
   if (loading) {
@@ -182,7 +182,7 @@ export default function SelfImprovementPanel() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <TrendingUp className="w-6 h-6 text-[#003ABC]" />
+        <TrendingUp className="w-6 h-6 text-[#0066CC]" />
         <h2 className="text-xl font-semibold text-[#1E293B]">Self-Improvement Center</h2>
       </div>
 
@@ -198,7 +198,7 @@ export default function SelfImprovementPanel() {
                 </div>
                 <h3 className="text-sm font-semibold text-[#1E293B]">{card.label}</h3>
               </div>
-              <p className="text-3xl font-bold text-[#003ABC] mb-1">{card.value.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-[#0066CC] mb-1">{card.value.toLocaleString()}</p>
               <p className="text-xs text-[#64748B]">{card.desc}</p>
             </div>
           )
@@ -264,7 +264,7 @@ export default function SelfImprovementPanel() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'Implemented', value: sug.implemented, color: 'text-emerald-600', icon: CheckCircle2 },
-              { label: 'Approved', value: sug.approved, color: 'text-[#FF6A00]', icon: CheckCircle2 },
+              { label: 'Approved', value: sug.approved, color: 'text-[#E8501A]', icon: CheckCircle2 },
               { label: 'Suggested', value: sug.suggested, color: 'text-amber-600', icon: Clock },
               { label: 'Rejected', value: sug.rejected, color: 'text-red-600', icon: XCircle },
             ].map((item) => {

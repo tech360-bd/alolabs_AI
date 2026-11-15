@@ -353,8 +353,8 @@ export default function ResearchHubPanel() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <BookOpen className="h-5 w-5 text-[#003ABC]" />
+          <div className="h-10 w-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <BookOpen className="h-5 w-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-[#1E293B]">AI Research Hub</h2>
@@ -363,7 +363,7 @@ export default function ResearchHubPanel() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-xs">
-            <Sparkles className="h-3 w-3 mr-1 text-[#FF6A00]" />
+            <Sparkles className="h-3 w-3 mr-1 text-[#E8501A]" />
             AI-Powered
           </Badge>
           <Badge variant="outline" className="text-xs">
@@ -508,7 +508,7 @@ export default function ResearchHubPanel() {
                   <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
                     <span className="text-[10px] text-slate-400">{paper.year}</span>
                     {paper.doi && (
-                      <span className="text-[10px] text-[#003ABC] flex items-center gap-0.5 cursor-pointer hover:underline">
+                      <span className="text-[10px] text-[#0066CC] flex items-center gap-0.5 cursor-pointer hover:underline">
                         DOI <ExternalLink className="h-2.5 w-2.5" />
                       </span>
                     )}
@@ -560,7 +560,7 @@ export default function ResearchHubPanel() {
               size="sm"
               onClick={handleAnalyzeGaps}
               disabled={analyzingGaps}
-              className="bg-[#003ABC] hover:bg-[#002a99] text-white"
+              className="bg-[#0066CC] hover:bg-[#002a99] text-white"
             >
               {analyzingGaps ? (
                 <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Analyzing...</>
@@ -612,10 +612,10 @@ export default function ResearchHubPanel() {
                         </div>
                         <p className="text-sm text-[#1E293B] mb-2">{gap.description}</p>
                         {gap.suggestedTopic && (
-                          <div className="flex items-start gap-1.5 p-2 rounded-md bg-[#FF6A00]/5 border border-[#FF6A00]/20">
-                            <Lightbulb className="h-3.5 w-3.5 text-[#FF6A00] mt-0.5 shrink-0" />
+                          <div className="flex items-start gap-1.5 p-2 rounded-md bg-[#E8501A]/5 border border-[#E8501A]/20">
+                            <Lightbulb className="h-3.5 w-3.5 text-[#E8501A] mt-0.5 shrink-0" />
                             <div>
-                              <div className="text-[10px] font-medium text-[#FF6A00]">Suggested Research Topic</div>
+                              <div className="text-[10px] font-medium text-[#E8501A]">Suggested Research Topic</div>
                               <div className="text-xs text-slate-700">{gap.suggestedTopic}</div>
                             </div>
                           </div>
@@ -651,7 +651,7 @@ export default function ResearchHubPanel() {
                       onClick={() => setActiveProposalSection(section.key)}
                       className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition-colors ${
                         activeProposalSection === section.key
-                          ? 'bg-[#003ABC]/10 text-[#003ABC] font-medium'
+                          ? 'bg-[#0066CC]/10 text-[#0066CC] font-medium'
                           : 'text-slate-600 hover:bg-slate-50'
                       }`}
                     >
@@ -695,7 +695,7 @@ export default function ResearchHubPanel() {
                     variant="outline"
                     onClick={() => handleAiAssist(activeProposalSection)}
                     disabled={aiAssisting === activeProposalSection}
-                    className="text-xs border-[#FF6A00] text-[#FF6A00] hover:bg-[#FF6A00]/10"
+                    className="text-xs border-[#E8501A] text-[#E8501A] hover:bg-[#E8501A]/10"
                   >
                     {aiAssisting === activeProposalSection ? (
                       <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Generating...</>
@@ -732,7 +732,7 @@ export default function ResearchHubPanel() {
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <ScrollText className="h-4 w-4 text-[#003ABC]" />
+                  <ScrollText className="h-4 w-4 text-[#0066CC]" />
                   <span className="text-sm font-medium text-[#1E293B]">Word Count</span>
                 </div>
                 <div className="text-2xl font-bold text-[#1E293B]">{totalWordCount.toLocaleString()}</div>
@@ -765,7 +765,7 @@ export default function ResearchHubPanel() {
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Quote className="h-4 w-4 text-[#FF6A00]" />
+                  <Quote className="h-4 w-4 text-[#E8501A]" />
                   <span className="text-sm font-medium text-[#1E293B]">Citations</span>
                 </div>
                 <div className="text-2xl font-bold text-[#1E293B]">{citations.length}</div>
@@ -856,7 +856,7 @@ export default function ResearchHubPanel() {
                       <div key={cit.id} className="p-2.5 rounded-md border border-slate-100 hover:border-slate-200 transition-colors group">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <div className="text-[10px] font-mono text-[#003ABC] mb-0.5">{cit.citationKey}</div>
+                            <div className="text-[10px] font-mono text-[#0066CC] mb-0.5">{cit.citationKey}</div>
                             <div className="text-xs font-medium text-[#1E293B] line-clamp-1">{cit.title}</div>
                             <div className="text-[10px] text-slate-500">{cit.authors} ({cit.year}) — {cit.journal}</div>
                           </div>
@@ -876,8 +876,8 @@ export default function ResearchHubPanel() {
 
                 {/* Add Citation Form */}
                 {showAddCitation && (
-                  <div className="mt-3 p-3 rounded-md border border-[#003ABC]/30 bg-[#003ABC]/5 space-y-2">
-                    <div className="text-xs font-medium text-[#003ABC]">Add Citation</div>
+                  <div className="mt-3 p-3 rounded-md border border-[#0066CC]/30 bg-[#0066CC]/5 space-y-2">
+                    <div className="text-xs font-medium text-[#0066CC]">Add Citation</div>
                     <Input placeholder="Authors (e.g., Smith et al.)" value={newCitation.authors} onChange={e => setNewCitation(p => ({ ...p, authors: e.target.value }))} className="h-7 text-xs" />
                     <Input placeholder="Title" value={newCitation.title} onChange={e => setNewCitation(p => ({ ...p, title: e.target.value }))} className="h-7 text-xs" />
                     <div className="grid grid-cols-3 gap-2">
@@ -886,7 +886,7 @@ export default function ResearchHubPanel() {
                       <Input placeholder="Citation Key" value={newCitation.citationKey} onChange={e => setNewCitation(p => ({ ...p, citationKey: e.target.value }))} className="h-7 text-xs" />
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" className="h-7 text-xs bg-[#003ABC] hover:bg-[#002a99] text-white flex-1" onClick={handleAddCitation}>Add Citation</Button>
+                      <Button size="sm" className="h-7 text-xs bg-[#0066CC] hover:bg-[#002a99] text-white flex-1" onClick={handleAddCitation}>Add Citation</Button>
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddCitation(false)}>Cancel</Button>
                     </div>
                   </div>
@@ -949,11 +949,11 @@ export default function ResearchHubPanel() {
                       </div>
                       <div className="grid grid-cols-3 gap-2 mb-3">
                         <div className="text-center p-2 rounded-md bg-slate-50">
-                          <div className="text-lg font-bold text-[#003ABC]">{journal.impactFactor}</div>
+                          <div className="text-lg font-bold text-[#0066CC]">{journal.impactFactor}</div>
                           <div className="text-[9px] text-slate-500">Impact Factor</div>
                         </div>
                         <div className="text-center p-2 rounded-md bg-slate-50">
-                          <div className="text-lg font-bold text-[#FF6A00]">{journal.acceptanceRate}%</div>
+                          <div className="text-lg font-bold text-[#E8501A]">{journal.acceptanceRate}%</div>
                           <div className="text-[9px] text-slate-500">Acceptance</div>
                         </div>
                         <div className="text-center p-2 rounded-md bg-slate-50">
@@ -963,7 +963,7 @@ export default function ResearchHubPanel() {
                       </div>
                       <div className="flex items-center justify-between">
                         <Badge variant="outline" className="text-[10px]">{journal.field}</Badge>
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-[#003ABC] hover:text-[#002a99] gap-1">
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-[#0066CC] hover:text-[#002a99] gap-1">
                           Submit <ArrowUpRight className="h-3 w-3" />
                         </Button>
                       </div>
@@ -1002,7 +1002,7 @@ export default function ResearchHubPanel() {
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-[#1E293B]">{conf.name}</div>
-                            <div className="text-xs font-medium text-[#003ABC]">{conf.abbreviation}</div>
+                            <div className="text-xs font-medium text-[#0066CC]">{conf.abbreviation}</div>
                           </div>
                           <Badge variant="outline" className={`text-[10px] shrink-0 ${cfpCfg.color}`}>
                             {cfpCfg.label}
@@ -1028,7 +1028,7 @@ export default function ResearchHubPanel() {
                             <span className="text-[10px] text-slate-400">{conf.acceptanceRate}% acceptance</span>
                           </div>
                           {conf.cfpStatus === 'open' && (
-                            <Button size="sm" className="h-6 text-[10px] bg-[#003ABC] hover:bg-[#002a99] text-white">
+                            <Button size="sm" className="h-6 text-[10px] bg-[#0066CC] hover:bg-[#002a99] text-white">
                               Submit Paper
                             </Button>
                           )}
@@ -1050,8 +1050,8 @@ export default function ResearchHubPanel() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { label: 'Active Projects', value: projects.filter(p => p.status === 'active').length, color: 'text-emerald-600', icon: CircleDot },
-              { label: 'Total Collaborators', value: projects.reduce((s, p) => s + p.collaborators, 0), color: 'text-[#003ABC]', icon: Users },
-              { label: 'Publications', value: projects.reduce((s, p) => s + p.publications, 0), color: 'text-[#FF6A00]', icon: BarChart3 },
+              { label: 'Total Collaborators', value: projects.reduce((s, p) => s + p.collaborators, 0), color: 'text-[#0066CC]', icon: Users },
+              { label: 'Publications', value: projects.reduce((s, p) => s + p.publications, 0), color: 'text-[#E8501A]', icon: BarChart3 },
               { label: 'Avg Progress', value: projects.length > 0 ? Math.round(projects.reduce((s, p) => s + p.progress, 0) / projects.length) + '%' : '0%', color: 'text-violet-600', icon: TrendingUp },
             ].map(stat => (
               <Card key={stat.label} className="border-0 shadow-sm">
@@ -1074,7 +1074,7 @@ export default function ResearchHubPanel() {
                   <CardTitle className="text-sm font-semibold text-[#1E293B]">Research Projects</CardTitle>
                   <CardDescription className="text-xs">{projects.length} projects tracked</CardDescription>
                 </div>
-                <Button size="sm" className="text-xs bg-[#003ABC] hover:bg-[#002a99] text-white h-7">
+                <Button size="sm" className="text-xs bg-[#0066CC] hover:bg-[#002a99] text-white h-7">
                   <Plus className="h-3 w-3 mr-1" /> New Project
                 </Button>
               </div>
@@ -1140,8 +1140,8 @@ export default function ResearchHubPanel() {
                     { name: 'Prof. Michael Kim', role: 'Faculty Advisor', dept: 'Computer Engineering', papers: 67 },
                   ].map(collab => (
                     <div key={collab.name} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-50 transition-colors">
-                      <div className="h-8 w-8 rounded-full bg-[#003ABC]/10 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-semibold text-[#003ABC]">{collab.name.split(' ').map(n => n[0]).join('')}</span>
+                      <div className="h-8 w-8 rounded-full bg-[#0066CC]/10 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-semibold text-[#0066CC]">{collab.name.split(' ').map(n => n[0]).join('')}</span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-[#1E293B] truncate">{collab.name}</div>

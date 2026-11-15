@@ -218,16 +218,16 @@ export default function FunnelsPanel() {
           <h2 className="text-2xl font-bold text-[#1E293B]">Funnel Builder</h2>
           <p className="text-sm text-[#64748B] mt-1">Build and optimize conversion funnels</p>
         </div>
-        <Button onClick={openCreate} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+        <Button onClick={openCreate} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
           <Plus className="w-4 h-4 mr-2" /> New Funnel
         </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Funnels', value: stats.total, icon: GitBranch, color: 'text-[#003ABC]', bg: 'bg-blue-50' },
+          { label: 'Total Funnels', value: stats.total, icon: GitBranch, color: 'text-[#0066CC]', bg: 'bg-blue-50' },
           { label: 'Avg Conversion', value: `${stats.avgConversionRate}%`, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-          { label: 'Total Visitors', value: stats.totalVisitors, icon: Eye, color: 'text-[#FF6A00]', bg: 'bg-orange-50' },
+          { label: 'Total Visitors', value: stats.totalVisitors, icon: Eye, color: 'text-[#E8501A]', bg: 'bg-orange-50' },
           { label: 'Total Leads', value: stats.totalLeads, icon: Users, color: 'text-purple-500', bg: 'bg-purple-50' },
         ].map((stat) => (
           <Card key={stat.label} className="border-[#E2E8F0]">
@@ -262,7 +262,7 @@ export default function FunnelsPanel() {
               ) : (
                 <div className="divide-y divide-[#F1F5F9]">
                   {filteredFunnels.map((funnel) => (
-                    <button key={funnel.id} onClick={() => setSelectedFunnel(funnel)} className={`w-full text-left px-4 py-3 hover:bg-[#F8FAFC] transition-colors ${selectedFunnel?.id === funnel.id ? 'bg-[#F0F7FF] border-l-2 border-l-[#003ABC]' : ''}`}>
+                    <button key={funnel.id} onClick={() => setSelectedFunnel(funnel)} className={`w-full text-left px-4 py-3 hover:bg-[#F8FAFC] transition-colors ${selectedFunnel?.id === funnel.id ? 'bg-[#F0F7FF] border-l-2 border-l-[#0066CC]' : ''}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[#1E293B] truncate">{funnel.name}</p>
@@ -319,7 +319,7 @@ export default function FunnelsPanel() {
                         <div key={idx}>
                           <div className="flex items-start gap-3 p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] hover:border-[#CBD5E1] transition-colors">
                             <div className="flex flex-col items-center mt-0.5">
-                              <div className="w-6 h-6 rounded-full bg-[#003ABC] text-white text-[10px] font-bold flex items-center justify-center">{idx + 1}</div>
+                              <div className="w-6 h-6 rounded-full bg-[#0066CC] text-white text-[10px] font-bold flex items-center justify-center">{idx + 1}</div>
                               {idx < selectedFunnel.steps.length - 1 && <div className="w-px h-8 bg-[#CBD5E1] mt-1" />}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -364,7 +364,7 @@ export default function FunnelsPanel() {
         <DialogContent className="sm:max-w-[650px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#003ABC]" />
+              <Plus className="w-5 h-5 text-[#0066CC]" />
               {editMode ? 'Edit Funnel' : 'New Funnel'}
             </DialogTitle>
             <DialogDescription>{editMode ? 'Update funnel configuration' : 'Create a new conversion funnel'}</DialogDescription>
@@ -401,7 +401,7 @@ export default function FunnelsPanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-[#003ABC] hover:bg-[#003ABC]/90">{saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}{editMode ? 'Update' : 'Create'}</Button>
+            <Button onClick={handleSave} disabled={saving} className="bg-[#0066CC] hover:bg-[#0066CC]/90">{saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}{editMode ? 'Update' : 'Create'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

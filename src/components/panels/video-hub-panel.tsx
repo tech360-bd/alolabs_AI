@@ -182,7 +182,7 @@ export default function VideoHubPanel() {
           <h2 className="text-2xl font-bold text-[#1E293B]">AI Video Hub</h2>
           <p className="text-sm text-slate-500 mt-1">Create, manage, and enhance AI-generated videos</p>
         </div>
-        <Button className="bg-[#003ABC] hover:bg-[#002A8F] text-white gap-2">
+        <Button className="bg-[#0066CC] hover:bg-[#002A8F] text-white gap-2">
           <Film className="size-4" />
           New Project
         </Button>
@@ -251,10 +251,10 @@ export default function VideoHubPanel() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {data.presenters.map((presenter) => (
-                  <Card key={presenter.id} className="rounded-xl border-slate-100 hover:border-[#003ABC]/30 hover:shadow-md transition-all group">
+                  <Card key={presenter.id} className="rounded-xl border-slate-100 hover:border-[#0066CC]/30 hover:shadow-md transition-all group">
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
-                        <div className="size-12 rounded-full bg-gradient-to-br from-[#003ABC] to-[#0066FF] flex items-center justify-center text-white font-semibold text-lg shrink-0">
+                        <div className="size-12 rounded-full bg-gradient-to-br from-[#0066CC] to-[#0066FF] flex items-center justify-center text-white font-semibold text-lg shrink-0">
                           {presenter.name.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -273,7 +273,7 @@ export default function VideoHubPanel() {
                       </div>
                       <Button
                         size="sm"
-                        className="w-full mt-3 bg-[#003ABC] hover:bg-[#002A8F] text-white text-xs h-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="w-full mt-3 bg-[#0066CC] hover:bg-[#002A8F] text-white text-xs h-8 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Play className="size-3 mr-1.5" />
                         Generate Video
@@ -295,7 +295,7 @@ export default function VideoHubPanel() {
                   <CardTitle className="text-[#1E293B] text-lg">AI Avatar Generator</CardTitle>
                   <CardDescription>Browse and create custom AI avatars for your videos</CardDescription>
                 </div>
-                <Button className="bg-[#FF6A00] hover:bg-[#E05E00] text-white gap-2 h-9">
+                <Button className="bg-[#E8501A] hover:bg-[#E05E00] text-white gap-2 h-9">
                   <Sparkles className="size-4" />
                   Create Avatar
                 </Button>
@@ -304,14 +304,14 @@ export default function VideoHubPanel() {
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {data.avatarStyles.map((avatar) => (
-                  <Card key={avatar.id} className="rounded-xl border-slate-100 hover:border-[#FF6A00]/30 hover:shadow-md transition-all group">
+                  <Card key={avatar.id} className="rounded-xl border-slate-100 hover:border-[#E8501A]/30 hover:shadow-md transition-all group">
                     <CardContent className="p-4">
                       <div className="aspect-video rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mb-3 overflow-hidden">
                         <div className={`size-16 rounded-full flex items-center justify-center text-white font-bold text-xl ${
                           avatar.category === 'professional'
-                            ? 'bg-gradient-to-br from-[#003ABC] to-[#0066FF]'
+                            ? 'bg-gradient-to-br from-[#0066CC] to-[#0066FF]'
                             : avatar.category === 'casual'
-                            ? 'bg-gradient-to-br from-[#FF6A00] to-[#FF9A50]'
+                            ? 'bg-gradient-to-br from-[#E8501A] to-[#FF9A50]'
                             : 'bg-gradient-to-br from-purple-500 to-pink-500'
                         }`}>
                           <User className="size-8" />
@@ -358,7 +358,7 @@ export default function VideoHubPanel() {
                       <TableRow key={project.id} className="hover:bg-slate-50/50">
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <FileVideo className="size-4 text-[#003ABC]" />
+                            <FileVideo className="size-4 text-[#0066CC]" />
                             <span className="text-sm font-medium text-[#1E293B]">{project.title}</span>
                           </div>
                         </TableCell>
@@ -408,7 +408,7 @@ export default function VideoHubPanel() {
                 <CardDescription>Upload a video to auto-generate subtitles</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-[#003ABC]/50 transition-colors cursor-pointer">
+                <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-[#0066CC]/50 transition-colors cursor-pointer">
                   <Upload className="size-8 text-slate-400 mx-auto mb-2" />
                   <p className="text-sm text-slate-500">Drop video file here or click to upload</p>
                   <p className="text-xs text-slate-400 mt-1">MP4, AVI, MOV up to 2GB</p>
@@ -429,7 +429,7 @@ export default function VideoHubPanel() {
                     <SelectItem value="hindi">Hindi</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button className="w-full bg-[#003ABC] hover:bg-[#002A8F] text-white gap-2 h-9">
+                <Button className="w-full bg-[#0066CC] hover:bg-[#002A8F] text-white gap-2 h-9">
                   <Sparkles className="size-4" />
                   Auto-Generate Subtitles
                 </Button>
@@ -520,7 +520,7 @@ export default function VideoHubPanel() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full mt-3 text-xs h-8 border-[#003ABC] text-[#003ABC] hover:bg-[#003ABC] hover:text-white"
+                        className="w-full mt-3 text-xs h-8 border-[#0066CC] text-[#0066CC] hover:bg-[#0066CC] hover:text-white"
                       >
                         {voice.status === 'syncing' ? (
                           <>

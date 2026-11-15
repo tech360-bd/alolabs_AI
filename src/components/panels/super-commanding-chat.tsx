@@ -50,12 +50,12 @@ const QUICK_MESSAGES = [
 ]
 
 const AGENT_COLORS = [
-  'text-[#FF6A00]', 'text-[#003ABC]', 'text-[#16A34A]', 'text-[#D97706]',
+  'text-[#E8501A]', 'text-[#0066CC]', 'text-[#16A34A]', 'text-[#D97706]',
   'text-[#7C3AED]', 'text-[#0077FF]', 'text-[#EF4444]', 'text-[#1E293B]',
 ]
 
 const AGENT_BG_COLORS = [
-  'bg-[#FF6A00]/10', 'bg-[#003ABC]/10', 'bg-[#22C55E]/10', 'bg-[#F59E0B]/10',
+  'bg-[#E8501A]/10', 'bg-[#0066CC]/10', 'bg-[#22C55E]/10', 'bg-[#F59E0B]/10',
   'bg-[#7C3AED]/10', 'bg-[#0077FF]/10', 'bg-[#EF4444]/10', 'bg-[#F1F5F9]',
 ]
 
@@ -224,8 +224,8 @@ export default function SuperCommandingChat() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF6A00]/20 to-[#003ABC]/20 flex items-center justify-center">
-                <Crown className="w-5 h-5 text-[#FF6A00]" />
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#E8501A]/20 to-[#0066CC]/20 flex items-center justify-center">
+                <Crown className="w-5 h-5 text-[#E8501A]" />
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#22C55E] rounded-full border-2 border-white" />
             </div>
@@ -261,7 +261,7 @@ export default function SuperCommandingChat() {
             <Button
               variant={broadcast ? 'default' : 'outline'}
               size="sm"
-              className={`h-7 text-[11px] gap-1 rounded-lg ${broadcast ? 'bg-[#FF6A00] text-white border-[#FF6A00]' : 'border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]'}`}
+              className={`h-7 text-[11px] gap-1 rounded-lg ${broadcast ? 'bg-[#E8501A] text-white border-[#E8501A]' : 'border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]'}`}
               onClick={() => setBroadcast(!broadcast)}
             >
               <Radio className="w-3 h-3" />
@@ -286,17 +286,17 @@ export default function SuperCommandingChat() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF6A00]/10 to-[#003ABC]/10 flex items-center justify-center mb-4">
-              <MessageSquare className="w-8 h-8 text-[#003ABC]" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#E8501A]/10 to-[#0066CC]/10 flex items-center justify-center mb-4">
+              <MessageSquare className="w-8 h-8 text-[#0066CC]" />
             </div>
             <h3 className="text-lg font-bold text-[#1E293B] mb-1">Command Your AI Workforce</h3>
             <p className="text-sm text-[#64748B] max-w-md">
               Send SMS-style commands to your 2000 AI agents. They will respond with real-time status updates and work results.
             </p>
             <div className="flex items-center gap-4 mt-4 text-xs text-[#94A3B8]">
-              <span className="flex items-center gap-1"><Bot className="w-3.5 h-3.5 text-[#FF6A00]" /> 2000 Agents</span>
+              <span className="flex items-center gap-1"><Bot className="w-3.5 h-3.5 text-[#E8501A]" /> 2000 Agents</span>
               <span>•</span>
-              <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5 text-[#003ABC]" /> 63 Workflows</span>
+              <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5 text-[#0066CC]" /> 63 Workflows</span>
               <span>•</span>
               <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5 text-[#22C55E]" /> Protected</span>
             </div>
@@ -313,7 +313,7 @@ export default function SuperCommandingChat() {
               {/* Agent avatar */}
               {!isUser && (
                 <Avatar className="w-8 h-8 flex-shrink-0 mt-1 border border-[#E2E8F0]">
-                  <AvatarFallback className={`text-[10px] font-bold rounded-lg ${isAgent ? `${AGENT_BG_COLORS[colorIdx]} ${AGENT_COLORS[colorIdx]}` : 'bg-[#003ABC]/10 text-[#003ABC]'}`}>
+                  <AvatarFallback className={`text-[10px] font-bold rounded-lg ${isAgent ? `${AGENT_BG_COLORS[colorIdx]} ${AGENT_COLORS[colorIdx]}` : 'bg-[#0066CC]/10 text-[#0066CC]'}`}>
                     {isAgent ? (msg.agentId || 'AG').slice(-3) : 'HUB'}
                   </AvatarFallback>
                 </Avatar>
@@ -323,7 +323,7 @@ export default function SuperCommandingChat() {
                 {/* Agent name */}
                 {isAgent && (
                   <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[10px] font-semibold text-[#003ABC]">{msg.agentName}</span>
+                    <span className="text-[10px] font-semibold text-[#0066CC]">{msg.agentName}</span>
                     <span className="text-[9px] text-[#94A3B8]">{msg.agentDept}</span>
                   </div>
                 )}
@@ -332,18 +332,18 @@ export default function SuperCommandingChat() {
                 <div
                   className={`relative px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed max-w-full ${
                     isUser
-                      ? 'bg-[#FF6A00] text-white rounded-br-md'
+                      ? 'bg-[#E8501A] text-white rounded-br-md'
                       : isAgent
                         ? 'bg-[#F1F5F9] text-[#1E293B] rounded-bl-md border border-[#E2E8F0]'
-                        : 'bg-[#003ABC]/5 text-[#1E293B] rounded-bl-md border border-[#003ABC]/15'
+                        : 'bg-[#0066CC]/5 text-[#1E293B] rounded-bl-md border border-[#0066CC]/15'
                   }`}
                 >
                   {/* AI response with markdown-like rendering */}
                   {!isUser && !isAgent && msg.content.includes('#') ? (
                     <div className="space-y-2">
                       {msg.content.split('\n').map((line, i) => {
-                        if (line.startsWith('## ')) return <h4 key={i} className="text-sm font-bold text-[#003ABC]">{line.slice(3)}</h4>
-                        if (line.startsWith('# ')) return <h3 key={i} className="text-base font-bold text-[#003ABC]">{line.slice(2)}</h3>
+                        if (line.startsWith('## ')) return <h4 key={i} className="text-sm font-bold text-[#0066CC]">{line.slice(3)}</h4>
+                        if (line.startsWith('# ')) return <h3 key={i} className="text-base font-bold text-[#0066CC]">{line.slice(2)}</h3>
                         if (line.startsWith('- ')) return <p key={i} className="text-xs text-[#64748B] ml-2">• {line.slice(2)}</p>
                         if (line.trim() === '') return <div key={i} className="h-1" />
                         return <p key={i} className="text-xs text-[#1E293B]">{line}</p>
@@ -359,7 +359,7 @@ export default function SuperCommandingChat() {
                   <span className="text-[10px] text-[#94A3B8]">{msg.timestamp}</span>
                   {isUser && getStatusIcon(msg.status)}
                   {isAgent && (
-                    <Badge className="text-[8px] py-0 px-1 bg-[#003ABC]/10 text-[#003ABC] border-0 rounded">{msg.agentId}</Badge>
+                    <Badge className="text-[8px] py-0 px-1 bg-[#0066CC]/10 text-[#0066CC] border-0 rounded">{msg.agentId}</Badge>
                   )}
                 </div>
               </div>
@@ -367,7 +367,7 @@ export default function SuperCommandingChat() {
               {/* User avatar */}
               {isUser && (
                 <Avatar className="w-8 h-8 flex-shrink-0 mt-1 border-2 border-[#E2E8F0]">
-                  <AvatarFallback className="bg-[#FF6A00] text-white text-[10px] font-bold rounded-lg">SA</AvatarFallback>
+                  <AvatarFallback className="bg-[#E8501A] text-white text-[10px] font-bold rounded-lg">SA</AvatarFallback>
                 </Avatar>
               )}
             </div>
@@ -378,13 +378,13 @@ export default function SuperCommandingChat() {
         {sending && (
           <div className="flex justify-start gap-2 max-w-[85%]">
             <Avatar className="w-8 h-8 flex-shrink-0 border border-[#E2E8F0]">
-              <AvatarFallback className="text-[10px] font-bold bg-[#003ABC]/10 text-[#003ABC] rounded-lg">HUB</AvatarFallback>
+              <AvatarFallback className="text-[10px] font-bold bg-[#0066CC]/10 text-[#0066CC] rounded-lg">HUB</AvatarFallback>
             </Avatar>
             <div className="bg-[#F1F5F9] px-4 py-3 rounded-2xl rounded-bl-md border border-[#E2E8F0]">
               <div className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#FF6A00] animate-pulse" />
+                <Sparkles className="w-3.5 h-3.5 text-[#E8501A] animate-pulse" />
                 <span className="text-xs text-[#64748B]">agents processing...</span>
-                <Loader2 className="w-3 h-3 text-[#FF6A00] animate-spin" />
+                <Loader2 className="w-3 h-3 text-[#E8501A] animate-spin" />
               </div>
             </div>
           </div>
@@ -402,7 +402,7 @@ export default function SuperCommandingChat() {
                   key={qm.label}
                   variant="outline"
                   size="sm"
-                  className="flex-shrink-0 h-8 text-[11px] gap-1.5 border-[#E2E8F0] text-[#64748B] hover:text-[#FF6A00] hover:bg-[#FF6A00]/5 hover:border-[#FF6A00]/30 whitespace-nowrap rounded-lg"
+                  className="flex-shrink-0 h-8 text-[11px] gap-1.5 border-[#E2E8F0] text-[#64748B] hover:text-[#E8501A] hover:bg-[#E8501A]/5 hover:border-[#E8501A]/30 whitespace-nowrap rounded-lg"
                   onClick={() => sendMessage(qm.msg)}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -425,10 +425,10 @@ export default function SuperCommandingChat() {
               onKeyDown={handleKeyDown}
               placeholder={broadcast ? "Broadcast to all agents..." : "Command your agents..."}
               disabled={sending}
-              className="w-full h-11 bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] text-sm rounded-xl pl-4 pr-12 placeholder:text-[#94A3B8] focus:border-[#FF6A00]/40 focus:ring-[#FF6A00]/10"
+              className="w-full h-11 bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] text-sm rounded-xl pl-4 pr-12 placeholder:text-[#94A3B8] focus:border-[#E8501A]/40 focus:ring-[#E8501A]/10"
             />
             {broadcast && (
-              <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#FF6A00]/10 text-[#FF6A00] text-[9px] py-0 border-0 rounded">
+              <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#E8501A]/10 text-[#E8501A] text-[9px] py-0 border-0 rounded">
                 <Radio className="w-2.5 h-2.5 mr-0.5" /> BROADCAST
               </Badge>
             )}
@@ -436,7 +436,7 @@ export default function SuperCommandingChat() {
           <Button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || sending}
-            className="h-11 w-11 rounded-xl bg-[#FF6A00] text-white hover:bg-[#E5600A] border-0 flex-shrink-0"
+            className="h-11 w-11 rounded-xl bg-[#E8501A] text-white hover:bg-[#E5600A] border-0 flex-shrink-0"
           >
             {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </Button>

@@ -212,7 +212,7 @@ ${printStyles ? `<style>@page{size:A4;margin:0}body{margin:0;background:${BRAND.
                 </table>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px">
                   <tr>
-                    <td style="background:rgba(255,106,0,0.08);border:1px solid ${BRAND.orange};border-radius:6px;padding:12px">
+                    <td style="background:rgba(232,80,26,0.08);border:1px solid ${BRAND.orange};border-radius:6px;padding:12px">
                       <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:${BRAND.orange}">Cost avoided</div>
                       <div style="margin-top:5px;font-family:'Geist Mono',ui-monospace,monospace;font-size:22px;font-weight:700;line-height:1;color:${BRAND.blue}">${money(totals.avoided || totals.net)}</div>
                       <div style="margin-top:6px;font-size:10px;line-height:1.45;color:${BRAND.gray}">What this period would have cost on equivalent paid APIs.</div>

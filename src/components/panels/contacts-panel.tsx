@@ -196,7 +196,7 @@ export default function ContactsPanel() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-[#1E293B] flex items-center gap-2">
-            <Users className="w-5 h-5 text-[#003ABC]" />
+            <Users className="w-5 h-5 text-[#0066CC]" />
             Contacts
           </h2>
           <p className="text-sm text-[#64748B] mt-0.5">
@@ -204,7 +204,7 @@ export default function ContactsPanel() {
           </p>
         </div>
         <Button
-          className="bg-[#003ABC] hover:bg-[#002A8F] text-white text-sm h-9 gap-1.5"
+          className="bg-[#0066CC] hover:bg-[#002A8F] text-white text-sm h-9 gap-1.5"
           onClick={() => setAddDialogOpen(true)}
         >
           <UserPlus className="w-4 h-4" />
@@ -237,7 +237,7 @@ export default function ContactsPanel() {
                 placeholder="Search by name, email, or company..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-9 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]"
+                className="pl-9 h-9 border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B] placeholder:text-[#94A3B8]"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -339,14 +339,14 @@ export default function ContactsPanel() {
                           <TableRow
                             key={contact.id}
                             className={`border-b border-[#F1F5F9] cursor-pointer transition-colors ${
-                              selectedContact?.id === contact.id ? 'bg-[#003ABC]/5' : 'hover:bg-[#F8FAFC]'
+                              selectedContact?.id === contact.id ? 'bg-[#0066CC]/5' : 'hover:bg-[#F8FAFC]'
                             }`}
                             onClick={() => setSelectedContact(contact)}
                           >
                             <TableCell>
                               <div className="flex items-center gap-2.5">
                                 <Avatar className="h-8 w-8 border border-[#E2E8F0]">
-                                  <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-xs font-semibold">
+                                  <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-xs font-semibold">
                                     {getInitials(contact.firstName, contact.lastName)}
                                   </AvatarFallback>
                                 </Avatar>
@@ -384,7 +384,7 @@ export default function ContactsPanel() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7 text-[#64748B] hover:text-[#003ABC] hover:bg-[#003ABC]/10"
+                                  className="h-7 w-7 text-[#64748B] hover:text-[#0066CC] hover:bg-[#0066CC]/10"
                                   onClick={(e) => { e.stopPropagation(); setSelectedContact(contact) }}
                                 >
                                   <Eye className="w-3.5 h-3.5" />
@@ -415,7 +415,7 @@ export default function ContactsPanel() {
                       >
                         <div className="flex items-start gap-3">
                           <Avatar className="h-10 w-10 border border-[#E2E8F0]">
-                            <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-sm font-semibold">
+                            <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-sm font-semibold">
                               {getInitials(contact.firstName, contact.lastName)}
                             </AvatarFallback>
                           </Avatar>
@@ -457,7 +457,7 @@ export default function ContactsPanel() {
                             key={p}
                             variant="ghost"
                             size="icon"
-                            className={`h-7 w-7 text-xs ${p === page ? 'bg-[#003ABC] text-white hover:bg-[#002A8F]' : 'text-[#64748B] hover:bg-[#F1F5F9]'}`}
+                            className={`h-7 w-7 text-xs ${p === page ? 'bg-[#0066CC] text-white hover:bg-[#002A8F]' : 'text-[#64748B] hover:bg-[#F1F5F9]'}`}
                             onClick={() => setPage(p)}
                           >
                             {p}
@@ -502,7 +502,7 @@ export default function ContactsPanel() {
                 {/* Avatar & Name */}
                 <div className="text-center">
                   <Avatar className="h-16 w-16 border-2 border-[#E2E8F0] mx-auto">
-                    <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-xl font-bold">
+                    <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-xl font-bold">
                       {getInitials(selectedContact.firstName, selectedContact.lastName)}
                     </AvatarFallback>
                   </Avatar>
@@ -645,7 +645,7 @@ export default function ContactsPanel() {
               <Button variant="outline">Cancel</Button>
             </DialogClose>
             <Button
-              className="bg-[#003ABC] hover:bg-[#002A8F] text-white"
+              className="bg-[#0066CC] hover:bg-[#002A8F] text-white"
               onClick={handleAddContact}
               disabled={submitting || !newFirstName.trim() || !newEmail.trim()}
             >

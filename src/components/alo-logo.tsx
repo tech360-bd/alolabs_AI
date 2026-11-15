@@ -19,14 +19,14 @@ export function AloLogo({ size = 40, className = '' }: AloLogoProps) {
     >
       <path
         d="M20 2L37 11V29L20 38L3 29V11L20 2Z"
-        stroke="#FF6A00"
+        stroke="#E8501A"
         strokeWidth="2.5"
-        fill="#003ABC"
+        fill="#0066CC"
         fillOpacity="0.1"
       />
       <path
         d="M20 2L37 11V29L20 38L3 29V11L20 2Z"
-        stroke="#FF6A00"
+        stroke="#E8501A"
         strokeWidth="2.5"
         fill="none"
       />
@@ -37,11 +37,11 @@ export function AloLogo({ size = 40, className = '' }: AloLogoProps) {
         fontFamily="Inter, sans-serif"
         fontWeight="700"
         fontSize="18"
-        fill="#003ABC"
+        fill="#0066CC"
       >
         A
       </text>
-      <rect x="14" y="28" width="12" height="2.5" rx="1.25" fill="#FF6A00" />
+      <rect x="14" y="28" width="12" height="2.5" rx="1.25" fill="#E8501A" />
     </svg>
   )
 }

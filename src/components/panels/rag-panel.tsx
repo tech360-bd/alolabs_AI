@@ -276,7 +276,7 @@ export default function RagPanel() {
         <div className="flex items-center gap-2">
           <Dialog open={createColOpen} onOpenChange={setCreateColOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="text-[#003ABC] border-[#003ABC]/30 hover:bg-[#003ABC]/5 rounded-lg">
+              <Button variant="outline" className="text-[#0066CC] border-[#0066CC]/30 hover:bg-[#0066CC]/5 rounded-lg">
                 <Plus className="w-4 h-4 mr-2" />
                 New Collection
               </Button>
@@ -306,7 +306,7 @@ export default function RagPanel() {
                   />
                 </div>
                 <Button
-                  className="w-full bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg"
+                  className="w-full bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg"
                   onClick={handleCreateCollection}
                   disabled={!colName.trim() || colSubmitting}
                 >
@@ -319,7 +319,7 @@ export default function RagPanel() {
 
           <Dialog open={uploadDocOpen} onOpenChange={setUploadDocOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg">
+              <Button className="bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg">
                 <Upload className="w-4 h-4 mr-2" />
                 Upload Document
               </Button>
@@ -376,7 +376,7 @@ export default function RagPanel() {
                   </Select>
                 </div>
                 <Button
-                  className="w-full bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg"
+                  className="w-full bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg"
                   onClick={handleUploadDocument}
                   disabled={!docName.trim() || !docCollectionId || docSubmitting}
                 >
@@ -392,8 +392,8 @@ export default function RagPanel() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: Database, label: 'Collections', value: totalCollections, color: 'text-[#003ABC]' },
-          { icon: FileText, label: 'Documents', value: totalDocuments, color: 'text-[#FF6A00]' },
+          { icon: Database, label: 'Collections', value: totalCollections, color: 'text-[#0066CC]' },
+          { icon: FileText, label: 'Documents', value: totalDocuments, color: 'text-[#E8501A]' },
           { icon: Search, label: 'Queries', value: totalQueries, color: 'text-emerald-600' },
           { icon: MessageCircle, label: 'Results', value: totalResults, color: 'text-purple-600' },
         ].map((stat) => {
@@ -412,7 +412,7 @@ export default function RagPanel() {
 
       {/* Isolation Banner */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-        <Lock className="w-5 h-5 text-[#003ABC] mt-0.5 flex-shrink-0" />
+        <Lock className="w-5 h-5 text-[#0066CC] mt-0.5 flex-shrink-0" />
         <p className="text-sm text-[#1E293B]">
           Company data is isolated. Cross-company RAG queries are <span className="font-semibold text-red-500">blocked</span>.
         </p>
@@ -421,15 +421,15 @@ export default function RagPanel() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-white border border-[#E2E8F0] rounded-lg h-10 p-1">
-          <TabsTrigger value="collections" className="rounded-md text-xs data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-[#64748B]">
+          <TabsTrigger value="collections" className="rounded-md text-xs data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-[#64748B]">
             <Database className="w-3.5 h-3.5 mr-1.5" />
             Collections
           </TabsTrigger>
-          <TabsTrigger value="documents" className="rounded-md text-xs data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-[#64748B]">
+          <TabsTrigger value="documents" className="rounded-md text-xs data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-[#64748B]">
             <FileText className="w-3.5 h-3.5 mr-1.5" />
             Documents
           </TabsTrigger>
-          <TabsTrigger value="query" className="rounded-md text-xs data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-[#64748B]">
+          <TabsTrigger value="query" className="rounded-md text-xs data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-[#64748B]">
             <Search className="w-3.5 h-3.5 mr-1.5" />
             Query
           </TabsTrigger>
@@ -555,7 +555,7 @@ export default function RagPanel() {
                 </SelectContent>
               </Select>
               <Button
-                className="bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg flex-shrink-0"
+                className="bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg flex-shrink-0"
                 onClick={handleQuery}
                 disabled={!queryText.trim() || queryLoading}
               >
@@ -595,7 +595,7 @@ export default function RagPanel() {
                     {queryResult.chunks.map((chunk, idx) => (
                       <div key={chunk.id} className="bg-[#F8FAFC] rounded-lg p-3 border border-[#E2E8F0]">
                         <div className="flex items-center gap-2 mb-1">
-                          <Badge className="text-[9px] py-0 border-0 bg-[#003ABC]/10 text-[#003ABC]">Chunk {idx + 1}</Badge>
+                          <Badge className="text-[9px] py-0 border-0 bg-[#0066CC]/10 text-[#0066CC]">Chunk {idx + 1}</Badge>
                           <span className="text-[10px] text-[#94A3B8]">Position {chunk.position}</span>
                         </div>
                         <p className="text-xs text-[#64748B] line-clamp-3">{chunk.content}</p>

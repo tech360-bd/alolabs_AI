@@ -125,7 +125,7 @@ export function SendInvoiceDialog({ invoice }: { invoice: Invoice }) {
 
         {sentTo ? (
           <div className="space-y-3 py-2">
-            <div className="flex items-start gap-3 rounded-lg border p-4" style={{ borderColor: BRAND.orange, background: 'rgba(255,106,0,0.06)' }}>
+            <div className="flex items-start gap-3 rounded-lg border p-4" style={{ borderColor: BRAND.orange, background: 'rgba(232,80,26,0.06)' }}>
               <Check className="mt-0.5 size-4" style={{ color: BRAND.orange }} />
               <div>
                 <p className="text-[13px] font-semibold" style={{ color: BRAND.blue }}>

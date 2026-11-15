@@ -58,7 +58,7 @@ const statusConfig: Record<string, { color: string; dotColor: string; label: str
   running: { color: 'text-emerald-600', dotColor: 'bg-emerald-500', label: 'Running' },
   stopped: { color: 'text-[#64748B]', dotColor: 'bg-[#CBD5E1]', label: 'Stopped' },
   restarting: { color: 'text-amber-600', dotColor: 'bg-amber-500', label: 'Restarting' },
-  idle: { color: 'text-[#003ABC]', dotColor: 'bg-[#003ABC]', label: 'Idle' },
+  idle: { color: 'text-[#0066CC]', dotColor: 'bg-[#0066CC]', label: 'Idle' },
   error: { color: 'text-red-600', dotColor: 'bg-red-500', label: 'Error' },
 }
 
@@ -142,8 +142,8 @@ export default function WorkerManagerPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <Cpu className="h-5 w-5 text-[#003ABC]" />
+          <div className="h-10 w-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <Cpu className="h-5 w-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1E293B]">Worker Manager</h2>
@@ -156,7 +156,7 @@ export default function WorkerManagerPanel() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: 'Active Workers', value: `${runningCount}/${workers.length}`, icon: Activity, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-          { label: 'Jobs Completed', value: totalCompleted.toLocaleString(), icon: Cpu, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
+          { label: 'Jobs Completed', value: totalCompleted.toLocaleString(), icon: Cpu, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
           { label: 'Total Memory', value: `${(totalMemory / 1024).toFixed(1)} GB`, icon: MemoryStick, color: 'text-purple-500', bg: 'bg-purple-50' },
           { label: 'Auto Scale', value: pool.autoScale ? 'On' : 'Off', icon: Settings, color: pool.autoScale ? 'text-emerald-500' : 'text-[#64748B]', bg: pool.autoScale ? 'bg-emerald-50' : 'bg-gray-100' },
         ].map((stat) => (
@@ -223,7 +223,7 @@ export default function WorkerManagerPanel() {
             onClick={handleSavePool}
             disabled={savingPool}
             variant="outline"
-            className="border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC] hover:border-[#003ABC]"
+            className="border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC] hover:border-[#0066CC]"
           >
             {savingPool ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
             Save Configuration

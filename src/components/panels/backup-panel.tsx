@@ -182,8 +182,8 @@ export default function BackupPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <HardDrive className="h-5 w-5 text-[#003ABC]" />
+          <div className="h-10 w-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <HardDrive className="h-5 w-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1E293B]">Backup & Restore</h2>
@@ -194,7 +194,7 @@ export default function BackupPanel() {
           size="sm"
           onClick={handleCreate}
           disabled={creating}
-          className="gap-1.5 bg-[#003ABC] hover:bg-[#003ABC]/90 text-white"
+          className="gap-1.5 bg-[#0066CC] hover:bg-[#0066CC]/90 text-white"
         >
           {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           Create Backup Now
@@ -221,8 +221,8 @@ export default function BackupPanel() {
         <Card className="border-[#E2E8F0]">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-[#003ABC]/10 flex items-center justify-center">
-                <HardDrive className="h-5 w-5 text-[#003ABC]" />
+              <div className="h-10 w-10 rounded-lg bg-[#0066CC]/10 flex items-center justify-center">
+                <HardDrive className="h-5 w-5 text-[#0066CC]" />
               </div>
               <div>
                 <p className="text-xs text-[#94A3B8]">Total Backup Size</p>
@@ -272,7 +272,7 @@ export default function BackupPanel() {
             <div className="space-y-2">
               <Label className="text-sm text-[#1E293B]">Schedule</Label>
               <select
-                className="w-full h-9 px-3 text-sm border border-[#E2E8F0] rounded-lg bg-white text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#003ABC]/20 focus:border-[#003ABC]"
+                className="w-full h-9 px-3 text-sm border border-[#E2E8F0] rounded-lg bg-white text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0066CC]/20 focus:border-[#0066CC]"
                 value={config.schedule}
                 onChange={(e) => setConfig((c) => ({ ...c, schedule: e.target.value }))}
               >
@@ -309,7 +309,7 @@ export default function BackupPanel() {
             onClick={handleSaveConfig}
             disabled={savingConfig}
             variant="outline"
-            className="border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC] hover:border-[#003ABC]"
+            className="border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC] hover:border-[#0066CC]"
           >
             {savingConfig ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
             Save Configuration
@@ -372,7 +372,7 @@ export default function BackupPanel() {
                             variant="ghost"
                             onClick={() => setRestoreDialog(b)}
                             disabled={b.status !== 'completed'}
-                            className="h-7 text-xs gap-1 text-[#64748B] hover:text-[#003ABC]"
+                            className="h-7 text-xs gap-1 text-[#64748B] hover:text-[#0066CC]"
                           >
                             <Upload className="h-3 w-3" />
                             Restore

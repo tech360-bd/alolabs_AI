@@ -84,9 +84,9 @@ export const ALO_SKIN: Record<Theme, RoleTokens> = {
     soft: '#94A3B8',
     rule: 'rgba(30,41,59,0.12)',
     ruleSolid: '#CBD5E1',
-    accent: '#FF6A00',
-    accentTint: 'rgba(255,106,0,0.08)',
-    link: '#003ABC',
+    accent: '#E8501A',
+    accentTint: 'rgba(232,80,26,0.08)',
+    link: '#0066CC',
   },
   dark: {
     paper: '#0F172A',
@@ -97,8 +97,8 @@ export const ALO_SKIN: Record<Theme, RoleTokens> = {
     soft: '#94A3B8',
     rule: 'rgba(248,250,252,0.12)',
     ruleSolid: 'rgba(203,213,225,0.25)',
-    accent: '#FF6A00',
-    accentTint: 'rgba(255,106,0,0.12)',
+    accent: '#E8501A',
+    accentTint: 'rgba(232,80,26,0.12)',
     link: '#60A5FA',
   },
 }

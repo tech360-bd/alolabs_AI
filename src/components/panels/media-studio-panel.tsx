@@ -112,7 +112,7 @@ export default function MediaStudioPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#003ABC] to-[#1a56db] p-5 text-white">
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#0066CC] to-[#1a56db] p-5 text-white">
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-1">
             <Sparkles className="h-5 w-5" />
@@ -135,7 +135,7 @@ export default function MediaStudioPanel() {
       <Card className="bg-white border-slate-200">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <active.icon className="h-4 w-4 text-[#003ABC]" />
+            <active.icon className="h-4 w-4 text-[#0066CC]" />
             {active.label} — {active.hint}
           </CardTitle>
         </CardHeader>
@@ -147,7 +147,7 @@ export default function MediaStudioPanel() {
                 type="button"
                 size="sm"
                 variant={kind === tab.id ? 'default' : 'outline'}
-                className={kind === tab.id ? 'bg-[#003ABC] hover:bg-[#002B8C] text-white' : ''}
+                className={kind === tab.id ? 'bg-[#0066CC] hover:bg-[#002B8C] text-white' : ''}
                 onClick={() => setKind(tab.id)}
               >
                 <tab.icon className="h-3.5 w-3.5 mr-1.5" />
@@ -248,7 +248,7 @@ export default function MediaStudioPanel() {
           <Button
             onClick={generate}
             disabled={busy || prompt.trim().length < 3}
-            className="w-full bg-[#003ABC] hover:bg-[#002B8C] text-white"
+            className="w-full bg-[#0066CC] hover:bg-[#002B8C] text-white"
           >
             {busy ? (
               <>
@@ -290,7 +290,7 @@ export default function MediaStudioPanel() {
                       href={job.assets[0].url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[#003ABC] hover:underline inline-flex items-center gap-1 text-xs"
+                      className="text-[#0066CC] hover:underline inline-flex items-center gap-1 text-xs"
                     >
                       Open <ExternalLink className="h-3 w-3" />
                     </a>

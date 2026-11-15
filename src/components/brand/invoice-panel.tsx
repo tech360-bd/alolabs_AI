@@ -113,7 +113,7 @@ export default function InvoicePanel() {
             </div>
             <div
               className="mt-2 rounded-lg p-3"
-              style={{ background: 'rgba(255,106,0,0.08)', border: `1px solid ${BRAND.orange}` }}
+              style={{ background: 'rgba(232,80,26,0.08)', border: `1px solid ${BRAND.orange}` }}
             >
               <dt className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orange }}>
                 Cost avoided

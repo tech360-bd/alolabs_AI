@@ -103,7 +103,7 @@ export default function ConstitutionEngine() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {[
-          { label: 'Total Rules', value: total, icon: Scale, color: 'text-[#003ABC]' },
+          { label: 'Total Rules', value: total, icon: Scale, color: 'text-[#0066CC]' },
           { label: 'Critical', value: severityCounts.critical, icon: ShieldAlert, color: 'text-red-600' },
           { label: 'High', value: severityCounts.high, icon: AlertTriangle, color: 'text-orange-600' },
           { label: 'Medium', value: severityCounts.medium, icon: Info, color: 'text-amber-600' },
@@ -224,7 +224,7 @@ export default function ConstitutionEngine() {
                         <div>
                           <p className="text-xs font-semibold text-slate-500 mb-1.5 uppercase">Enforcement</p>
                           <p className="text-sm text-slate-600 dark:text-slate-300 flex items-start gap-2">
-                            <Shield className="h-3.5 w-3.5 text-[#FF6A00] mt-0.5 shrink-0" />
+                            <Shield className="h-3.5 w-3.5 text-[#E8501A] mt-0.5 shrink-0" />
                             {rule.enforcement}
                           </p>
                         </div>

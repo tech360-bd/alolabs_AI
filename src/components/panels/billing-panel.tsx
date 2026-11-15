@@ -389,7 +389,7 @@ function CreatePlanDialog({
           <Button
             onClick={handleSubmit}
             disabled={submitting || !form.name || !form.slug}
-            className="bg-[#003ABC] hover:bg-[#002A9E] text-white text-sm"
+            className="bg-[#0066CC] hover:bg-[#002A9E] text-white text-sm"
           >
             {submitting ? 'Creating...' : 'Create Plan'}
           </Button>
@@ -586,7 +586,7 @@ export default function BillingPanel() {
         {activeTab === 'plans' && (
           <Button
             onClick={() => setCreatePlanOpen(true)}
-            className="bg-[#003ABC] hover:bg-[#002A9E] text-white text-sm"
+            className="bg-[#0066CC] hover:bg-[#002A9E] text-white text-sm"
           >
             <Plus className="w-4 h-4 mr-1.5" />
             Create Plan
@@ -596,19 +596,19 @@ export default function BillingPanel() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-slate-100">
-          <TabsTrigger value="plans" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm">
+          <TabsTrigger value="plans" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm">
             <DollarSign className="w-4 h-4 mr-1.5" />
             Plans
           </TabsTrigger>
-          <TabsTrigger value="subscriptions" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm">
+          <TabsTrigger value="subscriptions" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm">
             <CreditCard className="w-4 h-4 mr-1.5" />
             Subscriptions
           </TabsTrigger>
-          <TabsTrigger value="invoices" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm">
+          <TabsTrigger value="invoices" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm">
             <Receipt className="w-4 h-4 mr-1.5" />
             Invoices
           </TabsTrigger>
-          <TabsTrigger value="payments" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm">
+          <TabsTrigger value="payments" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm">
             <FileText className="w-4 h-4 mr-1.5" />
             Payments
           </TabsTrigger>
@@ -633,7 +633,7 @@ export default function BillingPanel() {
                         {plan.name}
                       </CardTitle>
                       {plan.isEnterprise && (
-                        <Badge className="bg-[#FF6A00] text-white text-[10px] border-0">
+                        <Badge className="bg-[#E8501A] text-white text-[10px] border-0">
                           Enterprise
                         </Badge>
                       )}
@@ -644,7 +644,7 @@ export default function BillingPanel() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-[#003ABC]">
+                      <span className="text-2xl font-bold text-[#0066CC]">
                         {fmtMoney(plan.priceMonthly)}
                       </span>
                       <span className="text-xs text-slate-500">/month</span>
@@ -791,7 +791,7 @@ export default function BillingPanel() {
                 <TableBody>
                   {invoices.map((inv) => (
                     <TableRow key={inv.id} className="border-slate-100 hover:bg-slate-50/50 cursor-pointer" onClick={() => viewInvoice(inv)}>
-                      <TableCell className="text-sm font-mono font-medium text-[#003ABC]">
+                      <TableCell className="text-sm font-mono font-medium text-[#0066CC]">
                         {inv.invoiceNumber}
                       </TableCell>
                       <TableCell className="text-sm text-[#1E293B]">
@@ -814,7 +814,7 @@ export default function BillingPanel() {
                             e.stopPropagation()
                             viewInvoice(inv)
                           }}
-                          className="h-7 px-2 text-xs text-[#003ABC] hover:text-[#002A9E] hover:bg-blue-50"
+                          className="h-7 px-2 text-xs text-[#0066CC] hover:text-[#002A9E] hover:bg-blue-50"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </Button>

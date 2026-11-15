@@ -79,11 +79,11 @@ function ObservabilityForCompany() {
 
   const execution = stats?.execution
   const metrics = [
-    { label: 'Runs created · 24h', value: numberLabel(execution?.runs24h), icon: Zap, color: 'text-[#003ABC]' },
+    { label: 'Runs created · 24h', value: numberLabel(execution?.runs24h), icon: Zap, color: 'text-[#0066CC]' },
     { label: 'Currently active runs', value: numberLabel(execution?.activeRuns), icon: Activity, color: 'text-blue-600' },
     { label: 'Run completion rate · 24h', value: percentageLabel(execution?.runSuccessRate), icon: CheckCircle2, color: 'text-emerald-600' },
     { label: 'Recorded agent runs · 24h', value: numberLabel(execution?.agentRuns24h), icon: Bot, color: 'text-violet-600' },
-    { label: 'Mean agent-run latency', value: execution?.averageAgentRunLatencyMs == null ? 'Not measured' : `${execution.averageAgentRunLatencyMs.toLocaleString()} ms`, icon: Clock, color: 'text-[#FF6A00]' },
+    { label: 'Mean agent-run latency', value: execution?.averageAgentRunLatencyMs == null ? 'Not measured' : `${execution.averageAgentRunLatencyMs.toLocaleString()} ms`, icon: Clock, color: 'text-[#E8501A]' },
     { label: 'Usage records · 24h', value: numberLabel(execution?.usageLogs24h), icon: Database, color: 'text-cyan-600' },
     { label: 'Usage error rate · 24h', value: percentageLabel(execution?.usageErrorRate), icon: XCircle, color: 'text-red-600' },
     { label: 'Failed agent runs · 24h', value: numberLabel(execution?.failedAgentRuns24h), icon: AlertTriangle, color: 'text-amber-600' },

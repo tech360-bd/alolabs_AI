@@ -100,8 +100,8 @@ export default function CollaborationPanel() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF6A00]/10">
-          <Users className="h-5 w-5 text-[#FF6A00]" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#E8501A]/10">
+          <Users className="h-5 w-5 text-[#E8501A]" />
         </div>
         <div>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Multi-Agent Collaboration</h2>
@@ -111,10 +111,10 @@ export default function CollaborationPanel() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Sessions', value: stats?.total.toLocaleString() ?? '—', icon: Users, color: 'text-[#003ABC]' },
+          { label: 'Total Sessions', value: stats?.total.toLocaleString() ?? '—', icon: Users, color: 'text-[#0066CC]' },
           { label: 'Active', value: stats?.active.toLocaleString() ?? '—', icon: PlayCircle, color: 'text-emerald-600' },
           { label: 'Completed', value: stats?.completed.toLocaleString() ?? '—', icon: CheckCircle2, color: 'text-slate-600' },
-          { label: 'Avg Agents/Session', value: stats?.avgAgentsPerSession.toFixed(1) ?? '—', icon: Bot, color: 'text-[#FF6A00]' },
+          { label: 'Avg Agents/Session', value: stats?.avgAgentsPerSession.toFixed(1) ?? '—', icon: Bot, color: 'text-[#E8501A]' },
         ].map((s, i) => (
           <Card key={i} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4">
@@ -195,7 +195,7 @@ export default function CollaborationPanel() {
                 <div className="space-y-2">
                   {selected.messages.map((m, i) => (
                     <div key={i} className={`flex gap-2 text-sm p-2 rounded-lg ${m.role === 'system' ? 'bg-slate-100 dark:bg-slate-800' : m.role === 'user' ? 'bg-blue-50 dark:bg-blue-950/20' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
-                      <span className={`font-semibold shrink-0 ${m.role === 'agent' ? 'text-[#FF6A00]' : m.role === 'system' ? 'text-slate-500' : 'text-[#003ABC]'}`}>{m.role}</span>
+                      <span className={`font-semibold shrink-0 ${m.role === 'agent' ? 'text-[#E8501A]' : m.role === 'system' ? 'text-slate-500' : 'text-[#0066CC]'}`}>{m.role}</span>
                       <span className="text-slate-700 dark:text-slate-300">{m.content}</span>
                     </div>
                   ))}

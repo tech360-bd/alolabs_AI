@@ -95,9 +95,9 @@ const SLA_STATS = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const typeConfig: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bg: string }> = {
-  'Agent Deploy': { icon: Bot, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
+  'Agent Deploy': { icon: Bot, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
   'API Key': { icon: Globe, color: 'text-purple-600', bg: 'bg-purple-50' },
-  'Budget': { icon: CreditCard, color: 'text-[#FF6A00]', bg: 'bg-orange-50' },
+  'Budget': { icon: CreditCard, color: 'text-[#E8501A]', bg: 'bg-orange-50' },
   'User Access': { icon: User, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   'Webhook': { icon: Zap, color: 'text-amber-600', bg: 'bg-amber-50' },
   'Policy': { icon: FileText, color: 'text-slate-600', bg: 'bg-slate-100' },
@@ -241,7 +241,7 @@ export default function ApprovalsPanel() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#003ABC] to-[#0077FF] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0066CC] to-[#0077FF] flex items-center justify-center">
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -273,7 +273,7 @@ export default function ApprovalsPanel() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[11px] text-[#94A3B8]">Avg Response</span>
-              <Timer className="w-4 h-4 text-[#003ABC]" />
+              <Timer className="w-4 h-4 text-[#0066CC]" />
             </div>
             <p className="text-2xl font-bold text-[#1E293B]">{SLA_STATS.avgResponseTime}</p>
           </CardContent>
@@ -302,16 +302,16 @@ export default function ApprovalsPanel() {
       <Tabs value={tab} onValueChange={(v) => { setTab(v); setSelectedForBatch(new Set()) }} className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <TabsList className="bg-slate-100 p-1 h-9">
-            <TabsTrigger value="all" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger value="all" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm rounded-md">
               All ({approvals.length})
             </TabsTrigger>
-            <TabsTrigger value="pending" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger value="pending" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm rounded-md">
               Pending ({pendingCount})
             </TabsTrigger>
-            <TabsTrigger value="approved" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger value="approved" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm rounded-md">
               Approved ({approvedCount})
             </TabsTrigger>
-            <TabsTrigger value="rejected" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm rounded-md">
+            <TabsTrigger value="rejected" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm rounded-md">
               Rejected ({rejectedCount})
             </TabsTrigger>
           </TabsList>
@@ -344,7 +344,7 @@ export default function ApprovalsPanel() {
                         <Checkbox
                           checked={selectedForBatch.has(approval.id)}
                           onCheckedChange={() => toggleBatchSelect(approval.id)}
-                          className="mt-1 data-[state=checked]:bg-[#003ABC] data-[state=checked]:border-[#003ABC]"
+                          className="mt-1 data-[state=checked]:bg-[#0066CC] data-[state=checked]:border-[#0066CC]"
                         />
                       )}
                       {/* Type icon */}
@@ -407,7 +407,7 @@ export default function ApprovalsPanel() {
                             <span className="text-[11px] text-[#94A3B8]">Step</span>
                             <div className="flex items-center gap-0.5">
                               {Array.from({ length: approval.pipelineTotal }).map((_, i) => (
-                                <div key={i} className={`w-4 h-1.5 rounded-full ${i < approval.pipelineStep ? (approval.status === 'rejected' && i === approval.pipelineStep - 1 ? 'bg-red-400' : 'bg-[#003ABC]') : 'bg-[#E2E8F0]'}`} />
+                                <div key={i} className={`w-4 h-1.5 rounded-full ${i < approval.pipelineStep ? (approval.status === 'rejected' && i === approval.pipelineStep - 1 ? 'bg-red-400' : 'bg-[#0066CC]') : 'bg-[#E2E8F0]'}`} />
                               ))}
                             </div>
                           </div>
@@ -435,7 +435,7 @@ export default function ApprovalsPanel() {
                               <div className="ml-auto flex items-center gap-1.5">
                                 <span className="text-[11px] text-[#94A3B8]">Assigned to</span>
                                 <Avatar className="w-5 h-5">
-                                  <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-[8px]">{getInitials(approval.user.name)}</AvatarFallback>
+                                  <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-[8px]">{getInitials(approval.user.name)}</AvatarFallback>
                                 </Avatar>
                                 <span className="text-[11px] text-[#1E293B] font-medium">{approval.user.name}</span>
                               </div>
@@ -460,7 +460,7 @@ export default function ApprovalsPanel() {
               <CardTitle className="text-base font-semibold text-[#1E293B]">Auto-Approval Rules</CardTitle>
               <CardDescription className="text-xs text-[#64748B]">Configure rules to automatically approve certain request types</CardDescription>
             </div>
-            <Button variant="outline" size="sm" className="text-[#003ABC] border-[#003ABC]/30 hover:bg-[#003ABC]/5 gap-1.5">
+            <Button variant="outline" size="sm" className="text-[#0066CC] border-[#0066CC]/30 hover:bg-[#0066CC]/5 gap-1.5">
               <Settings className="w-3.5 h-3.5" /> Configure
             </Button>
           </div>
@@ -487,7 +487,7 @@ export default function ApprovalsPanel() {
             {['Request Submitted', 'Peer Review', 'Manager Approval', 'Security Check', 'Deployed'].map((step, i) => (
               <div key={i} className="flex items-center gap-2 flex-shrink-0">
                 <div className="flex flex-col items-center gap-1.5">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold ${i <= 1 ? 'bg-[#003ABC] text-white' : i === 2 ? 'bg-[#FF6A00] text-white' : 'bg-slate-100 text-[#94A3B8]'}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold ${i <= 1 ? 'bg-[#0066CC] text-white' : i === 2 ? 'bg-[#E8501A] text-white' : 'bg-slate-100 text-[#94A3B8]'}`}>
                     {i <= 1 ? <CheckCircle2 className="w-5 h-5" /> : i === 2 ? <Clock className="w-5 h-5" /> : i + 1}
                   </div>
                   <span className={`text-[10px] font-medium whitespace-nowrap ${i <= 2 ? 'text-[#1E293B]' : 'text-[#94A3B8]'}`}>{step}</span>

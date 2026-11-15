@@ -199,7 +199,7 @@ export default function FeedbackPanel() {
         <h2 className="text-xl font-semibold text-[#1E293B]">Feedback &amp; Learning Center</h2>
         <Dialog open={submitOpen} onOpenChange={setSubmitOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg">
+            <Button className="bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg">
               <Send className="w-4 h-4 mr-2" />
               Submit Feedback
             </Button>
@@ -245,7 +245,7 @@ export default function FeedbackPanel() {
                 />
               </div>
               <Button
-                className="w-full bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg"
+                className="w-full bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg"
                 onClick={handleSubmit}
                 disabled={!category || !content.trim() || submitting}
               >
@@ -261,7 +261,7 @@ export default function FeedbackPanel() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: MessageSquare, label: 'Total Feedback', value: totalFeedback, color: 'text-[#003ABC]' },
+          { icon: MessageSquare, label: 'Total Feedback', value: totalFeedback, color: 'text-[#0066CC]' },
           { icon: AlertCircle, label: 'Corrections', value: corrections, color: 'text-red-500' },
           { icon: ThumbsUp, label: 'Praise', value: praises, color: 'text-green-500' },
           { icon: Lightbulb, label: 'Suggestions', value: suggestions, color: 'text-amber-500' },
@@ -362,7 +362,7 @@ export default function FeedbackPanel() {
                     </TableCell>
                     <TableCell className="text-[#1E293B] text-sm max-w-xs truncate">{fb.content}</TableCell>
                     <TableCell className="hidden sm:table-cell">
-                      <Badge className={`text-[10px] py-0 border-0 ${fb.fromUser ? 'bg-[#003ABC]/10 text-[#003ABC]' : 'bg-purple-100 text-purple-700'}`}>
+                      <Badge className={`text-[10px] py-0 border-0 ${fb.fromUser ? 'bg-[#0066CC]/10 text-[#0066CC]' : 'bg-purple-100 text-purple-700'}`}>
                         {fb.fromUser ? 'User' : 'Agent'}
                       </Badge>
                     </TableCell>

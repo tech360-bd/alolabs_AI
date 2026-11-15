@@ -9,7 +9,7 @@ export default function ApiGateway() {
   return (
     <div>
       <div className="flex items-center gap-3 px-6 pt-6">
-        <Globe className="h-5 w-5 text-[#003ABC]" />
+        <Globe className="h-5 w-5 text-[#0066CC]" />
         <div>
           <h2 className="text-xl font-semibold">API Gateway</h2>
           <p className="text-sm text-slate-500">Recorded tenant usage is shown below. Gateway uptime, endpoint health and request rates are not measured here.</p>

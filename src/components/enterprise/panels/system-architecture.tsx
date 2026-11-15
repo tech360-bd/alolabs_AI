@@ -236,7 +236,7 @@ export default function SystemArchitecturePanel(_props: ArchitecturePanelProps) 
       {/* ── Header ── */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#003ABC]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0066CC]">
             <Network className="h-5 w-5 text-white" />
           </div>
           System Architecture
@@ -250,7 +250,7 @@ export default function SystemArchitecturePanel(_props: ArchitecturePanelProps) 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Layers className="h-5 w-5 text-[#003ABC]" />
+            <Layers className="h-5 w-5 text-[#0066CC]" />
             6-Layer Architecture
           </CardTitle>
           <CardDescription>
@@ -313,7 +313,7 @@ export default function SystemArchitecturePanel(_props: ArchitecturePanelProps) 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <HardDrive className="h-5 w-5 text-[#FF6A00]" />
+            <HardDrive className="h-5 w-5 text-[#E8501A]" />
             Technology Stack
           </CardTitle>
           <CardDescription>24 core technologies organized by architecture layer</CardDescription>
@@ -360,7 +360,7 @@ export default function SystemArchitecturePanel(_props: ArchitecturePanelProps) 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Globe className="h-5 w-5 text-[#003ABC]" />
+            <Globe className="h-5 w-5 text-[#0066CC]" />
             Integration Registry
           </CardTitle>
           <CardDescription>20 external integrations across 5 categories</CardDescription>
@@ -446,7 +446,7 @@ export default function SystemArchitecturePanel(_props: ArchitecturePanelProps) 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Zap className="h-5 w-5 text-[#FF6A00]" />
+            <Zap className="h-5 w-5 text-[#E8501A]" />
             Key Data Flows
           </CardTitle>
           <CardDescription>5 critical data flow patterns across the architecture</CardDescription>
@@ -461,7 +461,7 @@ export default function SystemArchitecturePanel(_props: ArchitecturePanelProps) 
                   className="rounded-lg border border-slate-200 dark:border-slate-700 p-4"
                 >
                   <div className="flex items-center gap-2 mb-3">
-                    <FlowIcon className="h-4 w-4 text-[#003ABC]" />
+                    <FlowIcon className="h-4 w-4 text-[#0066CC]" />
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{flow.name}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -488,7 +488,7 @@ export default function SystemArchitecturePanel(_props: ArchitecturePanelProps) 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Shield className="h-5 w-5 text-[#003ABC]" />
+            <Shield className="h-5 w-5 text-[#0066CC]" />
             Security Posture
           </CardTitle>
           <CardDescription>Zero Trust architecture — defense in depth across all layers</CardDescription>
@@ -518,15 +518,15 @@ export default function SystemArchitecturePanel(_props: ArchitecturePanelProps) 
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="text-center p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-              <p className="text-2xl font-bold text-[#003ABC]">100%</p>
+              <p className="text-2xl font-bold text-[#0066CC]">100%</p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">API Auth Coverage</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-              <p className="text-2xl font-bold text-[#FF6A00]">TLS 1.3</p>
+              <p className="text-2xl font-bold text-[#E8501A]">TLS 1.3</p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">Transit Encryption</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-              <p className="text-2xl font-bold text-[#003ABC]">AES-256</p>
+              <p className="text-2xl font-bold text-[#0066CC]">AES-256</p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">At-Rest Encryption</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">

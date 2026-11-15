@@ -192,8 +192,8 @@ export default function TokenBudgetPanel() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <Wallet className="w-5 h-5 text-[#003ABC]" />
+          <div className="w-9 h-9 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <Wallet className="w-5 h-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-xl font-bold text-[#1E293B]">Token Budget</h2>
@@ -218,7 +218,7 @@ export default function TokenBudgetPanel() {
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="rounded-lg bg-[#003ABC] hover:bg-[#003ABC]/90 text-white">
+              <Button className="rounded-lg bg-[#0066CC] hover:bg-[#0066CC]/90 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Record Usage
               </Button>
@@ -274,7 +274,7 @@ export default function TokenBudgetPanel() {
                 <DialogClose asChild>
                   <Button variant="outline" className="rounded-lg border-[#E2E8F0] text-[#1E293B]">Cancel</Button>
                 </DialogClose>
-                <Button onClick={handleRecordUsage} disabled={!usageForm.agentName || !usageForm.tokensUsed} className="rounded-lg bg-[#003ABC] hover:bg-[#003ABC]/90 text-white">
+                <Button onClick={handleRecordUsage} disabled={!usageForm.agentName || !usageForm.tokensUsed} className="rounded-lg bg-[#0066CC] hover:bg-[#0066CC]/90 text-white">
                   Record
                 </Button>
               </DialogFooter>
@@ -291,8 +291,8 @@ export default function TokenBudgetPanel() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[#003ABC]/10 flex items-center justify-center">
-                    <CalendarDays className="w-4 h-4 text-[#003ABC]" />
+                  <div className="w-7 h-7 rounded-lg bg-[#0066CC]/10 flex items-center justify-center">
+                    <CalendarDays className="w-4 h-4 text-[#0066CC]" />
                   </div>
                   <CardTitle className="text-sm font-semibold text-[#1E293B]">Monthly Budget</CardTitle>
                 </div>
@@ -331,8 +331,8 @@ export default function TokenBudgetPanel() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[#FF6A00]/10 flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4 text-[#FF6A00]" />
+                  <div className="w-7 h-7 rounded-lg bg-[#E8501A]/10 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-[#E8501A]" />
                   </div>
                   <CardTitle className="text-sm font-semibold text-[#1E293B]">Daily Budget</CardTitle>
                 </div>

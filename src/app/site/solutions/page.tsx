@@ -3,12 +3,18 @@ import { SolutionsPage } from '@/components/site/pages/solutions'
 
 export const metadata: Metadata = {
   title: 'Solutions — ALO Labs',
-  description: 'Process automation, CRM & marketing, education operations, voice & SMS, knowledge systems and custom AI products — one accountable team.',
+  description:
+    'Nine solution areas: AI & automation, custom software, web platforms, mobile apps, business systems & CRM, integrations, portals & SaaS, cloud, and AI-assisted customer experience.',
+  alternates: {
+    canonical: 'https://www.alolabs.net/site/solutions',
+  },
   openGraph: {
     title: 'Solutions — ALO Labs',
-    description: 'Process automation, CRM & marketing, education operations, voice & SMS, knowledge systems and custom AI products — one accountable team.',
+    description:
+      'Nine ways ALO Labs solves real business problems — each with the problem, our approach, key capabilities and expected value.',
     siteName: 'ALO Labs',
-    images: ['/brand/alo-logo-horizontal.svg'],
+    url: 'https://www.alolabs.net/site/solutions',
+    images: ['/brand/alo-mark.svg'],
   },
 }
 

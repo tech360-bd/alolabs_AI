@@ -69,9 +69,9 @@ export default function CommandCenter() {
   }
 
   const statCards = [
-    { icon: Bot, label: 'Total Agents', value: stats?.agents.total ?? 0, color: 'text-[#003ABC]' },
-    { icon: FolderTree, label: 'Departments', value: stats?.infrastructure.departments ?? 0, color: 'text-[#FF6A00]' },
-    { icon: Building2, label: 'Companies', value: stats?.companies.total ?? 0, color: 'text-[#003ABC]' },
+    { icon: Bot, label: 'Total Agents', value: stats?.agents.total ?? 0, color: 'text-[#0066CC]' },
+    { icon: FolderTree, label: 'Departments', value: stats?.infrastructure.departments ?? 0, color: 'text-[#E8501A]' },
+    { icon: Building2, label: 'Companies', value: stats?.companies.total ?? 0, color: 'text-[#0066CC]' },
     { icon: ClipboardList, label: 'Active Tasks', value: stats?.tasks.inProgress ?? 0, color: 'text-amber-600' },
     { icon: CheckSquare, label: 'Pending Approvals', value: stats?.security.pendingApprovals ?? 0, color: 'text-red-600' },
     { icon: Zap, label: 'Usage Today', value: stats?.usage.today ?? 0, color: 'text-emerald-600' },
@@ -114,7 +114,7 @@ export default function CommandCenter() {
                 <Icon className="w-4 h-4 text-[#64748B]" />
                 <span className="text-xs text-[#64748B]">{card.label}</span>
               </div>
-              <p className="text-3xl font-bold text-[#003ABC]">{card.value.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-[#0066CC]">{card.value.toLocaleString()}</p>
             </div>
           )
         })}
@@ -156,10 +156,10 @@ export default function CommandCenter() {
             {stats?.recentAuditLogs?.length ? (
               stats.recentAuditLogs.slice(0, 5).map((log) => (
                 <div key={log.id} className="flex items-start gap-2 text-xs">
-                  <Activity className="w-3 h-3 text-[#FF6A00] mt-0.5 flex-shrink-0" />
+                  <Activity className="w-3 h-3 text-[#E8501A] mt-0.5 flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-[#1E293B] truncate">
-                      <span className="text-[#003ABC]">{log.action}</span> on {log.resource}
+                      <span className="text-[#0066CC]">{log.action}</span> on {log.resource}
                     </p>
                     <p className="text-[#64748B]">
                       {log.user?.name || 'System'} · {new Date(log.createdAt).toLocaleTimeString()}
@@ -190,11 +190,11 @@ export default function CommandCenter() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs text-[#1E293B] truncate">{dept.name}</span>
-                        <span className="text-xs text-[#003ABC] font-medium">{dept.agentCount}</span>
+                        <span className="text-xs text-[#0066CC] font-medium">{dept.agentCount}</span>
                       </div>
                       <div className="h-1.5 bg-[#F8FAFC] rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-[#FF6A00] to-[#003ABC] rounded-full transition-all"
+                          className="h-full bg-gradient-to-r from-[#E8501A] to-[#0066CC] rounded-full transition-all"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
