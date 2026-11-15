@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Careers — ALO Labs',
     description: 'Build the operating system for AI work. Remote-first roles in engineering, AI automation, solutions and design.',
-    siteName: 'ALO Labs AgentOS',
+    siteName: 'ALO Labs',
     images: ['/brand/alo-logo-horizontal.svg'],
   },
 }

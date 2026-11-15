@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers'
 import { db } from './db'
 import { verifySessionToken } from './auth'
+import { isInternalRole } from './access/surfaces'
 
 /** Cookie that carries the opaque server session token (set by /api/auth/login). */
 const SESSION_COOKIE = 'session-token'
@@ -39,6 +40,11 @@ export async function getAuthUser(): Promise<AuthenticatedUser | null> {
       select: { id: true, email: true, name: true, role: true, isActive: true },
     })
     if (!user || !user.isActive) return null
+    // `getAuthUser` and everything built on it (`requireAuth`, `requireRole`,
+    // `requireCompany*`, `secureRoute`) serve the INTERNAL surface only.
+    // `verifySessionToken` above already refuses client sessions; this second
+    // check keeps the guarantee even if that default is ever changed.
+    if (!isInternalRole(user.role)) return null
 
     const memberships = await db.companyUser.findMany({
       where: { userId: user.id },

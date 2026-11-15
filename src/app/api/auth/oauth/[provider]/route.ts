@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
 import { createSessionToken, hashPassword } from '@/lib/auth';
+import { CLIENT_ROLE, audienceForToken } from '@/lib/access/surfaces';
+import { provisionClientAccount } from '@/lib/client-services/operations';
 import {
   buildOAuthCallbackUrl,
   resolveAppBaseUrl,
@@ -274,7 +276,10 @@ async function completeOAuthCallback(
           email: providerUser.email,
           passwordHash: await hashPassword(randomPassword),
           name: providerUser.name || providerUser.email.split('@')[0],
-          role: 'viewer',
+          // Sign-up through an identity provider creates a CLIENT login, the
+          // same as public registration. Internal accounts are only ever
+          // created by an internal administrator.
+          role: CLIENT_ROLE,
           isActive: true,
           oauthAccounts: {
             create: {
@@ -288,6 +293,11 @@ async function completeOAuthCallback(
             },
           },
         },
+      });
+      await provisionClientAccount({
+        userId: user.id,
+        companyName: `${user.name}'s organisation`,
+        billingEmail: user.email,
       });
     }
   }
@@ -350,7 +360,12 @@ export async function GET(
 
       const { user, sessionToken } = await completeOAuthCallback(provider, callbackCode, requestOrigin);
 
-      const nextPath = sanitizeOAuthNextPath(statePayload.next) || '/dashboard';
+      // Land each account on its own surface; a `next` that points at the
+      // other surface is ignored rather than followed.
+      const isClient = audienceForToken(sessionToken) === 'client';
+      const home = isClient ? '/portal' : '/dashboard';
+      const requestedNext = sanitizeOAuthNextPath(statePayload.next);
+      const nextPath = requestedNext && requestedNext.startsWith('/portal') === isClient ? requestedNext : home;
       const target = `${resolveAppBaseUrl(requestOrigin)}${nextPath}`;
       const response = NextResponse.redirect(target);
       response.cookies.set(SESSION_COOKIE, sessionToken, sessionCookieOptions());
@@ -445,7 +460,9 @@ export async function POST(
       user,
       token: sessionToken,
       // `next` is honored by API clients only when it is a safe in-app path.
-      redirectTo: sanitizeOAuthNextPath(statePayload.next) || '/dashboard',
+      redirectTo: audienceForToken(sessionToken) === 'client'
+        ? '/portal'
+        : sanitizeOAuthNextPath(statePayload.next) || '/dashboard',
     });
   } catch (error) {
     console.error('OAuth callback error:', error);

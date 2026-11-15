@@ -26,7 +26,7 @@ const BENEFITS = [
   {
     icon: Sparkles,
     title: 'Frontier tooling',
-    body: 'Agents, RAG, automation and an internal platform that is itself built with the AI systems we sell.',
+    body: 'Applied AI, automation and real client work — you ship things people use.',
   },
   {
     icon: HeartHandshake,
@@ -40,25 +40,25 @@ const ROLES = [
     title: 'Senior Full-Stack Engineer (Next.js / TypeScript)',
     location: 'Remote · UTC−6 to UTC+3',
     type: 'Full-time',
-    body: 'Own features end to end across the AgentOS surface: command centre, agent registry, approval flows and the APIs underneath.',
+    body: 'Own features end to end across our products: the client portal, internal tools and the APIs underneath.',
   },
   {
-    title: 'AI Automation Engineer (LLM apps & agents)',
+    title: 'AI Automation Engineer',
     location: 'Remote',
     type: 'Full-time',
-    body: 'Design agent specifications, tool-calling loops and RAG pipelines that behave predictably inside the approval gate.',
+    body: 'Design AI-assisted automations that behave predictably and pass human review.',
   },
   {
     title: 'Solutions Engineer / Implementation Lead',
     location: 'Remote · travel optional',
     type: 'Full-time',
-    body: 'Run department assessments, design workflows with operators and take first deployments live with the customer watching.',
+    body: 'Run client assessments, design workflows with the people who use them and take first projects live.',
   },
   {
     title: 'Product Designer (systems & editorial)',
     location: 'Remote',
     type: 'Full-time / contract',
-    body: 'Keep the command centre, the marketing surfaces and the editorial diagram system at the standard of the brand book.',
+    body: 'Keep the client portal and our public surfaces at the standard of the brand.',
   },
   {
     title: 'Open application',
@@ -75,7 +75,7 @@ export function CareersPage() {
         crumbs={[{ href: '/site/careers', label: 'Careers' }]}
         eyebrow="Careers"
         title={<>Build the operating system for AI work.</>}
-        lead="We are a small, senior team shipping a platform that puts 1020 AI agents to work inside real companies. If that sounds like the kind of problem you want to spend years on, come talk to us."
+        lead="We are a small, senior team delivering AI-powered services to real companies. If that sounds like the kind of problem you want to spend years on, come talk to us."
       >
         <div className="flex flex-wrap items-center gap-3">
           <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>

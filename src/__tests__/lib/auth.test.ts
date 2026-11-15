@@ -8,6 +8,9 @@ const sha256 = (value: string): string =>
 // Mock the db module before importing auth
 vi.mock('@/lib/db', () => ({
   db: {
+    // Sessions are bound to the owner's stored role: these suites exercise the
+    // internal (staff) path. The client path is covered in session-audience.test.ts.
+    user: { findUnique: async () => ({ id: 'staff-user', role: 'admin', isActive: true }) },
     settings: {
       upsert: vi.fn().mockResolvedValue({}),
       findUnique: vi.fn().mockResolvedValue(null),

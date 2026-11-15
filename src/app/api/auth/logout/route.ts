@@ -3,8 +3,14 @@ import { deleteSessionToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { token } = body;
+    // Signing out must work for every signed-in user on either surface, with or
+    // without a JSON body (the client portal posts none). It only ever deletes
+    // the session the caller already holds, so it needs no role check.
+    const body = (await request.json().catch(() => null)) as { token?: unknown } | null;
+    const bodyToken = typeof body?.token === 'string' ? body.token : '';
+    const header = request.headers.get('authorization');
+    const bearer = header?.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : '';
+    const token = bodyToken || bearer;
 
     // Also check cookie
     const cookieToken = request.cookies.get('session-token')?.value;

@@ -99,9 +99,15 @@ const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'
  * route wrapper: it unconditionally calls requireCompanyAuth() from
  * @/lib/api-auth and returns 401 before the handler runs, so referencing it is
  * equivalent to referencing an auth helper directly.
+ *
+ * `clientRoute` (from @/lib/portal/auth) and `internalRoute` (from
+ * @/lib/internal/auth) are the wrappers for the two halves of the client
+ * services wall: `/api/portal/**` and `/api/internal/**`. Both authenticate
+ * with verifySessionToken — against the client and the internal audience
+ * respectively — and return 401 before the handler runs.
  */
 const AUTH_HELPER_RE =
-  /@\/lib\/api-auth|@\/lib\/route-auth|@\/lib\/auth|@\/lib\/v1\b|@\/lib\/v1'|@\/lib\/voice\/api-helpers|v1Handler|secureRoute|requireAuth|withAuth|withCompany|authenticate|verifySession|verifySessionToken|verifyToken|getSession|getLockoutStatus/;
+  /@\/lib\/portal\/auth|@\/lib\/internal\/auth|clientRoute|internalRoute|@\/lib\/api-auth|@\/lib\/route-auth|@\/lib\/auth|@\/lib\/v1\b|@\/lib\/v1'|@\/lib\/voice\/api-helpers|v1Handler|secureRoute|requireAuth|withAuth|withCompany|authenticate|verifySession|verifySessionToken|verifyToken|getSession|getLockoutStatus/;
 
 const apiDir = join(root, 'src/app/api');
 if (!existsSync(apiDir)) {

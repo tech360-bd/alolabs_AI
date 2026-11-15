@@ -240,7 +240,15 @@ export default function QueuePanel() {
 
   // ─── Socket.IO Connection ──────────────────────────────────────────────
   useEffect(() => {
+    // The queue service only admits internal sessions; present ours.
+    let sessionToken = ''
+    try {
+      sessionToken = localStorage.getItem('alo_token') || localStorage.getItem('token') || ''
+    } catch {
+      sessionToken = ''
+    }
     const socketInstance = io('/?XTransformPort=3004', {
+      auth: { token: sessionToken },
       transports: ['websocket', 'polling'],
       forceNew: true,
       reconnection: true,

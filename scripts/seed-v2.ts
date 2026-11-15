@@ -470,6 +470,8 @@ async function main() {
           slug: c.slug,
           domain: c.domain,
           status: c.status,
+          // ALO Labs operating companies (AgentOS tenants), not customer accounts.
+          accountType: 'internal',
           webCrmConnected: c.webCrmConnected,
           paidApiAllowed: c.paidApiAllowed,
           smsAllowed: c.smsAllowed ?? false,

@@ -70,10 +70,17 @@ async function main() {
         slug: 'alo-labs',
         domain: 'alolabs.net',
         status: 'active',
+        // ALO Labs itself: an internal AgentOS tenant, not a customer account.
+        accountType: 'internal',
       },
     });
     console.log('  ✓ company ALO Labs (alo-labs)');
   } else {
+    if (company.accountType !== 'internal') {
+      // Created before accounts were typed: the column default is 'client'.
+      company = await db.company.update({ where: { id: company.id }, data: { accountType: 'internal' } });
+      console.log('  ✓ company alo-labs marked internal');
+    }
     console.log('  = company alo-labs already exists');
   }
 

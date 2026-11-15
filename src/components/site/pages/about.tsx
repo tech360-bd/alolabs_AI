@@ -22,7 +22,7 @@ const VALUES = [
   {
     icon: Scale,
     title: 'Automation with accountability',
-    body: 'Every agent has a specification, a department and QA rules. If we cannot say what an agent does and how it is checked, it does not ship.',
+    body: 'Every piece of work has a written scope and a review step. If we cannot say what will be delivered and how it is checked, it does not ship.',
   },
   {
     icon: Lightbulb,
@@ -32,12 +32,12 @@ const VALUES = [
   {
     icon: Users,
     title: 'Built with the operators',
-    body: 'The people who run the department help design the agents. Adoption is a delivery metric, not an afterthought.',
+    body: 'The people who will use the result help shape it. Adoption is a delivery metric, not an afterthought.',
   },
   {
     icon: Zap,
     title: 'Ship, then evolve',
-    body: 'First department live in weeks, then compound: the workforce grows department by department on a shared roadmap.',
+    body: 'First project live in weeks, then compound: we extend team by team on a shared roadmap.',
   },
   {
     icon: Compass,
@@ -47,10 +47,10 @@ const VALUES = [
 ]
 
 const MILESTONES = [
-  { year: '2023', title: 'The thesis', body: 'An operating system for AI agents — specified, routed, approved and audited — rather than another chatbot.' },
-  { year: '2024', title: 'AgentOS core', body: 'Command centre, master router, agent registry, memory and the hybrid RAG engine running as one platform.' },
-  { year: '2025', title: 'The workforce', body: '1020 agents across 100+ departments provisioned, verified and put to work inside the approval gate.' },
-  { year: '2026', title: 'Open surfaces', body: 'The marketing kit, the editorial diagram system and the department playbooks published as part of the product.' },
+  { year: '2023', title: 'The thesis', body: 'AI that does real, accountable work for a business — scoped, reviewed and approved — rather than another chatbot.' },
+  { year: '2024', title: 'First services', body: 'Process automation and CRM work delivered for our first clients, with human review on every deliverable.' },
+  { year: '2025', title: 'Six service lines', body: 'Automation, CRM and marketing, education operations, communications, knowledge and content, and custom software.' },
+  { year: '2026', title: 'The client portal', body: 'One secure place for clients to request services, follow progress, review deliverables, pay invoices and reach support.' },
 ]
 
 export function AboutPage() {
@@ -60,7 +60,7 @@ export function AboutPage() {
         crumbs={[{ href: '/site/about', label: 'About' }]}
         eyebrow="About ALO Labs"
         title={<>We build the operating system for AI work.</>}
-        lead={`ALO Labs is a technology company headquartered in Harrisonville, Missouri. We build ${COMPANY.product} — ${COMPANY.tagline} — and we run AI departments for the teams who use it. ${COMPANY.promise}`}
+        lead={`ALO Labs is a technology company headquartered in Harrisonville, Missouri. We deliver AI-powered business services — automation, CRM, communications, content and custom software — for the teams who rely on us. ${COMPANY.promise}`}
       >
         <div className="flex flex-wrap items-center gap-3">
           <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
@@ -75,7 +75,7 @@ export function AboutPage() {
       </PageHero>
 
       {/* Numbers on the letterhead */}
-      <Section eyebrow="By the numbers" title="1 Command Center · 1020 AI Agents · 100+ Departments · Unlimited Possibilities.">
+      <Section eyebrow="By the numbers" title="Six service lines. One client portal. A reply within one business day.">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {HEADLINE_STATS.map((stat) => (
             <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -115,7 +115,7 @@ export function AboutPage() {
       {/* Story */}
       <Section
         eyebrow="Our story"
-        title="From one command centre to a whole workforce."
+        title="From a first project to a lasting partnership."
         lead="The company was founded on a simple observation: teams do not need more AI demos, they need AI that does specified work, is checked before it acts, and can be audited after it does."
         ground="canvas"
       >
@@ -201,7 +201,7 @@ export function AboutPage() {
                 tone="white"
                 items={[
                   'The owner stays in command — automation answers to people.',
-                  'Specified work beats improvised work, for agents as for humans.',
+                  'Specified work beats improvised work.',
                   'Every capability ships with its audit trail.',
                   'Open surfaces — the brand kit, the diagram system, the playbooks — are part of the product.',
                   'We build what we would want to operate ourselves.',

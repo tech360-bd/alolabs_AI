@@ -34,20 +34,17 @@ export interface NavItem {
   hint?: string
 }
 
+// Public navigation lists client-facing pages only. Internal reference pages
+// (platform architecture, diagrams, press kit, brand book, design system, case
+// material) are part of the internal surface and are not linked from here.
 export const SITE_NAV: NavItem[] = [
-  { href: '/site/platform', label: 'Platform', hint: 'The AgentOS stack' },
-  { href: '/site/solutions', label: 'Solutions', hint: 'Services & automation' },
-  { href: '/site/work', label: 'Work', hint: 'Case studies' },
-  { href: '/site/pricing', label: 'Pricing', hint: 'Plans & deployment' },
-  { href: '/site/insights', label: 'Insights', hint: 'Notes & guides' },
+  { href: '/site/solutions', label: 'Services', hint: 'What we deliver' },
   { href: '/site/about', label: 'About', hint: 'The company' },
+  { href: '/site/contact', label: 'Contact', hint: 'Talk to us' },
 ]
 
 export const SITE_RESOURCE_NAV: NavItem[] = [
-  { href: '/site/diagrams', label: 'Diagram gallery', hint: '45 editorial visual types' },
-  { href: '/site/press', label: 'Marketing kit', hint: 'Logos, colours, boilerplate' },
-  { href: '/design', label: 'Design system', hint: 'Buttons, cards, tokens' },
-  { href: '/brand', label: 'Brand book', hint: 'The guideline sheet' },
+  { href: '/portal', label: 'Client portal', hint: 'Projects, deliverables, billing' },
   { href: '/site/careers', label: 'Careers', hint: 'Join the team' },
   { href: '/site/contact', label: 'Contact', hint: 'Talk to us' },
 ]
@@ -60,7 +57,7 @@ export function SiteHeader({ active }: { active?: string }) {
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-6 px-6 py-3.5">
         <Link href="/site" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-          <AloLabsLogo size={34} tagline={false} title="ALO Labs AgentOS" />
+          <AloLabsLogo size={34} tagline={false} title="ALO Labs" />
         </Link>
         <nav className="hidden items-center gap-1 lg:flex">
           {SITE_NAV.map((item) => (
@@ -107,8 +104,8 @@ export function SiteHeader({ active }: { active?: string }) {
             </Link>
           </Button>
           <Button size="sm" className="gap-1.5" style={{ background: BRAND.orange }} asChild>
-            <Link href="/">
-              Open AgentOS <ArrowRight className="size-3.5" />
+            <Link href="/portal">
+              Client portal <ArrowRight className="size-3.5" />
             </Link>
           </Button>
           <button
@@ -383,8 +380,8 @@ export function FaqList({ items }: { items: FaqItem[] }) {
 // ─── CTA band ────────────────────────────────────────────────────────────────
 
 export function CtaBand({
-  title = 'Ready to put 1020 agents to work?',
-  lead = 'See the command centre run a real command — or talk to the team about your departments, workflows and approval rules.',
+  title = 'Ready to hand us the busywork?',
+  lead = 'Tell us what you need. We scope it, deliver it and keep you informed in your client portal — from request to approved deliverable.',
 }: {
   title?: string
   lead?: string
@@ -399,8 +396,8 @@ export function CtaBand({
           <p className="mt-3 text-[14px] leading-relaxed text-white/75">{lead}</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
-              <Link href="/">
-                Open the Command Center <ArrowRight className="size-4" />
+              <Link href="/portal">
+                Open the client portal <ArrowRight className="size-4" />
               </Link>
             </Button>
             <Button size="lg" variant="outline" className="gap-2 border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white" asChild>
@@ -429,36 +426,21 @@ export function CtaBand({
 
 const FOOTER_COLUMNS: { title: string; items: NavItem[] }[] = [
   {
-    title: 'Platform',
-    items: [
-      { href: '/site/platform', label: 'AgentOS overview' },
-      { href: '/site/platform#command', label: 'Command Center' },
-      { href: '/site/platform#agents', label: 'AI agents & departments' },
-      { href: '/site/platform#rag', label: 'Hybrid RAG engine' },
-      { href: '/site/platform#approvals', label: 'Approval & audit' },
-      { href: '/site/pricing', label: 'Pricing & deployment' },
-    ],
-  },
-  {
-    title: 'Solutions',
+    title: 'Services',
     items: [
       { href: '/site/solutions', label: 'All services' },
       { href: '/site/solutions#automation', label: 'AI automation' },
       { href: '/site/solutions#crm', label: 'CRM & marketing' },
       { href: '/site/solutions#education', label: 'Education operations' },
-      { href: '/site/work', label: 'Case studies' },
-      { href: '/site/careers', label: 'Careers' },
+      { href: '/site/contact', label: 'Request a quote' },
     ],
   },
   {
-    title: 'Resources',
+    title: 'Clients',
     items: [
-      { href: '/site/insights', label: 'Insights & guides' },
-      { href: '/site/diagrams', label: 'Diagram gallery' },
-      { href: '/site/press', label: 'Marketing kit' },
-      { href: '/design', label: 'Design system' },
-      { href: '/brand', label: 'Brand book' },
-      { href: '/invoice', label: 'Invoice & letterhead' },
+      { href: '/portal', label: 'Client portal' },
+      { href: '/login', label: 'Sign in' },
+      { href: '/site/contact', label: 'Request a service' },
     ],
   },
   {
@@ -466,10 +448,9 @@ const FOOTER_COLUMNS: { title: string; items: NavItem[] }[] = [
     items: [
       { href: '/site/about', label: 'About ALO Labs' },
       { href: '/site/about#values', label: 'How we work' },
+      { href: '/site/careers', label: 'Careers' },
       { href: '/site/contact', label: 'Contact' },
-      { href: '/site/press', label: 'Press & media' },
       { href: '/site/contact#offices', label: 'Offices' },
-      { href: '/', label: 'Open AgentOS' },
     ],
   },
 ]
@@ -619,7 +600,7 @@ export function ContactForm({
           <select name="topic" className={field} defaultValue="General enquiry">
             {[
               'General enquiry',
-              'AgentOS platform demo',
+              'Service enquiry',
               'AI automation project',
               'CRM & marketing',
               'Education operations',
@@ -641,7 +622,7 @@ export function ContactForm({
           name="message"
           rows={compact ? 4 : 6}
           className={field}
-          placeholder="Tell us about your team, your departments and what you want to automate."
+          placeholder="Tell us about your team and what you would like help with."
         />
       </label>
       <input type="hidden" name="subject" value={subject} />

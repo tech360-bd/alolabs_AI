@@ -7,6 +7,7 @@
 import { createServer } from 'http'
 import { Server, Socket } from 'socket.io'
 import Redis from 'ioredis'
+import { CROSS_COMPANY_ROLES, verifyInternalSessionToken, type SessionDb } from '../shared/internal-auth'
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -154,7 +155,7 @@ async function initRedis() {
         } else if (userId) {
           io.to(`user:${userId}`).emit(eventName, data)
         } else {
-          io.emit(eventName, data)
+          io.to(AUTHENTICATED_ROOM).emit(eventName, data)
         }
       } catch (err) {
         console.error(`[Realtime Service] Error processing Redis message on ${channel}:`, err)
@@ -184,50 +185,30 @@ function publishEvent(event: string, payload: Record<string, unknown>) {
   }
 }
 
-// ─── JWT / Session Verification ───────────────────────────────────────────────
+/** Room every verified internal socket joins; the only target of broadcasts. */
+const AUTHENTICATED_ROOM = 'authenticated'
 
-/**
- * Verify a token (JWT or session token) and return user info.
- * Supports both standard JWT and the ALO Labs session token format.
- */
-async function verifyToken(token: string): Promise<{ userId: string; companyId?: string; role?: string } | null> {
+// ─── Session Verification ─────────────────────────────────────────────────────
+//
+// Internal personnel only. See ../shared/internal-auth.ts for the rules: the
+// token must be a stored, unexpired INTERNAL session whose owner is active and
+// holds an internal role. Client-portal sessions and unverifiable tokens are
+// refused, and identity is always read from the database.
+
+let prismaClient: unknown = null
+async function getDb(): Promise<SessionDb | null> {
+  if (prismaClient) return prismaClient as SessionDb
   try {
-    // Try JWT decode (base64 payload)
-    const parts = token.split('.')
-    if (parts.length === 3) {
-      // Standard JWT: header.payload.signature
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString())
-      if (payload.userId || payload.sub) {
-        return {
-          userId: payload.userId || payload.sub,
-          companyId: payload.companyId,
-          role: payload.role,
-        }
-      }
-    }
-
-    // Try session token via database lookup (if Prisma is available)
-    try {
-      const { PrismaClient } = await import('@prisma/client')
-      const db = new PrismaClient()
-      const session = await db.settings.findUnique({
-        where: { key: `session:${token}` },
-      })
-      if (session) {
-        const data = JSON.parse(session.value)
-        if (data.userId) {
-          return { userId: data.userId }
-        }
-      }
-      await db.$disconnect()
-    } catch {
-      // Prisma not available, skip DB-based verification
-    }
-
-    return null
+    const { PrismaClient } = await import('@prisma/client')
+    prismaClient = new PrismaClient()
+    return prismaClient as SessionDb
   } catch {
     return null
   }
+}
+
+async function verifyToken(token: string): Promise<{ userId: string; companyId?: string; role: string } | null> {
+  return verifyInternalSessionToken(await getDb(), token)
 }
 
 // ─── Connection Metrics ───────────────────────────────────────────────────────
@@ -259,6 +240,16 @@ io.on('connection', (socket: AuthenticatedSocket) => {
   // Initialize socket data
   socket.data = { authenticated: false }
 
+  // Until a socket has proved an internal session it may do exactly two
+  // things: authenticate, or ping. Every other event is dropped here, so no
+  // handler below can be reached — and nothing can be published — by an
+  // anonymous or client connection. Broadcasts go to AUTHENTICATED_ROOM only,
+  // which a socket joins when its session is verified.
+  socket.use(([event], next) => {
+    if (socket.data.authenticated || event === 'auth:verify' || event === 'ping') return next()
+    next(new Error('Not authenticated'))
+  })
+
   // ─── Authentication ─────────────────────────────────────────────────────
   socket.on('auth:verify', async (data: { token: string }, callback?: (response: { success: boolean; error?: string; userId?: string }) => void) => {
     const { token } = data
@@ -283,6 +274,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     socket.data.companyId = user.companyId
     socket.data.role = user.role
     socket.data.authenticated = true
+    socket.join(AUTHENTICATED_ROOM)
 
     // Auto-join user room and company room
     socket.join(`user:${user.userId}`)
@@ -317,8 +309,19 @@ io.on('connection', (socket: AuthenticatedSocket) => {
       return
     }
 
-    // If companyId is specified, verify the user belongs to that company
-    if (data.companyId && socket.data.companyId && data.companyId !== socket.data.companyId) {
+    // Tenant- and user-scoped rooms are checked against the identity resolved
+    // at authentication. The room NAME is what grants access to a stream, so
+    // it is the name that is validated — not an optional field alongside it.
+    const crossCompany = CROSS_COMPANY_ROLES.includes(String(socket.data.role))
+    if (roomName.startsWith('company:') && !crossCompany && roomName !== `company:${socket.data.companyId}`) {
+      callback?.({ success: false, error: 'Cannot join room for a different company' })
+      return
+    }
+    if (roomName.startsWith('user:') && roomName !== `user:${socket.data.userId}`) {
+      callback?.({ success: false, error: 'Cannot join another user\'s room' })
+      return
+    }
+    if (data.companyId && !crossCompany && data.companyId !== socket.data.companyId) {
       callback?.({ success: false, error: 'Cannot join room for a different company' })
       return
     }
@@ -360,7 +363,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     } else if (data.companyId) {
       io.to(`company:${data.companyId}`).emit('notification:new', enriched)
     } else {
-      socket.broadcast.emit('notification:new', enriched)
+      socket.to(AUTHENTICATED_ROOM).emit('notification:new', enriched)
     }
 
     // Also publish to Redis for multi-instance
@@ -402,7 +405,7 @@ io.on('connection', (socket: AuthenticatedSocket) => {
     totalMessagesReceived++
     const enriched = { ...data, timestamp: new Date().toISOString() }
 
-    io.emit('queue:update', enriched)
+    io.to(AUTHENTICATED_ROOM).emit('queue:update', enriched)
 
     publishEvent('queue:update', enriched)
     totalMessagesSent++

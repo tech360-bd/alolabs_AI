@@ -77,6 +77,18 @@ const MODEL_SHORT_FIELDS: Record<string, Set<string>> = {
   ModelRoutingDecision: new Set(['requestedModel', 'taskType', 'selectedModel', 'reason', 'fallbackFrom', 'errorCode']),
   BackupRecord: new Set(['kind', 'appVersion', 'commit', 'schemaVersion', 'createdBy']),
   QueueItem: new Set(['lockedBy', 'idempotencyKey']),
+  // Client portal separation (2026-11-15) — new column / new tables only.
+  Company: new Set(['accountType']),
+  ClientAccount: new Set(['accountManagerName', 'accountManagerTitle', 'accountManagerEmail', 'accountManagerPhone', 'billingEmail']),
+  ServiceOffering: new Set(['pricingModel', 'billingInterval', 'deliveryTimeframe']),
+  ClientProject: new Set(['serviceName']),
+  ClientMessage: new Set(['senderType', 'senderName']),
+  ClientDocument: new Set(['kind', 'fileName', 'storageKey', 'uploadedByType']),
+  ClientActivity: new Set(['actorType']),
+  ClientPayment: new Set(['method', 'reference']),
+  ClientSupportTicket: new Set(['subject']),
+  ClientNotification: new Set(['link']),
+  ClientProjectExecution: new Set(['reviewStatus']),
 };
 
 const lines = mysqlSchema.split('\n');

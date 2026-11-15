@@ -21,6 +21,7 @@
     "db:generate:schema": "npx tsx scripts/generate-mysql-schema.ts",
     "db:migrate": "prisma migrate dev",
     "db:migrate:mysql": "npx tsx scripts/migrate-sqlite-to-mysql.ts",
+    "db:migrate:client-separation": "npx tsx scripts/migrate-client-portal-separation.ts",
     "db:push": "prisma db push",
     "db:push:mysql": "prisma db push --schema=prisma/schema.mysql.prisma",
     "db:push:sqlite": "tsx scripts/sqlite-push.ts",

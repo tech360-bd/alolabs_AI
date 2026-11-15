@@ -60,6 +60,9 @@ function buildHealthWhere(status?: string): Prisma.AgentHealthWhereInput {
 
 export async function GET(request: NextRequest) {
   try {
+    // Internal surface only: without this call the route was reachable with any
+    // bearer string, because the request proxy checks only that one is present.
+    await requireAuth()
     const { searchParams } = new URL(request.url)
     const engineType = searchParams.get('engineType') || 'memory'
     const statusFilter = searchParams.get('status') ?? undefined

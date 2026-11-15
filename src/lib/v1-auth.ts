@@ -14,6 +14,8 @@ import { createHash } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { verifySessionToken } from '@/lib/auth';
+import { isInternalRole } from '@/lib/access/surfaces';
+import { recordAccessViolation } from '@/lib/access/audit';
 
 export interface V1Identity {
   kind: 'session' | 'apiKey';
@@ -25,6 +27,20 @@ export interface V1Identity {
   companyId: string;
   scopes: string[];
   keyId?: string;
+  /**
+   * Which surface the credential belongs to. Sessions are always `internal`
+   * here. An API key inherits it from its company: a key issued to a client
+   * company is confined to the public service plane (`/api/v1/ai/**`).
+   */
+  audience: 'internal' | 'client';
+}
+
+export interface AuthenticateV1Options {
+  /**
+   * Accept API keys that belong to client companies. Only the sanitised public
+   * service plane sets this; everywhere else such a key is refused.
+   */
+  allowClientKeys?: boolean;
 }
 
 function sha256(value: string): string {
@@ -39,6 +55,10 @@ async function identityFromSession(token: string): Promise<V1Identity | null> {
     select: { id: true, email: true, name: true, role: true, isActive: true },
   });
   if (!user || !user.isActive) return null;
+  // Session access to /api/v1 is an internal-surface capability. Clients use
+  // the portal route group; their sessions are already refused by
+  // verifySessionToken above and this keeps the rule local and explicit.
+  if (!isInternalRole(user.role)) return null;
 
   // Resolve company: explicit slug/id not available on raw tokens, so use the
   // user's first membership (v1 session identity is single-tenant by design).
@@ -58,6 +78,7 @@ async function identityFromSession(token: string): Promise<V1Identity | null> {
     name: user.name,
     companyId: membership.companyId,
     scopes: ['*'],
+    audience: 'internal',
   };
 }
 
@@ -75,9 +96,13 @@ async function identityFromApiKey(plainKey: string): Promise<V1Identity | null> 
 
   const company = await db.company.findUnique({
     where: { id: apiKey.companyId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, accountType: true },
   });
   if (!company || company.status !== 'active') return null;
+  // Only a company explicitly classified as internal may drive the AgentOS
+  // control plane with a key. Anything else — a client, or a tenant nobody has
+  // classified — is a client.
+  const audience: V1Identity['audience'] = company.accountType === 'internal' ? 'internal' : 'client';
 
   // Fail closed: malformed/empty scope configuration must NEVER grant '*'.
   let scopes: string[] = [];
@@ -101,6 +126,7 @@ async function identityFromApiKey(plainKey: string): Promise<V1Identity | null> 
     companyId: apiKey.companyId,
     scopes,
     keyId: apiKey.id,
+    audience,
   };
 }
 
@@ -108,12 +134,15 @@ async function identityFromApiKey(plainKey: string): Promise<V1Identity | null> 
  * Authenticate a v1 request. Returns the identity or null.
  * Checks X-API-Key first, then Authorization Bearer (API key or session token).
  */
-export async function authenticateV1(request: NextRequest): Promise<V1Identity | null> {
+export async function authenticateV1(
+  request: NextRequest,
+  options: AuthenticateV1Options = {},
+): Promise<V1Identity | null> {
   const apiKeyHeader = request.headers.get('x-api-key');
   if (apiKeyHeader) {
     // Explicit but invalid API key is a hard denial, not a fallback to a
     // potentially unrelated bearer token in the same request.
-    return identityFromApiKey(apiKeyHeader.trim());
+    return confineClientKey(await identityFromApiKey(apiKeyHeader.trim()), request, options);
   }
 
   const authHeader = request.headers.get('authorization');
@@ -123,15 +152,39 @@ export async function authenticateV1(request: NextRequest): Promise<V1Identity |
   // API keys start with "alo_"
   if (bearer.startsWith('alo_')) {
     const identity = await identityFromApiKey(bearer);
-    if (identity) return identity;
+    if (identity) return confineClientKey(identity, request, options);
   }
 
   // Fall back to a session token
   return identityFromSession(bearer);
 }
 
-export async function requireV1(request: NextRequest): Promise<V1Identity> {
-  const identity = await authenticateV1(request);
+/**
+ * A client company's API key is valid for the public service plane and nothing
+ * else. Everywhere else it is treated as no credential at all, and the attempt
+ * is recorded.
+ */
+async function confineClientKey(
+  identity: V1Identity | null,
+  request: NextRequest,
+  options: AuthenticateV1Options,
+): Promise<V1Identity | null> {
+  if (!identity || identity.audience !== 'client' || options.allowClientKeys) return identity;
+  await recordAccessViolation({
+    type: 'client_key_to_internal_denied',
+    companyId: identity.companyId,
+    role: identity.role,
+    resource: 'api-key',
+    path: request.nextUrl?.pathname ?? null,
+    method: request.method,
+    reason: 'client company API key used outside the public service plane',
+    details: { keyId: identity.keyId ?? null },
+  });
+  return null;
+}
+
+export async function requireV1(request: NextRequest, options: AuthenticateV1Options = {}): Promise<V1Identity> {
+  const identity = await authenticateV1(request, options);
   if (!identity) throw new Error('Unauthorized');
   return identity;
 }
