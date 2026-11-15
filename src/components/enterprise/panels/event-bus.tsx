@@ -108,7 +108,7 @@ export default function EventBus() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Events', value: stats?.total.toLocaleString() ?? '—', icon: Zap, color: 'text-[#003ABC]' },
+          { label: 'Total Events', value: stats?.total.toLocaleString() ?? '—', icon: Zap, color: 'text-[#0066CC]' },
           { label: 'Critical', value: stats?.bySeverity.critical?.toLocaleString() ?? '0', icon: AlertTriangle, color: 'text-red-600' },
           { label: 'Warning', value: stats?.bySeverity.warning?.toLocaleString() ?? '0', icon: AlertCircle, color: 'text-amber-600' },
           { label: 'Info', value: stats?.bySeverity.info?.toLocaleString() ?? '0', icon: Info, color: 'text-blue-600' },

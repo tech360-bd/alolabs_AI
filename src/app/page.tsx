@@ -15,14 +15,19 @@ import './home.css'
  */
 
 export const metadata: Metadata = {
-  title: 'ALO Labs — AI-Powered Business Services',
+  title: 'ALO Labs — Global AI & Software Technology Company',
   description:
-    'ALO Labs delivers AI-powered business services — automation, CRM, communications, content and custom software — with a client portal to follow every project.',
+    'ALO Labs designs and builds software, AI-powered solutions and connected digital platforms that help businesses work smarter, scale confidently and create better experiences.',
+  alternates: {
+    canonical: 'https://www.alolabs.net/',
+  },
   openGraph: {
-    title: 'ALO Labs — AI-Powered Business Services',
-    description: 'AI-powered business services, delivered by an accountable team and followed in your client portal.',
+    title: 'ALO Labs — Global AI & Software Technology Company',
+    description:
+      'Software, AI-powered solutions and connected digital platforms — designed and built for businesses that take technology seriously.',
     siteName: 'ALO Labs',
-    images: ['/brand/alo-logo-horizontal.svg'],
+    url: 'https://www.alolabs.net/',
+    images: ['/brand/alo-mark.svg'],
   },
 }
 

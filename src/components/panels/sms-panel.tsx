@@ -55,7 +55,7 @@ interface SmsCampaign {
 
 const statusBadge: Record<string, { label: string; className: string }> = {
   pending: { label: 'Pending', className: 'bg-amber-50 text-amber-700 border-amber-200' },
-  sent: { label: 'Sent', className: 'bg-[#003ABC]/10 text-[#003ABC] border-[#003ABC]/20' },
+  sent: { label: 'Sent', className: 'bg-[#0066CC]/10 text-[#0066CC] border-[#0066CC]/20' },
   delivered: { label: 'Delivered', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   failed: { label: 'Failed', className: 'bg-red-50 text-red-700 border-red-200' },
   draft: { label: 'Draft', className: 'bg-slate-100 text-slate-600 border-slate-200' },
@@ -205,13 +205,13 @@ export default function SmsPanel() {
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-white border border-slate-200">
-          <TabsTrigger value="messages" className="text-[#1E293B] data-[state=active]:bg-[#003ABC] data-[state=active]:text-white">
+          <TabsTrigger value="messages" className="text-[#1E293B] data-[state=active]:bg-[#0066CC] data-[state=active]:text-white">
             <MessageSquare className="h-4 w-4 mr-1.5" /> Messages
           </TabsTrigger>
-          <TabsTrigger value="campaigns" className="text-[#1E293B] data-[state=active]:bg-[#003ABC] data-[state=active]:text-white">
+          <TabsTrigger value="campaigns" className="text-[#1E293B] data-[state=active]:bg-[#0066CC] data-[state=active]:text-white">
             <Megaphone className="h-4 w-4 mr-1.5" /> Campaigns
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="text-[#1E293B] data-[state=active]:bg-[#003ABC] data-[state=active]:text-white">
+          <TabsTrigger value="analytics" className="text-[#1E293B] data-[state=active]:bg-[#0066CC] data-[state=active]:text-white">
             <BarChart3 className="h-4 w-4 mr-1.5" /> Analytics
           </TabsTrigger>
         </TabsList>
@@ -242,7 +242,7 @@ export default function SmsPanel() {
                   onChange={e => setSendBody(e.target.value)}
                   className="min-h-[38px] h-[38px] flex-1"
                 />
-                <Button type="submit" disabled={sending || !sendTo || !sendBody.trim()} className="bg-[#FF6A00] hover:bg-[#FF6A00]/90 text-white shrink-0">
+                <Button type="submit" disabled={sending || !sendTo || !sendBody.trim()} className="bg-[#E8501A] hover:bg-[#E8501A]/90 text-white shrink-0">
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   <span className="ml-1.5">Send</span>
                 </Button>
@@ -342,7 +342,7 @@ export default function SmsPanel() {
             </Select>
             <Dialog open={campDialogOpen} onOpenChange={setCampDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-[#FF6A00] hover:bg-[#FF6A00]/90 text-white">
+                <Button className="bg-[#E8501A] hover:bg-[#E8501A]/90 text-white">
                   <Plus className="h-4 w-4 mr-1.5" /> New Campaign
                 </Button>
               </DialogTrigger>
@@ -373,7 +373,7 @@ export default function SmsPanel() {
                   <Button
                     onClick={handleCreateCampaign}
                     disabled={creatingCamp || !newCampName || !newCampTemplate.trim() || !newCampRecipients.trim()}
-                    className="bg-[#FF6A00] hover:bg-[#FF6A00]/90 text-white"
+                    className="bg-[#E8501A] hover:bg-[#E8501A]/90 text-white"
                   >
                     {creatingCamp ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
                     Create
@@ -418,7 +418,7 @@ export default function SmsPanel() {
                           <span>{c.stats.sent} / {c.stats.total} sent</span>
                           <span>{pct}%</span>
                         </div>
-                        <Progress value={pct} className="h-2 [&>div]:bg-[#003ABC]" />
+                        <Progress value={pct} className="h-2 [&>div]:bg-[#0066CC]" />
                       </div>
                       <div className="flex gap-4 mt-2 text-xs text-slate-400">
                         <span className="text-emerald-600">✓ {c.stats.delivered} delivered</span>
@@ -437,9 +437,9 @@ export default function SmsPanel() {
         <TabsContent value="analytics" className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'Total Sent', value: analytics.totalSent, icon: Send, color: 'text-[#003ABC]' },
+              { label: 'Total Sent', value: analytics.totalSent, icon: Send, color: 'text-[#0066CC]' },
               { label: 'Delivery Rate', value: `${analytics.deliveryRate}%`, icon: CheckCircle2, color: 'text-emerald-600' },
-              { label: 'Response Rate', value: `${analytics.responseRate}%`, icon: MessageSquare, color: 'text-[#FF6A00]' },
+              { label: 'Response Rate', value: `${analytics.responseRate}%`, icon: MessageSquare, color: 'text-[#E8501A]' },
               { label: 'Campaigns Completed', value: `${analytics.campaignCompleted}/${analytics.campaignTotal}`, icon: Megaphone, color: 'text-violet-600' },
             ].map(card => (
               <Card key={card.label} className="bg-white border-slate-200">
@@ -461,7 +461,7 @@ export default function SmsPanel() {
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { label: 'Sent', count: messages.filter(m => m.status === 'sent').length, color: 'bg-[#003ABC]' },
+                  { label: 'Sent', count: messages.filter(m => m.status === 'sent').length, color: 'bg-[#0066CC]' },
                   { label: 'Delivered', count: messages.filter(m => m.status === 'delivered').length, color: 'bg-emerald-500' },
                   { label: 'Pending', count: messages.filter(m => m.status === 'pending').length, color: 'bg-amber-400' },
                   { label: 'Failed', count: messages.filter(m => m.status === 'failed').length, color: 'bg-red-400' },

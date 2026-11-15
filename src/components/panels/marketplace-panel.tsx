@@ -123,13 +123,13 @@ function PricingBadge({ pricing, priceMonthly }: { pricing: string; priceMonthly
   }
   if (pricing === 'enterprise') {
     return (
-      <span className="inline-flex items-center rounded-full border border-[#FF6A00]/30 bg-[#FF6A00]/10 px-2 py-0.5 text-[10px] font-medium text-[#FF6A00]">
+      <span className="inline-flex items-center rounded-full border border-[#E8501A]/30 bg-[#E8501A]/10 px-2 py-0.5 text-[10px] font-medium text-[#E8501A]">
         Enterprise
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center rounded-full border border-[#003ABC]/30 bg-[#003ABC]/10 px-2 py-0.5 text-[10px] font-medium text-[#003ABC]">
+    <span className="inline-flex items-center rounded-full border border-[#0066CC]/30 bg-[#0066CC]/10 px-2 py-0.5 text-[10px] font-medium text-[#0066CC]">
       ${priceMonthly ? (priceMonthly / 100).toFixed(0) : '?'}/mo
     </span>
   )
@@ -184,7 +184,7 @@ function ListingDetailDialog({
             <TypeBadge type={listing.type} />
             <PricingBadge pricing={listing.pricing} priceMonthly={listing.priceMonthly} />
             {listing.featured && (
-              <Badge className="bg-[#FF6A00] text-white text-[10px] border-0">Featured</Badge>
+              <Badge className="bg-[#E8501A] text-white text-[10px] border-0">Featured</Badge>
             )}
           </div>
           <DialogTitle className="text-[#1E293B] text-lg">{listing.title}</DialogTitle>
@@ -273,7 +273,7 @@ function ListingDetailDialog({
               onInstall(listing.id)
               onOpenChange(false)
             }}
-            className="bg-[#003ABC] hover:bg-[#002A9E] text-white text-sm"
+            className="bg-[#0066CC] hover:bg-[#002A9E] text-white text-sm"
           >
             <Download className="w-4 h-4 mr-1.5" />
             Install
@@ -477,7 +477,7 @@ function PublishDialog({
           <Button
             onClick={handleSubmit}
             disabled={submitting || !form.itemId || !form.title || !form.description}
-            className="bg-[#003ABC] hover:bg-[#002A9E] text-white text-sm"
+            className="bg-[#0066CC] hover:bg-[#002A9E] text-white text-sm"
           >
             {submitting ? 'Publishing...' : 'Publish'}
           </Button>
@@ -552,7 +552,7 @@ export default function MarketplacePanel() {
         <h2 className="text-xl font-semibold text-[#1E293B]">Marketplace</h2>
         <Button
           onClick={() => setPublishOpen(true)}
-          className="bg-[#003ABC] hover:bg-[#002A9E] text-white text-sm"
+          className="bg-[#0066CC] hover:bg-[#002A9E] text-white text-sm"
         >
           <Plus className="w-4 h-4 mr-1.5" />
           Publish to Marketplace
@@ -628,7 +628,7 @@ export default function MarketplacePanel() {
               return (
                 <Card
                   key={listing.id}
-                  className="border-slate-200 bg-white hover:shadow-md hover:border-[#003ABC]/20 transition-all cursor-pointer group"
+                  className="border-slate-200 bg-white hover:shadow-md hover:border-[#0066CC]/20 transition-all cursor-pointer group"
                   onClick={() => viewListing(listing)}
                 >
                   <CardContent className="p-4 space-y-3">
@@ -640,7 +640,7 @@ export default function MarketplacePanel() {
 
                     {/* Title */}
                     <div>
-                      <h3 className="text-sm font-semibold text-[#1E293B] group-hover:text-[#003ABC] transition-colors line-clamp-1">
+                      <h3 className="text-sm font-semibold text-[#1E293B] group-hover:text-[#0066CC] transition-colors line-clamp-1">
                         {listing.title}
                       </h3>
                       {listing.authorName && (
@@ -685,7 +685,7 @@ export default function MarketplacePanel() {
                         </span>
                       </div>
                       {listing.featured && (
-                        <Badge className="bg-[#FF6A00] text-white text-[9px] border-0 px-1.5">
+                        <Badge className="bg-[#E8501A] text-white text-[9px] border-0 px-1.5">
                           Featured
                         </Badge>
                       )}

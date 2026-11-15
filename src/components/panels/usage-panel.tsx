@@ -163,10 +163,10 @@ export default function UsagePanel() {
   }
 
   const statCards = [
-    { icon: BarChart3, label: 'Total Tokens', value: stats?.totalTokens?.toLocaleString() ?? '0', color: 'text-[#003ABC]', bgColor: 'bg-[#003ABC]/10' },
+    { icon: BarChart3, label: 'Total Tokens', value: stats?.totalTokens?.toLocaleString() ?? '0', color: 'text-[#0066CC]', bgColor: 'bg-[#0066CC]/10' },
     { icon: CheckCircle, label: 'Completed', value: stats?.completed?.toLocaleString() ?? '0', color: 'text-emerald-600', bgColor: 'bg-emerald-600/10' },
     { icon: XCircle, label: 'Blocked', value: stats?.blocked?.toLocaleString() ?? '0', color: 'text-red-600', bgColor: 'bg-red-600/10' },
-    { icon: Shield, label: 'Total Logs', value: stats?.total?.toLocaleString() ?? '0', color: 'text-[#FF6A00]', bgColor: 'bg-[#FF6A00]/10' },
+    { icon: Shield, label: 'Total Logs', value: stats?.total?.toLocaleString() ?? '0', color: 'text-[#E8501A]', bgColor: 'bg-[#E8501A]/10' },
     { icon: Zap, label: 'Paid API Calls', value: dashTotals?.paidApiCount?.toLocaleString() ?? '0', color: 'text-amber-600', bgColor: 'bg-amber-600/10' },
   ]
 
@@ -174,7 +174,7 @@ export default function UsagePanel() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <BarChart3 className="w-6 h-6 text-[#003ABC]" />
+          <BarChart3 className="w-6 h-6 text-[#0066CC]" />
           <h2 className="text-xl font-semibold text-[#1E293B]">Usage Analytics</h2>
         </div>
         <Select value={selectedCompany || '__all__'} onValueChange={(v) => setSelectedCompany(v === '__all__' ? '' : v)}>

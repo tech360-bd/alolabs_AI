@@ -175,7 +175,7 @@ export default function BrandManagementPanel() {
             <TabsTrigger
               key={brand.companyId}
               value={brand.companyId}
-              className="text-[#64748B] data-[state=active]:bg-[#003ABC]/10 data-[state=active]:text-[#003ABC]"
+              className="text-[#64748B] data-[state=active]:bg-[#0066CC]/10 data-[state=active]:text-[#0066CC]"
             >
               <div className="flex items-center gap-2">
                 <div
@@ -196,7 +196,7 @@ export default function BrandManagementPanel() {
                 <Card className="border-[#E2E8F0]">
                   <CardHeader>
                     <CardTitle className="text-[#1E293B] text-base flex items-center gap-2">
-                      <Palette className="w-4 h-4 text-[#003ABC]" />
+                      <Palette className="w-4 h-4 text-[#0066CC]" />
                       Brand Settings
                     </CardTitle>
                     <CardDescription className="text-[#64748B]">
@@ -276,7 +276,7 @@ export default function BrandManagementPanel() {
                             <Input
                               value={editState[brand.companyId].primaryColor}
                               onChange={(e) => updateField(brand.companyId, 'primaryColor', e.target.value)}
-                              className="flex-1 border-[#E2E8F0] font-mono text-xs focus-visible:ring-[#003ABC]"
+                              className="flex-1 border-[#E2E8F0] font-mono text-xs focus-visible:ring-[#0066CC]"
                               maxLength={7}
                             />
                           </div>
@@ -299,7 +299,7 @@ export default function BrandManagementPanel() {
                             <Input
                               value={editState[brand.companyId].accentColor}
                               onChange={(e) => updateField(brand.companyId, 'accentColor', e.target.value)}
-                              className="flex-1 border-[#E2E8F0] font-mono text-xs focus-visible:ring-[#003ABC]"
+                              className="flex-1 border-[#E2E8F0] font-mono text-xs focus-visible:ring-[#0066CC]"
                               maxLength={7}
                             />
                           </div>
@@ -324,7 +324,7 @@ export default function BrandManagementPanel() {
                             onClick={() => updateField(brand.companyId, 'fontFamily', font)}
                             className={
                               editState[brand.companyId].fontFamily === font
-                                ? 'bg-[#003ABC]/10 border-[#003ABC] text-[#003ABC] text-xs'
+                                ? 'bg-[#0066CC]/10 border-[#0066CC] text-[#0066CC] text-xs'
                                 : 'border-[#E2E8F0] text-[#64748B] text-xs hover:bg-[#F8FAFC]'
                             }
                             style={{ fontFamily: font }}
@@ -349,7 +349,7 @@ export default function BrandManagementPanel() {
                             onClick={() => updateField(brand.companyId, 'sidebarStyle', style)}
                             className={
                               editState[brand.companyId].sidebarStyle === style
-                                ? 'bg-[#003ABC]/10 border-[#003ABC] text-[#003ABC] text-xs capitalize'
+                                ? 'bg-[#0066CC]/10 border-[#0066CC] text-[#0066CC] text-xs capitalize'
                                 : 'border-[#E2E8F0] text-[#64748B] text-xs hover:bg-[#F8FAFC] capitalize'
                             }
                           >
@@ -365,7 +365,7 @@ export default function BrandManagementPanel() {
                     <Button
                       onClick={() => handleSave(brand.companyId)}
                       disabled={saving}
-                      className="w-full bg-[#003ABC] hover:bg-[#002A99] text-white"
+                      className="w-full bg-[#0066CC] hover:bg-[#002A99] text-white"
                     >
                       {saving && savedId !== brand.companyId ? (
                         'Saving...'
@@ -385,7 +385,7 @@ export default function BrandManagementPanel() {
                 <Card className="border-[#E2E8F0]">
                   <CardHeader>
                     <CardTitle className="text-[#1E293B] text-base flex items-center gap-2">
-                      <Eye className="w-4 h-4 text-[#003ABC]" />
+                      <Eye className="w-4 h-4 text-[#0066CC]" />
                       Live Preview
                     </CardTitle>
                     <CardDescription className="text-[#64748B]">

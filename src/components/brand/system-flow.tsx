@@ -63,7 +63,7 @@ function FlowBox({ node, emphasis }: { node: FlowNode; emphasis?: boolean }) {
       style={{
         ...TONE_STYLE[node.tone],
         minHeight: emphasis ? 46 : 38,
-        boxShadow: emphasis ? '0 10px 25px -18px rgba(255,106,0,0.9)' : undefined,
+        boxShadow: emphasis ? '0 10px 25px -18px rgba(232,80,26,0.9)' : undefined,
       }}
     >
       {node.id === 'admin' ? <AdminGlyph /> : node.id === 'agents' ? <AgentGlyph /> : null}

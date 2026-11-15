@@ -39,8 +39,8 @@ const readSvg = (rel: string) => readFileSync(join(root, rel), 'utf8')
 
 describe('brand — palette', () => {
   it('carries the two primary brand colours from the guideline', () => {
-    expect(BRAND.orange).toBe('#FF6A00')
-    expect(BRAND.blue).toBe('#003ABC')
+    expect(BRAND.orange).toBe('#E8501A')
+    expect(BRAND.blue).toBe('#0066CC')
   })
 
   it('keeps the alternate blue and the gradient stops named', () => {
@@ -51,9 +51,9 @@ describe('brand — palette', () => {
   })
 
   it('publishes both approved gradients with their stops', () => {
-    expect(GRADIENTS.orange.from).toBe('#FF6A00')
-    expect(GRADIENTS.orange.to).toBe('#FFB300')
-    expect(GRADIENTS.blue.from).toBe('#003ABC')
+    expect(GRADIENTS.orange.from).toBe('#E8501A')
+    expect(GRADIENTS.orange.to).toBe('#FFB347')
+    expect(GRADIENTS.blue.from).toBe('#0066CC')
     expect(GRADIENTS.blue.to).toBe('#0077FF')
   })
 
@@ -216,15 +216,15 @@ describe('brand — assets', () => {
   it('uses only brand colours and gradients inside the mark', () => {
     // Strip XML comments: the header comment documents the gradient stops.
     const mark = readSvg('public/brand/alo-mark.svg').replace(/<!--[\s\S]*?-->/g, '')
-    expect(mark).toContain('#FF6A00')
+    expect(mark).toContain('#E8501A')
     expect(mark).toContain('#0077FF')
-    expect(mark).toContain('#003ABC')
+    expect(mark).toContain('#0066CC')
     expect(mark).toContain('#001C6B')
     // No off-brand hues: every hex in the mark must be one of the four stops.
     const hexes = new Set(mark.match(/#[0-9A-Fa-f]{6}/g) ?? [])
     for (const hex of hexes) {
       expect(
-        ['#FF6A00', '#FF8A2B', '#0077FF', '#0047A1', '#003ABC', '#001C6B', '#0053C8'],
+        ['#E8501A', '#FF8A2B', '#0077FF', '#0047A1', '#0066CC', '#001C6B', '#0053C8'],
         `${hex} is off-brand`,
       ).toContain(hex)
     }
@@ -233,7 +233,7 @@ describe('brand — assets', () => {
   it('draws the hexagon shell in brand orange in every lockup', () => {
     for (const rel of ['public/brand/alo-mark.svg', 'public/brand/alo-icon.svg', 'public/brand/alo-logo-horizontal.svg', 'public/brand/alo-logo-stacked.svg']) {
       const svg = readSvg(rel)
-      expect(svg, rel).toMatch(/stroke="#FF6A00"/)
+      expect(svg, rel).toMatch(/stroke="#E8501A"/)
     }
   })
 
@@ -241,8 +241,8 @@ describe('brand — assets', () => {
     const svg = readSvg('public/brand/alo-badge.svg')
     expect(svg).toContain('<circle cx="256" cy="256" r="252"')
     expect(svg).toContain('stroke="#E4EAF3"')          // circuit traces
-    expect(svg).toContain('fill="#FF6A00"')            // orange rim + swoosh
-    expect(svg).toContain('fill="#003ABC"')            // blue swoosh + wordmark
+    expect(svg).toContain('fill="#E8501A"')            // orange rim + swoosh
+    expect(svg).toContain('fill="#0066CC"')            // blue swoosh + wordmark
     expect(svg).toContain('<circle cx="256" cy="400" r="6"')  // the orange dot
     expect(svg).toContain('AI AGENT OPERATING SYSTEM')
     expect(svg).toContain('AGENTOS')
@@ -250,8 +250,8 @@ describe('brand — assets', () => {
 
   it('carries the rule-and-dot divider in the stacked lockup', () => {
     const svg = readSvg('public/brand/alo-logo-stacked.svg')
-    expect(svg).toMatch(/stroke="#003ABC" stroke-width="2"/)
-    expect(svg).toContain('<circle cx="240" cy="368" r="6" fill="#FF6A00"')
+    expect(svg).toMatch(/stroke="#0066CC" stroke-width="2"/)
+    expect(svg).toContain('<circle cx="240" cy="368" r="6" fill="#E8501A"')
   })
 
   it('exposes the badge and the rule as React lockups', () => {
@@ -429,8 +429,8 @@ describe('brand — surfaces', () => {
     }
     // The only hex literals in the book are the two quoted inside the AI-studio
     // master prompt; every style value comes from the tokens module.
-    expect((book.match(/#FF6A00/g) ?? []).length).toBeLessThanOrEqual(2)
-    expect((book.match(/#003ABC/g) ?? []).length).toBeLessThanOrEqual(2)
+    expect((book.match(/#E8501A/g) ?? []).length).toBeLessThanOrEqual(2)
+    expect((book.match(/#0066CC/g) ?? []).length).toBeLessThanOrEqual(2)
     expect(book).not.toMatch(/style=\{\{[^}]*#[0-9A-Fa-f]{6}/)
   })
 

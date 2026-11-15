@@ -211,18 +211,18 @@ export default function WebCrmDashboard() {
       value: formatNumber(stats.usage.total),
       change: stats.usage.today > 0 ? `+${stats.usage.today} today` : '—',
       icon: Users,
-      accent: '#FF6A00',
-      iconBg: 'bg-[#FF6A00]/10',
-      iconColor: 'text-[#FF6A00]',
+      accent: '#E8501A',
+      iconBg: 'bg-[#E8501A]/10',
+      iconColor: 'text-[#E8501A]',
     },
     {
       label: 'Active Agents',
       value: String(stats.agents.active),
       change: `${stats.infrastructure.departments} departments`,
       icon: Bot,
-      accent: '#003ABC',
-      iconBg: 'bg-[#003ABC]/10',
-      iconColor: 'text-[#003ABC]',
+      accent: '#0066CC',
+      iconBg: 'bg-[#0066CC]/10',
+      iconColor: 'text-[#0066CC]',
     },
     {
       label: 'Tasks Completed',
@@ -238,7 +238,7 @@ export default function WebCrmDashboard() {
       value: formatNumber(stats.usage.totalTokens),
       change: `${formatNumber(stats.usage.total)} calls`,
       icon: DollarSign,
-      accent: '#FF6A00',
+      accent: '#E8501A',
       iconBg: 'alo-gradient',
       iconColor: 'text-white',
     },
@@ -247,8 +247,8 @@ export default function WebCrmDashboard() {
   const recentActivities = stats?.recentAuditLogs || []
 
   const pipelineStages = [
-    { name: 'Pending', count: stats?.tasks.pending || 0, color: '#FF6A00' },
-    { name: 'In Progress', count: stats?.tasks.inProgress || 0, color: '#003ABC' },
+    { name: 'Pending', count: stats?.tasks.pending || 0, color: '#E8501A' },
+    { name: 'In Progress', count: stats?.tasks.inProgress || 0, color: '#0066CC' },
     { name: 'Completed', count: stats?.tasks.completed || 0, color: '#22C55E' },
     { name: 'Failed', count: stats?.tasks.failed || 0, color: '#EF4444' },
   ]
@@ -264,8 +264,8 @@ export default function WebCrmDashboard() {
   ]
 
   const agentColorMap: Record<string, string> = {
-    crm_connect: 'bg-[#FF6A00]/10 text-[#FF6A00]',
-    crm_sync: 'bg-[#003ABC]/10 text-[#003ABC]',
+    crm_connect: 'bg-[#E8501A]/10 text-[#E8501A]',
+    crm_sync: 'bg-[#0066CC]/10 text-[#0066CC]',
     agent_dispatch: 'bg-[#7C3AED]/10 text-[#7C3AED]',
     crm_disconnect: 'bg-[#EF4444]/10 text-[#EF4444]',
     default: 'bg-[#F1F5F9] text-[#64748B]',
@@ -325,9 +325,9 @@ export default function WebCrmDashboard() {
           <div className="alo-card h-full">
             <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Bot className="w-4 h-4 text-[#FF6A00]" />
+                <Bot className="w-4 h-4 text-[#E8501A]" />
                 <h2 className="text-sm font-semibold text-[#1E293B]">Activity Feed</h2>
-                <Badge className="bg-[#FF6A00]/10 text-[#FF6A00] border-0 rounded text-[10px] px-1.5 py-0">LIVE</Badge>
+                <Badge className="bg-[#E8501A]/10 text-[#E8501A] border-0 rounded text-[10px] px-1.5 py-0">LIVE</Badge>
               </div>
               <span className="text-xs text-[#94A3B8]">{recentActivities.length} recent</span>
             </div>
@@ -367,7 +367,7 @@ export default function WebCrmDashboard() {
           <div className="alo-card h-full">
             <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[#003ABC]" />
+                <TrendingUp className="w-4 h-4 text-[#0066CC]" />
                 <h2 className="text-sm font-semibold text-[#1E293B]">Task Pipeline</h2>
               </div>
               <span className="text-xs text-[#94A3B8]">{stats?.tasks.total || 0} total</span>
@@ -397,11 +397,11 @@ export default function WebCrmDashboard() {
               <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[#64748B]">Active Agents</span>
-                  <span className="font-bold text-[#003ABC]">{stats?.agents.active || 0}</span>
+                  <span className="font-bold text-[#0066CC]">{stats?.agents.active || 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs mt-1">
                   <span className="text-[#64748B]">Workflows</span>
-                  <span className="font-bold text-[#FF6A00]">{stats?.infrastructure.workflows || 0}</span>
+                  <span className="font-bold text-[#E8501A]">{stats?.infrastructure.workflows || 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs mt-1">
                   <span className="text-[#64748B]">Blocked Actions</span>
@@ -416,7 +416,7 @@ export default function WebCrmDashboard() {
         <div className="lg:col-span-3">
           <div className="alo-card h-full">
             <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center gap-2">
-              <Zap className="w-4 h-4 text-[#FF6A00]" />
+              <Zap className="w-4 h-4 text-[#E8501A]" />
               <h2 className="text-sm font-semibold text-[#1E293B]">AI Agent Actions</h2>
             </div>
             <div className="p-4 grid grid-cols-1 gap-2">
@@ -430,9 +430,9 @@ export default function WebCrmDashboard() {
                     disabled={!!isActive}
                     className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-left w-full ${
                       action.variant === 'primary'
-                        ? 'bg-[#FF6A00] text-white hover:bg-[#E5600A] shadow-sm hover:shadow-md'
+                        ? 'bg-[#E8501A] text-white hover:bg-[#E5600A] shadow-sm hover:shadow-md'
                         : action.variant === 'secondary'
-                          ? 'bg-[#003ABC]/5 text-[#003ABC] border border-[#003ABC]/20 hover:bg-[#003ABC]/10 hover:border-[#003ABC]/30'
+                          ? 'bg-[#0066CC]/5 text-[#0066CC] border border-[#0066CC]/20 hover:bg-[#0066CC]/10 hover:border-[#0066CC]/30'
                           : 'bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] hover:bg-[#F1F5F9] hover:text-[#1E293B]'
                     } ${isActive ? 'opacity-70 cursor-wait' : ''}`}
                   >
@@ -445,12 +445,12 @@ export default function WebCrmDashboard() {
                 )
               })}
             </div>
-            <div className="mx-4 mb-4 p-3 bg-gradient-to-br from-[#FF6A00]/5 to-[#003ABC]/5 rounded-xl border border-[#E2E8F0]">
+            <div className="mx-4 mb-4 p-3 bg-gradient-to-br from-[#E8501A]/5 to-[#0066CC]/5 rounded-xl border border-[#E2E8F0]">
               <div className="flex items-center gap-2">
                 <div className="flex -space-x-1.5">
                   {stats?.topAgents?.slice(0, 5).map((a, i) => (
                     <div key={a.agentName} className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold border-2 border-white ${
-                      i % 2 === 0 ? 'bg-[#FF6A00] text-white' : 'bg-[#003ABC] text-white'
+                      i % 2 === 0 ? 'bg-[#E8501A] text-white' : 'bg-[#0066CC] text-white'
                     }`}>
                       {a.agentName.slice(0, 2).toUpperCase()}
                     </div>
@@ -470,9 +470,9 @@ export default function WebCrmDashboard() {
       <div className="alo-card">
         <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Plug className="w-4 h-4 text-[#FF6A00]" />
+            <Plug className="w-4 h-4 text-[#E8501A]" />
             <h2 className="text-sm font-semibold text-[#1E293B]">CRM Connections</h2>
-            <Badge className="bg-[#003ABC]/10 text-[#003ABC] border-0 rounded text-[10px] px-1.5 py-0">
+            <Badge className="bg-[#0066CC]/10 text-[#0066CC] border-0 rounded text-[10px] px-1.5 py-0">
               {connections.filter((c) => c.connected).length} connected
             </Badge>
           </div>
@@ -500,7 +500,7 @@ export default function WebCrmDashboard() {
                     <TableCell className="py-3 pl-5">
                       <div className="flex items-center gap-3">
                         <Avatar className="w-8 h-8 border border-[#E2E8F0]">
-                          <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-[10px] font-bold rounded-lg">
+                          <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-[10px] font-bold rounded-lg">
                             {conn.companyName.slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
@@ -533,7 +533,7 @@ export default function WebCrmDashboard() {
                             className="h-full rounded-full"
                             style={{
                               width: `${Math.min(100, conn.stats.usagePercent)}%`,
-                              backgroundColor: conn.stats.usagePercent > 80 ? '#EF4444' : conn.stats.usagePercent > 50 ? '#FF6A00' : '#22C55E',
+                              backgroundColor: conn.stats.usagePercent > 80 ? '#EF4444' : conn.stats.usagePercent > 50 ? '#E8501A' : '#22C55E',
                             }}
                           />
                         </div>
@@ -547,7 +547,7 @@ export default function WebCrmDashboard() {
                             key={cap.name}
                             className={`text-[8px] py-0 px-1.5 border-0 rounded ${
                               cap.enabled
-                                ? 'bg-[#003ABC]/10 text-[#003ABC]'
+                                ? 'bg-[#0066CC]/10 text-[#0066CC]'
                                 : 'bg-gray-100 text-gray-400'
                             }`}
                           >
@@ -583,9 +583,9 @@ export default function WebCrmDashboard() {
                             disabled={!conn.connected}
                           >
                             {syncingId === conn.id ? (
-                              <Loader2 className="w-4 h-4 mr-2 text-[#003ABC] animate-spin" />
+                              <Loader2 className="w-4 h-4 mr-2 text-[#0066CC] animate-spin" />
                             ) : (
-                              <RefreshCw className="w-4 h-4 mr-2 text-[#003ABC]" />
+                              <RefreshCw className="w-4 h-4 mr-2 text-[#0066CC]" />
                             )}
                             Sync Data
                           </DropdownMenuItem>

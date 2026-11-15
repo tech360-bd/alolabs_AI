@@ -213,8 +213,8 @@ export default function DepartmentsPanel() {
           </button>
 
           {/* Icon */}
-          <div className="w-9 h-9 rounded-lg bg-[#003ABC]/10 flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-4 h-4 text-[#003ABC]" />
+          <div className="w-9 h-9 rounded-lg bg-[#0066CC]/10 flex items-center justify-center flex-shrink-0">
+            <Building2 className="w-4 h-4 text-[#0066CC]" />
           </div>
 
           {/* Info */}
@@ -278,7 +278,7 @@ export default function DepartmentsPanel() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#003ABC] to-[#0077FF] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0066CC] to-[#0077FF] flex items-center justify-center">
             <Building2 className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -287,13 +287,13 @@ export default function DepartmentsPanel() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className={`h-9 w-9 ${viewMode === 'tree' ? 'bg-[#003ABC]/10 border-[#003ABC]/30 text-[#003ABC]' : 'border-[#E2E8F0] text-[#64748B]'}`} onClick={() => setViewMode('tree')}>
+          <Button variant="outline" size="icon" className={`h-9 w-9 ${viewMode === 'tree' ? 'bg-[#0066CC]/10 border-[#0066CC]/30 text-[#0066CC]' : 'border-[#E2E8F0] text-[#64748B]'}`} onClick={() => setViewMode('tree')}>
             <Network className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="icon" className={`h-9 w-9 ${viewMode === 'grid' ? 'bg-[#003ABC]/10 border-[#003ABC]/30 text-[#003ABC]' : 'border-[#E2E8F0] text-[#64748B]'}`} onClick={() => setViewMode('grid')}>
+          <Button variant="outline" size="icon" className={`h-9 w-9 ${viewMode === 'grid' ? 'bg-[#0066CC]/10 border-[#0066CC]/30 text-[#0066CC]' : 'border-[#E2E8F0] text-[#64748B]'}`} onClick={() => setViewMode('grid')}>
             <LayoutGrid className="w-4 h-4" />
           </Button>
-          <Button size="sm" className="bg-[#FF6A00] hover:bg-[#E5600A] text-white gap-1.5" onClick={() => setShowCreateDialog(true)}>
+          <Button size="sm" className="bg-[#E8501A] hover:bg-[#E5600A] text-white gap-1.5" onClick={() => setShowCreateDialog(true)}>
             <Plus className="w-3.5 h-3.5" /> New Department
           </Button>
         </div>
@@ -305,7 +305,7 @@ export default function DepartmentsPanel() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[11px] text-[#94A3B8]">Total Departments</span>
-              <Building2 className="w-4 h-4 text-[#003ABC]" />
+              <Building2 className="w-4 h-4 text-[#0066CC]" />
             </div>
             <p className="text-2xl font-bold text-[#1E293B]">{departments.length}</p>
             <p className="text-[11px] text-emerald-600 mt-1">{departments.filter((d) => d.status === 'active').length} active</p>
@@ -315,7 +315,7 @@ export default function DepartmentsPanel() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[11px] text-[#94A3B8]">Total Agents</span>
-              <Users className="w-4 h-4 text-[#FF6A00]" />
+              <Users className="w-4 h-4 text-[#E8501A]" />
             </div>
             <p className="text-2xl font-bold text-[#1E293B]">{totalAgents}</p>
           </CardContent>
@@ -357,8 +357,8 @@ export default function DepartmentsPanel() {
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-5 h-5 text-[#003ABC]" />
+                      <div className="w-10 h-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-5 h-5 text-[#0066CC]" />
                       </div>
                       <div>
                         <h3 className="text-sm font-semibold text-[#1E293B]">{dept.name}</h3>
@@ -451,8 +451,8 @@ export default function DepartmentsPanel() {
             <>
               <DialogHeader>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-                    <Building2 className="w-6 h-6 text-[#003ABC]" />
+                  <div className="w-12 h-12 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+                    <Building2 className="w-6 h-6 text-[#0066CC]" />
                   </div>
                   <div>
                     <DialogTitle className="text-[#1E293B]">{selectedDept.name}</DialogTitle>
@@ -465,7 +465,7 @@ export default function DepartmentsPanel() {
                 {/* Health indicator */}
                 <div className="flex items-center gap-4 bg-slate-50 rounded-lg p-3">
                   <div className="flex items-center gap-2">
-                    <Heart className="w-5 h-5 text-[#FF6A00]" />
+                    <Heart className="w-5 h-5 text-[#E8501A]" />
                     <span className="text-sm font-medium text-[#1E293B]">Health Score</span>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
@@ -488,8 +488,8 @@ export default function DepartmentsPanel() {
                         {selectedDept.agents.map((agent) => (
                           <div key={agent.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
                             <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-lg bg-[#003ABC]/10 flex items-center justify-center">
-                                <Zap className="w-3.5 h-3.5 text-[#003ABC]" />
+                              <div className="w-7 h-7 rounded-lg bg-[#0066CC]/10 flex items-center justify-center">
+                                <Zap className="w-3.5 h-3.5 text-[#0066CC]" />
                               </div>
                               <span className="text-sm text-[#1E293B]">{agent.name}</span>
                             </div>
@@ -500,7 +500,7 @@ export default function DepartmentsPanel() {
                         ))}
                       </div>
                       {selectedDept.agentCount > (selectedDept.agents?.length || 0) && (
-                        <Button variant="ghost" size="sm" className="mt-2 text-[#003ABC] text-xs w-full">
+                        <Button variant="ghost" size="sm" className="mt-2 text-[#0066CC] text-xs w-full">
                           View all {selectedDept.agentCount} agents <ArrowUpRight className="w-3 h-3 ml-1" />
                         </Button>
                       )}
@@ -534,11 +534,11 @@ export default function DepartmentsPanel() {
                     <div>
                       <p className="text-xs font-medium text-[#1E293B] mb-2">Hierarchy</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <div className="bg-[#003ABC]/10 text-[#003ABC] text-[11px] px-2 py-1 rounded-md font-medium">
+                        <div className="bg-[#0066CC]/10 text-[#0066CC] text-[11px] px-2 py-1 rounded-md font-medium">
                           {departments.find((d) => d.id === selectedDept.parentId)?.name || 'Parent'}
                         </div>
                         <ChevronRight className="w-3.5 h-3.5 text-[#CBD5E1]" />
-                        <div className="bg-[#FF6A00]/10 text-[#FF6A00] text-[11px] px-2 py-1 rounded-md font-medium">
+                        <div className="bg-[#E8501A]/10 text-[#E8501A] text-[11px] px-2 py-1 rounded-md font-medium">
                           {selectedDept.name}
                         </div>
                       </div>
@@ -548,7 +548,7 @@ export default function DepartmentsPanel() {
               </div>
 
               <DialogFooter className="gap-2">
-                <Button variant="outline" className="text-[#003ABC] border-[#003ABC]/30 gap-1.5">
+                <Button variant="outline" className="text-[#0066CC] border-[#0066CC]/30 gap-1.5">
                   <UserPlus className="w-3.5 h-3.5" /> Assign Agent
                 </Button>
                 <Button variant="outline" className="text-[#64748B] gap-1.5">
@@ -597,7 +597,7 @@ export default function DepartmentsPanel() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="text-[#64748B]">Cancel</Button>
-            <Button className="bg-[#FF6A00] hover:bg-[#E5600A] text-white" onClick={handleCreate} disabled={!createForm.name.trim()}>Create Department</Button>
+            <Button className="bg-[#E8501A] hover:bg-[#E5600A] text-white" onClick={handleCreate} disabled={!createForm.name.trim()}>Create Department</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

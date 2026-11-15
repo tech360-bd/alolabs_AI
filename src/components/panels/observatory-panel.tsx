@@ -124,8 +124,8 @@ interface MetricQueryResult {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const BRAND_PRIMARY = '#003ABC'
-const BRAND_ACCENT = '#FF6A00'
+const BRAND_PRIMARY = '#0066CC'
+const BRAND_ACCENT = '#E8501A'
 const COLOR_HEALTHY = '#22C55E'
 const COLOR_WARNING = '#EAB308'
 const COLOR_CRITICAL = '#EF4444'
@@ -573,8 +573,8 @@ export default function ObservatoryPanel() {
       {/* ═══ HEADER ═══ */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <Telescope className="w-5 h-5 text-[#003ABC]" />
+          <div className="w-9 h-9 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <Telescope className="w-5 h-5 text-[#0066CC]" />
           </div>
           <div>
             <div className="flex items-center gap-2.5">
@@ -634,12 +634,12 @@ export default function ObservatoryPanel() {
         <Card className="bg-white border-[#E2E8F0] rounded-xl shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-[#003ABC]/10 flex items-center justify-center">
-                <Cpu className="w-4 h-4 text-[#003ABC]" />
+              <div className="w-7 h-7 rounded-lg bg-[#0066CC]/10 flex items-center justify-center">
+                <Cpu className="w-4 h-4 text-[#0066CC]" />
               </div>
               <span className="text-xs text-[#94A3B8]">Active Agents</span>
             </div>
-            <p className="text-2xl font-bold text-[#003ABC]">
+            <p className="text-2xl font-bold text-[#0066CC]">
               {stats?.agents?.active?.toLocaleString() ?? '—'}
             </p>
             <p className="text-[10px] text-[#94A3B8] mt-1">
@@ -652,12 +652,12 @@ export default function ObservatoryPanel() {
         <Card className="bg-white border-[#E2E8F0] rounded-xl shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-[#FF6A00]/10 flex items-center justify-center">
-                <Layers className="w-4 h-4 text-[#FF6A00]" />
+              <div className="w-7 h-7 rounded-lg bg-[#E8501A]/10 flex items-center justify-center">
+                <Layers className="w-4 h-4 text-[#E8501A]" />
               </div>
               <span className="text-xs text-[#94A3B8]">Queue Depth</span>
             </div>
-            <p className="text-2xl font-bold text-[#FF6A00]">
+            <p className="text-2xl font-bold text-[#E8501A]">
               {queueDepth.toLocaleString()}
             </p>
             <p className="text-[10px] text-[#94A3B8] mt-1">
@@ -835,7 +835,7 @@ export default function ObservatoryPanel() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-[10px] text-[#003ABC] hover:text-[#003ABC] hover:bg-[#003ABC]/10 px-2"
+                          className="h-7 text-[10px] text-[#0066CC] hover:text-[#0066CC] hover:bg-[#0066CC]/10 px-2"
                           onClick={() => handleAckAlert(alert.id)}
                         >
                           Acknowledge
@@ -868,7 +868,7 @@ export default function ObservatoryPanel() {
                 size="sm"
                 className={
                   logLevel === lvl
-                    ? 'h-7 text-[10px] px-2.5 bg-[#003ABC] hover:bg-[#003ABC]/90 text-white'
+                    ? 'h-7 text-[10px] px-2.5 bg-[#0066CC] hover:bg-[#0066CC]/90 text-white'
                     : 'h-7 text-[10px] px-2.5 text-[#64748B] hover:text-[#1E293B] hover:bg-[#F1F5F9]'
                 }
                 onClick={() => setLogLevel(lvl)}
@@ -958,7 +958,7 @@ export default function ObservatoryPanel() {
             <Button
               onClick={handleMetricQuery}
               disabled={!metricName.trim() || metricLoading}
-              className="h-9 rounded-lg bg-[#003ABC] hover:bg-[#003ABC]/90 text-white"
+              className="h-9 rounded-lg bg-[#0066CC] hover:bg-[#0066CC]/90 text-white"
             >
               {metricLoading ? <RefreshCw className="w-4 h-4 mr-1 animate-spin" /> : <Search className="w-4 h-4 mr-1" />}
               Query
@@ -971,7 +971,7 @@ export default function ObservatoryPanel() {
               <div className="px-4 py-3 bg-[#F8FAFC] border-b border-[#E2E8F0] flex items-center gap-4">
                 <div>
                   <span className="text-[10px] text-[#94A3B8] uppercase tracking-wider">Result</span>
-                  <p className="text-lg font-bold text-[#003ABC]">
+                  <p className="text-lg font-bold text-[#0066CC]">
                     {metricResults.data.result !== null ? metricResults.data.result.toLocaleString() : 'N/A'}
                   </p>
                 </div>

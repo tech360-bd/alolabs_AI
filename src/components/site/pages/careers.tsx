@@ -35,36 +35,27 @@ const BENEFITS = [
   },
 ]
 
-const ROLES = [
+/**
+ * Honest vacancy policy: only real openings are ever published here. The
+ * profile areas below describe the kinds of people we hire for — they are not
+ * vacancies. When a real opening exists it is listed first with its details.
+ */
+const PROFILE_AREAS = [
   {
-    title: 'Senior Full-Stack Engineer (Next.js / TypeScript)',
-    location: 'Remote · UTC−6 to UTC+3',
-    type: 'Full-time',
-    body: 'Own features end to end across our products: the client portal, internal tools and the APIs underneath.',
+    title: 'Software engineering',
+    body: 'Full-stack and backend engineers who ship tested, maintainable systems — Next.js, TypeScript and the services behind them.',
   },
   {
-    title: 'AI Automation Engineer',
-    location: 'Remote',
-    type: 'Full-time',
-    body: 'Design AI-assisted automations that behave predictably and pass human review.',
+    title: 'AI & automation',
+    body: 'Engineers who design AI-assisted workflows that behave predictably, respect guardrails and pass human review.',
   },
   {
-    title: 'Solutions Engineer / Implementation Lead',
-    location: 'Remote · travel optional',
-    type: 'Full-time',
-    body: 'Run client assessments, design workflows with the people who use them and take first projects live.',
+    title: 'Solutions & implementation',
+    body: 'People who can run client assessments, design workflows with the teams who use them and take first projects live.',
   },
   {
-    title: 'Product Designer (systems & editorial)',
-    location: 'Remote',
-    type: 'Full-time / contract',
-    body: 'Keep the client portal and our public surfaces at the standard of the brand.',
-  },
-  {
-    title: 'Open application',
-    location: 'Remote',
-    type: 'Any',
-    body: 'Do not see your role? If you can help us build the operating system for AI work, write to us anyway.',
+    title: 'Product design',
+    body: 'Designers who keep products and public surfaces at the standard of the brand — systems thinking and editorial care.',
   },
 ]
 
@@ -74,8 +65,8 @@ export function CareersPage() {
       <PageHero
         crumbs={[{ href: '/site/careers', label: 'Careers' }]}
         eyebrow="Careers"
-        title={<>Build the operating system for AI work.</>}
-        lead="We are a small, senior team delivering AI-powered services to real companies. If that sounds like the kind of problem you want to spend years on, come talk to us."
+        title={<>Build intelligent systems that matter.</>}
+        lead="We are a senior team designing and building software and AI solutions for real businesses. If that is the kind of problem you want to spend years on, come talk to us."
       >
         <div className="flex flex-wrap items-center gap-3">
           <Button size="lg" className="gap-2" style={{ background: BRAND.orange }} asChild>
@@ -107,29 +98,39 @@ export function CareersPage() {
         </div>
       </Section>
 
-      <Section id="roles" eyebrow="Open roles" title="Where we need people now.">
-        <div className="space-y-4">
-          {ROLES.map((role) => (
-            <div key={role.title} className="rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="max-w-[640px]">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Pill tone="orange">{role.type}</Pill>
-                    <Pill>{role.location}</Pill>
-                  </div>
-                  <h3 className="mt-3 text-[17px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
-                    {role.title}
-                  </h3>
-                  <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
-                    {role.body}
-                  </p>
-                </div>
-                <Button className="gap-2" style={{ background: BRAND.orange }} asChild>
-                  <a href={`${COMPANY.emailHref}?subject=${encodeURIComponent('Application — ' + role.title)}`}>
-                    Apply <ArrowRight className="size-4" />
-                  </a>
-                </Button>
+      <Section id="roles" eyebrow="Openings & applications" title="Real openings, published honestly.">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="max-w-[640px]">
+              <div className="flex flex-wrap items-center gap-2">
+                <Pill tone="orange">Open application</Pill>
+                <Pill>Remote</Pill>
               </div>
+              <h3 className="mt-3 text-[17px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
+                We would like to meet you.
+              </h3>
+              <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
+                Specific vacancies are published on this page only when they are real — we never post
+                speculative listings. Open applications are always welcome: tell us what you have
+                shipped and what you want to work on.
+              </p>
+            </div>
+            <Button className="gap-2" style={{ background: BRAND.orange }} asChild>
+              <a href={`${COMPANY.emailHref}?subject=${encodeURIComponent('Open application — ALO Labs')}`}>
+                Apply <ArrowRight className="size-4" />
+              </a>
+            </Button>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {PROFILE_AREAS.map((area) => (
+            <div key={area.title} className="rounded-2xl border border-slate-200 bg-white p-6">
+              <h3 className="text-[15px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
+                {area.title}
+              </h3>
+              <p className="mt-2 text-[12.5px] leading-relaxed" style={{ color: BRAND.gray }}>
+                {area.body}
+              </p>
             </div>
           ))}
         </div>

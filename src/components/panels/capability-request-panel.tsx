@@ -225,7 +225,7 @@ export default function CapabilityRequestPanel() {
         <h2 className="text-xl font-semibold text-[#1E293B]">Capability Requests</h2>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg">
+            <Button className="bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg">
               <Plus className="w-4 h-4 mr-2" />
               New Request
             </Button>
@@ -268,7 +268,7 @@ export default function CapabilityRequestPanel() {
                 />
               </div>
               <Button
-                className="w-full bg-[#003ABC] hover:bg-[#002A8F] text-white rounded-lg"
+                className="w-full bg-[#0066CC] hover:bg-[#002A8F] text-white rounded-lg"
                 onClick={handleCreate}
                 disabled={!newRequest.type || !newRequest.title.trim() || submitting}
               >
@@ -281,8 +281,8 @@ export default function CapabilityRequestPanel() {
       </div>
 
       {/* Banner */}
-      <div className="bg-[#FF6A00]/5 border border-[#FF6A00]/20 rounded-xl p-4 flex items-start gap-3">
-        <Lightbulb className="w-5 h-5 text-[#FF6A00] mt-0.5 flex-shrink-0" />
+      <div className="bg-[#E8501A]/5 border border-[#E8501A]/20 rounded-xl p-4 flex items-start gap-3">
+        <Lightbulb className="w-5 h-5 text-[#E8501A] mt-0.5 flex-shrink-0" />
         <p className="text-sm text-[#1E293B]">
           When no existing agent can handle a query, the system detects the gap and requests a new agent build.
         </p>
@@ -291,7 +291,7 @@ export default function CapabilityRequestPanel() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Requests', value: totalRequests, color: 'text-[#003ABC]' },
+          { label: 'Total Requests', value: totalRequests, color: 'text-[#0066CC]' },
           { label: 'Pending', value: pendingCount, color: 'text-amber-500' },
           { label: 'Approved', value: approvedCount, color: 'text-green-500' },
           { label: 'Rejected', value: rejectedCount, color: 'text-red-500' },

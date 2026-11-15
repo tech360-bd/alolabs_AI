@@ -415,8 +415,8 @@ export function ErrorBanner({
     <div
       className="flex flex-wrap items-start gap-3 rounded-md border p-4"
       style={{
-        borderColor: 'rgba(255,106,0,0.35)',
-        background: 'rgba(255,106,0,0.06)',
+        borderColor: 'rgba(232,80,26,0.35)',
+        background: 'rgba(232,80,26,0.06)',
       }}
       role="alert"
     >
@@ -455,7 +455,7 @@ export function EmptyState({
     >
       <div
         className="mb-3 inline-flex size-9 items-center justify-center rounded-full"
-        style={{ background: 'rgba(0,58,188,0.08)' }}
+        style={{ background: 'rgba(0,102,204,0.08)' }}
       >
         <ChevronRight className="size-4" style={{ color: BRAND.blue }} />
       </div>
@@ -513,14 +513,14 @@ export function Pill({
 }) {
   const style: React.CSSProperties =
     tone === 'orange'
-      ? { background: 'rgba(255,106,0,0.10)', color: BRAND.orange }
+      ? { background: 'rgba(232,80,26,0.10)', color: BRAND.orange }
       : tone === 'green'
         ? { background: 'rgba(16,185,129,0.12)', color: '#047857' }
         : tone === 'red'
           ? { background: 'rgba(220,38,38,0.10)', color: '#b91c1c' }
           : tone === 'gray'
             ? { background: '#F1F5F9', color: BRAND.gray }
-            : { background: 'rgba(0,58,188,0.08)', color: BRAND.blue }
+            : { background: 'rgba(0,102,204,0.08)', color: BRAND.blue }
   return (
     <span
       className="inline-flex items-center rounded-md px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"

@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="ALO Labs AgentOS mark">
   <title>ALO Labs AgentOS mark</title>
   <defs>
-    <!-- Brand gradients — guideline: orange #FF6A00 → #FFB300, blue #003ABC → #0077FF -->
+    <!-- Brand gradients — guideline: orange #E8501A → #FFB347, blue #0066CC → #0077FF -->
     <linearGradient id="aloLegL" x1="0.1" y1="0.1" x2="0.6" y2="1">
       <stop offset="0" stop-color="#0077FF"/>
       <stop offset="1" stop-color="#0047A1"/>
     </linearGradient>
     <linearGradient id="aloLegR" x1="0.9" y1="0" x2="0.4" y2="1">
-      <stop offset="0" stop-color="#003ABC"/>
+      <stop offset="0" stop-color="#0066CC"/>
       <stop offset="1" stop-color="#001C6B"/>
     </linearGradient>
     <linearGradient id="aloFold" x1="0" y1="1" x2="1" y2="0.1">
@@ -16,13 +16,13 @@
     </linearGradient>
     <linearGradient id="aloBar" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#FF8A2B"/>
-      <stop offset="1" stop-color="#FF6A00"/>
+      <stop offset="1" stop-color="#E8501A"/>
     </linearGradient>
   </defs>
 
   <!-- Hexagon shell -->
   <path d="M120 22 L210 73 L210 167 L120 218 L30 167 L30 73 Z"
-        fill="none" stroke="#FF6A00" stroke-width="16"
+        fill="none" stroke="#E8501A" stroke-width="16"
         stroke-linejoin="round" stroke-linecap="round"/>
 
   <!-- Folded-ribbon A -->

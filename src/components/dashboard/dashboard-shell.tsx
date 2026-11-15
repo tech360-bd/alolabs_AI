@@ -137,11 +137,11 @@ function SidebarContent({
                       'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150',
                       collapsed ? 'justify-center px-2' : '',
                       isActive
-                        ? 'bg-[#003ABC]/8 text-[#003ABC] shadow-sm'
+                        ? 'bg-[#0066CC]/8 text-[#0066CC] shadow-sm'
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-200',
                     ].join(' ')}
                   >
-                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-[#003ABC]' : 'text-slate-500 dark:text-slate-400'}`} />
+                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-[#0066CC]' : 'text-slate-500 dark:text-slate-400'}`} />
                     {!collapsed && <span className="truncate">{item.label}</span>}
                   </button>
                 )
@@ -319,7 +319,7 @@ export default function DashboardShell({ initialUser }: { initialUser?: Dashboar
                 <LogOut className="h-4 w-4" />
               </Button>
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-[#FF6A00] text-xs font-bold text-white">{initials}</AvatarFallback>
+                <AvatarFallback className="bg-[#E8501A] text-xs font-bold text-white">{initials}</AvatarFallback>
               </Avatar>
             </div>
           </header>

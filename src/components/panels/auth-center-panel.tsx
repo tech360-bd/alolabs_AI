@@ -238,8 +238,8 @@ function StatusBadge({ status }: { status: string }) {
 
 function RoleBadge({ role }: { role: string }) {
   const colors: Record<string, string> = {
-    'Super Admin': 'bg-[#003ABC]/10 text-[#003ABC] border-[#003ABC]/20',
-    'Admin': 'bg-[#FF6A00]/10 text-[#FF6A00] border-[#FF6A00]/20',
+    'Super Admin': 'bg-[#0066CC]/10 text-[#0066CC] border-[#0066CC]/20',
+    'Admin': 'bg-[#E8501A]/10 text-[#E8501A] border-[#E8501A]/20',
     'Developer': 'bg-emerald-50 text-emerald-700 border-emerald-200',
     'Viewer': 'bg-gray-100 text-gray-600 border-gray-200',
     'API Consumer': 'bg-purple-50 text-purple-700 border-purple-200',
@@ -285,7 +285,7 @@ export default function AuthCenterPanel() {
         <div className="mx-auto max-w-7xl space-y-6">
           {/* Header */}
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#003ABC]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0066CC]">
               <Shield className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -298,14 +298,14 @@ export default function AuthCenterPanel() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <div className="overflow-x-auto">
               <TabsList className="inline-flex h-auto w-full min-w-max flex-wrap gap-1 bg-white border border-slate-200 p-1.5 rounded-lg">
-                <TabsTrigger value="overview" className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><Activity className="h-3.5 w-3.5 mr-1.5" />Overview</TabsTrigger>
-                <TabsTrigger value="users" className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><Users className="h-3.5 w-3.5 mr-1.5" />Users &amp; Roles</TabsTrigger>
-                <TabsTrigger value="mfa" className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><Fingerprint className="h-3.5 w-3.5 mr-1.5" />MFA</TabsTrigger>
-                <TabsTrigger value="oauth" className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><Link2 className="h-3.5 w-3.5 mr-1.5" />OAuth2</TabsTrigger>
-                <TabsTrigger value="sessions" className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><Clock className="h-3.5 w-3.5 mr-1.5" />Sessions</TabsTrigger>
-                <TabsTrigger value="api-auth" className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><KeyRound className="h-3.5 w-3.5 mr-1.5" />API Auth</TabsTrigger>
-                <TabsTrigger value="history" className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><History className="h-3.5 w-3.5 mr-1.5" />Login History</TabsTrigger>
-                <TabsTrigger value="policies" className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><ShieldCheck className="h-3.5 w-3.5 mr-1.5" />Policies</TabsTrigger>
+                <TabsTrigger value="overview" className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><Activity className="h-3.5 w-3.5 mr-1.5" />Overview</TabsTrigger>
+                <TabsTrigger value="users" className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><Users className="h-3.5 w-3.5 mr-1.5" />Users &amp; Roles</TabsTrigger>
+                <TabsTrigger value="mfa" className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><Fingerprint className="h-3.5 w-3.5 mr-1.5" />MFA</TabsTrigger>
+                <TabsTrigger value="oauth" className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><Link2 className="h-3.5 w-3.5 mr-1.5" />OAuth2</TabsTrigger>
+                <TabsTrigger value="sessions" className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><Clock className="h-3.5 w-3.5 mr-1.5" />Sessions</TabsTrigger>
+                <TabsTrigger value="api-auth" className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><KeyRound className="h-3.5 w-3.5 mr-1.5" />API Auth</TabsTrigger>
+                <TabsTrigger value="history" className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><History className="h-3.5 w-3.5 mr-1.5" />Login History</TabsTrigger>
+                <TabsTrigger value="policies" className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white text-slate-600 text-xs px-3 py-2 rounded-md"><ShieldCheck className="h-3.5 w-3.5 mr-1.5" />Policies</TabsTrigger>
               </TabsList>
             </div>
 
@@ -409,9 +409,9 @@ function OverviewTab() {
       {/* Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Users', value: totalUsers, icon: Users, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
+          { label: 'Total Users', value: totalUsers, icon: Users, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
           { label: 'Active Sessions', value: activeSessions, icon: Wifi, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'MFA Enabled', value: `${mfaPercent}%`, icon: ShieldCheck, color: 'text-[#FF6A00]', bg: 'bg-[#FF6A00]/10' },
+          { label: 'MFA Enabled', value: `${mfaPercent}%`, icon: ShieldCheck, color: 'text-[#E8501A]', bg: 'bg-[#E8501A]/10' },
           { label: 'Failed Logins (24h)', value: failedLogins24h, icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50' },
         ].map(stat => (
           <Card key={stat.label} className="border-slate-200 shadow-sm">
@@ -608,10 +608,10 @@ function UsersRolesTab() {
     <div className="space-y-4">
       {/* Sub-tab toggle */}
       <div className="flex items-center gap-2">
-        <Button variant={subTab === 'users' ? 'default' : 'outline'} size="sm" onClick={() => setSubTab('users')} className={subTab === 'users' ? 'bg-[#003ABC] hover:bg-[#003ABC]/90' : ''}>
+        <Button variant={subTab === 'users' ? 'default' : 'outline'} size="sm" onClick={() => setSubTab('users')} className={subTab === 'users' ? 'bg-[#0066CC] hover:bg-[#0066CC]/90' : ''}>
           <Users className="h-3.5 w-3.5 mr-1.5" /> Users
         </Button>
-        <Button variant={subTab === 'roles' ? 'default' : 'outline'} size="sm" onClick={() => setSubTab('roles')} className={subTab === 'roles' ? 'bg-[#003ABC] hover:bg-[#003ABC]/90' : ''}>
+        <Button variant={subTab === 'roles' ? 'default' : 'outline'} size="sm" onClick={() => setSubTab('roles')} className={subTab === 'roles' ? 'bg-[#0066CC] hover:bg-[#0066CC]/90' : ''}>
           <Shield className="h-3.5 w-3.5 mr-1.5" /> Roles &amp; Permissions
         </Button>
       </div>
@@ -629,7 +629,7 @@ function UsersRolesTab() {
                 {selectedUsers.size > 0 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8 text-xs border-[#FF6A00] text-[#FF6A00] hover:bg-[#FF6A00]/10">
+                      <Button variant="outline" size="sm" className="h-8 text-xs border-[#E8501A] text-[#E8501A] hover:bg-[#E8501A]/10">
                         <Zap className="h-3.5 w-3.5 mr-1" /> Bulk ({selectedUsers.size})
                       </Button>
                     </DropdownMenuTrigger>
@@ -641,7 +641,7 @@ function UsersRolesTab() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                <Button size="sm" className="h-8 bg-[#003ABC] hover:bg-[#003ABC]/90 text-xs" onClick={() => setCreateUserOpen(true)}>
+                <Button size="sm" className="h-8 bg-[#0066CC] hover:bg-[#0066CC]/90 text-xs" onClick={() => setCreateUserOpen(true)}>
                   <Plus className="h-3.5 w-3.5 mr-1" /> Add User
                 </Button>
               </div>
@@ -704,7 +704,7 @@ function UsersRolesTab() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold text-[#1E293B]">Roles</CardTitle>
-                <Button size="sm" className="h-8 bg-[#003ABC] hover:bg-[#003ABC]/90 text-xs" onClick={() => { setEditingRole(null); setEditRoleOpen(true) }}>
+                <Button size="sm" className="h-8 bg-[#0066CC] hover:bg-[#0066CC]/90 text-xs" onClick={() => { setEditingRole(null); setEditRoleOpen(true) }}>
                   <Plus className="h-3.5 w-3.5 mr-1" /> Add Role
                 </Button>
               </div>
@@ -801,7 +801,7 @@ function UsersRolesTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setCreateUserOpen(false)}>Cancel</Button>
-            <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90" onClick={() => setCreateUserOpen(false)}>Create User</Button>
+            <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90" onClick={() => setCreateUserOpen(false)}>Create User</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -829,7 +829,7 @@ function UsersRolesTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditRoleOpen(false)}>Cancel</Button>
-            <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90" onClick={() => setEditRoleOpen(false)}>Save Role</Button>
+            <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90" onClick={() => setEditRoleOpen(false)}>Save Role</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -924,7 +924,7 @@ function MfaTab() {
                     <TableRow key={u.id} className="border-slate-50">
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#003ABC]/10 text-[#003ABC] text-xs font-bold">{u.name.split(' ').map(n => n[0]).join('')}</div>
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0066CC]/10 text-[#0066CC] text-xs font-bold">{u.name.split(' ').map(n => n[0]).join('')}</div>
                           <span className="text-xs font-medium text-[#1E293B]">{u.name}</span>
                         </div>
                       </TableCell>
@@ -957,8 +957,8 @@ function MfaTab() {
             {/* Step indicators */}
             <div className="flex items-center gap-2">
               {[1, 2, 3].map(step => (
-                <button key={step} onClick={() => setSetupStep(step - 1)} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${setupStep >= step - 1 ? 'border-[#003ABC] bg-[#003ABC]/5 text-[#003ABC]' : 'border-slate-200 text-slate-400'}`}>
-                  <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${setupStep >= step - 1 ? 'bg-[#003ABC] text-white' : 'bg-slate-200 text-slate-500'}`}>{step}</span>
+                <button key={step} onClick={() => setSetupStep(step - 1)} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${setupStep >= step - 1 ? 'border-[#0066CC] bg-[#0066CC]/5 text-[#0066CC]' : 'border-slate-200 text-slate-400'}`}>
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${setupStep >= step - 1 ? 'bg-[#0066CC] text-white' : 'bg-slate-200 text-slate-500'}`}>{step}</span>
                   {['Scan QR Code', 'Enter Code', 'Save Codes'][step - 1]}
                 </button>
               ))}
@@ -979,7 +979,7 @@ function MfaTab() {
               )}
               {setupStep === 1 && (
                 <div className="flex flex-col items-center gap-3">
-                  <Fingerprint className="h-10 w-10 text-[#003ABC]" />
+                  <Fingerprint className="h-10 w-10 text-[#0066CC]" />
                   <p className="text-sm font-medium text-[#1E293B]">Enter the 6-digit code</p>
                   <p className="text-xs text-slate-500 text-center">Enter the verification code from your authenticator app to confirm setup</p>
                   <div className="flex gap-2 mt-2">
@@ -987,7 +987,7 @@ function MfaTab() {
                       <Input key={i} className="h-10 w-10 text-center text-lg font-bold" maxLength={1} />
                     ))}
                   </div>
-                  <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90 mt-2">Verify Code</Button>
+                  <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90 mt-2">Verify Code</Button>
                 </div>
               )}
               {setupStep === 2 && (
@@ -1117,7 +1117,7 @@ function OAuthTab() {
               <div><span className="text-slate-500">Redirect Uri:</span><p className="font-mono text-[#1E293B] mt-0.5 truncate">{provider.redirectUri}</p></div>
               <div className="flex items-center justify-between pt-1 border-t border-slate-100">
                 <span className="text-slate-500">{provider.connectedUsers} connected users</span>
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-[#003ABC] hover:text-[#003ABC]/80" onClick={() => { setEditingProvider(provider); setEditDialog(true) }}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-[#0066CC] hover:text-[#0066CC]/80" onClick={() => { setEditingProvider(provider); setEditDialog(true) }}>
                   <Edit className="h-3 w-3 mr-1" />Configure
                 </Button>
               </div>
@@ -1135,8 +1135,8 @@ function OAuthTab() {
         <CardContent>
           <div className="flex flex-col sm:flex-row items-stretch gap-3">
             {[
-              { step: '1', title: 'Authorization', desc: 'User redirected to provider login', icon: Globe, color: 'bg-[#003ABC]' },
-              { step: '2', title: 'Token Exchange', desc: 'Auth code exchanged for tokens', icon: KeyRound, color: 'bg-[#FF6A00]' },
+              { step: '1', title: 'Authorization', desc: 'User redirected to provider login', icon: Globe, color: 'bg-[#0066CC]' },
+              { step: '2', title: 'Token Exchange', desc: 'Auth code exchanged for tokens', icon: KeyRound, color: 'bg-[#E8501A]' },
               { step: '3', title: 'User Info', desc: 'Fetch user profile from provider', icon: Users, color: 'bg-emerald-500' },
               { step: '4', title: 'Session', desc: 'Create local session', icon: ShieldCheck, color: 'bg-purple-500' },
             ].map((item, i) => (
@@ -1170,7 +1170,7 @@ function OAuthTab() {
               <Label className="text-xs">Scopes</Label>
               <div className="flex flex-wrap gap-1.5">
                 {(editingProvider?.scopes || ['openid', 'email', 'profile']).map(scope => (
-                  <Badge key={scope} variant="outline" className="text-xs border-[#003ABC]/30 text-[#003ABC]">{scope}</Badge>
+                  <Badge key={scope} variant="outline" className="text-xs border-[#0066CC]/30 text-[#0066CC]">{scope}</Badge>
                 ))}
                 <Button variant="outline" size="sm" className="h-6 text-xs"><Plus className="h-3 w-3" /></Button>
               </div>
@@ -1178,7 +1178,7 @@ function OAuthTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setEditDialog(false)}>Cancel</Button>
-            <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90" onClick={() => setEditDialog(false)}>Save Configuration</Button>
+            <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90" onClick={() => setEditDialog(false)}>Save Configuration</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1229,9 +1229,9 @@ function SessionsTab() {
       {/* Session Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         {[
-          { label: 'Total Active', value: sessions.length, icon: Wifi, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
+          { label: 'Total Active', value: sessions.length, icon: Wifi, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
           { label: 'Desktop', value: desktopCount, icon: Laptop, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Mobile', value: mobileCount, icon: Smartphone, color: 'text-[#FF6A00]', bg: 'bg-[#FF6A00]/10' },
+          { label: 'Mobile', value: mobileCount, icon: Smartphone, color: 'text-[#E8501A]', bg: 'bg-[#E8501A]/10' },
           { label: 'API Only', value: apiCount, icon: Terminal, color: 'text-purple-600', bg: 'bg-purple-50' },
         ].map(s => (
           <Card key={s.label} className="border-slate-200 shadow-sm">
@@ -1324,7 +1324,7 @@ function SessionsTab() {
             ))}
           </div>
           <div className="mt-4 flex justify-end">
-            <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-xs">Save Configuration</Button>
+            <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-xs">Save Configuration</Button>
           </div>
         </CardContent>
       </Card>
@@ -1396,7 +1396,7 @@ function ApiAuthTab() {
                 onClick={() => setMethod(m.id)}
                 className={`flex items-center gap-2 rounded-lg border p-3 text-xs font-medium transition-all ${
                   method === m.id
-                    ? 'border-[#003ABC] bg-[#003ABC]/5 text-[#003ABC] shadow-sm'
+                    ? 'border-[#0066CC] bg-[#0066CC]/5 text-[#0066CC] shadow-sm'
                     : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
                 }`}
               >
@@ -1416,7 +1416,7 @@ function ApiAuthTab() {
                 <CardTitle className="text-sm font-semibold text-[#1E293B]">API Keys</CardTitle>
                 <CardDescription className="text-xs text-slate-500">Manage API keys for programmatic access</CardDescription>
               </div>
-              <Button size="sm" className="h-8 bg-[#003ABC] hover:bg-[#003ABC]/90 text-xs"><Plus className="h-3.5 w-3.5 mr-1" />Create Key</Button>
+              <Button size="sm" className="h-8 bg-[#0066CC] hover:bg-[#0066CC]/90 text-xs"><Plus className="h-3.5 w-3.5 mr-1" />Create Key</Button>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -1443,7 +1443,7 @@ function ApiAuthTab() {
                         <TableCell className="font-mono text-xs text-slate-500">{key.prefix}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {key.scopes.map(s => <Badge key={s} variant="outline" className="text-[10px] px-1.5 py-0 border-[#003ABC]/20 text-[#003ABC]">{s}</Badge>)}
+                            {key.scopes.map(s => <Badge key={s} variant="outline" className="text-[10px] px-1.5 py-0 border-[#0066CC]/20 text-[#0066CC]">{s}</Badge>)}
                           </div>
                         </TableCell>
                         <TableCell className="text-xs text-slate-500">{formatTime(key.lastUsed)}</TableCell>
@@ -1504,7 +1504,7 @@ function ApiAuthTab() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex justify-end pt-2"><Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-xs">Save Configuration</Button></div>
+              <div className="flex justify-end pt-2"><Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-xs">Save Configuration</Button></div>
             </CardContent>
           </Card>
 
@@ -1579,7 +1579,7 @@ function ApiAuthTab() {
             ))}
           </div>
           <div className="mt-4 flex justify-end">
-            <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-xs">Save Rate Limits</Button>
+            <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-xs">Save Rate Limits</Button>
           </div>
         </CardContent>
       </Card>
@@ -1670,7 +1670,7 @@ function LoginHistoryTab() {
               <Filter className="h-3 w-3 mr-1" />Clear
             </Button>
             <div className="ml-auto">
-              <Button variant="outline" size="sm" className="h-8 text-xs border-[#003ABC] text-[#003ABC] hover:bg-[#003ABC]/10">
+              <Button variant="outline" size="sm" className="h-8 text-xs border-[#0066CC] text-[#0066CC] hover:bg-[#0066CC]/10">
                 <Download className="h-3 w-3 mr-1" />Export CSV
               </Button>
             </div>
@@ -1785,7 +1785,7 @@ function PoliciesTab() {
         <Card className="border-slate-200 shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Key className="h-4 w-4 text-[#003ABC]" />
+              <Key className="h-4 w-4 text-[#0066CC]" />
               <CardTitle className="text-sm font-semibold text-[#1E293B]">Password Policy</CardTitle>
             </div>
           </CardHeader>
@@ -1819,7 +1819,7 @@ function PoliciesTab() {
         <Card className="border-slate-200 shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Lock className="h-4 w-4 text-[#FF6A00]" />
+              <Lock className="h-4 w-4 text-[#E8501A]" />
               <CardTitle className="text-sm font-semibold text-[#1E293B]">Account Lockout</CardTitle>
             </div>
           </CardHeader>
@@ -1896,7 +1896,7 @@ function PoliciesTab() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ExternalLink className="h-4 w-4 text-[#003ABC]" />
+              <ExternalLink className="h-4 w-4 text-[#0066CC]" />
               <CardTitle className="text-sm font-semibold text-[#1E293B]">CORS Configuration</CardTitle>
             </div>
             <Switch checked={corsConfig.enabled} onCheckedChange={v => setCorsConfig(c => ({ ...c, enabled: v }))} />
@@ -1924,7 +1924,7 @@ function PoliciesTab() {
             </div>
           </div>
           <div className="mt-4 flex justify-end">
-            <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-xs">Save All Policies</Button>
+            <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-xs">Save All Policies</Button>
           </div>
         </CardContent>
       </Card>

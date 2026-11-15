@@ -64,7 +64,7 @@ interface LogEntry {
 
 const statusConfig: Record<string, { icon: React.ElementType; color: string; bg: string; badgeClass: string; label: string }> = {
   pending: { icon: Loader2, color: 'text-amber-600', bg: 'bg-amber-50', badgeClass: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Pending' },
-  deploying: { icon: RefreshCw, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10', badgeClass: 'bg-[#003ABC]/10 text-[#003ABC] border-[#003ABC]/20', label: 'Deploying' },
+  deploying: { icon: RefreshCw, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10', badgeClass: 'bg-[#0066CC]/10 text-[#0066CC] border-[#0066CC]/20', label: 'Deploying' },
   success: { icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', badgeClass: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Success' },
   failed: { icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', badgeClass: 'bg-red-100 text-red-700 border-red-200', label: 'Failed' },
 }
@@ -147,8 +147,8 @@ export default function DeploymentPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <Rocket className="h-5 w-5 text-[#003ABC]" />
+          <div className="h-10 w-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <Rocket className="h-5 w-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1E293B]">Deployment Center</h2>
@@ -158,7 +158,7 @@ export default function DeploymentPanel() {
         <Button
           size="sm"
           onClick={() => setNewDialog(true)}
-          className="gap-1.5 bg-[#003ABC] hover:bg-[#003ABC]/90 text-white"
+          className="gap-1.5 bg-[#0066CC] hover:bg-[#0066CC]/90 text-white"
         >
           <Plus className="h-3.5 w-3.5" />
           New Deployment
@@ -168,7 +168,7 @@ export default function DeploymentPanel() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Total', value: deployments.length, icon: Rocket, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
+          { label: 'Total', value: deployments.length, icon: Rocket, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
           { label: 'Active', value: activeCount, icon: RefreshCw, color: 'text-amber-500', bg: 'bg-amber-50' },
           { label: 'Succeeded', value: successCount, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
           { label: 'SSL Active', value: sslActive, icon: Lock, color: 'text-emerald-500', bg: 'bg-emerald-50' },
@@ -334,7 +334,7 @@ export default function DeploymentPanel() {
             <Button
               onClick={handleDeploy}
               disabled={deploying || !domain.trim()}
-              className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white"
+              className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white"
             >
               {deploying ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Play className="h-4 w-4 mr-1.5" />}
               Deploy

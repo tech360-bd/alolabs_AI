@@ -138,11 +138,11 @@ export default function DepartmentHub() {
             {divisions.map(div => (
               <Card
                 key={div.id}
-                className={`shrink-0 w-56 rounded-xl shadow-sm border-0 bg-white dark:bg-slate-800 cursor-pointer transition-all hover:shadow-md ${divisionFilter === div.id ? 'ring-2 ring-[#FF6A00]' : ''}`}
+                className={`shrink-0 w-56 rounded-xl shadow-sm border-0 bg-white dark:bg-slate-800 cursor-pointer transition-all hover:shadow-md ${divisionFilter === div.id ? 'ring-2 ring-[#E8501A]' : ''}`}
                 onClick={() => setDivisionFilter(divisionFilter === div.id ? '' : div.id)}
               >
                 <CardContent className="p-3">
-                  <p className="text-xs font-bold text-[#003ABC] dark:text-blue-400 truncate">{div.name.replace(' Division', '')}</p>
+                  <p className="text-xs font-bold text-[#0066CC] dark:text-blue-400 truncate">{div.name.replace(' Division', '')}</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">{div.departmentCount} depts &middot; {div.vpAgent}</p>
                   <p className="text-[10px] text-slate-500 mt-1.5 line-clamp-2">{div.kpis[0]}</p>
                 </CardContent>
@@ -155,10 +155,10 @@ export default function DepartmentHub() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Divisions', value: divisions.length, icon: Building2, color: 'text-[#003ABC]' },
+          { label: 'Divisions', value: divisions.length, icon: Building2, color: 'text-[#0066CC]' },
           { label: 'Departments', value: total, icon: Target, color: 'text-purple-600' },
           { label: 'Core', value: departments.filter(d => d.type === 'Core').length, icon: Briefcase, color: 'text-blue-600' },
-          { label: 'AI Agents', value: agents.length, icon: Bot, color: 'text-[#FF6A00]' },
+          { label: 'AI Agents', value: agents.length, icon: Bot, color: 'text-[#E8501A]' },
         ].map(s => {
           const Icon = s.icon
           return (
@@ -190,7 +190,7 @@ export default function DepartmentHub() {
             </Button>
           ))}
           {divisionFilter && (
-            <Button variant="outline" size="sm" className="rounded-lg text-xs text-[#FF6A00]" onClick={() => setDivisionFilter('')}>
+            <Button variant="outline" size="sm" className="rounded-lg text-xs text-[#E8501A]" onClick={() => setDivisionFilter('')}>
               Clear Division Filter
             </Button>
           )}
@@ -234,7 +234,7 @@ export default function DepartmentHub() {
                       <ul className="space-y-1">
                         {dept.objectives.slice(0, 3).map((obj, i) => (
                           <li key={i} className="text-xs text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
-                            <ArrowUpRight className="h-3 w-3 text-[#FF6A00] mt-0.5 shrink-0" />
+                            <ArrowUpRight className="h-3 w-3 text-[#E8501A] mt-0.5 shrink-0" />
                             <span className="line-clamp-1">{obj}</span>
                           </li>
                         ))}
@@ -254,7 +254,7 @@ export default function DepartmentHub() {
                         <div className="space-y-1">
                           {deptAgents.map((a, i) => (
                             <div key={i} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                              <Bot className="h-3 w-3 text-[#FF6A00]" />
+                              <Bot className="h-3 w-3 text-[#E8501A]" />
                               <span className="truncate">{a.name}</span>
                               <Badge variant="secondary" className="text-[10px] ml-auto shrink-0">{a.role}</Badge>
                             </div>

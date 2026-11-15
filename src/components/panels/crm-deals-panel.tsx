@@ -245,8 +245,8 @@ export default function CrmDealsPanel() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#1E293B] flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#003ABC]/10 flex items-center justify-center">
-              <Target className="w-5 h-5 text-[#003ABC]" />
+            <div className="w-8 h-8 rounded-lg bg-[#0066CC]/10 flex items-center justify-center">
+              <Target className="w-5 h-5 text-[#0066CC]" />
             </div>
             CRM Manager
           </h1>
@@ -256,16 +256,16 @@ export default function CrmDealsPanel() {
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <TabsList className="bg-[#F1F5F9] p-1 h-auto">
-          <TabsTrigger value="contacts" className="data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm gap-1.5 text-sm">
+          <TabsTrigger value="contacts" className="data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm gap-1.5 text-sm">
             <Users className="w-4 h-4" /> Contacts
           </TabsTrigger>
-          <TabsTrigger value="deals" className="data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm gap-1.5 text-sm">
+          <TabsTrigger value="deals" className="data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm gap-1.5 text-sm">
             <DollarSign className="w-4 h-4" /> Deals
           </TabsTrigger>
-          <TabsTrigger value="pipelines" className="data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm gap-1.5 text-sm">
+          <TabsTrigger value="pipelines" className="data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm gap-1.5 text-sm">
             <GitBranch className="w-4 h-4" /> Pipelines
           </TabsTrigger>
-          <TabsTrigger value="activities" className="data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm gap-1.5 text-sm">
+          <TabsTrigger value="activities" className="data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm gap-1.5 text-sm">
             <Activity className="w-4 h-4" /> Activities
           </TabsTrigger>
         </TabsList>
@@ -351,7 +351,7 @@ export default function CrmDealsPanel() {
                           <TableCell>
                             <div className="flex items-center gap-2.5">
                               <Avatar className="h-8 w-8 border border-[#E2E8F0]">
-                                <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-xs font-semibold">
+                                <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-xs font-semibold">
                                   {c.firstName[0]}{c.lastName[0]}
                                 </AvatarFallback>
                               </Avatar>
@@ -644,7 +644,7 @@ function ContactDetailView({ contact, onBack, onDelete, onScore, onRefresh }: {
 
   return (
     <div className="space-y-4">
-      <Button variant="ghost" size="sm" onClick={onBack} className="text-[#64748B] hover:text-[#003ABC] -ml-2">
+      <Button variant="ghost" size="sm" onClick={onBack} className="text-[#64748B] hover:text-[#0066CC] -ml-2">
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Contacts
       </Button>
 
@@ -653,7 +653,7 @@ function ContactDetailView({ contact, onBack, onDelete, onScore, onRefresh }: {
           <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
             <div className="flex items-center gap-4">
               <Avatar className="h-14 w-14 border-2 border-[#E2E8F0]">
-                <AvatarFallback className="bg-[#003ABC]/10 text-[#003ABC] text-lg font-bold">
+                <AvatarFallback className="bg-[#0066CC]/10 text-[#0066CC] text-lg font-bold">
                   {contact.firstName[0]}{contact.lastName[0]}
                 </AvatarFallback>
               </Avatar>
@@ -668,7 +668,7 @@ function ContactDetailView({ contact, onBack, onDelete, onScore, onRefresh }: {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={onScore} className="gap-1.5 text-sm">
-                <Star className="w-4 h-4 text-[#FF6A00]" /> Score Lead
+                <Star className="w-4 h-4 text-[#E8501A]" /> Score Lead
               </Button>
               <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5 text-sm">
                 <Edit className="w-4 h-4" /> Edit
@@ -691,11 +691,11 @@ function ContactDetailView({ contact, onBack, onDelete, onScore, onRefresh }: {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mt-4">
             <div className="bg-[#F8FAFC] rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-[#003ABC]">{contact._count?.deals ?? contact.deals?.length ?? 0}</p>
+              <p className="text-2xl font-bold text-[#0066CC]">{contact._count?.deals ?? contact.deals?.length ?? 0}</p>
               <p className="text-xs text-[#94A3B8]">Deals</p>
             </div>
             <div className="bg-[#F8FAFC] rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-[#FF6A00]">{contact._count?.activities ?? contact.activities?.length ?? 0}</p>
+              <p className="text-2xl font-bold text-[#E8501A]">{contact._count?.activities ?? contact.activities?.length ?? 0}</p>
               <p className="text-xs text-[#94A3B8]">Activities</p>
             </div>
             <div className="bg-[#F8FAFC] rounded-lg p-3 text-center">
@@ -808,7 +808,7 @@ function ContactDetailView({ contact, onBack, onDelete, onScore, onRefresh }: {
             placeholder="Write a note about this contact..."
             className="mt-2 min-h-[80px] border-[#E2E8F0] text-sm"
           />
-          <Button size="sm" onClick={addNote} disabled={!noteText.trim()} className="mt-2 bg-[#003ABC] hover:bg-[#003ABC]/90 text-white gap-1.5">
+          <Button size="sm" onClick={addNote} disabled={!noteText.trim()} className="mt-2 bg-[#0066CC] hover:bg-[#0066CC]/90 text-white gap-1.5">
             <Plus className="w-4 h-4" /> Add Note
           </Button>
         </CardContent>
@@ -842,7 +842,7 @@ function ContactDetailView({ contact, onBack, onDelete, onScore, onRefresh }: {
           </div>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setEditOpen(false)} className="text-sm">Cancel</Button>
-            <Button onClick={saveEdit} className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white text-sm">Save Changes</Button>
+            <Button onClick={saveEdit} className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white text-sm">Save Changes</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -871,7 +871,7 @@ function DealDetailView({ deal, pipelines, onBack, onDelete, onRefresh }: {
 
   return (
     <div className="space-y-4">
-      <Button variant="ghost" size="sm" onClick={onBack} className="text-[#64748B] hover:text-[#003ABC] -ml-2">
+      <Button variant="ghost" size="sm" onClick={onBack} className="text-[#64748B] hover:text-[#0066CC] -ml-2">
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Deals
       </Button>
 
@@ -923,7 +923,7 @@ function DealDetailView({ deal, pipelines, onBack, onDelete, onRefresh }: {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button size="sm" onClick={moveDeal} disabled={moveStage === deal.stageId} className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white text-sm">
+                <Button size="sm" onClick={moveDeal} disabled={moveStage === deal.stageId} className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white text-sm">
                   <ChevronRight className="w-4 h-4 mr-1" /> Move
                 </Button>
               </div>
@@ -1010,24 +1010,24 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#003ABC]/10 flex items-center justify-center">
-              <GitBranch className="w-4 h-4 text-[#003ABC]" />
+            <div className="w-8 h-8 rounded-lg bg-[#0066CC]/10 flex items-center justify-center">
+              <GitBranch className="w-4 h-4 text-[#0066CC]" />
             </div>
             <div>
               <h3 className="text-sm font-semibold text-[#1E293B]">{pipeline.name}</h3>
               {pipeline.description && <p className="text-xs text-[#94A3B8]">{pipeline.description}</p>}
             </div>
           </div>
-          {pipeline.isDefault && <Badge variant="secondary" className="text-[10px] bg-[#FF6A00]/10 text-[#FF6A00]">Default</Badge>}
+          {pipeline.isDefault && <Badge variant="secondary" className="text-[10px] bg-[#E8501A]/10 text-[#E8501A]">Default</Badge>}
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div className="bg-[#F8FAFC] rounded-lg p-2.5 text-center">
-            <p className="text-lg font-bold text-[#003ABC]">{pipeline._count?.deals ?? 0}</p>
+            <p className="text-lg font-bold text-[#0066CC]">{pipeline._count?.deals ?? 0}</p>
             <p className="text-[10px] text-[#94A3B8]">Total Deals</p>
           </div>
           <div className="bg-[#F8FAFC] rounded-lg p-2.5 text-center">
-            <p className="text-lg font-bold text-[#FF6A00]">{formatCurrency(pipeline.totalValue)}</p>
+            <p className="text-lg font-bold text-[#E8501A]">{formatCurrency(pipeline.totalValue)}</p>
             <p className="text-[10px] text-[#94A3B8]">Total Value</p>
           </div>
         </div>
@@ -1079,7 +1079,7 @@ function AddContactDialog({ onSave }: { onSave: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white gap-1.5 text-sm">
+        <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white gap-1.5 text-sm">
           <UserPlus className="w-4 h-4" /> Add Contact
         </Button>
       </DialogTrigger>
@@ -1110,7 +1110,7 @@ function AddContactDialog({ onSave }: { onSave: () => void }) {
         </div>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => setOpen(false)} className="text-sm">Cancel</Button>
-          <Button onClick={save} disabled={saving || !form.firstName || !form.lastName || !form.email} className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white text-sm">
+          <Button onClick={save} disabled={saving || !form.firstName || !form.lastName || !form.email} className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white text-sm">
             {saving ? 'Creating...' : 'Create Contact'}
           </Button>
         </div>
@@ -1152,7 +1152,7 @@ function AddDealDialog({ contacts, pipelines, onSave }: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white gap-1.5 text-sm">
+        <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white gap-1.5 text-sm">
           <Plus className="w-4 h-4" /> Create Deal
         </Button>
       </DialogTrigger>
@@ -1216,7 +1216,7 @@ function AddDealDialog({ contacts, pipelines, onSave }: {
         </div>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => setOpen(false)} className="text-sm">Cancel</Button>
-          <Button onClick={save} disabled={saving || !form.contactId || !form.pipelineId || !form.stageId || !form.title} className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white text-sm">
+          <Button onClick={save} disabled={saving || !form.contactId || !form.pipelineId || !form.stageId || !form.title} className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white text-sm">
             {saving ? 'Creating...' : 'Create Deal'}
           </Button>
         </div>
@@ -1248,7 +1248,7 @@ function AddPipelineDialog({ onSave }: { onSave: (name: string, description?: st
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white gap-1.5 text-sm">
+        <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white gap-1.5 text-sm">
           <Plus className="w-4 h-4" /> Create Pipeline
         </Button>
       </DialogTrigger>
@@ -1263,7 +1263,7 @@ function AddPipelineDialog({ onSave }: { onSave: (name: string, description?: st
         </div>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => setOpen(false)} className="text-sm">Cancel</Button>
-          <Button onClick={save} disabled={saving || !name} className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white text-sm">
+          <Button onClick={save} disabled={saving || !name} className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white text-sm">
             {saving ? 'Creating...' : 'Create Pipeline'}
           </Button>
         </div>
@@ -1304,7 +1304,7 @@ function AddActivityDialog({ contacts, deals, onSave }: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white gap-1.5 text-sm">
+        <Button size="sm" className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white gap-1.5 text-sm">
           <Plus className="w-4 h-4" /> Log Activity
         </Button>
       </DialogTrigger>
@@ -1366,7 +1366,7 @@ function AddActivityDialog({ contacts, deals, onSave }: {
         </div>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => setOpen(false)} className="text-sm">Cancel</Button>
-          <Button onClick={save} disabled={saving || !form.type || !form.subject} className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white text-sm">
+          <Button onClick={save} disabled={saving || !form.type || !form.subject} className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white text-sm">
             {saving ? 'Saving...' : 'Log Activity'}
           </Button>
         </div>

@@ -15,7 +15,7 @@ const brandCreateSchema = z.object({
   companyId: z.string().min(1),
   name: z.string().min(1).max(255),
   logoUrl: z.string().optional(),
-  primaryColor: z.string().default('#003ABC'),
+  primaryColor: z.string().default('#0066CC'),
   secondaryColor: z.string().default('#10B981'),
   accentColor: z.string().default('#F59E0B'),
   fontFamily: z.string().default('Inter'),

@@ -69,14 +69,14 @@ const ARCH_STEPS: ArchStep[] = [
     label: 'Sister Company Backend',
     sublabel: 'External HTTP request',
     icon: <Building2 className="w-5 h-5" />,
-    borderColor: 'border-l-[#FF6A00]',
+    borderColor: 'border-l-[#E8501A]',
     bg: 'bg-orange-50',
   },
   {
     label: 'ALO Labs API Gateway',
     sublabel: 'Secure API Key validation',
     icon: <KeyRound className="w-5 h-5" />,
-    borderColor: 'border-l-[#FF6A00]',
+    borderColor: 'border-l-[#E8501A]',
     bg: 'bg-orange-50',
   },
   {
@@ -90,14 +90,14 @@ const ARCH_STEPS: ArchStep[] = [
     label: 'Selected Agents (1–5)',
     sublabel: 'Tenant-scoped agent pool',
     icon: <Network className="w-5 h-5" />,
-    borderColor: 'border-l-[#003ABC]',
+    borderColor: 'border-l-[#0066CC]',
     bg: 'bg-blue-50',
   },
   {
     label: 'PydanticAI Validation',
     sublabel: 'Schema enforcement',
     icon: <Shield className="w-5 h-5" />,
-    borderColor: 'border-l-[#003ABC]',
+    borderColor: 'border-l-[#0066CC]',
     bg: 'bg-blue-50',
   },
   {
@@ -139,7 +139,7 @@ const ARCH_STEPS: ArchStep[] = [
     label: 'Result → Company',
     sublabel: 'Secure response delivery',
     icon: <LogIn className="w-5 h-5" />,
-    borderColor: 'border-l-[#FF6A00]',
+    borderColor: 'border-l-[#E8501A]',
     bg: 'bg-orange-50',
   },
 ]
@@ -170,7 +170,7 @@ const RULES = [
     title: 'Usage Limits',
     description:
       'Monthly request limits per company with real-time tracking. Soft warnings at 80% and hard caps at 100% to ensure fair resource allocation.',
-    color: 'text-[#FF6A00]',
+    color: 'text-[#E8501A]',
     bg: 'bg-orange-50',
     border: 'border-orange-100',
   },
@@ -256,7 +256,7 @@ export default function TenantGatewayPanel() {
       {/* ── Central Architecture Diagram ────────────────────────────────── */}
       <section>
         <h3 className="text-sm font-semibold text-[#1E293B] mb-4 flex items-center gap-2">
-          <Network className="w-4 h-4 text-[#003ABC]" />
+          <Network className="w-4 h-4 text-[#0066CC]" />
           Request Flow Architecture
         </h3>
 
@@ -301,7 +301,7 @@ export default function TenantGatewayPanel() {
         {/* Company Request Distribution */}
         <section className="bg-white rounded-xl border border-[#E2E8F0] p-5">
           <h3 className="text-sm font-semibold text-[#1E293B] mb-4 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-[#FF6A00]" />
+            <BarChart3 className="w-4 h-4 text-[#E8501A]" />
             Company Request Distribution
           </h3>
 
@@ -338,7 +338,7 @@ export default function TenantGatewayPanel() {
         {/* Request Flow Rules */}
         <section className="space-y-4">
           <h3 className="text-sm font-semibold text-[#1E293B] mb-1 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[#003ABC]" />
+            <Shield className="w-4 h-4 text-[#0066CC]" />
             Request Flow Rules
           </h3>
 
@@ -369,7 +369,7 @@ export default function TenantGatewayPanel() {
       <section className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden">
         <div className="px-5 py-4 border-b border-[#E2E8F0]">
           <h3 className="text-sm font-semibold text-[#1E293B] flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#003ABC]" />
+            <Clock className="w-4 h-4 text-[#0066CC]" />
             Recent Gateway Activity
           </h3>
         </div>
@@ -428,8 +428,8 @@ export default function TenantGatewayPanel() {
 function getUsageBarColor(usagePct: number): string {
   if (usagePct >= 90) return 'bg-red-500'
   if (usagePct >= 75) return 'bg-amber-500'
-  if (usagePct >= 50) return 'bg-[#FF6A00]'
-  return 'bg-[#003ABC]'
+  if (usagePct >= 50) return 'bg-[#E8501A]'
+  return 'bg-[#0066CC]'
 }
 
 function formatTimestamp(iso: string): string {

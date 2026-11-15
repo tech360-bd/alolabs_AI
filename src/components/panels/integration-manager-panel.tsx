@@ -81,7 +81,7 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: 
   slack: { icon: Zap, color: 'text-[#E01E5A]', bg: 'bg-[#E01E5A]/10' },
   n8n: { icon: Link2, color: 'text-[#FF6D5A]', bg: 'bg-[#FF6D5A]/10' },
   zapier: { icon: Zap, color: 'text-[#FF4A00]', bg: 'bg-[#FF4A00]/10' },
-  webhook: { icon: WebhookIcon, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
+  webhook: { icon: WebhookIcon, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
   custom: { icon: Plug, color: 'text-purple-600', bg: 'bg-purple-100' },
 }
 
@@ -299,7 +299,7 @@ export default function IntegrationManagerPanel() {
         </div>
         <Button
           onClick={openCreate}
-          className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+          className="bg-[#0066CC] hover:bg-[#002A99] text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Integration
@@ -319,7 +319,7 @@ export default function IntegrationManagerPanel() {
             className="bg-white rounded-xl border border-[#E2E8F0] p-4 flex items-center gap-3"
           >
             <div className="w-10 h-10 rounded-lg bg-[#F8FAFC] flex items-center justify-center shrink-0">
-              <s.icon className={`w-5 h-5 ${s.color ?? 'text-[#003ABC]'}`} />
+              <s.icon className={`w-5 h-5 ${s.color ?? 'text-[#0066CC]'}`} />
             </div>
             <div>
               <p className="text-2xl font-bold text-[#1E293B]">{s.value}</p>
@@ -415,7 +415,7 @@ export default function IntegrationManagerPanel() {
                           checked={integration.enabled}
                           disabled={togglingId === integration.id}
                           onCheckedChange={() => handleToggle(integration)}
-                          className="data-[state=checked]:bg-[#003ABC]"
+                          className="data-[state=checked]:bg-[#0066CC]"
                         />
                       </TableCell>
                       <TableCell className="text-[#94A3B8] text-sm">
@@ -429,7 +429,7 @@ export default function IntegrationManagerPanel() {
                             variant="ghost"
                             size="sm"
                             onClick={() => openEdit(integration)}
-                            className="text-[#003ABC] hover:text-[#002A99] hover:bg-[#003ABC]/5"
+                            className="text-[#0066CC] hover:text-[#002A99] hover:bg-[#0066CC]/5"
                           >
                             <Settings className="w-4 h-4" />
                           </Button>
@@ -496,7 +496,7 @@ export default function IntegrationManagerPanel() {
                 placeholder="e.g. Production Slack Bot"
                 value={form.name}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                className="border-[#E2E8F0] focus-visible:ring-[#003ABC]"
+                className="border-[#E2E8F0] focus-visible:ring-[#0066CC]"
               />
             </div>
 
@@ -533,7 +533,7 @@ export default function IntegrationManagerPanel() {
                   </SelectItem>
                   <SelectItem value="webhook">
                     <span className="flex items-center gap-2">
-                      <WebhookIcon className="w-3.5 h-3.5 text-[#003ABC]" />
+                      <WebhookIcon className="w-3.5 h-3.5 text-[#0066CC]" />
                       Custom Webhook
                     </span>
                   </SelectItem>
@@ -554,7 +554,7 @@ export default function IntegrationManagerPanel() {
                 placeholder="Brief description of this integration"
                 value={form.description}
                 onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                className="border-[#E2E8F0] focus-visible:ring-[#003ABC]"
+                className="border-[#E2E8F0] focus-visible:ring-[#0066CC]"
               />
             </div>
 
@@ -579,7 +579,7 @@ export default function IntegrationManagerPanel() {
                         config: { ...p.config, [field.key]: e.target.value },
                       }))
                     }
-                    className="border-[#E2E8F0] focus-visible:ring-[#003ABC]"
+                    className="border-[#E2E8F0] focus-visible:ring-[#0066CC]"
                   />
                 </div>
               ))}
@@ -591,7 +591,7 @@ export default function IntegrationManagerPanel() {
               <Switch
                 checked={form.enabled}
                 onCheckedChange={(checked) => setForm((p) => ({ ...p, enabled: checked }))}
-                className="data-[state=checked]:bg-[#003ABC]"
+                className="data-[state=checked]:bg-[#0066CC]"
               />
             </div>
           </div>
@@ -607,7 +607,7 @@ export default function IntegrationManagerPanel() {
             <Button
               onClick={handleSubmit}
               disabled={!form.companyId || !form.name.trim() || submitting}
-              className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+              className="bg-[#0066CC] hover:bg-[#002A99] text-white"
             >
               {submitting ? 'Saving...' : editingId ? 'Save Changes' : 'Add Integration'}
             </Button>

@@ -222,7 +222,7 @@ export default function McpManagerPanel() {
           <h2 className="text-2xl font-bold text-[#1E293B]">MCP Server Manager</h2>
           <p className="text-sm text-[#64748B] mt-1">Manage Model Context Protocol servers</p>
         </div>
-        <Button onClick={openAdd} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+        <Button onClick={openAdd} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
           <Plus className="w-4 h-4 mr-2" />
           Add MCP Server
         </Button>
@@ -231,9 +231,9 @@ export default function McpManagerPanel() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Total Servers', value: servers.length, icon: Server, color: 'text-[#003ABC]' },
+          { label: 'Total Servers', value: servers.length, icon: Server, color: 'text-[#0066CC]' },
           { label: 'Active', value: activeServers.length, icon: Activity, color: 'text-emerald-600' },
-          { label: 'Capabilities', value: allCapabilities.length, icon: RefreshCw, color: 'text-[#FF6A00]' },
+          { label: 'Capabilities', value: allCapabilities.length, icon: RefreshCw, color: 'text-[#E8501A]' },
         ].map((stat) => (
           <Card key={stat.label} className="border-[#E2E8F0]">
             <CardContent className="p-4 flex items-center gap-3">
@@ -265,7 +265,7 @@ export default function McpManagerPanel() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-[#F8FAFC]">
-                      <Server className="w-5 h-5 text-[#003ABC]" />
+                      <Server className="w-5 h-5 text-[#0066CC]" />
                     </div>
                     <div>
                       <CardTitle className="text-sm font-semibold text-[#1E293B]">{server.name}</CardTitle>
@@ -368,7 +368,7 @@ export default function McpManagerPanel() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#003ABC]" />
+              <Plus className="w-5 h-5 text-[#0066CC]" />
               Add MCP Server
             </DialogTitle>
             <DialogDescription>Register a new Model Context Protocol server</DialogDescription>
@@ -405,7 +405,7 @@ export default function McpManagerPanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={saving} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+            <Button onClick={handleAdd} disabled={saving} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Add Server
             </Button>

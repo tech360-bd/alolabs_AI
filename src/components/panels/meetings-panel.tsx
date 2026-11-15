@@ -185,15 +185,15 @@ export default function MeetingsPanel() {
           <h2 className="text-2xl font-bold text-[#1E293B]">Meetings</h2>
           <p className="text-sm text-[#64748B] mt-1">Schedule and manage team meetings</p>
         </div>
-        <Button onClick={openCreate} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+        <Button onClick={openCreate} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
           <Plus className="w-4 h-4 mr-2" /> New Meeting
         </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: 'Total', value: stats.total, icon: Calendar, color: 'text-[#003ABC]', bg: 'bg-blue-50' },
-          { label: 'Upcoming This Week', value: stats.upcomingThisWeek, icon: Clock, color: 'text-[#FF6A00]', bg: 'bg-orange-50' },
+          { label: 'Total', value: stats.total, icon: Calendar, color: 'text-[#0066CC]', bg: 'bg-blue-50' },
+          { label: 'Upcoming This Week', value: stats.upcomingThisWeek, icon: Clock, color: 'text-[#E8501A]', bg: 'bg-orange-50' },
           { label: 'Avg Duration', value: formatDuration(stats.avgDuration), icon: Timer, color: 'text-emerald-500', bg: 'bg-emerald-50' },
         ].map((stat) => (
           <Card key={stat.label} className="border-[#E2E8F0]">
@@ -253,7 +253,7 @@ export default function MeetingsPanel() {
                     </div>
                   )}
                   {meeting.meetingLink && (
-                    <Button size="sm" variant="outline" className="w-full h-8 text-xs text-[#003ABC] border-[#003ABC]/30 hover:bg-[#003ABC]/5" asChild>
+                    <Button size="sm" variant="outline" className="w-full h-8 text-xs text-[#0066CC] border-[#0066CC]/30 hover:bg-[#0066CC]/5" asChild>
                       <a href={meeting.meetingLink} target="_blank" rel="noopener noreferrer">
                         <Video className="w-3 h-3 mr-1" /> Join Meeting <ExternalLink className="w-3 h-3 ml-1" />
                       </a>
@@ -303,8 +303,8 @@ export default function MeetingsPanel() {
                   const isToday = day === now.getDate() && calendarMonth === now.getMonth() && calendarYear === now.getFullYear()
                   return (
                     <div key={idx} className={`min-h-[60px] rounded-lg p-1 border transition-colors ${day ? 'border-[#F1F5F9] hover:border-[#E2E8F0]' : 'border-transparent'} ${isToday ? 'bg-blue-50 border-blue-200' : ''}`}>
-                      {day && <span className={`text-[10px] font-medium ${isToday ? 'text-[#003ABC]' : 'text-[#64748B]'}`}>{day}</span>}
-                      {dayMeetings.slice(0, 2).map((m) => (<div key={m.id} className="mt-0.5 truncate text-[8px] bg-[#003ABC]/10 text-[#003ABC] rounded px-1 py-0.5 font-medium">{m.title}</div>))}
+                      {day && <span className={`text-[10px] font-medium ${isToday ? 'text-[#0066CC]' : 'text-[#64748B]'}`}>{day}</span>}
+                      {dayMeetings.slice(0, 2).map((m) => (<div key={m.id} className="mt-0.5 truncate text-[8px] bg-[#0066CC]/10 text-[#0066CC] rounded px-1 py-0.5 font-medium">{m.title}</div>))}
                       {dayMeetings.length > 2 && <span className="text-[8px] text-[#94A3B8]">+{dayMeetings.length - 2}</span>}
                     </div>
                   )
@@ -318,7 +318,7 @@ export default function MeetingsPanel() {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Plus className="w-5 h-5 text-[#003ABC]" /> New Meeting</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><Plus className="w-5 h-5 text-[#0066CC]" /> New Meeting</DialogTitle>
             <DialogDescription>Schedule a new team meeting</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -336,7 +336,7 @@ export default function MeetingsPanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving} className="bg-[#003ABC] hover:bg-[#003ABC]/90">{saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Schedule</Button>
+            <Button onClick={handleCreate} disabled={saving} className="bg-[#0066CC] hover:bg-[#0066CC]/90">{saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Schedule</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

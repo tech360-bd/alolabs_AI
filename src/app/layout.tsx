@@ -13,8 +13,8 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.alolabs.net'),
-  title: "ALO Labs — AI-Powered Business Services",
-  description: "ALO Labs delivers AI-powered business services: process automation, CRM and marketing automation, communications, content and custom software.",
+  title: "ALO Labs — Global AI & Software Technology Company",
+  description: "ALO Labs designs and builds software, AI-powered solutions and connected digital platforms that help businesses work smarter, scale confidently and create better experiences.",
   keywords: [
     'ALO Labs', 'AI services', 'business process automation', 'CRM automation',
     'marketing automation', 'AI communications', 'custom software', 'client portal',
@@ -29,10 +29,10 @@ export const metadata: Metadata = {
     shortcut: ['/brand/alo-mark.svg'],
   },
   openGraph: {
-    title: 'ALO Labs — AI-Powered Business Services',
-    description: 'AI-powered business services, delivered by an accountable team and followed in your client portal.',
+    title: 'ALO Labs — Global AI & Software Technology Company',
+    description: 'Software, AI-powered solutions and connected digital platforms — designed and built for businesses that take technology seriously.',
     siteName: 'ALO Labs',
-    images: ['/brand/alo-logo-horizontal.svg'],
+    images: ['/brand/alo-mark.svg'],
   },
   other: {
     "mobile-web-app-capable": "yes",
@@ -49,9 +49,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#003ABC" />
+        <meta name="theme-color" content="#0066CC" />
         <link rel="icon" href="/brand/alo-icon.svg" type="image/svg+xml" />
-        <link rel="mask-icon" href="/brand/alo-mark.svg" color="#FF6A00" />
+        <link rel="mask-icon" href="/brand/alo-mark.svg" color="#E8501A" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="ALO Labs" />

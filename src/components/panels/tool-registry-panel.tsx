@@ -61,9 +61,9 @@ const CATEGORIES = [
 ]
 
 const categoryColors: Record<string, string> = {
-  ai_model: 'bg-[#003ABC]/10 text-[#003ABC]',
+  ai_model: 'bg-[#0066CC]/10 text-[#0066CC]',
   database: 'bg-emerald-100 text-emerald-700',
-  api: 'bg-[#FF6A00]/10 text-[#FF6A00]',
+  api: 'bg-[#E8501A]/10 text-[#E8501A]',
   file: 'bg-purple-100 text-purple-700',
   web: 'bg-cyan-100 text-cyan-700',
   communication: 'bg-pink-100 text-pink-700',
@@ -206,7 +206,7 @@ export default function ToolRegistryPanel() {
           <h2 className="text-2xl font-bold text-[#1E293B]">Tool Registry</h2>
           <p className="text-sm text-[#64748B] mt-1">Manage all tools available to AI agents</p>
         </div>
-        <Button onClick={openAdd} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+        <Button onClick={openAdd} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
           <Plus className="w-4 h-4 mr-2" />
           Register Tool
         </Button>
@@ -215,10 +215,10 @@ export default function ToolRegistryPanel() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Tools', value: tools.length, icon: Wrench, color: 'text-[#003ABC]' },
+          { label: 'Total Tools', value: tools.length, icon: Wrench, color: 'text-[#0066CC]' },
           { label: 'Active', value: activeTools.length, icon: Shield, color: 'text-emerald-600' },
           { label: 'High Risk', value: highRiskTools.length, icon: AlertTriangle, color: 'text-red-500' },
-          { label: 'Categories', value: uniqueCategories.length, icon: Wrench, color: 'text-[#FF6A00]' },
+          { label: 'Categories', value: uniqueCategories.length, icon: Wrench, color: 'text-[#E8501A]' },
         ].map((stat) => (
           <Card key={stat.label} className="border-[#E2E8F0]">
             <CardContent className="p-4 flex items-center gap-3">
@@ -329,7 +329,7 @@ export default function ToolRegistryPanel() {
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#003ABC]" />
+              <Plus className="w-5 h-5 text-[#0066CC]" />
               Register Tool
             </DialogTitle>
             <DialogDescription>Add a new tool to the agent tool registry</DialogDescription>
@@ -378,7 +378,7 @@ export default function ToolRegistryPanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={saving} className="bg-[#003ABC] hover:bg-[#003ABC]/90">
+            <Button onClick={handleAdd} disabled={saving} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Register
             </Button>

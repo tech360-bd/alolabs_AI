@@ -180,8 +180,8 @@ export default function SisterCompaniesPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-[#003ABC]" />
+          <div className="w-10 h-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <Building2 className="w-5 h-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-[#1E293B]">Sister Companies</h2>
@@ -203,8 +203,8 @@ export default function SisterCompaniesPanel() {
                 <p className="text-xs text-[#64748B]">Total Companies</p>
                 <p className="text-2xl font-bold text-[#1E293B]">{companies.length}</p>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-[#003ABC]" />
+              <div className="w-10 h-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-[#0066CC]" />
               </div>
             </div>
           </CardContent>
@@ -229,12 +229,12 @@ export default function SisterCompaniesPanel() {
                 <p className="text-xs text-[#64748B]">Usage This Month</p>
                 <p className="text-2xl font-bold text-[#1E293B]">{(totalUsage / 1000).toFixed(0)}k</p>
                 <div className="flex items-center gap-1 mt-1">
-                  <Progress value={(totalUsage / totalLimit) * 100} className="h-1 w-16 [&>div]:bg-[#003ABC]" />
+                  <Progress value={(totalUsage / totalLimit) * 100} className="h-1 w-16 [&>div]:bg-[#0066CC]" />
                   <span className="text-[10px] text-[#64748B]">{((totalUsage / totalLimit) * 100).toFixed(0)}%</span>
                 </div>
               </div>
               <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
-                <Activity className="w-5 h-5 text-[#FF6A00]" />
+                <Activity className="w-5 h-5 text-[#E8501A]" />
               </div>
             </div>
           </CardContent>
@@ -300,7 +300,7 @@ export default function SisterCompaniesPanel() {
                       <div className="text-right">
                         <p className="text-xs text-[#64748B]">Usage</p>
                         <div className="flex items-center gap-1.5">
-                          <Progress value={usagePercent} className="h-1.5 w-16 [&>div]:bg-[#003ABC]" />
+                          <Progress value={usagePercent} className="h-1.5 w-16 [&>div]:bg-[#0066CC]" />
                           <span className="text-xs font-medium text-[#1E293B]">{usagePercent.toFixed(0)}%</span>
                         </div>
                       </div>
@@ -345,7 +345,7 @@ export default function SisterCompaniesPanel() {
                       {/* Assigned Agents */}
                       <div className="space-y-2">
                         <h4 className="text-xs font-semibold text-[#1E293B] flex items-center gap-1.5">
-                          <Bot className="w-3.5 h-3.5 text-[#003ABC]" />
+                          <Bot className="w-3.5 h-3.5 text-[#0066CC]" />
                           Assigned Agents ({company.agents.length})
                         </h4>
                         <div className="space-y-1.5">
@@ -381,7 +381,7 @@ export default function SisterCompaniesPanel() {
                       {/* API Permissions */}
                       <div className="space-y-2">
                         <h4 className="text-xs font-semibold text-[#1E293B] flex items-center gap-1.5">
-                          <Shield className="w-3.5 h-3.5 text-[#003ABC]" />
+                          <Shield className="w-3.5 h-3.5 text-[#0066CC]" />
                           API Permissions
                         </h4>
                         <div className="space-y-1.5">
@@ -403,7 +403,7 @@ export default function SisterCompaniesPanel() {
                               <div className="flex items-center gap-2">
                                 <div className="w-12 h-1 bg-slate-100 rounded-full overflow-hidden">
                                   <div
-                                    className={`h-full rounded-full ${perm.callsToday / perm.limit > 0.8 ? 'bg-amber-500' : 'bg-[#003ABC]'}`}
+                                    className={`h-full rounded-full ${perm.callsToday / perm.limit > 0.8 ? 'bg-amber-500' : 'bg-[#0066CC]'}`}
                                     style={{ width: `${(perm.callsToday / perm.limit) * 100}%` }}
                                   />
                                 </div>
@@ -419,7 +419,7 @@ export default function SisterCompaniesPanel() {
                       {/* Usage & Quotas */}
                       <div className="space-y-2">
                         <h4 className="text-xs font-semibold text-[#1E293B] flex items-center gap-1.5">
-                          <BarChart3 className="w-3.5 h-3.5 text-[#003ABC]" />
+                          <BarChart3 className="w-3.5 h-3.5 text-[#0066CC]" />
                           Usage Quotas
                         </h4>
                         <div className="p-3 rounded-lg bg-white border border-[#E2E8F0] space-y-3">
@@ -430,7 +430,7 @@ export default function SisterCompaniesPanel() {
                                 {company.usageThisMonth.toLocaleString()} / {company.usageLimit.toLocaleString()}
                               </span>
                             </div>
-                            <Progress value={usagePercent} className={`h-2 ${usagePercent > 80 ? '[&>div]:bg-amber-500' : '[&>div]:bg-[#003ABC]'}`} />
+                            <Progress value={usagePercent} className={`h-2 ${usagePercent > 80 ? '[&>div]:bg-amber-500' : '[&>div]:bg-[#0066CC]'}`} />
                           </div>
                           <div>
                             <div className="flex items-center justify-between mb-1">
@@ -460,7 +460,7 @@ export default function SisterCompaniesPanel() {
                     <div className="flex items-center gap-2 pt-2">
                       <Button
                         size="sm"
-                        className="bg-[#003ABC] hover:bg-[#003ABC]/90 text-white text-xs h-8"
+                        className="bg-[#0066CC] hover:bg-[#0066CC]/90 text-white text-xs h-8"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <Settings className="w-3.5 h-3.5 mr-1.5" />

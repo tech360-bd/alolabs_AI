@@ -150,7 +150,7 @@ function eventTone(type: string): string {
   if (type === 'run.failed' || type === 'task.failed' || type === 'qc.failed') return 'text-red-600 dark:text-red-400'
   if (type === 'task.completed' || type === 'qc.passed' || type === 'run.completed' || type === 'artifact.created') return 'text-emerald-600 dark:text-emerald-400'
   if (type === 'approval.requested' || type === 'repair.started') return 'text-amber-600 dark:text-amber-400'
-  if (type === 'agent.selected' || type === 'model.selected') return 'text-[#003ABC]'
+  if (type === 'agent.selected' || type === 'model.selected') return 'text-[#0066CC]'
   return 'text-slate-600 dark:text-slate-400'
 }
 
@@ -466,9 +466,9 @@ export function RunView({
                       type="button"
                       onClick={() => void downloadArtifact(artifact)}
                       aria-label={`Download ${artifact.name}`}
-                      className="flex w-full items-center gap-2 rounded-lg border border-slate-200 p-2.5 text-left text-sm transition-colors hover:border-[#003ABC]/40 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/50"
+                      className="flex w-full items-center gap-2 rounded-lg border border-slate-200 p-2.5 text-left text-sm transition-colors hover:border-[#0066CC]/40 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/50"
                     >
-                      <FileText className="h-4 w-4 shrink-0 text-[#003ABC]" />
+                      <FileText className="h-4 w-4 shrink-0 text-[#0066CC]" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-slate-900 dark:text-slate-100">{artifact.name}</p>
                         <p className="text-xs text-slate-500">{artifact.type} · v{artifact.version} · {(artifact.size / 1024).toFixed(1)} KB · sha256:{artifact.checksum.slice(0, 8)}</p>
@@ -540,5 +540,5 @@ export function RunView({
 }
 
 function SparklesIcon() {
-  return <span className="text-[#003ABC]">✦</span>
+  return <span className="text-[#0066CC]">✦</span>
 }

@@ -161,7 +161,7 @@ export default function AgentsRegistryPanel() {
                 ) : (
                   agents.map((agent) => (
                     <TableRow key={agent.id} className="border-[#E2E8F0] hover:bg-gray-50">
-                      <TableCell className="font-mono text-xs text-[#FF6A00]">{agent.agentId}</TableCell>
+                      <TableCell className="font-mono text-xs text-[#E8501A]">{agent.agentId}</TableCell>
                       <TableCell className="text-[#1E293B] font-medium">{agent.name}</TableCell>
                       <TableCell className="text-[#64748B] hidden md:table-cell">{agent.departmentName}</TableCell>
                       <TableCell className="text-[#64748B] hidden lg:table-cell capitalize">{agent.role}</TableCell>

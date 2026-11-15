@@ -15,7 +15,7 @@ const CreateCatalogItemSchema = z.object({
   systemPrompt: z.string().default(''),
   configTemplate: z.record(z.string(), z.unknown()).default({}),
   icon: z.string().trim().min(1).max(80).default('Bot'),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#003ABC'),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0066CC'),
 })
 
 function errorResponse(error: unknown) {

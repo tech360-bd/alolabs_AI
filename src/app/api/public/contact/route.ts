@@ -43,9 +43,14 @@ interface Enquiry {
   topic: string;
   subject: string;
   message: string;
+  /** Optional fields added for the project-enquiry form (budget, contact preference, consent). */
+  budget: string;
+  contactMethod: string;
+  consent: string;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const CONTACT_METHODS = new Set(['Email', 'Phone', 'Video call']);
 
 function clean(value: unknown, max = 400): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -55,9 +60,20 @@ function validate(body: Record<string, unknown>): { ok: true; enquiry: Enquiry }
   const name = clean(body.name, 120);
   const email = clean(body.email, 200).toLowerCase();
   const message = clean(body.message, 4000);
+  const budget = clean(body.budget, 60);
+  const contactMethod = clean(body.contactMethod, 40);
+  const consentRaw = typeof body.consent === 'boolean' ? body.consent : clean(body.consent, 20);
   if (!name) return { ok: false, error: 'Please tell us your name.' };
   if (!email || !EMAIL_RE.test(email)) return { ok: false, error: 'Please provide a valid email address.' };
   if (message.length < 10) return { ok: false, error: 'Please include a short message (at least 10 characters).' };
+  // Consent handling: an explicit refusal is always rejected; an absent value is
+  // tolerated for contract compatibility (the public form always sends it).
+  if (consentRaw === false || consentRaw === 'false' || consentRaw === 'no') {
+    return { ok: false, error: 'Please accept the privacy terms so we can respond to your enquiry.' };
+  }
+  if (contactMethod && !CONTACT_METHODS.has(contactMethod)) {
+    return { ok: false, error: 'Please choose a valid contact method.' };
+  }
   return {
     ok: true,
     enquiry: {
@@ -68,6 +84,9 @@ function validate(body: Record<string, unknown>): { ok: true; enquiry: Enquiry }
       topic: clean(body.topic, 120) || 'General enquiry',
       subject: clean(body.subject, 200) || SUBJECT,
       message,
+      budget: budget && budget !== 'Not decided yet' ? budget : '',
+      contactMethod: contactMethod || 'Email',
+      consent: consentRaw ? 'yes' : 'not-recorded',
     },
   };
 }
@@ -105,7 +124,9 @@ async function notifyHouse(enquiry: Enquiry): Promise<boolean> {
           `Email: ${enquiry.email}\n` +
           `Company: ${enquiry.company || '—'}\n` +
           `Phone: ${enquiry.phone || '—'}\n` +
-          `Topic: ${enquiry.topic}\n\n` +
+          `Topic: ${enquiry.topic}\n` +
+          `Budget: ${enquiry.budget || '—'}\n` +
+          `Preferred contact: ${enquiry.contactMethod}\n\n` +
           `${enquiry.message}\n`,
         html:
           `<h2>New enquiry from alolabs.net</h2>` +
@@ -113,7 +134,9 @@ async function notifyHouse(enquiry: Enquiry): Promise<boolean> {
           `<strong>Email:</strong> ${escapeHtml(enquiry.email)}<br/>` +
           `<strong>Company:</strong> ${escapeHtml(enquiry.company || '—')}<br/>` +
           `<strong>Phone:</strong> ${escapeHtml(enquiry.phone || '—')}<br/>` +
-          `<strong>Topic:</strong> ${escapeHtml(enquiry.topic)}</p>` +
+          `<strong>Topic:</strong> ${escapeHtml(enquiry.topic)}<br/>` +
+          `<strong>Budget:</strong> ${escapeHtml(enquiry.budget || '—')}<br/>` +
+          `<strong>Preferred contact:</strong> ${escapeHtml(enquiry.contactMethod)}</p>` +
           `<p>${escapeHtml(enquiry.message).replace(/\n/g, '<br/>')}</p>`,
         attachments: [],
         headers: {},
@@ -176,8 +199,15 @@ export async function POST(request: NextRequest) {
         company: enquiry.company || null,
         source: 'website-contact',
         status: 'lead',
-        tags: JSON.stringify(['website', enquiry.topic.toLowerCase().replace(/\s+/g, '-')]),
-        metadata: JSON.stringify({ topic: enquiry.topic, subject: enquiry.subject, page: 'alolabs.net' }),
+        tags: JSON.stringify(['website', enquiry.topic.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')]),
+        metadata: JSON.stringify({
+          topic: enquiry.topic,
+          subject: enquiry.subject,
+          budget: enquiry.budget || null,
+          contactMethod: enquiry.contactMethod,
+          consent: enquiry.consent,
+          page: 'alolabs.net',
+        }),
         lastContactAt: new Date(),
       },
     });

@@ -104,8 +104,8 @@ export default function PromptLibrary() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Total Templates', value: total, icon: FileCode, color: 'text-[#003ABC]' },
-          { label: 'Categories', value: promptCategories.length - 1, icon: Sparkles, color: 'text-[#FF6A00]' },
+          { label: 'Total Templates', value: total, icon: FileCode, color: 'text-[#0066CC]' },
+          { label: 'Categories', value: promptCategories.length - 1, icon: Sparkles, color: 'text-[#E8501A]' },
           { label: 'Avg Rating', value: prompts.length > 0 ? (prompts.reduce((sum, p) => sum + p.rating, 0) / prompts.length).toFixed(1) : '0', icon: Star, color: 'text-amber-600' },
           { label: 'Total Usage', value: prompts.reduce((sum, p) => sum + p.usageCount, 0), icon: TrendingUp, color: 'text-emerald-600' },
         ].map(s => {

@@ -49,8 +49,8 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --color-alo-orange: #FF6A00;
-  --color-alo-blue: #003ABC;
+  --color-alo-orange: #E8501A;
+  --color-alo-blue: #0066CC;
   --color-alo-light-blue: #0077FF;
   --color-alo-success: #22C55E;
   --color-alo-warning: #F59E0B;
@@ -93,12 +93,12 @@
   --popover-foreground: #1E293B;
 
   /* Primary — ALO Orange */
-  --primary: #FF6A00;
+  --primary: #E8501A;
   --primary-foreground: #FFFFFF;
 
   /* Secondary — ALO Blue */
   --secondary: #F1F5F9;
-  --secondary-foreground: #003ABC;
+  --secondary-foreground: #0066CC;
 
   /* Muted */
   --muted: #F1F5F9;
@@ -114,21 +114,21 @@
   /* Borders & inputs */
   --border: #E2E8F0;
   --input: #E2E8F0;
-  --ring: #FF6A00;
+  --ring: #E8501A;
 
   /* Sidebar */
   --sidebar: #FFFFFF;
   --sidebar-foreground: #1E293B;
-  --sidebar-primary: #003ABC;
+  --sidebar-primary: #0066CC;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #F1F5F9;
-  --sidebar-accent-foreground: #003ABC;
+  --sidebar-accent-foreground: #0066CC;
   --sidebar-border: #E2E8F0;
-  --sidebar-ring: #FF6A00;
+  --sidebar-ring: #E8501A;
 
   /* Chart colors */
-  --chart-1: #FF6A00;
-  --chart-2: #003ABC;
+  --chart-1: #E8501A;
+  --chart-2: #0066CC;
   --chart-3: #0077FF;
   --chart-4: #22C55E;
   --chart-5: #F59E0B;
@@ -181,7 +181,7 @@
 
 /* ===== ALO Buttons ===== */
 .alo-btn-primary {
-  background: #FF6A00;
+  background: #E8501A;
   color: #FFFFFF;
   border-radius: 8px;
   font-weight: 500;
@@ -191,21 +191,21 @@
 }
 .alo-btn-primary:hover {
   background: #E5600A;
-  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(232, 80, 26, 0.3);
 }
 
 .alo-btn-secondary {
   background: transparent;
-  color: #003ABC;
-  border: 1px solid #003ABC;
+  color: #0066CC;
+  border: 1px solid #0066CC;
   border-radius: 8px;
   font-weight: 500;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 .alo-btn-secondary:hover {
-  background: rgba(0, 58, 188, 0.06);
-  box-shadow: 0 4px 12px rgba(0, 58, 188, 0.1);
+  background: rgba(0, 102, 204, 0.06);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.1);
 }
 
 /* ===== ALO Badge ===== */
@@ -219,12 +219,12 @@
   line-height: 1.5;
 }
 .alo-badge-orange {
-  background: rgba(255, 106, 0, 0.1);
-  color: #FF6A00;
+  background: rgba(232, 80, 26, 0.1);
+  color: #E8501A;
 }
 .alo-badge-blue {
-  background: rgba(0, 58, 188, 0.1);
-  color: #003ABC;
+  background: rgba(0, 102, 204, 0.1);
+  color: #0066CC;
 }
 .alo-badge-green {
   background: rgba(34, 197, 94, 0.1);
@@ -237,10 +237,10 @@
 
 /* ===== ALO Gradient ===== */
 .alo-gradient {
-  background: linear-gradient(135deg, #FF6A00 0%, #003ABC 100%);
+  background: linear-gradient(135deg, #E8501A 0%, #0066CC 100%);
 }
 .alo-gradient-text {
-  background: linear-gradient(135deg, #FF6A00 0%, #003ABC 100%);
+  background: linear-gradient(135deg, #E8501A 0%, #0066CC 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -255,8 +255,8 @@
   flex-shrink: 0;
 }
 .status-dot-active {
-  background: #FF6A00;
-  box-shadow: 0 0 6px rgba(255, 106, 0, 0.5);
+  background: #E8501A;
+  box-shadow: 0 0 6px rgba(232, 80, 26, 0.5);
 }
 .status-dot-success {
   background: #22C55E;
@@ -292,7 +292,7 @@
 
 /* ===== Selection color ===== */
 ::selection {
-  background: rgba(255, 106, 0, 0.2);
+  background: rgba(232, 80, 26, 0.2);
   color: #1E293B;
 }
 
@@ -300,11 +300,11 @@
 @keyframes alo-pulse {
   0%, 100% {
     opacity: 1;
-    box-shadow: 0 0 4px rgba(255, 106, 0, 0.4);
+    box-shadow: 0 0 4px rgba(232, 80, 26, 0.4);
   }
   50% {
     opacity: 0.7;
-    box-shadow: 0 0 12px rgba(255, 106, 0, 0.7), 0 0 24px rgba(255, 106, 0, 0.2);
+    box-shadow: 0 0 12px rgba(232, 80, 26, 0.7), 0 0 24px rgba(232, 80, 26, 0.2);
   }
 }
 .alo-pulse {
@@ -424,7 +424,7 @@
 }
 
 /* Brand gradient rules, available as utilities */
-.alo-gradient-orange { background: linear-gradient(90deg, #FF6A00 0%, #FFB300 100%); }
-.alo-gradient-blue { background: linear-gradient(90deg, #003ABC 0%, #0077FF 100%); }
+.alo-gradient-orange { background: linear-gradient(90deg, #E8501A 0%, #FFB347 100%); }
+.alo-gradient-blue { background: linear-gradient(90deg, #0066CC 0%, #0077FF 100%); }
 .alo-gradient-ribbon { background: linear-gradient(135deg, #0077FF 0%, #001C6B 100%); }
-.alo-gradient-brand { background: linear-gradient(90deg, #FF6A00 0%, #003ABC 100%); }
+.alo-gradient-brand { background: linear-gradient(90deg, #E8501A 0%, #0066CC 100%); }

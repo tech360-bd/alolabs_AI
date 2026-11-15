@@ -65,14 +65,14 @@ interface SeoReport {
 
 function scoreColor(score: number): string {
   if (score >= 90) return 'text-emerald-600'
-  if (score >= 70) return 'text-[#003ABC]'
+  if (score >= 70) return 'text-[#0066CC]'
   if (score >= 50) return 'text-amber-600'
   return 'text-red-500'
 }
 
 function scoreGaugeColor(score: number): string {
   if (score >= 90) return '#10b981'
-  if (score >= 70) return '#003ABC'
+  if (score >= 70) return '#0066CC'
   if (score >= 50) return '#f59e0b'
   return '#ef4444'
 }
@@ -232,13 +232,13 @@ export default function SeoPanel() {
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-white border border-slate-200">
-          <TabsTrigger value="audits" className="text-[#1E293B] data-[state=active]:bg-[#003ABC] data-[state=active]:text-white">
+          <TabsTrigger value="audits" className="text-[#1E293B] data-[state=active]:bg-[#0066CC] data-[state=active]:text-white">
             <Search className="h-4 w-4 mr-1.5" /> Audits
           </TabsTrigger>
-          <TabsTrigger value="keywords" className="text-[#1E293B] data-[state=active]:bg-[#003ABC] data-[state=active]:text-white">
+          <TabsTrigger value="keywords" className="text-[#1E293B] data-[state=active]:bg-[#0066CC] data-[state=active]:text-white">
             <Key className="h-4 w-4 mr-1.5" /> Keywords
           </TabsTrigger>
-          <TabsTrigger value="reports" className="text-[#1E293B] data-[state=active]:bg-[#003ABC] data-[state=active]:text-white">
+          <TabsTrigger value="reports" className="text-[#1E293B] data-[state=active]:bg-[#0066CC] data-[state=active]:text-white">
             <FileText className="h-4 w-4 mr-1.5" /> Reports
           </TabsTrigger>
         </TabsList>
@@ -268,7 +268,7 @@ export default function SeoPanel() {
                     <SelectItem value="content">Content</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button type="submit" disabled={runningAudit || !auditUrl.trim()} className="bg-[#FF6A00] hover:bg-[#FF6A00]/90 text-white shrink-0">
+                <Button type="submit" disabled={runningAudit || !auditUrl.trim()} className="bg-[#E8501A] hover:bg-[#E8501A]/90 text-white shrink-0">
                   {runningAudit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                   <span className="ml-1.5">Run Audit</span>
                 </Button>
@@ -298,7 +298,7 @@ export default function SeoPanel() {
                       <ScoreGauge score={audit.score} size={80} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <a href={audit.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-[#003ABC] hover:underline truncate flex items-center gap-1">
+                          <a href={audit.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-[#0066CC] hover:underline truncate flex items-center gap-1">
                             {audit.url} <ExternalLink className="h-3 w-3" />
                           </a>
                           <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 capitalize text-xs">{audit.type}</Badge>
@@ -325,7 +325,7 @@ export default function SeoPanel() {
                               <div key={i} className="flex items-start gap-2 text-xs">
                                 {issue.severity === 'error' && <AlertTriangle className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0" />}
                                 {issue.severity === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />}
-                                {issue.severity === 'info' && <Info className="h-3.5 w-3.5 text-[#003ABC] mt-0.5 shrink-0" />}
+                                {issue.severity === 'info' && <Info className="h-3.5 w-3.5 text-[#0066CC] mt-0.5 shrink-0" />}
                                 <span className="text-slate-600">{issue.message}</span>
                               </div>
                             ))}
@@ -390,7 +390,7 @@ export default function SeoPanel() {
                           <TableRow key={kw.id} className="border-slate-50">
                             <TableCell className="font-medium text-[#1E293B]">{kw.keyword}</TableCell>
                             <TableCell className="text-center">
-                              <span className="text-lg font-bold text-[#003ABC]">#{kw.position}</span>
+                              <span className="text-lg font-bold text-[#0066CC]">#{kw.position}</span>
                             </TableCell>
                             <TableCell className="text-center">
                               <span className={`inline-flex items-center gap-1 text-sm font-medium ${diffColor(change)}`}>
@@ -432,7 +432,7 @@ export default function SeoPanel() {
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base text-[#1E293B] capitalize">{report.period} Report</CardTitle>
-                      <Badge variant="outline" className="bg-[#003ABC]/10 text-[#003ABC] border-[#003ABC]/20 capitalize">
+                      <Badge variant="outline" className="bg-[#0066CC]/10 text-[#0066CC] border-[#0066CC]/20 capitalize">
                         <FileText className="h-3 w-3 mr-1" />
                         {report.period}
                       </Badge>

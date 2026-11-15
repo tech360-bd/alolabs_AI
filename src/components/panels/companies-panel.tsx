@@ -59,7 +59,7 @@ export default function CompaniesPanel() {
           { label: 'CRM Connected', value: connectedCompanies },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-[#E2E8F0] p-4 text-center">
-            <p className="text-3xl font-bold text-[#003ABC]">{s.value}</p>
+            <p className="text-3xl font-bold text-[#0066CC]">{s.value}</p>
             <p className="text-xs text-[#64748B] mt-1">{s.label}</p>
           </div>
         ))}
@@ -71,8 +71,8 @@ export default function CompaniesPanel() {
           <div key={company.id} className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm hover:shadow-md transition-shadow p-4 space-y-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-lg bg-[#FF6A00]/10 flex items-center justify-center">
-                  <Building2 className="w-4 h-4 text-[#003ABC]" />
+                <div className="w-9 h-9 rounded-lg bg-[#E8501A]/10 flex items-center justify-center">
+                  <Building2 className="w-4 h-4 text-[#0066CC]" />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-[#1E293B]">{company.name}</h3>
@@ -91,7 +91,7 @@ export default function CompaniesPanel() {
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1.5">
                 {company.webCrmConnected ? (
-                  <Badge className="bg-[#FF6A00]/10 text-[#FF6A00] text-[10px] py-0">
+                  <Badge className="bg-[#E8501A]/10 text-[#E8501A] text-[10px] py-0">
                     <Wifi className="w-2.5 h-2.5 mr-1" />
                     CRM Connected
                   </Badge>

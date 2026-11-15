@@ -101,21 +101,21 @@ export default function SecurityCenterPanel() {
         <TabsList className="bg-white border border-[#E2E8F0] rounded-lg p-1">
           <TabsTrigger
             value="mfa"
-            className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white rounded-md text-[#1E293B] text-sm"
+            className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white rounded-md text-[#1E293B] text-sm"
           >
             <Fingerprint className="w-4 h-4 mr-2" />
             MFA
           </TabsTrigger>
           <TabsTrigger
             value="oauth"
-            className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white rounded-md text-[#1E293B] text-sm"
+            className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white rounded-md text-[#1E293B] text-sm"
           >
             <Globe className="w-4 h-4 mr-2" />
             OAuth Providers
           </TabsTrigger>
           <TabsTrigger
             value="sso"
-            className="data-[state=active]:bg-[#003ABC] data-[state=active]:text-white rounded-md text-[#1E293B] text-sm"
+            className="data-[state=active]:bg-[#0066CC] data-[state=active]:text-white rounded-md text-[#1E293B] text-sm"
           >
             <KeyRound className="w-4 h-4 mr-2" />
             SSO
@@ -306,7 +306,7 @@ function MfaTab() {
               <Button
                 onClick={handleEnableMfa}
                 disabled={mfaLoading}
-                className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+                className="bg-[#0066CC] hover:bg-[#002A99] text-white"
               >
                 {mfaLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <QrCode className="mr-2 h-4 w-4" />
@@ -344,7 +344,7 @@ function MfaTab() {
         <Card className="border-[#E2E8F0] border-dashed border-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-base text-[#1E293B] flex items-center gap-2">
-              <QrCode className="w-5 h-5 text-[#003ABC]" />
+              <QrCode className="w-5 h-5 text-[#0066CC]" />
               Scan QR Code
             </CardTitle>
             <CardDescription>
@@ -407,14 +407,14 @@ function MfaTab() {
                   placeholder="Enter 6-digit code"
                   value={verifyCode}
                   onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="border-[#E2E8F0] focus:border-[#003ABC] text-center text-lg tracking-[0.5em] font-mono"
+                  className="border-[#E2E8F0] focus:border-[#0066CC] text-center text-lg tracking-[0.5em] font-mono"
                   maxLength={6}
                 />
               </div>
               <Button
                 onClick={handleVerifyMfa}
                 disabled={verifyCode.length !== 6 || verifying}
-                className="bg-[#003ABC] hover:bg-[#002A99] text-white h-10 px-6"
+                className="bg-[#0066CC] hover:bg-[#002A99] text-white h-10 px-6"
               >
                 {verifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Verify
@@ -437,10 +437,10 @@ function MfaTab() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-[#FF6A00]" />
+                <AlertTriangle className="w-5 h-5 text-[#E8501A]" />
                 <CardTitle className="text-base text-[#1E293B]">Backup Codes</CardTitle>
               </div>
-              <Badge variant="outline" className="border-[#FF6A00] text-[#FF6A00]">
+              <Badge variant="outline" className="border-[#E8501A] text-[#E8501A]">
                 Save these codes
               </Badge>
             </div>
@@ -623,7 +623,7 @@ function OAuthTab() {
           <h3 className="text-base font-semibold text-[#1E293B]">OAuth Providers</h3>
           <p className="text-xs text-[#64748B] mt-0.5">Manage external authentication providers for your organization.</p>
         </div>
-        <Button onClick={openAddDialog} className="bg-[#003ABC] hover:bg-[#002A99] text-white">
+        <Button onClick={openAddDialog} className="bg-[#0066CC] hover:bg-[#002A99] text-white">
           <Plus className="mr-2 h-4 w-4" />
           Add Provider
         </Button>
@@ -642,7 +642,7 @@ function OAuthTab() {
             <Button
               onClick={openAddDialog}
               variant="outline"
-              className="mt-4 border-[#003ABC] text-[#003ABC] hover:bg-[#003ABC]/5"
+              className="mt-4 border-[#0066CC] text-[#0066CC] hover:bg-[#0066CC]/5"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Your First Provider
@@ -656,8 +656,8 @@ function OAuthTab() {
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-[#003ABC]/5 flex items-center justify-center flex-shrink-0">
-                      <Globe className="w-5 h-5 text-[#003ABC]" />
+                    <div className="w-10 h-10 rounded-lg bg-[#0066CC]/5 flex items-center justify-center flex-shrink-0">
+                      <Globe className="w-5 h-5 text-[#0066CC]" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -694,7 +694,7 @@ function OAuthTab() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-[#94A3B8] hover:text-[#003ABC] hover:bg-[#003ABC]/5"
+                      className="h-8 w-8 text-[#94A3B8] hover:text-[#0066CC] hover:bg-[#0066CC]/5"
                       onClick={() => openEditDialog(provider)}
                     >
                       <Pencil className="w-4 h-4" />
@@ -738,7 +738,7 @@ function OAuthTab() {
                 placeholder="e.g., Google, GitHub, Okta"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="border-[#E2E8F0] focus:border-[#003ABC]"
+                className="border-[#E2E8F0] focus:border-[#0066CC]"
               />
             </div>
             <div className="space-y-2">
@@ -747,7 +747,7 @@ function OAuthTab() {
                 placeholder="Enter client ID"
                 value={form.clientId}
                 onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}
-                className="border-[#E2E8F0] focus:border-[#003ABC] font-mono text-sm"
+                className="border-[#E2E8F0] focus:border-[#0066CC] font-mono text-sm"
               />
             </div>
             <div className="space-y-2">
@@ -757,7 +757,7 @@ function OAuthTab() {
                 placeholder="Enter client secret"
                 value={form.clientSecret}
                 onChange={(e) => setForm((f) => ({ ...f, clientSecret: e.target.value }))}
-                className="border-[#E2E8F0] focus:border-[#003ABC] font-mono text-sm"
+                className="border-[#E2E8F0] focus:border-[#0066CC] font-mono text-sm"
               />
             </div>
             <Separator className="bg-[#E2E8F0]" />
@@ -767,7 +767,7 @@ function OAuthTab() {
                 placeholder="https://your-idp.com/oauth/authorize"
                 value={form.authUrl}
                 onChange={(e) => setForm((f) => ({ ...f, authUrl: e.target.value }))}
-                className="border-[#E2E8F0] focus:border-[#003ABC] text-sm"
+                className="border-[#E2E8F0] focus:border-[#0066CC] text-sm"
               />
             </div>
             <div className="space-y-2">
@@ -776,7 +776,7 @@ function OAuthTab() {
                 placeholder="https://your-idp.com/oauth/token"
                 value={form.tokenUrl}
                 onChange={(e) => setForm((f) => ({ ...f, tokenUrl: e.target.value }))}
-                className="border-[#E2E8F0] focus:border-[#003ABC] text-sm"
+                className="border-[#E2E8F0] focus:border-[#0066CC] text-sm"
               />
             </div>
             <div className="space-y-2">
@@ -785,7 +785,7 @@ function OAuthTab() {
                 placeholder="https://your-idp.com/oauth/userinfo"
                 value={form.userInfoUrl}
                 onChange={(e) => setForm((f) => ({ ...f, userInfoUrl: e.target.value }))}
-                className="border-[#E2E8F0] focus:border-[#003ABC] text-sm"
+                className="border-[#E2E8F0] focus:border-[#0066CC] text-sm"
               />
             </div>
             <div className="space-y-2">
@@ -794,7 +794,7 @@ function OAuthTab() {
                 placeholder="openid, profile, email"
                 value={form.scopes}
                 onChange={(e) => setForm((f) => ({ ...f, scopes: e.target.value }))}
-                className="border-[#E2E8F0] focus:border-[#003ABC] text-sm"
+                className="border-[#E2E8F0] focus:border-[#0066CC] text-sm"
               />
               <p className="text-[10px] text-[#94A3B8]">Comma-separated list of OAuth scopes</p>
             </div>
@@ -810,7 +810,7 @@ function OAuthTab() {
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+              className="bg-[#0066CC] hover:bg-[#002A99] text-white"
             >
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingProvider ? 'Update Provider' : 'Add Provider'}
@@ -953,7 +953,7 @@ function SsoTab() {
       <Card className="border-[#E2E8F0]">
         <CardHeader className="pb-4">
           <CardTitle className="text-base text-[#1E293B] flex items-center gap-2">
-            <KeyRound className="w-5 h-5 text-[#003ABC]" />
+            <KeyRound className="w-5 h-5 text-[#0066CC]" />
             SSO Configuration
           </CardTitle>
           <CardDescription>
@@ -968,7 +968,7 @@ function SsoTab() {
               value={form.provider}
               onValueChange={(v) => setForm((f) => ({ ...f, provider: v as SsoConfig['provider'] }))}
             >
-              <SelectTrigger className="w-full sm:w-64 border-[#E2E8F0] focus:border-[#003ABC] text-[#1E293B]">
+              <SelectTrigger className="w-full sm:w-64 border-[#E2E8F0] focus:border-[#0066CC] text-[#1E293B]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-white border-[#E2E8F0]">
@@ -999,7 +999,7 @@ function SsoTab() {
               placeholder="https://your-idp.com/saml/metadata"
               value={form.metadataUrl}
               onChange={(e) => setForm((f) => ({ ...f, metadataUrl: e.target.value }))}
-              className="border-[#E2E8F0] focus:border-[#003ABC] text-sm"
+              className="border-[#E2E8F0] focus:border-[#0066CC] text-sm"
             />
             <p className="text-[10px] text-[#94A3B8]">
               The URL where your identity provider publishes its metadata document.
@@ -1013,7 +1013,7 @@ function SsoTab() {
               placeholder="https://your-app.com/sso/metadata"
               value={form.entityId}
               onChange={(e) => setForm((f) => ({ ...f, entityId: e.target.value }))}
-              className="border-[#E2E8F0] focus:border-[#003ABC] text-sm"
+              className="border-[#E2E8F0] focus:border-[#0066CC] text-sm"
             />
             <p className="text-[10px] text-[#94A3B8]">
               The unique identifier for your service provider (SP).
@@ -1027,7 +1027,7 @@ function SsoTab() {
               placeholder="https://your-app.com/api/auth/sso/callback"
               value={form.callbackUrl}
               onChange={(e) => setForm((f) => ({ ...f, callbackUrl: e.target.value }))}
-              className="border-[#E2E8F0] focus:border-[#003ABC] text-sm"
+              className="border-[#E2E8F0] focus:border-[#0066CC] text-sm"
             />
             <p className="text-[10px] text-[#94A3B8]">
               The URL where the identity provider will send authentication responses.
@@ -1057,7 +1057,7 @@ function SsoTab() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="bg-[#003ABC] hover:bg-[#002A99] text-white min-w-[140px]"
+          className="bg-[#0066CC] hover:bg-[#002A99] text-white min-w-[140px]"
         >
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save Configuration

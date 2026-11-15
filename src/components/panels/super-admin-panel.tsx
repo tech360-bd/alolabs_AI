@@ -271,7 +271,7 @@ function UsersTab() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => { setEditUser(null); setDialogOpen(true) }} className="bg-[#FF6A00] hover:bg-[#e55d00] text-white gap-1.5">
+        <Button onClick={() => { setEditUser(null); setDialogOpen(true) }} className="bg-[#E8501A] hover:bg-[#e55d00] text-white gap-1.5">
           <Plus className="w-4 h-4" /> Add User
         </Button>
       </div>
@@ -303,7 +303,7 @@ function UsersTab() {
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-[#64748B] hover:text-[#003ACC]" onClick={() => { setEditUser(u); setDialogOpen(true) }}><Edit3 className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-[#64748B] hover:text-[#FF6A00]" onClick={() => handleToggleActive(u)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-[#64748B] hover:text-[#E8501A]" onClick={() => handleToggleActive(u)}>
                           <Power className="w-4 h-4" />
                         </Button>
                       </div>
@@ -336,7 +336,7 @@ function UsersTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-[#E2E8F0] text-[#64748B]">Cancel</Button>
-            <Button className="bg-[#FF6A00] hover:bg-[#e55d00] text-white" onClick={() => { setDialogOpen(false); refetch() }}>{editUser ? 'Save Changes' : 'Create User'}</Button>
+            <Button className="bg-[#E8501A] hover:bg-[#e55d00] text-white" onClick={() => { setDialogOpen(false); refetch() }}>{editUser ? 'Save Changes' : 'Create User'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -357,7 +357,7 @@ function CompaniesTab() {
     <div className="space-y-4 p-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-[#1E293B]">All Companies ({data.length})</h3>
-        <Button onClick={() => { setEditItem(null); setDialogOpen(true) }} className="bg-[#FF6A00] hover:bg-[#e55d00] text-white gap-1.5">
+        <Button onClick={() => { setEditItem(null); setDialogOpen(true) }} className="bg-[#E8501A] hover:bg-[#e55d00] text-white gap-1.5">
           <Plus className="w-4 h-4" /> Add Company
         </Button>
       </div>
@@ -404,7 +404,7 @@ function CompaniesTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-[#E2E8F0] text-[#64748B]">Cancel</Button>
-            <Button className="bg-[#FF6A00] hover:bg-[#e55d00] text-white" onClick={() => { setDialogOpen(false); refetch() }}>Save</Button>
+            <Button className="bg-[#E8501A] hover:bg-[#e55d00] text-white" onClick={() => { setDialogOpen(false); refetch() }}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -482,7 +482,7 @@ function AiTab() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4 flex items-center gap-3"><Brain className="w-8 h-8 text-[#003ACC]" /><div><p className="text-2xl font-bold text-[#1E293B]">{data.length}</p><p className="text-xs text-[#94A3B8]">Total Models</p></div></CardContent></Card>
         <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4 flex items-center gap-3"><CheckCircle2 className="w-8 h-8 text-emerald-500" /><div><p className="text-2xl font-bold text-[#1E293B]">{activeCount}</p><p className="text-xs text-[#94A3B8]">Active</p></div></CardContent></Card>
-        <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4 flex items-center gap-3"><Building2 className="w-8 h-8 text-[#FF6A00]" /><div><p className="text-2xl font-bold text-[#1E293B]">{providers.length}</p><p className="text-xs text-[#94A3B8]">Providers</p></div></CardContent></Card>
+        <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4 flex items-center gap-3"><Building2 className="w-8 h-8 text-[#E8501A]" /><div><p className="text-2xl font-bold text-[#1E293B]">{providers.length}</p><p className="text-xs text-[#94A3B8]">Providers</p></div></CardContent></Card>
       </div>
       {loading ? <TabSkeleton /> : (
         <Card className="bg-white border-[#E2E8F0]">
@@ -708,7 +708,7 @@ function BackupsTab() {
     <div className="space-y-4 p-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-[#1E293B]">Backups ({data.length})</h3>
-        <Button onClick={handleCreate} disabled={creating} className="bg-[#FF6A00] hover:bg-[#e55d00] text-white gap-1.5">
+        <Button onClick={handleCreate} disabled={creating} className="bg-[#E8501A] hover:bg-[#e55d00] text-white gap-1.5">
           {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Create Backup
         </Button>
       </div>
@@ -931,7 +931,7 @@ function WorkersTab() {
                 <div className="flex justify-between"><span className="text-[#94A3B8]">Queue Depth</span><span className="text-[#1E293B] font-medium">{w.queueDepth ?? 0}</span></div>
                 <div className="flex justify-between"><span className="text-[#94A3B8]">Failed Jobs</span><span className="text-[#1E293B] font-medium">{w.failedJobs ?? 0}</span></div>
                 <div className="flex justify-between"><span className="text-[#94A3B8]">Last Heartbeat</span><span className="text-[#1E293B]">{w.lastHeartbeat ? new Date(w.lastHeartbeat).toLocaleString() : '—'}</span></div>
-                <Button variant="outline" size="sm" className="w-full mt-2 border-[#E2E8F0] text-[#FF6A00] hover:text-[#FF6A00] hover:bg-[#FF6A00]/5" onClick={() => handleRestart(w.id)}>
+                <Button variant="outline" size="sm" className="w-full mt-2 border-[#E2E8F0] text-[#E8501A] hover:text-[#E8501A] hover:bg-[#E8501A]/5" onClick={() => handleRestart(w.id)}>
                   <Play className="w-3.5 h-3.5 mr-1" /> Restart Worker
                 </Button>
               </CardContent>
@@ -1048,7 +1048,7 @@ function SettingsTab() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving} className="bg-[#FF6A00] hover:bg-[#e55d00] text-white gap-1.5 min-w-[120px]">
+        <Button onClick={handleSave} disabled={saving} className="bg-[#E8501A] hover:bg-[#e55d00] text-white gap-1.5 min-w-[120px]">
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : null} {saving ? 'Saving...' : 'Save Settings'}
         </Button>
       </div>
@@ -1098,7 +1098,7 @@ function DeployTab() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-[#1E293B]">Deployment</h3>
-        <Button onClick={handleDeploy} disabled={triggering} className="bg-[#FF6A00] hover:bg-[#e55d00] text-white gap-1.5">
+        <Button onClick={handleDeploy} disabled={triggering} className="bg-[#E8501A] hover:bg-[#e55d00] text-white gap-1.5">
           {triggering ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} Trigger Deploy
         </Button>
       </div>

@@ -67,8 +67,8 @@ export default function McpIntegration() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#003ABC]/10">
-          <Server className="h-5 w-5 text-[#003ABC]" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0066CC]/10">
+          <Server className="h-5 w-5 text-[#0066CC]" />
         </div>
         <div>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white">MCP Integration</h2>
@@ -85,8 +85,8 @@ export default function McpIntegration() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
           { label: 'Connected Servers', value: connected.toLocaleString(), icon: Wifi, color: 'text-emerald-600' },
-          { label: 'Active Tools', value: totalTools.toLocaleString(), icon: Wrench, color: 'text-[#FF6A00]' },
-          { label: 'Total Integrations', value: servers.length.toLocaleString(), icon: Plug, color: 'text-[#003ABC]' },
+          { label: 'Active Tools', value: totalTools.toLocaleString(), icon: Wrench, color: 'text-[#E8501A]' },
+          { label: 'Total Integrations', value: servers.length.toLocaleString(), icon: Plug, color: 'text-[#0066CC]' },
         ].map((s, i) => (
           <Card key={i} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4">

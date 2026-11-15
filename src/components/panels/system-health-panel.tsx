@@ -87,14 +87,14 @@ const SERVICE_ICONS: Record<string, React.ElementType> = {
 }
 
 const FLOW_STEPS = [
-  { label: 'Sister Company', icon: Building2, color: 'bg-[#003ABC]', detail: 'Request initiated' },
+  { label: 'Sister Company', icon: Building2, color: 'bg-[#0066CC]', detail: 'Request initiated' },
   { label: 'API Key', icon: Key, color: 'bg-blue-500', detail: 'Authentication' },
-  { label: 'ALO Labs Gateway', icon: Server, color: 'bg-[#FF6A00]', detail: 'Request routing' },
+  { label: 'ALO Labs Gateway', icon: Server, color: 'bg-[#E8501A]', detail: 'Request routing' },
   { label: 'Tenant Validation', icon: ShieldCheck, color: 'bg-violet-500', detail: 'Isolation check' },
   { label: 'Agent Selection', icon: Bot, color: 'bg-purple-500', detail: 'Route to agent' },
   { label: 'Protection Mode', icon: ShieldAlert, color: 'bg-fuchsia-500', detail: 'Safety rules' },
   { label: 'Payment Guard', icon: ClipboardCheck, color: 'bg-pink-500', detail: 'Cost control' },
-  { label: 'Execution', icon: Zap, color: 'bg-[#FF6A00]', detail: 'Agent runs' },
+  { label: 'Execution', icon: Zap, color: 'bg-[#E8501A]', detail: 'Agent runs' },
   { label: 'Result', icon: CheckCircle2, color: 'bg-green-500', detail: 'Response sent' },
   { label: 'Usage/Audit Logs', icon: FileText, color: 'bg-teal-500', detail: 'Usage tracked' },
 ]
@@ -211,8 +211,8 @@ export default function SystemHealthPanel() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <Activity className="w-5 h-5 text-[#003ABC]" />
+          <div className="w-9 h-9 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <Activity className="w-5 h-5 text-[#0066CC]" />
           </div>
           <div>
             <div className="flex items-center gap-2.5">
@@ -282,10 +282,10 @@ export default function SystemHealthPanel() {
           <h3 className="text-sm font-semibold text-[#1E293B] mb-4">System Overview</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
             {[
-              { label: 'Total Agents', value: systemStats.agents_count, icon: Bot, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
+              { label: 'Total Agents', value: systemStats.agents_count, icon: Bot, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
               { label: 'Departments', value: systemStats.departments_count, icon: Settings, color: 'text-blue-500', bg: 'bg-blue-50' },
               { label: 'Companies', value: systemStats.companies_count, icon: Building2, color: 'text-green-600', bg: 'bg-green-50' },
-              { label: 'Active API Keys', value: systemStats.active_api_keys, icon: KeyRound, color: 'text-[#FF6A00]', bg: 'bg-[#FF6A00]/10' },
+              { label: 'Active API Keys', value: systemStats.active_api_keys, icon: KeyRound, color: 'text-[#E8501A]', bg: 'bg-[#E8501A]/10' },
               { label: 'Workflows', value: systemStats.workflows_count, icon: GitBranch, color: 'text-purple-500', bg: 'bg-purple-50' },
               { label: 'Skills', value: systemStats.skills_count, icon: Cpu, color: 'text-teal-500', bg: 'bg-teal-50' },
               { label: 'Pending Approvals', value: systemStats.pending_approvals, icon: UserCheck, color: 'text-amber-600', bg: 'bg-amber-50' },

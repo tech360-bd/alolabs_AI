@@ -102,7 +102,7 @@ interface SttResult {
 
 function getQualityColor(rating: number) {
   if (rating >= 5) return 'text-green-600'
-  if (rating >= 4) return 'text-[#003ABC]'
+  if (rating >= 4) return 'text-[#0066CC]'
   if (rating >= 3) return 'text-amber-600'
   return 'text-red-500'
 }
@@ -305,8 +305,8 @@ export default function VoiceSystemPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <AudioWaveform className="w-5 h-5 text-[#003ABC]" />
+          <div className="w-10 h-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <AudioWaveform className="w-5 h-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-[#1E293B]">Voice System</h2>
@@ -318,7 +318,7 @@ export default function VoiceSystemPanel() {
             <CircleDot className="w-3 h-3 mr-1" />
             {models.filter((m) => m.status === 'active').length} Active Models
           </Badge>
-          <Badge variant="outline" className="bg-blue-50 text-[#003ABC] border-blue-200 text-xs">
+          <Badge variant="outline" className="bg-blue-50 text-[#0066CC] border-blue-200 text-xs">
             <Headphones className="w-3 h-3 mr-1" />
             {voices.length} Voices Available
           </Badge>
@@ -328,19 +328,19 @@ export default function VoiceSystemPanel() {
       {/* Tabs */}
       <Tabs defaultValue="models" className="w-full">
         <TabsList className="bg-white border border-[#E2E8F0] rounded-xl p-1 h-auto">
-          <TabsTrigger value="models" className="rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
+          <TabsTrigger value="models" className="rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
             <Sparkles className="w-4 h-4" />
             Models
           </TabsTrigger>
-          <TabsTrigger value="tts" className="rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
+          <TabsTrigger value="tts" className="rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
             <Volume2 className="w-4 h-4" />
             Text-to-Speech
           </TabsTrigger>
-          <TabsTrigger value="stt" className="rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
+          <TabsTrigger value="stt" className="rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
             <Mic className="w-4 h-4" />
             Speech-to-Text
           </TabsTrigger>
-          <TabsTrigger value="library" className="rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
+          <TabsTrigger value="library" className="rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
             <Library className="w-4 h-4" />
             Voice Library
           </TabsTrigger>
@@ -351,7 +351,7 @@ export default function VoiceSystemPanel() {
           {/* Whisper Models */}
           <div>
             <h3 className="text-sm font-semibold text-[#1E293B] mb-3 flex items-center gap-2">
-              <Mic className="w-4 h-4 text-[#003ABC]" />
+              <Mic className="w-4 h-4 text-[#0066CC]" />
               Whisper (Speech-to-Text)
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -454,7 +454,7 @@ export default function VoiceSystemPanel() {
           {/* Piper Models */}
           <div>
             <h3 className="text-sm font-semibold text-[#1E293B] mb-3 flex items-center gap-2">
-              <Play className="w-4 h-4 text-[#FF6A00]" />
+              <Play className="w-4 h-4 text-[#E8501A]" />
               Piper (Text-to-Speech)
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -466,7 +466,7 @@ export default function VoiceSystemPanel() {
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
-                            <Play className="w-4 h-4 text-[#FF6A00]" />
+                            <Play className="w-4 h-4 text-[#E8501A]" />
                           </div>
                           <div>
                             <CardTitle className="text-sm text-[#1E293B]">{model.name}</CardTitle>
@@ -559,7 +559,7 @@ export default function VoiceSystemPanel() {
                 <Button
                   onClick={handleGenerateTTS}
                   disabled={ttsGenerating || !ttsText.trim()}
-                  className="w-full bg-[#003ABC] hover:bg-[#003ABC]/90 text-white"
+                  className="w-full bg-[#0066CC] hover:bg-[#0066CC]/90 text-white"
                 >
                   {ttsGenerating ? (
                     <>
@@ -593,7 +593,7 @@ export default function VoiceSystemPanel() {
                     ttsHistory.map((item) => (
                       <div
                         key={item.id}
-                        className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#003ABC]/30 transition-colors"
+                        className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#0066CC]/30 transition-colors"
                       >
                         <p className="text-sm text-[#1E293B] line-clamp-2">{item.text}</p>
                         <div className="flex items-center justify-between mt-2">
@@ -607,7 +607,7 @@ export default function VoiceSystemPanel() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0 text-[#003ABC] hover:bg-[#003ABC]/10"
+                            className="h-7 w-7 p-0 text-[#0066CC] hover:bg-[#0066CC]/10"
                           >
                             {isPlaying === item.id ? (
                               <Pause className="w-3.5 h-3.5" />
@@ -669,23 +669,23 @@ export default function VoiceSystemPanel() {
 
                 {/* Upload Area */}
                 <div
-                  className="border-2 border-dashed border-[#E2E8F0] rounded-xl p-8 text-center hover:border-[#003ABC]/50 hover:bg-[#003ABC]/5 transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-[#E2E8F0] rounded-xl p-8 text-center hover:border-[#0066CC]/50 hover:bg-[#0066CC]/5 transition-colors cursor-pointer"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   {sttUploading ? (
                     <div className="space-y-2">
-                      <Loader2 className="w-8 h-8 mx-auto text-[#003ABC] animate-spin" />
+                      <Loader2 className="w-8 h-8 mx-auto text-[#0066CC] animate-spin" />
                       <p className="text-sm text-[#1E293B] font-medium">Uploading audio...</p>
                     </div>
                   ) : sttTranscribing ? (
                     <div className="space-y-2">
-                      <AudioWaveform className="w-8 h-8 mx-auto text-[#FF6A00] animate-pulse" />
+                      <AudioWaveform className="w-8 h-8 mx-auto text-[#E8501A] animate-pulse" />
                       <p className="text-sm text-[#1E293B] font-medium">Transcribing audio...</p>
                       <Progress value={65} className="h-1.5" />
                     </div>
                   ) : selectedFile ? (
                     <div className="space-y-2">
-                      <FileAudio className="w-10 h-10 mx-auto text-[#003ABC]" />
+                      <FileAudio className="w-10 h-10 mx-auto text-[#0066CC]" />
                       <p className="text-sm text-[#1E293B] font-medium">{selectedFile.name}</p>
                       <p className="text-xs text-[#94A3B8]">{(selectedFile.size / (1024 * 1024)).toFixed(1)} MB — Click to change</p>
                     </div>
@@ -701,7 +701,7 @@ export default function VoiceSystemPanel() {
                 <Button
                   onClick={handleUploadSTT}
                   disabled={sttUploading || sttTranscribing}
-                  className="w-full bg-[#003ABC] hover:bg-[#003ABC]/90 text-white"
+                  className="w-full bg-[#0066CC] hover:bg-[#0066CC]/90 text-white"
                 >
                   {sttTranscribing ? (
                     <>
@@ -792,7 +792,7 @@ export default function VoiceSystemPanel() {
                   onClick={() => setVoiceFilter(f)}
                   className={
                     voiceFilter === f
-                      ? 'bg-[#003ABC] hover:bg-[#003ABC]/90 text-white text-xs h-8'
+                      ? 'bg-[#0066CC] hover:bg-[#0066CC]/90 text-white text-xs h-8'
                       : 'text-xs h-8 border-[#E2E8F0] text-[#64748B]'
                   }
                 >
@@ -858,7 +858,7 @@ export default function VoiceSystemPanel() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full text-xs h-8 border-[#E2E8F0] text-[#003ABC] hover:bg-[#003ABC]/10 group-hover:border-[#003ABC]/30"
+                    className="w-full text-xs h-8 border-[#E2E8F0] text-[#0066CC] hover:bg-[#0066CC]/10 group-hover:border-[#0066CC]/30"
                   >
                     <Play className="w-3 h-3 mr-1.5" />
                     Preview Voice

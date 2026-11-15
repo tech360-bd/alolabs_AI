@@ -12,10 +12,11 @@
 
 :root {
   /* ── Core palette (BRAND) ──────────────────────────────────────────────── */
-  --alo-orange: #ff6a00;
+  --alo-orange: #e8501a;
   --alo-orange-light: #ff8a2b;
-  --alo-orange-amber: #ffb300;
-  --alo-blue: #003abc;
+  --alo-sunshine: #ffb347;
+  --alo-orange-amber: #ffb347;
+  --alo-blue: #0066cc;
   --alo-blue-alt: #0d47a1;
   --alo-blue-deep: #001c6b;
   --alo-blue-light: #0077ff;
@@ -31,8 +32,8 @@
   --alo-tint-soft: #f4f7fc;
 
   /* ── Official gradients (GRADIENTS) ────────────────────────────────────── */
-  --alo-gradient-orange: linear-gradient(90deg, #ff6a00 0%, #ffb300 100%);
-  --alo-gradient-blue: linear-gradient(90deg, #003abc 0%, #0077ff 100%);
+  --alo-gradient-orange: linear-gradient(90deg, #e8501a 0%, #ffb347 100%);
+  --alo-gradient-blue: linear-gradient(90deg, #0066cc 0%, #0077ff 100%);
   --alo-gradient-ribbon: linear-gradient(135deg, #0077ff 0%, #001c6b 100%);
 
   /* ── Deep-navy surfaces (derived tints of BRAND.navy / BRAND.blueDeep) ── */

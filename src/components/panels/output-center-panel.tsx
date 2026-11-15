@@ -52,7 +52,7 @@ interface OutputItem {
 }
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
-  text: { icon: FileText, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10', label: 'Text' },
+  text: { icon: FileText, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10', label: 'Text' },
   file: { icon: FileText, color: 'text-[#64748B]', bg: 'bg-gray-100', label: 'File' },
   image: { icon: ImageIcon, color: 'text-purple-600', bg: 'bg-purple-50', label: 'Image' },
   video: { icon: Video, color: 'text-red-600', bg: 'bg-red-50', label: 'Video' },
@@ -109,8 +109,8 @@ export default function OutputCenterPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <FileText className="h-5 w-5 text-[#003ABC]" />
+          <div className="h-10 w-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <FileText className="h-5 w-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1E293B]">Output Center</h2>
@@ -124,7 +124,7 @@ export default function OutputCenterPanel() {
         {Object.entries(typeConfig).map(([key, cfg]) => (
           <Card
             key={key}
-            className={`border-[#E2E8F0] cursor-pointer transition-all hover:shadow-sm ${typeFilter === key ? 'ring-2 ring-[#003ABC]/30 border-[#003ABC]/40' : ''}`}
+            className={`border-[#E2E8F0] cursor-pointer transition-all hover:shadow-sm ${typeFilter === key ? 'ring-2 ring-[#0066CC]/30 border-[#0066CC]/40' : ''}`}
             onClick={() => setTypeFilter(typeFilter === key ? '' : key)}
           >
             <CardContent className="p-3 text-center">
@@ -241,7 +241,7 @@ export default function OutputCenterPanel() {
                               size="sm"
                               variant="ghost"
                               onClick={() => setViewOutput(o)}
-                              className="h-7 w-7 p-0 text-[#64748B] hover:text-[#003ABC] hover:bg-[#003ABC]/5"
+                              className="h-7 w-7 p-0 text-[#64748B] hover:text-[#0066CC] hover:bg-[#0066CC]/5"
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
@@ -249,7 +249,7 @@ export default function OutputCenterPanel() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-7 w-7 p-0 text-[#64748B] hover:text-[#003ABC] hover:bg-[#003ABC]/5"
+                                className="h-7 w-7 p-0 text-[#64748B] hover:text-[#0066CC] hover:bg-[#0066CC]/5"
                               >
                                 <Download className="h-3.5 w-3.5" />
                               </Button>

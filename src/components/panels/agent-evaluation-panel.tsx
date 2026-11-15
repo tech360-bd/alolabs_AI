@@ -268,7 +268,7 @@ export default function AgentEvaluationPanel() {
           </Button>
           <Dialog open={evalDialogOpen} onOpenChange={setEvalDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-[#003ABC] text-white hover:bg-[#003ABC]/90">
+              <Button size="sm" className="bg-[#0066CC] text-white hover:bg-[#0066CC]/90">
                 <Play className="w-4 h-4 mr-2" />
                 Run Evaluation
               </Button>
@@ -322,7 +322,7 @@ export default function AgentEvaluationPanel() {
                 <Button
                   onClick={handleRunEvaluation}
                   disabled={!newEval.agentId || submitting}
-                  className="bg-[#003ABC] text-white hover:bg-[#003ABC]/90"
+                  className="bg-[#0066CC] text-white hover:bg-[#0066CC]/90"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ClipboardCheck className="w-4 h-4 mr-2" />}
                   Start Evaluation
@@ -427,7 +427,7 @@ export default function AgentEvaluationPanel() {
           <p className="text-xs text-[#64748B] mt-1">Evaluations you run will appear here</p>
           <Button
             size="sm"
-            className="mt-4 bg-[#003ABC] text-white hover:bg-[#003ABC]/90"
+            className="mt-4 bg-[#0066CC] text-white hover:bg-[#0066CC]/90"
             onClick={() => setEvalDialogOpen(true)}
           >
             <Play className="w-4 h-4 mr-2" />

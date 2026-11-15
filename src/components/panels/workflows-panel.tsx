@@ -162,7 +162,7 @@ export default function WorkflowsPanel() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#003ABC] to-[#0077FF] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0066CC] to-[#0077FF] flex items-center justify-center">
             <GitBranch className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -171,13 +171,13 @@ export default function WorkflowsPanel() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 text-[#003ABC] border-[#003ABC]/30 hover:bg-[#003ABC]/5" onClick={() => handleImportExport('import')}>
+          <Button variant="outline" size="sm" className="gap-1.5 text-[#0066CC] border-[#0066CC]/30 hover:bg-[#0066CC]/5" onClick={() => handleImportExport('import')}>
             <Upload className="w-3.5 h-3.5" /> Import
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-[#003ABC] border-[#003ABC]/30 hover:bg-[#003ABC]/5" onClick={() => handleImportExport('export')}>
+          <Button variant="outline" size="sm" className="gap-1.5 text-[#0066CC] border-[#0066CC]/30 hover:bg-[#0066CC]/5" onClick={() => handleImportExport('export')}>
             <Download className="w-3.5 h-3.5" /> Export
           </Button>
-          <Button size="sm" className="bg-[#FF6A00] hover:bg-[#E5600A] text-white gap-1.5" onClick={() => setShowCreateDialog(true)}>
+          <Button size="sm" className="bg-[#E8501A] hover:bg-[#E5600A] text-white gap-1.5" onClick={() => setShowCreateDialog(true)}>
             <Plus className="w-3.5 h-3.5" /> New Workflow
           </Button>
         </div>
@@ -189,7 +189,7 @@ export default function WorkflowsPanel() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-[#64748B]">Total Runs</span>
-              <Activity className="w-4 h-4 text-[#003ABC]" />
+              <Activity className="w-4 h-4 text-[#0066CC]" />
             </div>
             <p className="text-2xl font-bold text-[#1E293B]">{METRICS.totalRuns.toLocaleString()}</p>
             <p className="text-[11px] text-emerald-600 mt-1">+12.5% from last week</p>
@@ -209,7 +209,7 @@ export default function WorkflowsPanel() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-[#64748B]">Avg Duration</span>
-              <Clock className="w-4 h-4 text-[#FF6A00]" />
+              <Clock className="w-4 h-4 text-[#E8501A]" />
             </div>
             <p className="text-2xl font-bold text-[#1E293B]">{formatDuration(METRICS.avgDuration * 1000)}</p>
             <p className="text-[11px] text-[#64748B] mt-1">-8.2% improvement</p>
@@ -230,13 +230,13 @@ export default function WorkflowsPanel() {
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-slate-100 p-1 h-9">
-          <TabsTrigger value="workflows" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm rounded-md">
+          <TabsTrigger value="workflows" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm rounded-md">
             <GitBranch className="w-3.5 h-3.5 mr-1.5" /> Workflows
           </TabsTrigger>
-          <TabsTrigger value="executions" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm rounded-md">
+          <TabsTrigger value="executions" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm rounded-md">
             <Activity className="w-3.5 h-3.5 mr-1.5" /> Executions
           </TabsTrigger>
-          <TabsTrigger value="templates" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm rounded-md">
+          <TabsTrigger value="templates" className="text-sm data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm rounded-md">
             <Layers className="w-3.5 h-3.5 mr-1.5" /> Templates
           </TabsTrigger>
         </TabsList>
@@ -287,8 +287,8 @@ export default function WorkflowsPanel() {
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-lg bg-[#003ABC]/10 flex items-center justify-center flex-shrink-0">
-                          <GitBranch className="w-4 h-4 text-[#003ABC]" />
+                        <div className="w-9 h-9 rounded-lg bg-[#0066CC]/10 flex items-center justify-center flex-shrink-0">
+                          <GitBranch className="w-4 h-4 text-[#0066CC]" />
                         </div>
                         <div className="min-w-0">
                           <h3 className="text-sm font-semibold text-[#1E293B] truncate">{wf.name}</h3>
@@ -321,7 +321,7 @@ export default function WorkflowsPanel() {
                     <div className="flex items-center gap-1">
                       {Array.from({ length: Math.min(wf.stepCount, 6) }).map((_, i) => (
                         <div key={i} className="flex items-center gap-1">
-                          <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${i < wf.stepCount - 1 ? 'bg-[#003ABC]/10 text-[#003ABC]' : 'bg-[#FF6A00]/10 text-[#FF6A00]'}`}>
+                          <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${i < wf.stepCount - 1 ? 'bg-[#0066CC]/10 text-[#0066CC]' : 'bg-[#E8501A]/10 text-[#E8501A]'}`}>
                             {i + 1}
                           </div>
                           {i < Math.min(wf.stepCount, 6) - 1 && <ChevronRight className="w-3 h-3 text-[#CBD5E1]" />}
@@ -398,7 +398,7 @@ export default function WorkflowsPanel() {
               <div className="space-y-1.5">
                 {selectedWorkflow && Array.from({ length: selectedWorkflow.stepCount }).map((_, i) => (
                   <div key={i} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${i === selectedWorkflow.stepCount - 1 ? 'bg-[#FF6A00]/10 text-[#FF6A00]' : 'bg-[#003ABC]/10 text-[#003ABC]'}`}>{i + 1}</div>
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${i === selectedWorkflow.stepCount - 1 ? 'bg-[#E8501A]/10 text-[#E8501A]' : 'bg-[#0066CC]/10 text-[#0066CC]'}`}>{i + 1}</div>
                     <span className="text-xs text-[#1E293B]">Step {i + 1}</span>
                     <ChevronRight className="w-3 h-3 text-[#CBD5E1] ml-auto" />
                   </div>
@@ -407,8 +407,8 @@ export default function WorkflowsPanel() {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" className="text-[#003ABC] border-[#003ABC]/30">Edit Workflow</Button>
-            <Button className="bg-[#FF6A00] hover:bg-[#E5600A] text-white gap-1.5"><Play className="w-3.5 h-3.5" /> Run Now</Button>
+            <Button variant="outline" className="text-[#0066CC] border-[#0066CC]/30">Edit Workflow</Button>
+            <Button className="bg-[#E8501A] hover:bg-[#E5600A] text-white gap-1.5"><Play className="w-3.5 h-3.5" /> Run Now</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -431,7 +431,7 @@ export default function WorkflowsPanel() {
                 placeholder="Describe what this workflow does..."
                 value={newWorkflowDesc}
                 onChange={(e) => setNewWorkflowDesc(e.target.value)}
-                className="w-full min-h-[80px] rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#1E293B] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/20 focus:border-[#FF6A00] resize-none"
+                className="w-full min-h-[80px] rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#1E293B] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#E8501A]/20 focus:border-[#E8501A] resize-none"
               />
             </div>
             <div className="space-y-2">
@@ -453,7 +453,7 @@ export default function WorkflowsPanel() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="text-[#64748B]">Cancel</Button>
-            <Button className="bg-[#FF6A00] hover:bg-[#E5600A] text-white" onClick={handleCreateWorkflow} disabled={!newWorkflowName.trim()}>Create Workflow</Button>
+            <Button className="bg-[#E8501A] hover:bg-[#E5600A] text-white" onClick={handleCreateWorkflow} disabled={!newWorkflowName.trim()}>Create Workflow</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

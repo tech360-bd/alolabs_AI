@@ -3,12 +3,17 @@ import { CareersPage } from '@/components/site/pages/careers'
 
 export const metadata: Metadata = {
   title: 'Careers — ALO Labs',
-  description: 'Build the operating system for AI work. Remote-first roles in engineering, AI automation, solutions and design.',
+  description:
+    'Join ALO Labs — a global AI & software technology company. We publish real openings only, across engineering, AI, solutions and design.',
+  alternates: {
+    canonical: 'https://www.alolabs.net/site/careers',
+  },
   openGraph: {
     title: 'Careers — ALO Labs',
-    description: 'Build the operating system for AI work. Remote-first roles in engineering, AI automation, solutions and design.',
+    description: 'Join ALO Labs — real openings only, across engineering, AI, solutions and design.',
     siteName: 'ALO Labs',
-    images: ['/brand/alo-logo-horizontal.svg'],
+    url: 'https://www.alolabs.net/site/careers',
+    images: ['/brand/alo-mark.svg'],
   },
 }
 

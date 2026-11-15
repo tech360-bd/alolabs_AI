@@ -100,7 +100,7 @@ function getTempColor(temp: number, max: number) {
 function getUtilColor(util: number) {
   if (util >= 90) return '[&>div]:bg-red-500'
   if (util >= 70) return '[&>div]:bg-amber-500'
-  return '[&>div]:bg-[#003ABC]'
+  return '[&>div]:bg-[#0066CC]'
 }
 
 function getGpuStatus(status: string) {
@@ -122,7 +122,7 @@ function getModelStatus(status: string) {
     case 'idle':
       return <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-[10px] px-1.5 py-0"><Clock className="w-2.5 h-2.5 mr-1" />Idle</Badge>
     case 'starting':
-      return <Badge className="bg-blue-50 text-[#003ABC] border-blue-200 text-[10px] px-1.5 py-0"><Activity className="w-2.5 h-2.5 mr-1 animate-pulse" />Starting</Badge>
+      return <Badge className="bg-blue-50 text-[#0066CC] border-blue-200 text-[10px] px-1.5 py-0"><Activity className="w-2.5 h-2.5 mr-1 animate-pulse" />Starting</Badge>
     case 'stopping':
       return <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] px-1.5 py-0"><Activity className="w-2.5 h-2.5 mr-1 animate-pulse" />Stopping</Badge>
     default: return null
@@ -226,8 +226,8 @@ export default function GpuMonitorPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <Gauge className="w-5 h-5 text-[#003ABC]" />
+          <div className="w-10 h-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <Gauge className="w-5 h-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-[#1E293B]">GPU & System Monitor</h2>
@@ -288,7 +288,7 @@ export default function GpuMonitorPanel() {
       {/* GPU Cards Grid */}
       <div>
         <h3 className="text-sm font-semibold text-[#1E293B] mb-3 flex items-center gap-2">
-          <Server className="w-4 h-4 text-[#003ABC]" />
+          <Server className="w-4 h-4 text-[#0066CC]" />
           GPU Cards ({gpus.length})
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -329,7 +329,7 @@ export default function GpuMonitorPanel() {
                   </div>
                   <Progress
                     value={(gpu.memoryUsed / gpu.memoryTotal) * 100}
-                    className={`h-2 ${gpu.memoryUsed / gpu.memoryTotal > 0.85 ? '[&>div]:bg-red-500' : gpu.memoryUsed / gpu.memoryTotal > 0.6 ? '[&>div]:bg-amber-500' : '[&>div]:bg-[#003ABC]'}`}
+                    className={`h-2 ${gpu.memoryUsed / gpu.memoryTotal > 0.85 ? '[&>div]:bg-red-500' : gpu.memoryUsed / gpu.memoryTotal > 0.6 ? '[&>div]:bg-amber-500' : '[&>div]:bg-[#0066CC]'}`}
                   />
                 </div>
 
@@ -337,7 +337,7 @@ export default function GpuMonitorPanel() {
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#E2E8F0]">
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-1 mb-0.5">
-                      <Zap className="w-3 h-3 text-[#FF6A00]" />
+                      <Zap className="w-3 h-3 text-[#E8501A]" />
                       <span className="text-[10px] text-[#64748B]">Power</span>
                     </div>
                     <p className="text-xs font-semibold text-[#1E293B]">{gpu.powerDraw}W</p>
@@ -345,7 +345,7 @@ export default function GpuMonitorPanel() {
                   </div>
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-1 mb-0.5">
-                      <Activity className="w-3 h-3 text-[#003ABC]" />
+                      <Activity className="w-3 h-3 text-[#0066CC]" />
                       <span className="text-[10px] text-[#64748B]">Fan</span>
                     </div>
                     <p className="text-xs font-semibold text-[#1E293B]">{gpu.fanSpeed}%</p>
@@ -367,7 +367,7 @@ export default function GpuMonitorPanel() {
       {/* Model Resource Allocation Table */}
       <div>
         <h3 className="text-sm font-semibold text-[#1E293B] mb-3 flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-[#003ABC]" />
+          <Cpu className="w-4 h-4 text-[#0066CC]" />
           Model Resource Allocation
         </h3>
         <Card className="border-[#E2E8F0]">

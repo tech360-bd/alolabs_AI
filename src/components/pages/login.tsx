@@ -339,8 +339,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] p-4 relative overflow-hidden">
       {/* ── Background Subtle Gradient ──────────────────────────────────────── */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#F8FAFC] via-white to-[#EFF6FF] -z-10" />
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-[#003ABC]/[0.03] to-transparent rounded-full -z-10 translate-x-1/3 -translate-y-1/3" />
-      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-[#FF6A00]/[0.03] to-transparent rounded-full -z-10 -translate-x-1/3 translate-y-1/3" />
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-[#0066CC]/[0.03] to-transparent rounded-full -z-10 translate-x-1/3 -translate-y-1/3" />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-[#E8501A]/[0.03] to-transparent rounded-full -z-10 -translate-x-1/3 translate-y-1/3" />
 
       {/* ── Main Card ──────────────────────────────────────────────────────── */}
       <Card className="w-full max-w-md shadow-lg border-[#E2E8F0]/80 bg-white">
@@ -352,8 +352,8 @@ export default function LoginPage() {
 
           {/* Branding */}
           <h1 className="text-xl font-bold tracking-tight text-[#1E293B]">
-            <span className="text-[#FF6A00]">ALO</span>{' '}
-            <span className="text-[#003ABC]">Labs</span>
+            <span className="text-[#E8501A]">ALO</span>{' '}
+            <span className="text-[#0066CC]">Labs</span>
           </h1>
           <p className="text-sm text-[#64748B] mt-0.5">Sign in to your account</p>
         </CardHeader>
@@ -435,7 +435,7 @@ export default function LoginPage() {
                     required
                     autoFocus
                     autoComplete="email"
-                    className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]"
+                    className="h-10 border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B] placeholder:text-[#94A3B8]"
                     disabled={loading}
                   />
                 </div>
@@ -448,7 +448,7 @@ export default function LoginPage() {
                     </Label>
                     <button
                       type="button"
-                      className="text-xs font-medium text-[#003ABC] hover:text-[#002A8F] transition-colors"
+                      className="text-xs font-medium text-[#0066CC] hover:text-[#002A8F] transition-colors"
                       onClick={() => { setMode('forgot'); setError(null); setResetSent(false) }}
                     >
                       Forgot Password?
@@ -463,7 +463,7 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       autoComplete="current-password"
-                      className="h-10 pr-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]"
+                      className="h-10 pr-10 border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B] placeholder:text-[#94A3B8]"
                       disabled={loading}
                     />
                     <button
@@ -484,7 +484,7 @@ export default function LoginPage() {
                     id="remember-me"
                     checked={rememberMe}
                     onCheckedChange={(checked) => setRememberMe(checked === true)}
-                    className="border-[#E2E8F0] data-[state=checked]:bg-[#003ABC] data-[state=checked]:border-[#003ABC]"
+                    className="border-[#E2E8F0] data-[state=checked]:bg-[#0066CC] data-[state=checked]:border-[#0066CC]"
                   />
                   <Label
                     htmlFor="remember-me"
@@ -497,7 +497,7 @@ export default function LoginPage() {
                 {/* Submit Button */}
                 <Button
                   type="submit"
-                  className="w-full h-10 bg-[#003ABC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors"
+                  className="w-full h-10 bg-[#0066CC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors"
                   disabled={loading}
                 >
                   {loading ? (
@@ -516,7 +516,7 @@ export default function LoginPage() {
                 Don't have an account?{' '}
                 <button
                   type="button"
-                  className="font-semibold text-[#003ABC] hover:text-[#002A8F] transition-colors"
+                  className="font-semibold text-[#0066CC] hover:text-[#002A8F] transition-colors"
                   onClick={() => { setMode('register'); setError(null); setStep('credentials') }}
                 >
                   Create one
@@ -579,28 +579,28 @@ export default function LoginPage() {
               <form onSubmit={handleRegister} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reg-name" className="text-sm font-medium text-[#1E293B]">Full name</Label>
-                  <Input id="reg-name" type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
+                  <Input id="reg-name" type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required className="h-10 border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reg-email" className="text-sm font-medium text-[#1E293B]">Email</Label>
-                  <Input id="reg-email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
+                  <Input id="reg-email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" className="h-10 border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reg-password" className="text-sm font-medium text-[#1E293B]">Password</Label>
-                  <Input id="reg-password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password" className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
+                  <Input id="reg-password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password" className="h-10 border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reg-confirm" className="text-sm font-medium text-[#1E293B]">Confirm password</Label>
-                  <Input id="reg-confirm" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required autoComplete="new-password" className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
+                  <Input id="reg-confirm" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required autoComplete="new-password" className="h-10 border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
                 </div>
-                <Button type="submit" className="w-full h-10 bg-[#003ABC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors" disabled={loading}>
+                <Button type="submit" className="w-full h-10 bg-[#0066CC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors" disabled={loading}>
                   {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account...</>) : 'Create account'}
                 </Button>
               </form>
 
               <p className="mt-6 text-center text-sm text-[#64748B]">
                 Already have an account?{' '}
-                <button type="button" className="font-semibold text-[#003ABC] hover:text-[#002A8F] transition-colors" onClick={() => { setMode('login'); setError(null); setStep('credentials') }}>
+                <button type="button" className="font-semibold text-[#0066CC] hover:text-[#002A8F] transition-colors" onClick={() => { setMode('login'); setError(null); setStep('credentials') }}>
                   Sign in
                 </button>
               </p>
@@ -622,14 +622,14 @@ export default function LoginPage() {
 
               {resetSent ? (
                 <div className="text-center py-8">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-[#003ABC]/10 flex items-center justify-center mb-4">
-                    <Mail className="h-6 w-6 text-[#003ABC]" />
+                  <div className="mx-auto w-12 h-12 rounded-full bg-[#0066CC]/10 flex items-center justify-center mb-4">
+                    <Mail className="h-6 w-6 text-[#0066CC]" />
                   </div>
                   <p className="text-sm text-[#64748B]">
                     If an account exists for <span className="font-medium text-[#1E293B]">{email}</span>,
                     a reset link has been sent. Check your inbox.
                   </p>
-                  <button type="button" className="mt-6 text-sm font-medium text-[#003ABC] hover:text-[#002A8F] transition-colors" onClick={() => { setMode('login'); setResetSent(false); setError(null) }}>
+                  <button type="button" className="mt-6 text-sm font-medium text-[#0066CC] hover:text-[#002A8F] transition-colors" onClick={() => { setMode('login'); setResetSent(false); setError(null) }}>
                     Back to sign in
                   </button>
                 </div>
@@ -644,14 +644,14 @@ export default function LoginPage() {
                   <form onSubmit={handleForgotPassword} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="forgot-email" className="text-sm font-medium text-[#1E293B]">Email</Label>
-                      <Input id="forgot-email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-10 border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
+                      <Input id="forgot-email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-10 border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
                     </div>
-                    <Button type="submit" className="w-full h-10 bg-[#003ABC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors" disabled={loading}>
+                    <Button type="submit" className="w-full h-10 bg-[#0066CC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors" disabled={loading}>
                       {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : 'Send reset link'}
                     </Button>
                   </form>
                   <p className="mt-6 text-center text-sm text-[#64748B]">
-                    <button type="button" className="font-semibold text-[#003ABC] hover:text-[#002A8F] transition-colors" onClick={() => { setMode('login'); setError(null) }}>
+                    <button type="button" className="font-semibold text-[#0066CC] hover:text-[#002A8F] transition-colors" onClick={() => { setMode('login'); setError(null) }}>
                       Back to sign in
                     </button>
                   </p>
@@ -664,8 +664,8 @@ export default function LoginPage() {
           {step === 'mfa' && (
             <>
               <div className="mb-6 text-center">
-                <div className="mx-auto w-12 h-12 rounded-full bg-[#003ABC]/10 flex items-center justify-center mb-3">
-                  <Shield className="h-6 w-6 text-[#003ABC]" />
+                <div className="mx-auto w-12 h-12 rounded-full bg-[#0066CC]/10 flex items-center justify-center mb-3">
+                  <Shield className="h-6 w-6 text-[#0066CC]" />
                 </div>
                 <h2 className="text-lg font-semibold text-[#1E293B]">Two-Factor Authentication</h2>
                 <p className="text-sm text-[#64748B] mt-1">
@@ -701,7 +701,7 @@ export default function LoginPage() {
                       if (mfaError) setMfaError(null)
                     }}
                     disabled={mfaLoading}
-                    className="h-12 w-48 text-center text-xl font-semibold tracking-[0.5em] border-[#E2E8F0] focus:border-[#003ABC] focus:ring-[#003ABC]/20 text-[#1E293B]"
+                    className="h-12 w-48 text-center text-xl font-semibold tracking-[0.5em] border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B]"
                     autoFocus
                   />
                 </div>
@@ -710,7 +710,7 @@ export default function LoginPage() {
                 <Button
                   type="button"
                   onClick={handleMfaVerify}
-                  className="w-full h-10 bg-[#003ABC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors"
+                  className="w-full h-10 bg-[#0066CC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors"
                   disabled={mfaLoading || mfaCode.length < 6}
                 >
                   {mfaLoading ? (
@@ -737,7 +737,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={handleResendMfa}
                     disabled={mfaCountdown > 0}
-                    className="text-sm font-medium text-[#003ABC] hover:text-[#002A8F] disabled:text-[#94A3B8] disabled:cursor-not-allowed transition-colors"
+                    className="text-sm font-medium text-[#0066CC] hover:text-[#002A8F] disabled:text-[#94A3B8] disabled:cursor-not-allowed transition-colors"
                   >
                     {mfaCountdown > 0
                       ? `Resend in ${mfaCountdown}s`
@@ -775,7 +775,7 @@ export default function LoginPage() {
                   setStep('credentials')
                   setError(null)
                 }}
-                className="w-full h-10 bg-[#003ABC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors"
+                className="w-full h-10 bg-[#0066CC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors"
               >
                 Try Again
               </Button>
@@ -789,7 +789,7 @@ export default function LoginPage() {
                       description: 'Please contact your administrator for assistance.',
                     })
                   }}
-                  className="text-sm text-[#64748B] hover:text-[#003ABC] transition-colors"
+                  className="text-sm text-[#64748B] hover:text-[#0066CC] transition-colors"
                 >
                   Need help? Contact support
                 </button>

@@ -255,7 +255,7 @@ export default function ModelRegistryPanel() {
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-[#003ABC] text-white hover:bg-[#003ABC]/90">
+              <Button size="sm" className="bg-[#0066CC] text-white hover:bg-[#0066CC]/90">
                 <Plus className="w-4 h-4 mr-2" />
                 Register Model
               </Button>
@@ -334,7 +334,7 @@ export default function ModelRegistryPanel() {
                 <Button
                   onClick={handleRegisterModel}
                   disabled={!newModel.modelId || !newModel.name || submitting}
-                  className="bg-[#003ABC] text-white hover:bg-[#003ABC]/90"
+                  className="bg-[#0066CC] text-white hover:bg-[#0066CC]/90"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Database className="w-4 h-4 mr-2" />}
                   Register
@@ -440,7 +440,7 @@ export default function ModelRegistryPanel() {
           <p className="text-xs text-[#64748B] mt-1">Models you register will appear here</p>
           <Button
             size="sm"
-            className="mt-4 bg-[#003ABC] text-white hover:bg-[#003ABC]/90"
+            className="mt-4 bg-[#0066CC] text-white hover:bg-[#0066CC]/90"
             onClick={() => setDialogOpen(true)}
           >
             <Plus className="w-4 h-4 mr-2" />

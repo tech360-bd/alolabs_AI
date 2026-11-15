@@ -207,7 +207,7 @@ export default function InterviewHubPanel() {
           <h2 className="text-2xl font-bold text-[#1E293B]">AI Interview Hub</h2>
           <p className="text-sm text-slate-500 mt-1">AI-powered interview preparation, scoring, and feedback</p>
         </div>
-        <Button className="bg-[#003ABC] hover:bg-[#002A8F] text-white gap-2">
+        <Button className="bg-[#0066CC] hover:bg-[#002A8F] text-white gap-2">
           <Trophy className="size-4" />
           Start Interview
         </Button>
@@ -256,11 +256,11 @@ export default function InterviewHubPanel() {
                       </div>
                       <div className="w-px h-8 bg-slate-200" />
                       <div className="text-center">
-                        <p className="text-lg font-bold text-[#003ABC]">{type.avgScore}</p>
+                        <p className="text-lg font-bold text-[#0066CC]">{type.avgScore}</p>
                         <p className="text-[10px] text-slate-400 uppercase tracking-wide">Avg Score</p>
                       </div>
                     </div>
-                    <ChevronRight className="size-4 text-slate-300 group-hover:text-[#003ABC] transition-colors" />
+                    <ChevronRight className="size-4 text-slate-300 group-hover:text-[#0066CC] transition-colors" />
                   </div>
                 </CardContent>
               </Card>
@@ -324,7 +324,7 @@ export default function InterviewHubPanel() {
                       <TableRow key={session.id} className="hover:bg-slate-50/50">
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="size-7 rounded-full bg-gradient-to-br from-[#003ABC] to-[#0066FF] flex items-center justify-center text-white text-xs font-semibold shrink-0">
+                            <div className="size-7 rounded-full bg-gradient-to-br from-[#0066CC] to-[#0066FF] flex items-center justify-center text-white text-xs font-semibold shrink-0">
                               {session.candidate.charAt(0)}
                             </div>
                             <span className="text-sm font-medium text-[#1E293B]">{session.candidate}</span>
@@ -395,7 +395,7 @@ export default function InterviewHubPanel() {
                             <p className="text-[10px] text-slate-400">{criteria.description}</p>
                           </div>
                           <div className="text-right">
-                            <span className="text-sm font-bold text-[#003ABC]">{criteria.avgScore}</span>
+                            <span className="text-sm font-bold text-[#0066CC]">{criteria.avgScore}</span>
                             <span className="text-xs text-slate-400">/{criteria.maxScore}</span>
                           </div>
                         </div>
@@ -429,10 +429,10 @@ export default function InterviewHubPanel() {
                         <div className="flex-1 h-8 bg-slate-100 rounded-md overflow-hidden relative">
                           <div
                             className={`h-full rounded-md transition-all ${
-                              dist.label === '90-100' ? 'bg-gradient-to-r from-[#003ABC] to-[#0066FF]'
-                              : dist.label === '80-89' ? 'bg-gradient-to-r from-[#003ABC]/80 to-[#0066FF]/80'
-                              : dist.label === '70-79' ? 'bg-gradient-to-r from-[#FF6A00]/80 to-[#FF9A50]/80'
-                              : dist.label === '60-69' ? 'bg-gradient-to-r from-[#FF6A00]/60 to-[#FF9A50]/60'
+                              dist.label === '90-100' ? 'bg-gradient-to-r from-[#0066CC] to-[#0066FF]'
+                              : dist.label === '80-89' ? 'bg-gradient-to-r from-[#0066CC]/80 to-[#0066FF]/80'
+                              : dist.label === '70-79' ? 'bg-gradient-to-r from-[#E8501A]/80 to-[#FF9A50]/80'
+                              : dist.label === '60-69' ? 'bg-gradient-to-r from-[#E8501A]/60 to-[#FF9A50]/60'
                               : 'bg-gradient-to-r from-slate-300 to-slate-400'
                             }`}
                             style={{ width: `${barWidth}%` }}
@@ -455,7 +455,7 @@ export default function InterviewHubPanel() {
                   </div>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-sm text-slate-500">Average Score</span>
-                    <span className="text-lg font-bold text-[#003ABC]">
+                    <span className="text-lg font-bold text-[#0066CC]">
                       {(() => {
                         const total = data.scoreDistribution.reduce((sum, d) => sum + d.count, 0)
                         if (total === 0) return '0'
@@ -480,7 +480,7 @@ export default function InterviewHubPanel() {
                 <CardContent className="p-5">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="size-10 rounded-full bg-gradient-to-br from-[#003ABC] to-[#0066FF] flex items-center justify-center text-white font-semibold">
+                      <div className="size-10 rounded-full bg-gradient-to-br from-[#0066CC] to-[#0066FF] flex items-center justify-center text-white font-semibold">
                         {report.candidate.charAt(0)}
                       </div>
                       <div>
@@ -493,7 +493,7 @@ export default function InterviewHubPanel() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-center px-4 py-1.5 bg-slate-50 rounded-lg">
-                        <p className="text-xl font-bold text-[#003ABC]">{report.overallScore}</p>
+                        <p className="text-xl font-bold text-[#0066CC]">{report.overallScore}</p>
                         <p className="text-[10px] text-slate-400 uppercase tracking-wide">Overall</p>
                       </div>
                     </div>
@@ -557,7 +557,7 @@ export default function InterviewHubPanel() {
             <Card className="rounded-xl border-slate-200 shadow-sm lg:col-span-1">
               <CardHeader className="pb-3">
                 <CardTitle className="text-[#1E293B] text-lg flex items-center gap-2">
-                  <BookOpen className="size-5 text-[#003ABC]" />
+                  <BookOpen className="size-5 text-[#0066CC]" />
                   Practice Setup
                 </CardTitle>
                 <CardDescription>Configure your practice session</CardDescription>
@@ -611,7 +611,7 @@ export default function InterviewHubPanel() {
                   </Select>
                 </div>
 
-                <Button className="w-full bg-[#FF6A00] hover:bg-[#E05E00] text-white gap-2 h-10 mt-2">
+                <Button className="w-full bg-[#E8501A] hover:bg-[#E05E00] text-white gap-2 h-10 mt-2">
                   <Play className="size-4" />
                   Start Practice Session
                 </Button>
@@ -636,7 +636,7 @@ export default function InterviewHubPanel() {
                   {data.practiceHistory.map((entry) => (
                     <div key={entry.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-50 transition-colors">
                       <div className="size-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                        <Play className="size-4 text-[#003ABC]" />
+                        <Play className="size-4 text-[#0066CC]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -652,7 +652,7 @@ export default function InterviewHubPanel() {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-lg font-bold text-[#003ABC]">{entry.score}</p>
+                        <p className="text-lg font-bold text-[#0066CC]">{entry.score}</p>
                         <p className="text-[10px] text-slate-400">Score</p>
                       </div>
                     </div>

@@ -259,7 +259,7 @@ export default function ApiKeysPanel() {
         </div>
         <Button
           onClick={() => setCreateOpen(true)}
-          className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+          className="bg-[#0066CC] hover:bg-[#002A99] text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Key
@@ -279,7 +279,7 @@ export default function ApiKeysPanel() {
             className="bg-white rounded-xl border border-[#E2E8F0] p-4 flex items-center gap-3"
           >
             <div className="w-10 h-10 rounded-lg bg-[#F8FAFC] flex items-center justify-center shrink-0">
-              <s.icon className={`w-5 h-5 ${s.color ?? 'text-[#003ABC]'}`} />
+              <s.icon className={`w-5 h-5 ${s.color ?? 'text-[#0066CC]'}`} />
             </div>
             <div>
               <p className="text-2xl font-bold text-[#1E293B]">{s.value}</p>
@@ -365,7 +365,7 @@ export default function ApiKeysPanel() {
                         {key.scopes.length > 3 && (
                           <Badge
                             variant="secondary"
-                            className="text-[10px] px-1.5 py-0 bg-[#003ABC]/10 text-[#003ABC] hover:bg-[#003ABC]/10"
+                            className="text-[10px] px-1.5 py-0 bg-[#0066CC]/10 text-[#0066CC] hover:bg-[#0066CC]/10"
                           >
                             +{key.scopes.length - 3} more
                           </Badge>
@@ -470,7 +470,7 @@ export default function ApiKeysPanel() {
                 placeholder="e.g. Production Integration"
                 value={createForm.name}
                 onChange={(e) => setCreateForm((p) => ({ ...p, name: e.target.value }))}
-                className="border-[#E2E8F0] focus-visible:ring-[#003ABC]"
+                className="border-[#E2E8F0] focus-visible:ring-[#0066CC]"
               />
             </div>
 
@@ -504,7 +504,7 @@ export default function ApiKeysPanel() {
                       id={`scope-${scope}`}
                       checked={createForm.scopes.includes(scope)}
                       onCheckedChange={() => toggleScope(scope)}
-                      className="border-[#E2E8F0] data-[state=checked]:bg-[#003ABC] data-[state=checked]:border-[#003ABC]"
+                      className="border-[#E2E8F0] data-[state=checked]:bg-[#0066CC] data-[state=checked]:border-[#0066CC]"
                     />
                     <label
                       htmlFor={`scope-${scope}`}
@@ -527,7 +527,7 @@ export default function ApiKeysPanel() {
                 onChange={(e) =>
                   setCreateForm((p) => ({ ...p, rateLimit: parseInt(e.target.value) || 0 }))
                 }
-                className="border-[#E2E8F0] focus-visible:ring-[#003ABC]"
+                className="border-[#E2E8F0] focus-visible:ring-[#0066CC]"
               />
             </div>
           </div>
@@ -543,7 +543,7 @@ export default function ApiKeysPanel() {
             <Button
               onClick={handleCreate}
               disabled={!createForm.companyId || !createForm.name || creating}
-              className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+              className="bg-[#0066CC] hover:bg-[#002A99] text-white"
             >
               {creating ? 'Creating...' : 'Create Key'}
             </Button>
@@ -589,7 +589,7 @@ export default function ApiKeysPanel() {
           <DialogFooter>
             <Button
               onClick={() => setRevealKey(null)}
-              className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+              className="bg-[#0066CC] hover:bg-[#002A99] text-white"
             >
               Done
             </Button>

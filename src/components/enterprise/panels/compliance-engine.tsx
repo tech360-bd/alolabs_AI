@@ -109,10 +109,10 @@ export default function ComplianceEngine() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Checks', value: stats?.total.toLocaleString() ?? '—', icon: ClipboardCheck, color: 'text-[#003ABC]' },
+          { label: 'Total Checks', value: stats?.total.toLocaleString() ?? '—', icon: ClipboardCheck, color: 'text-[#0066CC]' },
           { label: 'Pass Rate', value: `${passRate}%`, icon: CheckCircle2, color: 'text-emerald-600' },
           { label: 'Failures', value: failures.toLocaleString(), icon: AlertOctagon, color: 'text-red-600' },
-          { label: 'Certifications', value: certifications.toLocaleString(), icon: Award, color: 'text-[#FF6A00]' },
+          { label: 'Certifications', value: certifications.toLocaleString(), icon: Award, color: 'text-[#E8501A]' },
         ].map((s, i) => (
           <Card key={i} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4">

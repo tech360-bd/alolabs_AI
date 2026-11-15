@@ -103,10 +103,10 @@ export default function AgentOSCommandPanel() {
   return (
     <div className="flex h-full flex-col gap-4 p-4 md:p-6">
       {/* ─── Command bar ─── */}
-      <Card className="border-[#003ABC]/20 shadow-sm">
+      <Card className="border-[#0066CC]/20 shadow-sm">
         <CardContent className="p-4 md:p-6">
           <div className="mb-3 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-[#003ABC]" />
+            <Sparkles className="h-5 w-5 text-[#0066CC]" />
             <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               What do you want ALO Labs to accomplish?
             </h1>
@@ -121,12 +121,12 @@ export default function AgentOSCommandPanel() {
               }}
               placeholder="Research the best UK universities for this student, compare courses, verify entry requirements, find scholarships, and prepare a counselor report…"
               rows={3}
-              className="w-full resize-none rounded-xl border border-slate-200 bg-white p-4 pr-32 text-sm text-slate-900 shadow-sm outline-none focus:border-[#003ABC] focus:ring-2 focus:ring-[#003ABC]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="w-full resize-none rounded-xl border border-slate-200 bg-white p-4 pr-32 text-sm text-slate-900 shadow-sm outline-none focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
             <Button
               onClick={() => void submit()}
               disabled={submitting || !objective.trim()}
-              className="absolute bottom-3 right-3 bg-[#003ABC] text-white hover:bg-[#002a8f]"
+              className="absolute bottom-3 right-3 bg-[#0066CC] text-white hover:bg-[#002a8f]"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
               <span className="ml-1">Run with ALO</span>
@@ -139,7 +139,7 @@ export default function AgentOSCommandPanel() {
                 <button
                   key={i}
                   onClick={() => setObjective(example.text)}
-                  className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-[#003ABC]/40 hover:text-[#003ABC] dark:border-slate-700 dark:text-slate-400"
+                  className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-[#0066CC]/40 hover:text-[#0066CC] dark:border-slate-700 dark:text-slate-400"
                 >
                   <Icon className="h-3.5 w-3.5" />
                   <span className="max-w-[260px] truncate">{example.text}</span>

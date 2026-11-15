@@ -109,7 +109,7 @@ export default function AuditEngine() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Audits', value: stats?.total.toLocaleString() ?? '—', icon: FileSearch, color: 'text-[#003ABC]' },
+          { label: 'Total Audits', value: stats?.total.toLocaleString() ?? '—', icon: FileSearch, color: 'text-[#0066CC]' },
           { label: 'Findings', value: findings.toLocaleString(), icon: AlertTriangle, color: 'text-amber-600' },
           { label: 'Resolved', value: resolved.toLocaleString(), icon: CheckCircle2, color: 'text-emerald-600' },
           { label: 'Coverage %', value: `${coverage}%`, icon: Target, color: 'text-violet-600' },

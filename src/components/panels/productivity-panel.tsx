@@ -125,10 +125,10 @@ export default function ProductivityPanel() {
   const overallScore = Math.round(avg?.overall || 0)
 
   const scores = [
-    { icon: Zap, label: 'Speed Score', value: Math.round(avg?.speed || 0), desc: 'Task completion velocity', color: 'text-[#003ABC]', barColor: 'from-[#003ABC]/60 to-[#003ABC]' },
+    { icon: Zap, label: 'Speed Score', value: Math.round(avg?.speed || 0), desc: 'Task completion velocity', color: 'text-[#0066CC]', barColor: 'from-[#0066CC]/60 to-[#0066CC]' },
     { icon: Target, label: 'Quality Score', value: Math.round(avg?.quality || 0), desc: 'Output accuracy rating', color: 'text-emerald-600', barColor: 'from-emerald-600/60 to-emerald-600' },
-    { icon: Gauge, label: 'Reuse Score', value: Math.round(avg?.reuse || 0), desc: 'Skill/knowledge reuse rate', color: 'text-[#FF6A00]', barColor: 'from-[#FF6A00]/60 to-[#FF6A00]' },
-    { icon: Shield, label: 'Error Score', value: Math.round(avg?.error || 0), desc: 'Error-free completion rate', color: 'text-[#003ABC]', barColor: 'from-[#003ABC]/60 to-[#003ABC]' },
+    { icon: Gauge, label: 'Reuse Score', value: Math.round(avg?.reuse || 0), desc: 'Skill/knowledge reuse rate', color: 'text-[#E8501A]', barColor: 'from-[#E8501A]/60 to-[#E8501A]' },
+    { icon: Shield, label: 'Error Score', value: Math.round(avg?.error || 0), desc: 'Error-free completion rate', color: 'text-[#0066CC]', barColor: 'from-[#0066CC]/60 to-[#0066CC]' },
   ]
 
   // Radar chart data
@@ -157,9 +157,9 @@ export default function ProductivityPanel() {
   // Performance stats
   const perfCards = [
     { icon: TrendingUp, label: 'Success Rate', value: `${round2((perf?.successRate || 0) * 100)}%`, color: 'text-emerald-600' },
-    { icon: Clock, label: 'Avg Runtime', value: `${perf?.avgRuntimeMs || 0}ms`, color: 'text-[#FF6A00]' },
-    { icon: BarChart2, label: 'Output Quality', value: `${round2((perf?.outputQuality || 0) * 100)}%`, color: 'text-[#003ABC]' },
-    { icon: Award, label: 'Total Reports', value: report?.summary?.totalReports?.toLocaleString() || '0', color: 'text-[#003ABC]' },
+    { icon: Clock, label: 'Avg Runtime', value: `${perf?.avgRuntimeMs || 0}ms`, color: 'text-[#E8501A]' },
+    { icon: BarChart2, label: 'Output Quality', value: `${round2((perf?.outputQuality || 0) * 100)}%`, color: 'text-[#0066CC]' },
+    { icon: Award, label: 'Total Reports', value: report?.summary?.totalReports?.toLocaleString() || '0', color: 'text-[#0066CC]' },
   ]
 
   if (loading) {
@@ -178,7 +178,7 @@ export default function ProductivityPanel() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <Gauge className="w-6 h-6 text-[#003ABC]" />
+        <Gauge className="w-6 h-6 text-[#0066CC]" />
         <h2 className="text-xl font-semibold text-[#1E293B]">Productivity Center</h2>
       </div>
 
@@ -186,8 +186,8 @@ export default function ProductivityPanel() {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-xl border border-[#E2E8F0] p-6 flex flex-col items-center justify-center">
           <p className="text-xs text-[#64748B] mb-1">Overall</p>
-          <div className="w-20 h-20 rounded-full border-4 border-[#003ABC]/30 flex items-center justify-center mb-2">
-            <span className="text-2xl font-bold text-[#003ABC]">{overallScore}</span>
+          <div className="w-20 h-20 rounded-full border-4 border-[#0066CC]/30 flex items-center justify-center mb-2">
+            <span className="text-2xl font-bold text-[#0066CC]">{overallScore}</span>
           </div>
           <p className="text-[10px] text-[#64748B]">Productivity Score</p>
         </div>
@@ -329,7 +329,7 @@ export default function ProductivityPanel() {
                   filteredPerformers.map((p, i) => (
                     <TableRow key={p.id} className="border-[#E2E8F0] hover:bg-gray-50">
                       <TableCell className="text-[#64748B] font-bold">{i + 1}</TableCell>
-                      <TableCell className="font-mono text-xs text-[#FF6A00]">{p.agentId.slice(0, 12)}</TableCell>
+                      <TableCell className="font-mono text-xs text-[#E8501A]">{p.agentId.slice(0, 12)}</TableCell>
                       <TableCell className="text-[#64748B] text-xs hidden sm:table-cell capitalize">{p.period}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-[10px] py-0 bg-emerald-600/10 text-emerald-600">
@@ -338,7 +338,7 @@ export default function ProductivityPanel() {
                       </TableCell>
                       <TableCell className="text-[#64748B] text-xs hidden md:table-cell">{p.avgRuntimeMs}ms</TableCell>
                       <TableCell>
-                        <span className="text-sm font-bold text-[#003ABC]">{round2(p.productivityScore * 100)}%</span>
+                        <span className="text-sm font-bold text-[#0066CC]">{round2(p.productivityScore * 100)}%</span>
                       </TableCell>
                       <TableCell className="text-[#64748B] text-xs hidden lg:table-cell">{round2(p.outputQualityScore * 100)}%</TableCell>
                     </TableRow>
@@ -377,7 +377,7 @@ export default function ProductivityPanel() {
                 ) : (
                   filteredReports.slice(0, 50).map((r) => (
                     <TableRow key={r.id} className="border-[#E2E8F0] hover:bg-gray-50">
-                      <TableCell className="font-mono text-[10px] text-[#FF6A00]">{r.taskId ? r.taskId.slice(0, 8) : '—'}</TableCell>
+                      <TableCell className="font-mono text-[10px] text-[#E8501A]">{r.taskId ? r.taskId.slice(0, 8) : '—'}</TableCell>
                       <TableCell className="text-xs text-[#1E293B]">{round2(r.speedScore)}</TableCell>
                       <TableCell className="text-xs text-[#1E293B] hidden sm:table-cell">{round2(r.qualityScore)}</TableCell>
                       <TableCell className="text-xs text-[#1E293B] hidden md:table-cell">{round2(r.reuseScore)}</TableCell>

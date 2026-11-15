@@ -45,9 +45,9 @@ export default function AuditLogsPanel() {
   const actionColor = (action: string) => {
     switch (action) {
       case 'create': return 'bg-emerald-600/10 text-emerald-600'
-      case 'update': return 'bg-[#FF6A00]/10 text-[#FF6A00]'
+      case 'update': return 'bg-[#E8501A]/10 text-[#E8501A]'
       case 'delete': return 'bg-red-600/10 text-red-600'
-      default: return 'bg-[#003ABC]/10 text-[#003ABC]'
+      default: return 'bg-[#0066CC]/10 text-[#0066CC]'
     }
   }
 

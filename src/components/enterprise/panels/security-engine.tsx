@@ -109,7 +109,7 @@ export default function SecurityEngine() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Scans', value: stats?.total.toLocaleString() ?? '—', icon: Scan, color: 'text-[#003ABC]' },
+          { label: 'Total Scans', value: stats?.total.toLocaleString() ?? '—', icon: Scan, color: 'text-[#0066CC]' },
           { label: 'Threats Blocked', value: threatsBlocked.toLocaleString(), icon: Ban, color: 'text-red-600' },
           { label: 'Vulnerabilities', value: vulnerabilities.toLocaleString(), icon: AlertTriangle, color: 'text-amber-600' },
           { label: 'Security Score', value: `${securityScore}/100`, icon: Lock, color: 'text-emerald-600' },

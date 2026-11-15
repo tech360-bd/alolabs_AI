@@ -94,8 +94,8 @@ export default function SOPSystem() {
           return (
             <Card key={s.label} className="rounded-xl shadow-sm border-0 bg-white dark:bg-slate-800">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#003ABC]/8">
-                  <Icon className="h-5 w-5 text-[#003ABC]" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0066CC]/8">
+                  <Icon className="h-5 w-5 text-[#0066CC]" />
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{s.label}</p>

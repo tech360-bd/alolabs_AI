@@ -53,13 +53,13 @@ interface Setting {
 
 
 const SETTING_SECTIONS = [
-  { id: 'general', label: 'General', icon: Settings, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
+  { id: 'general', label: 'General', icon: Settings, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
   { id: 'security', label: 'Security', icon: Shield, color: 'text-red-600', bg: 'bg-red-50' },
   { id: 'ai-models', label: 'AI Models', icon: Brain, color: 'text-purple-600', bg: 'bg-purple-50' },
   { id: 'notifications', label: 'Notifications', icon: Bell, color: 'text-amber-600', bg: 'bg-amber-50' },
   { id: 'database', label: 'Database', icon: Database, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  { id: 'api', label: 'API', icon: Globe, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
-  { id: 'branding', label: 'Branding', icon: Palette, color: 'text-[#FF6A00]', bg: 'bg-orange-50' },
+  { id: 'api', label: 'API', icon: Globe, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
+  { id: 'branding', label: 'Branding', icon: Palette, color: 'text-[#E8501A]', bg: 'bg-orange-50' },
 ]
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -141,8 +141,8 @@ export default function SettingsPanel() {
   })
 
   const [brandingSettings, setBrandingSettings] = useState({
-    primaryColor: '#FF6A00',
-    secondaryColor: '#003ABC',
+    primaryColor: '#E8501A',
+    secondaryColor: '#0066CC',
     companyName: 'ALO Labs',
     logoUrl: '/logo.svg',
     faviconUrl: '/favicon.ico',
@@ -227,7 +227,7 @@ export default function SettingsPanel() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#003ABC] to-[#0077FF] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0066CC] to-[#0077FF] flex items-center justify-center">
             <Settings className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -241,7 +241,7 @@ export default function SettingsPanel() {
               <RotateCcw className="w-3.5 h-3.5" /> Reset
             </Button>
           )}
-          <Button size="sm" className={`gap-1.5 ${hasChanges ? 'bg-[#FF6A00] hover:bg-[#E5600A] text-white' : 'bg-slate-200 text-slate-400 cursor-default'}`} onClick={handleSave} disabled={!hasChanges}>
+          <Button size="sm" className={`gap-1.5 ${hasChanges ? 'bg-[#E8501A] hover:bg-[#E5600A] text-white' : 'bg-slate-200 text-slate-400 cursor-default'}`} onClick={handleSave} disabled={!hasChanges}>
             <Save className="w-3.5 h-3.5" /> Save Changes
           </Button>
         </div>
@@ -258,13 +258,13 @@ export default function SettingsPanel() {
                   <button
                     key={section.id}
                     onClick={() => setActiveSection(section.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left transition-colors ${activeSection === section.id ? 'bg-[#003ABC]/10 text-[#003ABC]' : 'text-[#64748B] hover:bg-slate-50 hover:text-[#1E293B]'}`}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left transition-colors ${activeSection === section.id ? 'bg-[#0066CC]/10 text-[#0066CC]' : 'text-[#64748B] hover:bg-slate-50 hover:text-[#1E293B]'}`}
                   >
                     <div className={`w-7 h-7 rounded-lg ${section.bg} flex items-center justify-center flex-shrink-0`}>
                       <Icon className={`w-3.5 h-3.5 ${section.color}`} />
                     </div>
                     <span className="text-sm font-medium">{section.label}</span>
-                    <ChevronRight className={`w-3.5 h-3.5 ml-auto transition-opacity ${activeSection === section.id ? 'opacity-100 text-[#003ABC]' : 'opacity-0'}`} />
+                    <ChevronRight className={`w-3.5 h-3.5 ml-auto transition-opacity ${activeSection === section.id ? 'opacity-100 text-[#0066CC]' : 'opacity-0'}`} />
                   </button>
                 )
               })}

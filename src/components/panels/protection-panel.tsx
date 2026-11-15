@@ -55,7 +55,7 @@ export default function ProtectionPanel() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: Shield, label: 'Total Checked', value: stats?.total ?? 0, color: 'text-[#003ABC]' },
+          { icon: Shield, label: 'Total Checked', value: stats?.total ?? 0, color: 'text-[#0066CC]' },
           { icon: ShieldX, label: 'Blocked', value: stats?.blocked ?? 0, color: 'text-red-600' },
           { icon: ShieldCheck, label: 'Allowed', value: stats?.allowed ?? 0, color: 'text-emerald-600' },
           { icon: Shield, label: 'Block Rate', value: stats?.total ? `${Math.round(((stats?.blocked ?? 0) / stats.total) * 100)}%` : '0%', color: 'text-amber-600' },

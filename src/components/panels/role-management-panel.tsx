@@ -277,7 +277,7 @@ export default function RoleManagementPanel() {
         </div>
         <Button
           onClick={openCreate}
-          className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+          className="bg-[#0066CC] hover:bg-[#002A99] text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Role
@@ -296,7 +296,7 @@ export default function RoleManagementPanel() {
             className="bg-white rounded-xl border border-[#E2E8F0] p-4 flex items-center gap-3"
           >
             <div className="w-10 h-10 rounded-lg bg-[#F8FAFC] flex items-center justify-center shrink-0">
-              <s.icon className={`w-5 h-5 ${s.color ?? 'text-[#003ABC]'}`} />
+              <s.icon className={`w-5 h-5 ${s.color ?? 'text-[#0066CC]'}`} />
             </div>
             <div>
               <p className="text-2xl font-bold text-[#1E293B]">{s.value}</p>
@@ -309,10 +309,10 @@ export default function RoleManagementPanel() {
       {/* Tabs: List / Matrix */}
       <Tabs value={view} onValueChange={(v) => setView(v as 'list' | 'matrix')}>
         <TabsList className="bg-white border border-[#E2E8F0]">
-          <TabsTrigger value="list" className="text-[#64748B] data-[state=active]:bg-[#003ABC]/10 data-[state=active]:text-[#003ABC]">
+          <TabsTrigger value="list" className="text-[#64748B] data-[state=active]:bg-[#0066CC]/10 data-[state=active]:text-[#0066CC]">
             Role List
           </TabsTrigger>
-          <TabsTrigger value="matrix" className="text-[#64748B] data-[state=active]:bg-[#003ABC]/10 data-[state=active]:text-[#003ABC]">
+          <TabsTrigger value="matrix" className="text-[#64748B] data-[state=active]:bg-[#0066CC]/10 data-[state=active]:text-[#0066CC]">
             Permission Matrix
           </TabsTrigger>
         </TabsList>
@@ -344,11 +344,11 @@ export default function RoleManagementPanel() {
                       <TableRow key={role.id} className="border-[#E2E8F0]">
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-[#003ABC]/10 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-lg bg-[#0066CC]/10 flex items-center justify-center">
                               {role.isSystem ? (
-                                <Lock className="w-4 h-4 text-[#003ABC]" />
+                                <Lock className="w-4 h-4 text-[#0066CC]" />
                               ) : (
-                                <Unlock className="w-4 h-4 text-[#003ABC]" />
+                                <Unlock className="w-4 h-4 text-[#0066CC]" />
                               )}
                             </div>
                             <span className="text-sm font-medium text-[#1E293B]">{role.name}</span>
@@ -358,7 +358,7 @@ export default function RoleManagementPanel() {
                           {role.description}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-[#003ABC]/10 text-[#003ABC] hover:bg-[#003ABC]/10">
+                          <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-[#0066CC]/10 text-[#0066CC] hover:bg-[#0066CC]/10">
                             {role.permissionCount} permissions
                           </Badge>
                         </TableCell>
@@ -386,7 +386,7 @@ export default function RoleManagementPanel() {
                               variant="ghost"
                               size="sm"
                               onClick={() => openEdit(role)}
-                              className="text-[#003ABC] hover:text-[#002A99] hover:bg-[#003ABC]/5"
+                              className="text-[#0066CC] hover:text-[#002A99] hover:bg-[#0066CC]/5"
                             >
                               <Pencil className="w-4 h-4" />
                             </Button>
@@ -491,7 +491,7 @@ export default function RoleManagementPanel() {
                 placeholder="e.g. Content Manager"
                 value={form.name}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                className="border-[#E2E8F0] focus-visible:ring-[#003ABC]"
+                className="border-[#E2E8F0] focus-visible:ring-[#0066CC]"
               />
             </div>
 
@@ -502,7 +502,7 @@ export default function RoleManagementPanel() {
                 placeholder="Brief description of this role"
                 value={form.description}
                 onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                className="border-[#E2E8F0] focus-visible:ring-[#003ABC]"
+                className="border-[#E2E8F0] focus-visible:ring-[#0066CC]"
               />
             </div>
 
@@ -521,7 +521,7 @@ export default function RoleManagementPanel() {
                       variant="ghost"
                       size="sm"
                       onClick={() => toggleCategoryAll(category.perms)}
-                      className="text-xs text-[#003ABC] hover:text-[#002A99] h-6"
+                      className="text-xs text-[#0066CC] hover:text-[#002A99] h-6"
                     >
                       {category.perms.every((p) => form.permissions.includes(p)) ? 'Deselect All' : 'Select All'}
                     </Button>
@@ -533,7 +533,7 @@ export default function RoleManagementPanel() {
                           id={`perm-${perm}`}
                           checked={form.permissions.includes(perm)}
                           onCheckedChange={() => togglePermission(perm)}
-                          className="border-[#E2E8F0] data-[state=checked]:bg-[#003ABC] data-[state=checked]:border-[#003ABC]"
+                          className="border-[#E2E8F0] data-[state=checked]:bg-[#0066CC] data-[state=checked]:border-[#0066CC]"
                         />
                         <label
                           htmlFor={`perm-${perm}`}
@@ -563,7 +563,7 @@ export default function RoleManagementPanel() {
             <Button
               onClick={handleSubmit}
               disabled={!form.name.trim() || submitting}
-              className="bg-[#003ABC] hover:bg-[#002A99] text-white"
+              className="bg-[#0066CC] hover:bg-[#002A99] text-white"
             >
               {submitting ? 'Saving...' : editingId ? 'Save Changes' : 'Create Role'}
             </Button>

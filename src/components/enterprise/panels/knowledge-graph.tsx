@@ -103,8 +103,8 @@ export default function KnowledgeGraph() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Total Nodes', value: total, icon: Network, color: 'text-[#003ABC]' },
-          { label: 'Node Types', value: nodeTypes.length - 1, icon: Sparkles, color: 'text-[#FF6A00]' },
+          { label: 'Total Nodes', value: total, icon: Network, color: 'text-[#0066CC]' },
+          { label: 'Node Types', value: nodeTypes.length - 1, icon: Sparkles, color: 'text-[#E8501A]' },
           { label: 'Avg Confidence', value: nodes.length > 0 ? (nodes.reduce((s, n) => s + n.confidence, 0) / nodes.length * 100).toFixed(0) + '%' : '0%', icon: Sparkles, color: 'text-emerald-600' },
           { label: 'Connections', value: nodes.reduce((s, n) => s + n.connections.length, 0), icon: Link2, color: 'text-purple-600' },
         ].map(s => {
@@ -214,7 +214,7 @@ export default function KnowledgeGraph() {
                       <div className="space-y-1.5">
                         {selectedNode.connections.map(connId => (
                           <div key={connId} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-700/50 text-xs">
-                            <Network className="h-3 w-3 text-[#003ABC]" />
+                            <Network className="h-3 w-3 text-[#0066CC]" />
                             <span className="text-slate-600 dark:text-slate-300">{connId}</span>
                           </div>
                         ))}

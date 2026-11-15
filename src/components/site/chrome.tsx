@@ -11,6 +11,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { AloLabsLogo, Mark, BrandRule } from '@/components/brand/alo-logo'
 import { Button } from '@/components/ui/button'
 import { BRAND, BRAND_FONTS, COMPANY, GRADIENTS, HEADLINE_STATS } from '@/lib/brand/tokens'
@@ -38,25 +39,31 @@ export interface NavItem {
 // (platform architecture, diagrams, press kit, brand book, design system, case
 // material) are part of the internal surface and are not linked from here.
 export const SITE_NAV: NavItem[] = [
-  { href: '/site/solutions', label: 'Services', hint: 'What we deliver' },
+  { href: '/site/solutions', label: 'Solutions', hint: 'What we solve' },
+  { href: '/site/services', label: 'Services', hint: 'How we deliver' },
+  { href: '/site/how-we-work', label: 'How we work', hint: 'Our process' },
   { href: '/site/about', label: 'About', hint: 'The company' },
+  { href: '/site/careers', label: 'Careers', hint: 'Join the team' },
   { href: '/site/contact', label: 'Contact', hint: 'Talk to us' },
 ]
 
 export const SITE_RESOURCE_NAV: NavItem[] = [
+  { href: '/site/projects', label: 'Projects', hint: 'What we are building' },
   { href: '/portal', label: 'Client portal', hint: 'Projects, deliverables, billing' },
-  { href: '/site/careers', label: 'Careers', hint: 'Join the team' },
-  { href: '/site/contact', label: 'Contact', hint: 'Talk to us' },
+  { href: '/site/privacy', label: 'Privacy Policy', hint: 'How we handle data' },
+  { href: '/site/terms', label: 'Terms of Service', hint: 'Working with us' },
 ]
 
 // ─── Header ──────────────────────────────────────────────────────────────────
 
 export function SiteHeader({ active }: { active?: string }) {
   const [open, setOpen] = React.useState(false)
+  const pathname = usePathname()
+  const current = active ?? pathname
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-6 px-6 py-3.5">
-        <Link href="/site" className="flex items-center gap-3" onClick={() => setOpen(false)}>
+        <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
           <AloLabsLogo size={34} tagline={false} title="ALO Labs" />
         </Link>
         <nav className="hidden items-center gap-1 lg:flex">
@@ -65,7 +72,7 @@ export function SiteHeader({ active }: { active?: string }) {
               key={item.href}
               href={item.href}
               className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
-                active === item.href
+                current === item.href
                   ? 'text-slate-900'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
@@ -99,13 +106,13 @@ export function SiteHeader({ active }: { active?: string }) {
         </nav>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="hidden gap-1.5 sm:flex" asChild>
-            <Link href="/site/contact">
-              <MessageSquare className="size-3.5" /> Talk to us
+            <Link href="/login">
+              Client Login
             </Link>
           </Button>
           <Button size="sm" className="gap-1.5" style={{ background: BRAND.orange }} asChild>
-            <Link href="/portal">
-              Client portal <ArrowRight className="size-3.5" />
+            <Link href="/site/contact">
+              Start a Project <ArrowRight className="size-3.5" />
             </Link>
           </Button>
           <button
@@ -271,7 +278,7 @@ export function StatCard({
 export function Pill({ children, tone = 'blue' }: { children: React.ReactNode; tone?: 'blue' | 'orange' | 'plain' }) {
   const style =
     tone === 'orange'
-      ? { background: 'rgba(255,106,0,0.10)', color: BRAND.orange }
+      ? { background: 'rgba(232,80,26,0.10)', color: BRAND.orange }
       : tone === 'blue'
         ? { background: BRAND.tint, color: BRAND.blue }
         : { background: '#FFFFFF', color: BRAND.gray, border: `1px solid ${BRAND.grayLine}` }
@@ -380,8 +387,8 @@ export function FaqList({ items }: { items: FaqItem[] }) {
 // ─── CTA band ────────────────────────────────────────────────────────────────
 
 export function CtaBand({
-  title = 'Ready to hand us the busywork?',
-  lead = 'Tell us what you need. We scope it, deliver it and keep you informed in your client portal — from request to approved deliverable.',
+  title = 'Ready to start a project?',
+  lead = 'Tell us about your business and what you want to achieve. We scope the work, agree it with you and deliver it with an accountable team — from first conversation to launch and beyond.',
 }: {
   title?: string
   lead?: string
@@ -426,31 +433,36 @@ export function CtaBand({
 
 const FOOTER_COLUMNS: { title: string; items: NavItem[] }[] = [
   {
-    title: 'Services',
+    title: 'Solutions',
     items: [
-      { href: '/site/solutions', label: 'All services' },
-      { href: '/site/solutions#automation', label: 'AI automation' },
-      { href: '/site/solutions#crm', label: 'CRM & marketing' },
-      { href: '/site/solutions#education', label: 'Education operations' },
-      { href: '/site/contact', label: 'Request a quote' },
+      { href: '/site/solutions', label: 'All solutions' },
+      { href: '/site/services', label: 'Services' },
+      { href: '/site/how-we-work', label: 'How we work' },
+      { href: '/site/projects', label: 'Projects' },
     ],
   },
   {
     title: 'Clients',
     items: [
+      { href: '/login', label: 'Client Login' },
       { href: '/portal', label: 'Client portal' },
-      { href: '/login', label: 'Sign in' },
-      { href: '/site/contact', label: 'Request a service' },
+      { href: '/site/contact', label: 'Start a project' },
     ],
   },
   {
     title: 'Company',
     items: [
       { href: '/site/about', label: 'About ALO Labs' },
-      { href: '/site/about#values', label: 'How we work' },
       { href: '/site/careers', label: 'Careers' },
       { href: '/site/contact', label: 'Contact' },
       { href: '/site/contact#offices', label: 'Offices' },
+    ],
+  },
+  {
+    title: 'Legal',
+    items: [
+      { href: '/site/privacy', label: 'Privacy Policy' },
+      { href: '/site/terms', label: 'Terms of Service' },
     ],
   },
 ]
@@ -504,9 +516,13 @@ export function SiteFooter() {
           </p>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">
-              © {new Date().getFullYear()} {COMPANY.legalName} · {COMPANY.product} · {COMPANY.tagline}
+              © {new Date().getFullYear()} {COMPANY.legalName} · {COMPANY.tagline}
             </p>
-            <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">{COMPANY.promiseShort}</p>
+            <p className="flex gap-4 font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">
+              <Link href="/site/privacy" className="hover:text-white/80">Privacy</Link>
+              <Link href="/site/terms" className="hover:text-white/80">Terms</Link>
+              <span>{COMPANY.promiseShort}</span>
+            </p>
           </div>
         </div>
       </div>
@@ -559,7 +575,7 @@ export function ContactForm({
   }
 
   const field =
-    'w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[13px] text-slate-900 outline-none transition-colors focus:border-slate-400 focus:shadow-[0_0_0_3px_rgba(255,106,0,0.18)]'
+    'w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[13px] text-slate-900 outline-none transition-colors focus:border-slate-400 focus:shadow-[0_0_0_3px_rgba(232,80,26,0.18)]'
   const fieldShell = { ['--field-accent']: BRAND.orange } as React.CSSProperties
 
   return (
@@ -593,36 +609,71 @@ export function ContactForm({
         </label>
       </div>
       {!compact ? (
-        <label className="block">
-          <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: BRAND.gray }}>
-            What can we help with?
-          </span>
-          <select name="topic" className={field} defaultValue="General enquiry">
-            {[
-              'General enquiry',
-              'Service enquiry',
-              'AI automation project',
-              'CRM & marketing',
-              'Education operations',
-              'Partnership',
-              'Press & media',
-              'Careers',
-            ].map((option) => (
-              <option key={option}>{option}</option>
-            ))}
-          </select>
-        </label>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: BRAND.gray }}>
+                Project type
+              </span>
+              <select name="topic" className={field} defaultValue="General enquiry">
+                {[
+                  'General enquiry',
+                  'AI Solutions & Automation',
+                  'Custom Software Development',
+                  'Web Application / Platform',
+                  'Mobile Application',
+                  'Business Systems & CRM',
+                  'Workflow Automation & Integrations',
+                  'Client Portal / SaaS Platform',
+                  'Cloud & Infrastructure',
+                  'AI-assisted Customer Experience',
+                  'Partnership',
+                  'Press & media',
+                  'Careers',
+                ].map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: BRAND.gray }}>
+                Budget range <span className="normal-case tracking-normal" style={{ color: BRAND.graySoft }}>(optional)</span>
+              </span>
+              <select name="budget" className={field} defaultValue="Not decided yet">
+                {[
+                  'Not decided yet',
+                  'Under $5,000',
+                  '$5,000 – $25,000',
+                  '$25,000 – $100,000',
+                  '$100,000+',
+                ].map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="block">
+            <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: BRAND.gray }}>
+              Preferred contact method
+            </span>
+            <select name="contactMethod" className={field} defaultValue="Email">
+              {['Email', 'Phone', 'Video call'].map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+        </>
       ) : null}
       <label className="block">
         <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: BRAND.gray }}>
-          Message
+          Project description
         </span>
         <textarea
           required
           name="message"
           rows={compact ? 4 : 6}
           className={field}
-          placeholder="Tell us about your team and what you would like help with."
+          placeholder="Tell us about your business and what you would like to achieve."
         />
       </label>
       <input type="hidden" name="subject" value={subject} />
@@ -635,6 +686,16 @@ export function ContactForm({
         aria-hidden="true"
         className="hidden"
       />
+      <label className="flex items-start gap-2.5 text-[11px] leading-relaxed" style={{ color: BRAND.gray }}>
+        <input required type="checkbox" name="consent" value="yes" className="mt-0.5 size-3.5 accent-[#E8501A]" />
+        <span>
+          I agree that ALO Labs may use these details to respond to my enquiry, in line with the{' '}
+          <Link href="/site/privacy" className="underline" style={{ color: BRAND.blue }}>
+            Privacy Policy
+          </Link>
+          .
+        </span>
+      </label>
       <div className="flex flex-wrap items-center gap-4">
         <Button type="submit" size="lg" className="gap-2" style={{ background: BRAND.orange }} disabled={state === 'sending'}>
           {state === 'sending' ? 'Sending…' : 'Send message'} <ArrowRight className="size-4" />

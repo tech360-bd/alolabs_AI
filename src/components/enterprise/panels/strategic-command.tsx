@@ -99,15 +99,15 @@ function VisionCard() {
   }, [])
 
   const items = [
-    { label: 'Departments', value: stats ? stats.departments.toLocaleString() : '—', icon: Building2, color: 'text-[#003ABC]' },
-    { label: 'AI Employees', value: stats ? stats.agents.toLocaleString() : '—', icon: Bot, color: 'text-[#FF6A00]' },
+    { label: 'Departments', value: stats ? stats.departments.toLocaleString() : '—', icon: Building2, color: 'text-[#0066CC]' },
+    { label: 'AI Employees', value: stats ? stats.agents.toLocaleString() : '—', icon: Bot, color: 'text-[#E8501A]' },
     { label: 'Skills', value: stats ? stats.skills.toLocaleString() : '—', icon: Zap, color: 'text-emerald-600' },
     { label: 'Prompts', value: stats ? stats.prompts.toLocaleString() : '—', icon: Globe, color: 'text-purple-600' },
   ]
 
   return (
     <Card className="border-none shadow-lg overflow-hidden">
-      <div className="bg-gradient-to-r from-[#003ABC] to-[#0055D4] p-6 text-white">
+      <div className="bg-gradient-to-r from-[#0066CC] to-[#0055D4] p-6 text-white">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-3">
@@ -124,7 +124,7 @@ function VisionCard() {
               accessible to everyone, everywhere, in every language."
             </p>
             <div className="flex items-center gap-2 mt-3">
-              <Badge variant="secondary" className="bg-[#FF6A00] text-white border-0 text-xs font-semibold">
+              <Badge variant="secondary" className="bg-[#E8501A] text-white border-0 text-xs font-semibold">
                 Founder: Al Aminn
               </Badge>
               <Badge variant="secondary" className="bg-white/20 text-white border-0 text-xs">
@@ -152,8 +152,8 @@ function VisionCard() {
 // ─── Mobile Apps Status ───────────────────────────────────────────────────────
 function MobileAppsSection({ data, loading }: { data: MobileAppsData | null; loading: boolean }) {
   const appIcons = [
-    { icon: Users, color: 'bg-[#003ABC]', label: 'Customer' },
-    { icon: BarChart3, color: 'bg-[#FF6A00]', label: 'Admin' },
+    { icon: Users, color: 'bg-[#0066CC]', label: 'Customer' },
+    { icon: BarChart3, color: 'bg-[#E8501A]', label: 'Admin' },
     { icon: Bot, color: 'bg-emerald-600', label: 'Agent Mgmt' },
     { icon: DollarSign, color: 'bg-purple-600', label: 'Reseller' },
   ]
@@ -180,7 +180,7 @@ function MobileAppsSection({ data, loading }: { data: MobileAppsData | null; loa
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Smartphone className="h-5 w-5 text-[#FF6A00]" />
+            <Smartphone className="h-5 w-5 text-[#E8501A]" />
             <CardTitle className="text-base">4 Mobile Applications</CardTitle>
           </div>
           <Badge variant="outline" className="text-xs">Flutter • iOS + Android</Badge>
@@ -268,7 +268,7 @@ function DCCSection({ data, loading }: { data: DCCData | null; loading: boolean 
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-[#003ABC]" />
+            <ShieldCheck className="h-5 w-5 text-[#0066CC]" />
             <CardTitle className="text-base">DCC Certification Dashboard</CardTitle>
           </div>
           <div className="flex items-center gap-2">
@@ -286,14 +286,14 @@ function DCCSection({ data, loading }: { data: DCCData | null; loading: boolean 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
           <Card className="border-dashed bg-gradient-to-br from-blue-50 to-transparent dark:from-blue-950/20 dark:to-transparent">
             <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-[#003ABC]">{overallScore}%</p>
+              <p className="text-3xl font-bold text-[#0066CC]">{overallScore}%</p>
               <p className="text-xs text-slate-500 mt-1">Overall DCC Score</p>
               <p className="text-[10px] text-slate-400 mt-0.5">Target: 100% for certification</p>
             </CardContent>
           </Card>
           <Card className="border-dashed bg-gradient-to-br from-orange-50 to-transparent dark:from-orange-950/20 dark:to-transparent">
             <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-[#FF6A00]">{data?.passingCriteria ?? 0}</p>
+              <p className="text-3xl font-bold text-[#E8501A]">{data?.passingCriteria ?? 0}</p>
               <p className="text-xs text-slate-500 mt-1">Criteria Near Passing (≥90%)</p>
               <p className="text-[10px] text-slate-400 mt-0.5">of {data?.totalCriteria ?? 9} total criteria</p>
             </CardContent>
@@ -413,7 +413,7 @@ function RevenueSection() {
               {newStreams.map((s) => (
                 <div key={s.name} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50">
                   <div className="flex items-center gap-2">
-                    <Zap className="h-3.5 w-3.5 text-[#FF6A00]" />
+                    <Zap className="h-3.5 w-3.5 text-[#E8501A]" />
                     <span className="text-sm font-medium">{s.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -427,9 +427,9 @@ function RevenueSection() {
         </div>
         <Separator className="my-4" />
         <div className="flex flex-wrap gap-3 text-xs">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#003ABC]/5 dark:bg-[#003ABC]/10">
-            <Target className="h-3.5 w-3.5 text-[#003ABC]" />
-            <span className="text-slate-600 dark:text-slate-300">Year 1 ROI: <strong className="text-[#003ABC]">5-10x</strong></span>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0066CC]/5 dark:bg-[#0066CC]/10">
+            <Target className="h-3.5 w-3.5 text-[#0066CC]" />
+            <span className="text-slate-600 dark:text-slate-300">Year 1 ROI: <strong className="text-[#0066CC]">5-10x</strong></span>
           </div>
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20">
             <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
@@ -448,17 +448,17 @@ function TimelineSection() {
       month: 'Month 1',
       title: 'Foundation',
       items: ['100 departments deployed', 'Customer App MVP', 'Admin App MVP', '500+ core AI agents', 'DCC framework established'],
-      color: 'border-[#003ABC]',
-      bg: 'bg-[#003ABC]/5 dark:bg-[#003ABC]/10',
-      dot: 'bg-[#003ABC]',
+      color: 'border-[#0066CC]',
+      bg: 'bg-[#0066CC]/5 dark:bg-[#0066CC]/10',
+      dot: 'bg-[#0066CC]',
     },
     {
       month: 'Month 3',
       title: 'Growth',
       items: ['2,000 agents operational', 'All 4 apps in beta', 'AI service revenue active', 'First reseller partners', 'DCC: 50+ departments'],
-      color: 'border-[#FF6A00]',
-      bg: 'bg-[#FF6A00]/5 dark:bg-[#FF6A00]/10',
-      dot: 'bg-[#FF6A00]',
+      color: 'border-[#E8501A]',
+      bg: 'bg-[#E8501A]/5 dark:bg-[#E8501A]/10',
+      dot: 'bg-[#E8501A]',
     },
     {
       month: 'Month 6',
@@ -601,8 +601,8 @@ function RiskSection() {
 // ─── Quick Actions + KPIs ─────────────────────────────────────────────────────
 function QuickActionsSection({ onNavigate }: { onNavigate?: (view: EnterpriseView) => void }) {
   const actions = [
-    { label: 'View Departments', icon: Building2, view: 'department-hub' as EnterpriseView, color: 'text-[#003ABC] bg-[#003ABC]/10' },
-    { label: 'View AI Agents', icon: Bot, view: 'ai-employees' as EnterpriseView, color: 'text-[#FF6A00] bg-[#FF6A00]/10' },
+    { label: 'View Departments', icon: Building2, view: 'department-hub' as EnterpriseView, color: 'text-[#0066CC] bg-[#0066CC]/10' },
+    { label: 'View AI Agents', icon: Bot, view: 'ai-employees' as EnterpriseView, color: 'text-[#E8501A] bg-[#E8501A]/10' },
     { label: 'Run Audit', icon: ShieldCheck, view: 'audit-engine' as EnterpriseView, color: 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30' },
     { label: 'View SOPs', icon: ClipboardList, view: 'sop-system' as EnterpriseView, color: 'text-purple-600 bg-purple-100 dark:bg-purple-900/30' },
   ]
@@ -611,7 +611,7 @@ function QuickActionsSection({ onNavigate }: { onNavigate?: (view: EnterpriseVie
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
-          <Zap className="h-5 w-5 text-[#FF6A00]" />
+          <Zap className="h-5 w-5 text-[#E8501A]" />
           <CardTitle className="text-base">Quick Actions</CardTitle>
         </div>
       </CardHeader>
@@ -640,9 +640,9 @@ function QuickActionsSection({ onNavigate }: { onNavigate?: (view: EnterpriseVie
 function ExecutiveKPIs() {
   const kpis = [
     { label: 'Revenue Growth', value: '5-10x', sub: '12-month target', icon: TrendingUp, color: 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30' },
-    { label: 'Customer Base', value: '10x', sub: '12-month target', icon: Users, color: 'text-[#003ABC] bg-[#003ABC]/10' },
+    { label: 'Customer Base', value: '10x', sub: '12-month target', icon: Users, color: 'text-[#0066CC] bg-[#0066CC]/10' },
     { label: 'Uptime SLA', value: '99.9%', sub: 'Target', icon: Activity, color: 'text-purple-600 bg-purple-100 dark:bg-purple-900/30' },
-    { label: 'NPS Score', value: '≥70', sub: 'Target', icon: Target, color: 'text-[#FF6A00] bg-[#FF6A00]/10' },
+    { label: 'NPS Score', value: '≥70', sub: 'Target', icon: Target, color: 'text-[#E8501A] bg-[#E8501A]/10' },
     { label: 'AI Response', value: '<2s', sub: 'Target latency', icon: Zap, color: 'text-amber-600 bg-amber-100 dark:bg-amber-900/30' },
     { label: 'DCC Criteria', value: '9/9', sub: 'All ≥90% by M6', icon: ShieldCheck, color: 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30' },
   ]
@@ -651,7 +651,7 @@ function ExecutiveKPIs() {
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-[#003ABC]" />
+          <BarChart3 className="h-5 w-5 text-[#0066CC]" />
           <CardTitle className="text-base">Executive KPIs</CardTitle>
         </div>
       </CardHeader>

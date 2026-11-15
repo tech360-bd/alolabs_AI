@@ -98,8 +98,8 @@ export default function GovernanceEngine() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF6A00]/10">
-          <Landmark className="h-5 w-5 text-[#FF6A00]" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#E8501A]/10">
+          <Landmark className="h-5 w-5 text-[#E8501A]" />
         </div>
         <div>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Governance Engine</h2>
@@ -109,8 +109,8 @@ export default function GovernanceEngine() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Total Policies', value: stats?.total.toLocaleString() ?? '—', icon: Scale, color: 'text-[#003ABC]' },
-          { label: 'Active Enforcements', value: enforcements.toLocaleString(), icon: Shield, color: 'text-[#FF6A00]' },
+          { label: 'Total Policies', value: stats?.total.toLocaleString() ?? '—', icon: Scale, color: 'text-[#0066CC]' },
+          { label: 'Active Enforcements', value: enforcements.toLocaleString(), icon: Shield, color: 'text-[#E8501A]' },
           { label: 'Escalations', value: escalations.toLocaleString(), icon: AlertTriangle, color: 'text-amber-600' },
           { label: 'Compliance Rate', value: `${complianceRate}%`, icon: CheckCircle2, color: 'text-emerald-600' },
         ].map((s, i) => (
@@ -181,7 +181,7 @@ export default function GovernanceEngine() {
                 {Object.entries(chartData).map(([day, count]) => (
                   <div key={day} className="flex flex-1 flex-col items-center gap-1">
                     <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{count}</span>
-                    <div className="w-full rounded-t-md bg-[#FF6A00] transition-all" style={{ height: `${Math.max((count / maxChart) * 160, 4)}px` }} />
+                    <div className="w-full rounded-t-md bg-[#E8501A] transition-all" style={{ height: `${Math.max((count / maxChart) * 160, 4)}px` }} />
                     <span className="text-xs text-slate-400">{day}</span>
                   </div>
                 ))}

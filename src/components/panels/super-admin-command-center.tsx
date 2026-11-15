@@ -181,7 +181,7 @@ export default function SuperAdminCommandCenter() {
     switch (status) {
       case 'completed': return <CheckCircle2 className="w-3 h-3 text-emerald-600" />
       case 'failed': return <XCircle className="w-3 h-3 text-red-600" />
-      case 'processing': return <Loader2 className="w-3 h-3 text-[#003ABC] animate-spin" />
+      case 'processing': return <Loader2 className="w-3 h-3 text-[#0066CC] animate-spin" />
       default: return <Clock className="w-3 h-3 text-[#64748B]" />
     }
   }
@@ -202,11 +202,11 @@ export default function SuperAdminCommandCenter() {
       {/* System Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         {[
-          { label: 'Agents', value: overview?.agents, icon: Bot, color: 'text-[#003ABC]' },
-          { label: 'Depts', value: overview?.departments, icon: Server, color: 'text-[#FF6A00]' },
+          { label: 'Agents', value: overview?.agents, icon: Bot, color: 'text-[#0066CC]' },
+          { label: 'Depts', value: overview?.departments, icon: Server, color: 'text-[#E8501A]' },
           { label: 'Workflows', value: overview?.workflows, icon: Zap, color: 'text-emerald-600' },
-          { label: 'Skills', value: overview?.skills, icon: Brain, color: 'text-[#003ABC]' },
-          { label: 'Companies', value: overview?.companies, icon: Building2, color: 'text-[#003ABC]' },
+          { label: 'Skills', value: overview?.skills, icon: Brain, color: 'text-[#0066CC]' },
+          { label: 'Companies', value: overview?.companies, icon: Building2, color: 'text-[#0066CC]' },
           { label: 'Tasks', value: overview?.tasks, icon: Activity, color: 'text-amber-600' },
           { label: 'Approvals', value: overview?.pendingApprovals, icon: AlertTriangle, color: 'text-red-600' },
           { label: 'Commands', value: overview?.commandsIssued, icon: Terminal, color: 'text-[#1E293B]' },
@@ -229,10 +229,10 @@ export default function SuperAdminCommandCenter() {
           {/* Command Input */}
           <div className="bg-white rounded-xl border border-[#E2E8F0] p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Terminal className="w-4 h-4 text-[#003ABC]" />
+              <Terminal className="w-4 h-4 text-[#0066CC]" />
               <span className="text-xs font-semibold text-[#1E293B]">Command Terminal</span>
               {executing && (
-                <Badge className="bg-[#003ABC]/10 text-[#003ABC] text-[10px] py-0 ml-auto">
+                <Badge className="bg-[#0066CC]/10 text-[#0066CC] text-[10px] py-0 ml-auto">
                   <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Executing...
                 </Badge>
               )}
@@ -272,20 +272,20 @@ export default function SuperAdminCommandCenter() {
 
             {/* Input line */}
             <div className="flex items-center gap-2">
-              <span className="text-[#003ABC] font-mono text-sm flex-shrink-0">$</span>
+              <span className="text-[#0066CC] font-mono text-sm flex-shrink-0">$</span>
               <Input
                 ref={inputRef}
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') executeCommand(command) }}
                 placeholder="Type a command... (e.g., score all leads for ALO Education)"
-                className="flex-1 h-10 bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] font-mono text-sm focus:border-[#003ABC]/50"
+                className="flex-1 h-10 bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B] font-mono text-sm focus:border-[#0066CC]/50"
                 disabled={executing}
               />
               <Button
                 onClick={() => executeCommand(command)}
                 disabled={!command.trim() || executing}
-                className="h-10 bg-[#FF6A00]/10 text-[#003ABC] hover:bg-[#FF6A00]/10 border border-[#FF6A00]/30"
+                className="h-10 bg-[#E8501A]/10 text-[#0066CC] hover:bg-[#E8501A]/10 border border-[#E8501A]/30"
               >
                 {executing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
@@ -302,7 +302,7 @@ export default function SuperAdminCommandCenter() {
                       key={qc.label}
                       variant="outline"
                       size="sm"
-                      className={`h-7 text-[11px] gap-1 ${qc.danger ? 'border-red-600/30 text-red-600 hover:bg-red-600/10' : 'border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC] hover:bg-gray-50'}`}
+                      className={`h-7 text-[11px] gap-1 ${qc.danger ? 'border-red-600/30 text-red-600 hover:bg-red-600/10' : 'border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC] hover:bg-gray-50'}`}
                       onClick={() => handleQuickCommand(qc.cmd, qc.danger)}
                     >
                       <Icon className="w-3 h-3" />
@@ -318,7 +318,7 @@ export default function SuperAdminCommandCenter() {
           <div className="bg-white rounded-xl border border-[#E2E8F0] p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-[#FF6A00]" />
+                <Activity className="w-4 h-4 text-[#E8501A]" />
                 <span className="text-xs font-semibold text-[#1E293B]">Command Log</span>
               </div>
               <Button
@@ -358,7 +358,7 @@ export default function SuperAdminCommandCenter() {
           {/* Company CRM Status */}
           <div className="bg-white rounded-xl border border-[#E2E8F0] p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Building2 className="w-4 h-4 text-[#FF6A00]" />
+              <Building2 className="w-4 h-4 text-[#E8501A]" />
               <span className="text-xs font-semibold text-[#1E293B]">Company CRM Status</span>
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -383,7 +383,7 @@ export default function SuperAdminCommandCenter() {
           {/* Recent Commands */}
           <div className="bg-white rounded-xl border border-[#E2E8F0] p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Terminal className="w-4 h-4 text-[#003ABC]" />
+              <Terminal className="w-4 h-4 text-[#0066CC]" />
               <span className="text-xs font-semibold text-[#1E293B]">Recent Commands</span>
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -410,14 +410,14 @@ export default function SuperAdminCommandCenter() {
           {/* Top Departments */}
           <div className="bg-white rounded-xl border border-[#E2E8F0] p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Bot className="w-4 h-4 text-[#003ABC]" />
+              <Bot className="w-4 h-4 text-[#0066CC]" />
               <span className="text-xs font-semibold text-[#1E293B]">Top Departments</span>
             </div>
             <div className="space-y-1.5 max-h-40 overflow-y-auto">
               {data?.topDepartments.map((dept) => (
                 <div key={dept.id} className="flex items-center justify-between py-1 px-2 rounded bg-[#F8FAFC]">
                   <span className="text-xs text-[#1E293B] truncate">{dept.name}</span>
-                  <span className="text-xs text-[#003ABC] font-medium ml-2">{dept.agentCount}</span>
+                  <span className="text-xs text-[#0066CC] font-medium ml-2">{dept.agentCount}</span>
                 </div>
               ))}
             </div>
@@ -446,7 +446,7 @@ export default function SuperAdminCommandCenter() {
       {/* Architecture Diagram */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] p-5">
         <h3 className="text-sm font-semibold text-[#1E293B] mb-4 flex items-center gap-2">
-          <Server className="w-4 h-4 text-[#003ABC]" />
+          <Server className="w-4 h-4 text-[#0066CC]" />
           How It Works: Agent Hub → Sister Company CRM Architecture
         </h3>
         <div className="space-y-4">
@@ -458,19 +458,19 @@ export default function SuperAdminCommandCenter() {
                 <span className="text-red-600 font-semibold">Super Admin</span>
                 <p className="text-[#64748B] text-[9px] mt-0.5">You are here</p>
               </div>
-              <ChevronRight className="w-5 h-5 text-[#FF6A00] mx-1" />
-              <div className="px-3 py-2 rounded-lg bg-[#FF6A00]/10 border border-[#FF6A00]/30 text-center">
-                <Terminal className="w-4 h-4 mx-auto mb-1 text-[#003ABC]" />
-                <span className="text-[#003ABC] font-semibold">Command Center</span>
+              <ChevronRight className="w-5 h-5 text-[#E8501A] mx-1" />
+              <div className="px-3 py-2 rounded-lg bg-[#E8501A]/10 border border-[#E8501A]/30 text-center">
+                <Terminal className="w-4 h-4 mx-auto mb-1 text-[#0066CC]" />
+                <span className="text-[#0066CC] font-semibold">Command Center</span>
                 <p className="text-[#64748B] text-[9px] mt-0.5">Issues commands</p>
               </div>
-              <ChevronRight className="w-5 h-5 text-[#FF6A00] mx-1" />
-              <div className="px-3 py-2 rounded-lg bg-gray-50 border border-[#FF6A00]/30 text-center">
-                <Zap className="w-4 h-4 mx-auto mb-1 text-[#FF6A00]" />
-                <span className="text-[#FF6A00] font-semibold">Agent Hub</span>
+              <ChevronRight className="w-5 h-5 text-[#E8501A] mx-1" />
+              <div className="px-3 py-2 rounded-lg bg-gray-50 border border-[#E8501A]/30 text-center">
+                <Zap className="w-4 h-4 mx-auto mb-1 text-[#E8501A]" />
+                <span className="text-[#E8501A] font-semibold">Agent Hub</span>
                 <p className="text-[#64748B] text-[9px] mt-0.5">2000 AI Agents</p>
               </div>
-              <ChevronRight className="w-5 h-5 text-[#003ABC] mx-1" />
+              <ChevronRight className="w-5 h-5 text-[#0066CC] mx-1" />
               <div className="px-3 py-2 rounded-lg bg-emerald-600/10 border border-emerald-600/30 text-center">
                 <Globe className="w-4 h-4 mx-auto mb-1 text-emerald-600" />
                 <span className="text-emerald-600 font-semibold">Company CRM</span>
@@ -494,17 +494,17 @@ export default function SuperAdminCommandCenter() {
                 step: '2',
                 title: 'Hub Routes to Agents',
                 desc: 'The Command Center matches your command to workflows, detects the target department, and dispatches the right AI agents from the 2000-agent pool.',
-                color: 'text-[#003ABC]',
-                border: 'border-[#003ABC]/30',
-                bg: 'bg-[#003ABC]/5',
+                color: 'text-[#0066CC]',
+                border: 'border-[#0066CC]/30',
+                bg: 'bg-[#0066CC]/5',
               },
               {
                 step: '3',
                 title: 'Agents Process in CRM',
                 desc: 'Dispatched agents connect to the sister company CRM via REST API + WebSocket. They perform lead scoring, contact enrichment, deal prediction, and auto follow-ups.',
-                color: 'text-[#FF6A00]',
-                border: 'border-[#FF6A00]/30',
-                bg: 'bg-[#FF6A00]/5',
+                color: 'text-[#E8501A]',
+                border: 'border-[#E8501A]/30',
+                bg: 'bg-[#E8501A]/5',
               },
               {
                 step: '4',

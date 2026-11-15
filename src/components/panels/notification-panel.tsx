@@ -34,7 +34,7 @@ interface Notification {
 const typeConfig: Record<string, { icon: React.ElementType; color: string; bgColor: string; borderColor: string }> = {
   approval_required: { icon: CheckCircle, color: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
   security_alert: { icon: ShieldAlert, color: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
-  system_update: { icon: Info, color: 'text-[#003ABC]', bgColor: 'bg-[#003ABC]/5', borderColor: 'border-[#003ABC]/20' },
+  system_update: { icon: Info, color: 'text-[#0066CC]', bgColor: 'bg-[#0066CC]/5', borderColor: 'border-[#0066CC]/20' },
   job_completed: { icon: CheckCircle, color: 'text-emerald-600', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200' },
   agent_alert: { icon: Activity, color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
   usage_warning: { icon: AlertTriangle, color: 'text-yellow-600', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-200' },
@@ -97,7 +97,7 @@ function NotificationCard({ notification, onMarkRead }: { notification: Notifica
         <p className="text-[10px] text-[#94A3B8] mt-1">{timeAgo(notification.createdAt)}</p>
       </div>
       {!notification.read && (
-        <div className="h-2.5 w-2.5 rounded-full bg-[#FF6A00] flex-shrink-0 mt-1.5" />
+        <div className="h-2.5 w-2.5 rounded-full bg-[#E8501A] flex-shrink-0 mt-1.5" />
       )}
     </div>
   )
@@ -166,8 +166,8 @@ export default function NotificationPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <Bell className="h-5 w-5 text-[#003ABC]" />
+          <div className="h-10 w-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <Bell className="h-5 w-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1E293B]">Notification Center</h2>
@@ -182,7 +182,7 @@ export default function NotificationPanel() {
             variant="outline"
             onClick={handleMarkAllRead}
             disabled={markingAll}
-            className="gap-1.5 text-xs border-[#E2E8F0] text-[#64748B] hover:text-[#003ABC] hover:border-[#003ABC]"
+            className="gap-1.5 text-xs border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC] hover:border-[#0066CC]"
           >
             {markingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
             Mark All Read
@@ -193,9 +193,9 @@ export default function NotificationPanel() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Unread', value: notifications.filter((n) => !n.read).length, icon: BellRing, color: 'text-[#FF6A00]', bg: 'bg-[#FF6A00]/10' },
+          { label: 'Unread', value: notifications.filter((n) => !n.read).length, icon: BellRing, color: 'text-[#E8501A]', bg: 'bg-[#E8501A]/10' },
           { label: 'Alerts', value: notifications.filter((n) => ['security_alert', 'usage_warning', 'agent_alert'].includes(n.type)).length, icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-50' },
-          { label: 'System', value: notifications.filter((n) => n.type === 'system_update').length, icon: Info, color: 'text-[#003ABC]', bg: 'bg-[#003ABC]/10' },
+          { label: 'System', value: notifications.filter((n) => n.type === 'system_update').length, icon: Info, color: 'text-[#0066CC]', bg: 'bg-[#0066CC]/10' },
           { label: 'Total', value: notifications.length, icon: Bell, color: 'text-[#64748B]', bg: 'bg-gray-100' },
         ].map((stat) => (
           <Card key={stat.label} className="border-[#E2E8F0]">
@@ -226,7 +226,7 @@ export default function NotificationPanel() {
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
-                  className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#003ABC] data-[state=active]:shadow-sm"
+                  className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#0066CC] data-[state=active]:shadow-sm"
                 >
                   {tab.label}
                 </TabsTrigger>

@@ -146,7 +146,7 @@ function getTypeBadgeColor(type: string) {
 function getStatusIcon(status: string) {
   switch (status) {
     case 'completed': return <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-    case 'processing': return <Loader2 className="w-3.5 h-3.5 text-[#003ABC] animate-spin" />
+    case 'processing': return <Loader2 className="w-3.5 h-3.5 text-[#0066CC] animate-spin" />
     case 'failed': return <AlertCircle className="w-3.5 h-3.5 text-red-500" />
     case 'queued': return <Clock className="w-3.5 h-3.5 text-amber-500" />
     default: return null
@@ -156,7 +156,7 @@ function getStatusIcon(status: string) {
 function getStatusBadge(status: string) {
   switch (status) {
     case 'completed': return <Badge className="bg-green-50 text-green-700 border-green-200 text-xs"><CheckCircle className="w-3 h-3 mr-1" />Completed</Badge>
-    case 'processing': return <Badge className="bg-blue-50 text-[#003ABC] border-blue-200 text-xs"><Loader2 className="w-3 h-3 mr-1 animate-spin" />Processing</Badge>
+    case 'processing': return <Badge className="bg-blue-50 text-[#0066CC] border-blue-200 text-xs"><Loader2 className="w-3 h-3 mr-1 animate-spin" />Processing</Badge>
     case 'failed': return <Badge className="bg-red-50 text-red-700 border-red-200 text-xs"><AlertCircle className="w-3 h-3 mr-1" />Failed</Badge>
     case 'queued': return <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs"><Clock className="w-3 h-3 mr-1" />Queued</Badge>
     default: return null
@@ -177,7 +177,7 @@ function getTemplateIcon(icon: string) {
 
 function getTemplateIconColor(category: string) {
   switch (category) {
-    case 'Reports': return 'bg-[#003ABC]/10 text-[#003ABC]'
+    case 'Reports': return 'bg-[#0066CC]/10 text-[#0066CC]'
     case 'Proposals': return 'bg-violet-50 text-violet-600'
     case 'Finance': return 'bg-green-50 text-green-600'
     case 'Legal': return 'bg-amber-50 text-amber-600'
@@ -249,8 +249,8 @@ export default function DocumentSystemPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#003ABC]/10 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-[#003ABC]" />
+          <div className="w-10 h-10 rounded-xl bg-[#0066CC]/10 flex items-center justify-center">
+            <FileText className="w-5 h-5 text-[#0066CC]" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-[#1E293B]">Document System</h2>
@@ -272,19 +272,19 @@ export default function DocumentSystemPanel() {
       {/* Tabs */}
       <Tabs defaultValue="documents" className="w-full">
         <TabsList className="bg-white border border-[#E2E8F0] rounded-xl p-1 h-auto">
-          <TabsTrigger value="documents" className="rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
+          <TabsTrigger value="documents" className="rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
             <FileText className="w-4 h-4" />
             Documents
           </TabsTrigger>
-          <TabsTrigger value="upload" className="rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
+          <TabsTrigger value="upload" className="rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
             <Upload className="w-4 h-4" />
             Upload
           </TabsTrigger>
-          <TabsTrigger value="processing" className="rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
+          <TabsTrigger value="processing" className="rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
             <Loader2 className="w-4 h-4" />
             Processing
           </TabsTrigger>
-          <TabsTrigger value="templates" className="rounded-lg data-[state=active]:bg-[#003ABC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
+          <TabsTrigger value="templates" className="rounded-lg data-[state=active]:bg-[#0066CC] data-[state=active]:text-white gap-2 px-4 py-2 text-sm">
             <LayoutTemplate className="w-4 h-4" />
             Templates
           </TabsTrigger>
@@ -360,10 +360,10 @@ export default function DocumentSystemPanel() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-[#64748B] hover:text-[#003ABC] hover:bg-[#003ABC]/10">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-[#64748B] hover:text-[#0066CC] hover:bg-[#0066CC]/10">
                                 <Eye className="w-3.5 h-3.5" />
                               </Button>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-[#64748B] hover:text-[#003ABC] hover:bg-[#003ABC]/10">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-[#64748B] hover:text-[#0066CC] hover:bg-[#0066CC]/10">
                                 <Download className="w-3.5 h-3.5" />
                               </Button>
                               <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-[#64748B] hover:text-red-500 hover:bg-red-50">
@@ -401,10 +401,10 @@ export default function DocumentSystemPanel() {
               <div
                 className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${
                   isDragOver
-                    ? 'border-[#003ABC] bg-[#003ABC]/5'
+                    ? 'border-[#0066CC] bg-[#0066CC]/5'
                     : isUploading
-                      ? 'border-[#003ABC]/50 bg-[#003ABC]/5'
-                      : 'border-[#E2E8F0] hover:border-[#003ABC]/50 hover:bg-[#F8FAFC]'
+                      ? 'border-[#0066CC]/50 bg-[#0066CC]/5'
+                      : 'border-[#E2E8F0] hover:border-[#0066CC]/50 hover:bg-[#F8FAFC]'
                 }`}
                 onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
                 onDragLeave={() => setIsDragOver(false)}
@@ -412,7 +412,7 @@ export default function DocumentSystemPanel() {
               >
                 {isUploading ? (
                   <div className="space-y-4 max-w-md mx-auto">
-                    <Loader2 className="w-12 h-12 mx-auto text-[#003ABC] animate-spin" />
+                    <Loader2 className="w-12 h-12 mx-auto text-[#0066CC] animate-spin" />
                     <p className="text-sm text-[#1E293B] font-medium">Uploading file...</p>
                     <div className="space-y-2">
                       <Progress value={Math.min(uploadProgress, 100)} className="h-2" />
@@ -421,19 +421,19 @@ export default function DocumentSystemPanel() {
                   </div>
                 ) : (
                   <>
-                    <div className="w-16 h-16 rounded-2xl bg-[#003ABC]/10 flex items-center justify-center mx-auto mb-4">
-                      <ArrowUpFromLine className="w-8 h-8 text-[#003ABC]" />
+                    <div className="w-16 h-16 rounded-2xl bg-[#0066CC]/10 flex items-center justify-center mx-auto mb-4">
+                      <ArrowUpFromLine className="w-8 h-8 text-[#0066CC]" />
                     </div>
                     <p className="text-sm text-[#1E293B] font-medium">
                       Drag and drop files here, or{' '}
-                      <span className="text-[#003ABC] cursor-pointer hover:underline">browse files</span>
+                      <span className="text-[#0066CC] cursor-pointer hover:underline">browse files</span>
                     </p>
                     <p className="text-xs text-[#64748B] mt-2">
                       Maximum file size: 500MB per file
                     </p>
                     <Button
                       onClick={handleUpload}
-                      className="mt-4 bg-[#003ABC] hover:bg-[#003ABC]/90 text-white"
+                      className="mt-4 bg-[#0066CC] hover:bg-[#0066CC]/90 text-white"
                     >
                       <Upload className="w-4 h-4 mr-2" />
                       Select Files
@@ -450,7 +450,7 @@ export default function DocumentSystemPanel() {
           {/* Processing stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: 'Processing', count: processing.filter((p) => p.status === 'processing').length, color: 'bg-blue-50 text-[#003ABC]', icon: Loader2 },
+              { label: 'Processing', count: processing.filter((p) => p.status === 'processing').length, color: 'bg-blue-50 text-[#0066CC]', icon: Loader2 },
               { label: 'Queued', count: processing.filter((p) => p.status === 'queued').length, color: 'bg-amber-50 text-amber-700', icon: Clock },
               { label: 'Completed', count: processing.filter((p) => p.status === 'completed').length, color: 'bg-green-50 text-green-700', icon: CheckCircle },
               { label: 'Failed', count: processing.filter((p) => p.status === 'failed').length, color: 'bg-red-50 text-red-700', icon: AlertCircle },
@@ -486,7 +486,7 @@ export default function DocumentSystemPanel() {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${job.status === 'processing' ? 'bg-blue-50' : job.status === 'completed' ? 'bg-green-50' : job.status === 'failed' ? 'bg-red-50' : 'bg-amber-50'}`}>
-                        {job.status === 'processing' && <Loader2 className="w-4 h-4 text-[#003ABC] animate-spin" />}
+                        {job.status === 'processing' && <Loader2 className="w-4 h-4 text-[#0066CC] animate-spin" />}
                         {job.status === 'completed' && <FileCheck className="w-4 h-4 text-green-600" />}
                         {job.status === 'failed' && <FileWarning className="w-4 h-4 text-red-600" />}
                         {job.status === 'queued' && <Clock className="w-4 h-4 text-amber-600" />}
@@ -525,7 +525,7 @@ export default function DocumentSystemPanel() {
                           : job.status === 'completed'
                             ? '[&>div]:bg-green-500'
                             : job.status === 'processing'
-                              ? '[&>div]:bg-[#003ABC]'
+                              ? '[&>div]:bg-[#0066CC]'
                               : '[&>div]:bg-amber-500'
                       }`}
                     />
@@ -575,7 +575,7 @@ export default function DocumentSystemPanel() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full text-xs h-8 border-[#E2E8F0] text-[#003ABC] hover:bg-[#003ABC]/10 group-hover:border-[#003ABC]/30"
+                      className="w-full text-xs h-8 border-[#E2E8F0] text-[#0066CC] hover:bg-[#0066CC]/10 group-hover:border-[#0066CC]/30"
                     >
                       <LayoutTemplate className="w-3 h-3 mr-1.5" />
                       Use Template
