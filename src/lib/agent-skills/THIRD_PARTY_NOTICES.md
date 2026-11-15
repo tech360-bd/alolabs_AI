@@ -17,9 +17,12 @@ Quarantined skills are cataloged for review but are never injected into the Comm
 - **anthropics/claude-plugins-official** @ `a7ba5b93db0c7c8d17f3f1d25853adca79598a1a` — Apache-2.0; 33 skills (25 advisory, 8 quarantined). License: `src/lib/agent-skills/licenses/claude-official-LICENSE.txt`.
 - **HKUDS/CLI-Anything** @ `34f519533bc175d2fe287ab8316b0dd99bb9cc43` — Apache-2.0; 151 skills (0 advisory, 151 quarantined). License: `src/lib/agent-skills/licenses/cli-anything-LICENSE.txt`.
 - **morluto/rea** @ `23de10bb2849cdce8ddbe70504aa7cc57de75a98` — MIT; 5 skills (0 advisory, 5 quarantined). License: `src/lib/agent-skills/licenses/rea-LICENSE.txt`.
-- **akitaonrails/ai-memory** @ `ac699b5696ccb37eaa901893fd16bb2b8ba59d90` — MIT; 7 skills (0 advisory, 7 quarantined). License: `src/lib/agent-skills/licenses/ai-memory-LICENSE.txt`.
-- **anomalyco/opencode** @ `ff90ed91607cabf420a369e9009539c1aa0932af` — MIT; 7 skills (0 advisory, 7 quarantined). License: `src/lib/agent-skills/licenses/opencode-LICENSE.txt`.
 - **ruvnet/ruflo** @ `5f3dacc54b7279e39b172d6027d7989791448e2e` — MIT; 3 skills (0 advisory, 3 quarantined). License: `src/lib/agent-skills/licenses/ruflo-LICENSE.txt`.
 - **cursor/plugins** @ `ae5650febf4320793844c12c4adaa937f417f8da` — MIT; 2 skills (0 advisory, 2 quarantined). License: `src/lib/agent-skills/licenses/cursor-create-plugin-LICENSE.txt`.
+- **anomalyco/opencode** @ `ff90ed91607cabf420a369e9009539c1aa0932af` — MIT; 7 skills (0 advisory, 7 quarantined). License: `src/lib/agent-skills/licenses/opencode-LICENSE.txt`.
+- **akitaonrails/ai-memory** @ `ac699b5696ccb37eaa901893fd16bb2b8ba59d90` — MIT; 7 skills (0 advisory, 7 quarantined). License: `src/lib/agent-skills/licenses/ai-memory-LICENSE.txt`.
+- **Anas-Khan93/ai-agency-agents** @ `1c06454211dc5ba301f278fb8c884ea2664ddf46` — MIT; 57 skills (57 advisory, 0 quarantined). License: `src/lib/agent-skills/licenses/open-agency-LICENSE.txt`.
+- **jnMetaCode/agency-orchestrator** @ `8fa9963e4f835efeb5e4481a861689dc99d5ce8d` — Apache-2.0; 1 skills (1 advisory, 0 quarantined). License: `src/lib/agent-skills/licenses/agency-orchestrator-LICENSE.txt`.
+- **msitarzewski/agency-agents** @ `8ae6164602c95ca78828b148b9052460ee426885` — MIT; 298 skills (286 advisory, 12 quarantined). License: `src/lib/agent-skills/licenses/agency-agents-LICENSE.txt`.
 
 Upstream license texts are preserved in `src/lib/agent-skills/licenses/`. Model weights, voice rights, SaaS terms, and executable plugin terms are separate and are not cleared by this import.
