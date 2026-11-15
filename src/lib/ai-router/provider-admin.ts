@@ -24,6 +24,7 @@ import {
 } from './provider-registry';
 import { ensureRouterSynced } from './index';
 import { isFieldEncryptionConfigured } from '../security/field-encryption';
+import { FREE_ONLY_PAID_PROVIDER_KINDS, isFreeOnlyMode } from './free-only-mode';
 import { defaultProviderBaseUrl, isLocalProviderKind, isTrustedLocalProviderConfig } from '../ai-provider-catalog';
 import { writeAuditEvent } from '../audit-events';
 
@@ -119,6 +120,26 @@ function requireKeyStorage(): void {
   }
 }
 
+/**
+ * FREE-ONLY MODE enforcement for provider creation/enablement.
+ *
+ * A paid provider (one whose upstream catalogue prices tokens above $0) cannot
+ * be added or re-enabled while the global ceiling is on. Only Super Admin can
+ * turn the ceiling off; that action is audited separately.
+ */
+function assertFreeOnlyAllows(kind: string, enabled: boolean | undefined, isLocal: boolean | undefined): void {
+  if (!isFreeOnlyMode()) return;
+  if (enabled === false) return;
+  if (isLocal === true) return;
+  if (!FREE_ONLY_PAID_PROVIDER_KINDS.has(kind)) return;
+  throw new ProviderAdminError(
+    `FREE-ONLY MODE is enabled: paid provider kind "${kind}" cannot be added or enabled. ` +
+      'Only local inference and verified zero-price providers are eligible. A Super Admin must disable FREE_ONLY_MODE first.',
+    403,
+    'FREE_ONLY_MODE_PAID_PROVIDER_BLOCKED',
+  );
+}
+
 function needsBaseUrl(provider: string): boolean {
   return provider !== 'zai-sdk' && !defaultProviderBaseUrl(provider);
 }
@@ -170,6 +191,7 @@ export async function createProviderConfig(actor: ProviderActor, input: Provider
   if (scope === 'global' && actor.role !== 'super_admin') {
     throw new ProviderAdminError('Only a super administrator can create shared providers', 403, 'FORBIDDEN');
   }
+  assertFreeOnlyAllows(input.provider, input.isEnabled, input.isLocal);
   if (needsBaseUrl(input.provider) && !input.baseUrl) {
     throw new ProviderAdminError(`${input.provider} requires a baseUrl`, 400, 'VALIDATION_ERROR');
   }

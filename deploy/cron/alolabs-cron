@@ -23,6 +23,12 @@
 # Every 30 minutes: security check
 */30 * * * * root /opt/alolabs/agent-hub/deploy/scripts/security-check.sh --json --quiet > /opt/alolabs/agent-hub/logs/security-last.json 2>&1 || true
 
+# ── Weekly Open-Source AI Discovery (read-only) ────────────────
+# Mondays 03:00 UTC: probe configured free providers' /models catalogues,
+# write docs/discovery/model-discovery-<date>.json and observability metrics.
+# This job NEVER activates, replaces or reroutes a production model.
+0 3 * * 1 alohub cd /opt/alolabs/agent-hub && /usr/bin/env node -e "require('tsx/cjs');require('./src/lib/ai-discovery/weekly-discovery').runWeeklyModelDiscovery().then(r=>console.log(JSON.stringify(r))).catch(e=>{console.error(e);process.exit(1)})" >> /opt/alolabs/agent-hub/logs/cron-model-discovery.log 2>&1
+
 # ── Database Maintenance ──────────────────────────────────────
 # Weekly database check and analyze (Sunday 3:00 AM)
 0 3 * * 0 root /opt/alolabs/agent-hub/deploy/scripts/database-check.sh --analyze --quiet >> /opt/alolabs/agent-hub/logs/cron-dbcheck.log 2>&1 || true

@@ -57,7 +57,10 @@
     "skills:sync": "node scripts/sync-agent-skills.mjs",
     "skills:verify": "node scripts/verify-agent-skills.mjs",
     "skills:install:dry-run": "npx tsx scripts/install-agent-skills.ts --dry-run",
-    "skills:install:apply": "npx tsx scripts/install-agent-skills.ts --apply"
+    "skills:install:apply": "npx tsx scripts/install-agent-skills.ts --apply",
+    "verify:workforce-execution": "tsx scripts/verify-workforce-execution.ts",
+    "verify:workforce-execution:run": "tsx scripts/verify-workforce-execution.ts --execute --json",
+    "verify:model-discovery": "tsx scripts/run-model-discovery.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",
