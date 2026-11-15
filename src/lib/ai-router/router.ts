@@ -19,6 +19,7 @@ import type {
   AICapability,
 } from './types';
 import { localOnlyEnabled } from './model-tiers';
+import { isFreeOnlyMode } from './free-only-mode';
 import {
   AIRouterError,
   AICircuitOpenError,
@@ -483,6 +484,10 @@ export class AIRouter {
     promptTokens: number,
     completionTokens: number,
   ): number | null {
+    // FREE-ONLY MODE: external AI inference spend is $0 by construction, so no
+    // monetary cost is ever attributed. Infrastructure/electricity/hosting are
+    // out of scope and are never represented here.
+    if (isFreeOnlyMode()) return 0;
     const model = entry?.provider.findModel(modelId);
     if (!model || model.costPerMillionTokens === undefined) return null;
     return ((promptTokens + completionTokens) / 1_000_000) * model.costPerMillionTokens;
@@ -989,13 +994,23 @@ export class AIRouter {
     const allowedNames = context.allowedProviderNames ? new Set(context.allowedProviderNames) : null;
     const allowedModels = context.allowedModelIds ? new Set(context.allowedModelIds) : null;
     const localOnly = localOnlyEnabled();
+    // FREE-ONLY MODE is a global ceiling above caller context. Even a caller
+    // that sets allowPaid=true cannot reach a paid provider while it is on.
+    const freeOnlyMode = isFreeOnlyMode();
 
     return Array.from(this.providers.values()).filter((entry) => {
       const isLocal = entry.isLocal;
       const explicitlyAllowed = allowedNames?.has(entry.provider.name) ?? false;
+      // A provider is "free-eligible" when its adapter enforces an upstream $0
+      // pricing gate. Verified-free eligibility for quota-based vendors is
+      // established upstream by multi-tenant-ai/policy.ts, which only passes
+      // providers whose AIProviderVerification row says verified_free.
+      const freeEligible = entry.provider.freeOnly;
       const permittedByBilling = isLocal ||
-        (context.allowPaid === true && explicitlyAllowed) ||
-        (context.allowVerifiedFree === true && (entry.provider.freeOnly || explicitlyAllowed));
+        (!freeOnlyMode && context.allowPaid === true && explicitlyAllowed) ||
+        (freeOnlyMode
+          ? (context.allowVerifiedFree !== false && freeEligible)
+          : (context.allowVerifiedFree === true && (freeEligible || explicitlyAllowed)));
       const hasAllowedModel = !allowedModels || entry.provider.supportedModels.some((model) => allowedModels.has(model.id));
 
       return !entry.health.circuitOpen &&

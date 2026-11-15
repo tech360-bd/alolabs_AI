@@ -205,6 +205,7 @@ export const DASHBOARD_NAV: DashboardNavGroup[] = [
     items: [
       { id: "api-gateway", label: "API Gateway", icon: Globe },
       { id: "ai-providers", label: "AI Providers", icon: Cpu },
+      { id: "model-control-center", label: "Model Control Center", icon: Cpu },
       { id: "super-admin-ai", label: "Super Admin AI Control Plane", icon: ShieldCheck },
       { id: "mcp-integration", label: "MCP Integration", icon: Server },
       { id: "data-lake", label: "Data Lake", icon: HardDrive },
@@ -581,6 +582,7 @@ export const DASHBOARD_PANELS: Record<string, () => Promise<{ default: Component
   "study-academic": () => import('@/components/pages/study-academic') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "super-admin": () => import('@/components/panels/super-commanding-chat') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "super-admin-ai": () => import('@/components/enterprise/panels/super-admin-ai-control-plane') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "model-control-center": () => import('@/components/enterprise/panels/model-control-center') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "super-command": () => import('@/components/panels/super-admin-command-center') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "superAdmin": () => import('@/components/panels/super-admin-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "system-architecture": () => import('@/components/enterprise/panels/system-architecture') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,

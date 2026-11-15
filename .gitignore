@@ -96,3 +96,6 @@ prisma/*.db-shm
 # Editor / backup copies
 *.bak
 *.bak2
+# Weekly open-source AI discovery reports (machine-generated, reviewed then
+# archived outside git if they need to be kept).
+docs/discovery/*.json
