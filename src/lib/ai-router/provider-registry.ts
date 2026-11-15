@@ -26,6 +26,7 @@ import { OpenRouterProvider } from './openrouter-provider';
 import { UnoRouterProvider } from './unorouter-provider';
 import { OllamaProvider } from './ollama-provider';
 import { ZAIProvider } from './zai-provider';
+import { freeProviderSpecsFromEnvironment } from './free-provider-specs';
 import { decryptField, encryptField, fingerprint, isEncryptedField } from '../security/field-encryption';
 import { defaultProviderBaseUrl, isLocalProviderKind, isTrustedLocalInferenceEndpoint, isTrustedLocalProviderConfig } from '../ai-provider-catalog';
 import {
@@ -329,6 +330,32 @@ export function providersFromEnvironment(env: NodeJS.ProcessEnv = process.env): 
   if (env.ZAI_SDK_ENABLED === 'true') {
     specs.push({ name: 'zai-sdk', source: 'ZAI_SDK_ENABLED=true', create: () => new ZAIProvider() });
   }
+
+  // Free hosted-inference vendors documented in .env.example and the curated
+  // free catalogue (Gemini, Cerebras, Cloudflare Workers AI, SambaNova,
+  // NVIDIA NIM, Hugging Face, GitHub Models). Additive: each spec is only
+  // produced when its credentials are present, and every one of them uses the
+  // same audited OpenAI-compatible adapter. See free-provider-specs.ts.
+  for (const spec of freeProviderSpecsFromEnvironment(env)) {
+    const routerName = openAICompatibleProviderName(spec.id);
+    if (specs.some((existing) => existing.name === routerName)) continue;
+    specs.push({
+      name: routerName,
+      source: spec.source,
+      isLocal: false,
+      create: () =>
+        new OpenAICompatibleProvider({
+          id: spec.id,
+          label: spec.label,
+          baseUrl: spec.baseUrl,
+          apiKey: spec.apiKey,
+          models: spec.models,
+          timeoutMs: spec.timeoutMs,
+          defaultContextLength: 32_768,
+        }),
+    });
+  }
+
   return specs;
 }
 

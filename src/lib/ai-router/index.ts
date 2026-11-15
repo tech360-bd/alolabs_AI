@@ -78,6 +78,24 @@ export {
   resetProviderRegistryState,
 } from './provider-registry';
 export type { ProviderConfigRecord, ProviderConfigView, ConfigurableProviderKind } from './provider-registry';
+export {
+  FREE_PROVIDER_CATALOGUES,
+  FREE_PROVIDER_BASE_URLS,
+  FREE_PROVIDER_ENV_MAP,
+  cloudflareWorkersAIBaseUrl,
+  freeProviderSpecsFromEnvironment,
+} from './free-provider-specs';
+export type { FreeProviderSpec, FreeProviderEnv } from './free-provider-specs';
+export {
+  isFreeOnlyMode,
+  freeOnlyModeDescription,
+  freeOnlyAllowsRouteKind,
+  effectivePaidBudgetUsd,
+  paidApiAllowedInMode,
+  autoBillingAllowedInMode,
+  assertPaidProviderAllowed,
+} from './free-only-mode';
+export type { FreeOnlyEnv } from './free-only-mode';
 export type { AIRequestContext, RoutingDecisionRecord, RoutingDecisionRecorder, RegisterProviderOptions } from './router';
 
 export const aiRouter = new AIRouter();

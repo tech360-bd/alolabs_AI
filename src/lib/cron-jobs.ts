@@ -222,6 +222,34 @@ scheduleJob(
   },
 );
 
+// Weekly open-source AI discovery (Phase 12). Read-only: probes the configured
+// free providers' /models catalogues, writes a reviewable JSON report plus
+// observability metrics, and never activates or replaces a production model.
+// Runs Mondays at 03:00 (see deploy/cron for the host-level equivalent).
+// NOTE ON SCHEDULING: `parseCronToInterval` supports fixed-interval expressions
+// only (it cannot express "Mondays at 03:00"), so the job is registered hourly
+// and gates itself to the weekly window below. The gate is derived from the
+// clock, not from a stored last-run flag, so it is correct after a restart and
+// cannot double-run within the same week.
+export const WEEKLY_DISCOVERY_HOUR_UTC = 3;
+export const WEEKLY_DISCOVERY_DAY_UTC = 1; // Monday
+
+export function isWeeklyDiscoveryWindow(now: Date = new Date()): boolean {
+  return now.getUTCDay() === WEEKLY_DISCOVERY_DAY_UTC && now.getUTCHours() === WEEKLY_DISCOVERY_HOUR_UTC;
+}
+
+scheduleJob(
+  'weekly-model-discovery',
+  '0 * * * *',
+  async () => {
+    if (!isWeeklyDiscoveryWindow()) {
+      return { skipped: true, reason: 'outside the weekly Monday 03:00 UTC discovery window' };
+    }
+    const { runWeeklyModelDiscovery } = await import('./ai-discovery/weekly-discovery');
+    return runWeeklyModelDiscovery();
+  },
+);
+
 scheduleJob(
   'health-check',
   '*/5 * * * *',

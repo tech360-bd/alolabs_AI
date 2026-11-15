@@ -1,0 +1,232 @@
+{
+  "generatedAt": "2026-11-15T17:38:10.294Z",
+  "tenant": "alo-labs",
+  "mode": "audit+execute",
+  "tenantId": "cmwhuafqy0000smnzo79ivid1",
+  "preconditions": {
+    "checks": [
+      {
+        "id": "departments.registered",
+        "pass": true,
+        "expected": 100,
+        "actual": 100
+      },
+      {
+        "id": "agents.registered",
+        "pass": true,
+        "expected": 2000,
+        "actual": 2000
+      },
+      {
+        "id": "agents.department_assigned",
+        "pass": true,
+        "expected": 2000,
+        "actual": 2000
+      },
+      {
+        "id": "agents.system_instructions",
+        "pass": true,
+        "expected": 2000,
+        "actual": 2000
+      },
+      {
+        "id": "agents.runtime_profile",
+        "pass": true,
+        "expected": 2000,
+        "actual": 2000
+      },
+      {
+        "id": "agents.tools_permitted",
+        "pass": true,
+        "expected": "2000 (allowlist or explicit empty)",
+        "actual": "1644 with tools + 356 least-privilege empty",
+        "detail": "Role catalogue declares 20 templates. Empty allowlists arise when a role's tool categories intersect nothing its department owns."
+      },
+      {
+        "id": "employees.identity",
+        "pass": true,
+        "expected": 2000,
+        "actual": 2000
+      },
+      {
+        "id": "employees.supervisor",
+        "pass": true,
+        "expected": "2000 (supervised or department director)",
+        "actual": "1900 supervised + 100 directors",
+        "detail": "A department director has no supervisor by design; every other employee must have one."
+      },
+      {
+        "id": "agents.model_assignment_resolvable",
+        "pass": true,
+        "expected": 2000,
+        "actual": 2000
+      },
+      {
+        "id": "employees.not_retired",
+        "pass": true,
+        "expected": 0,
+        "actual": 0,
+        "detail": "Retired identities would mean lost workforce records."
+      }
+    ],
+    "counts": {
+      "agents": 2000,
+      "withDepartment": 2000,
+      "withInstructions": 2000,
+      "withRuntimeProfile": 2000,
+      "withTools": 1644,
+      "withEmptyAllowlist": 356,
+      "rolesWithoutTools": [
+        "automation",
+        "execution",
+        "planner",
+        "productivity",
+        "report",
+        "specialist"
+      ],
+      "roleKeyWithoutTools": 0,
+      "withIdentity": 2000,
+      "activeIdentities": 0,
+      "provisionedIdentities": 2000,
+      "suspendedIdentities": 0,
+      "retiredIdentities": 0,
+      "withSupervisor": 1900,
+      "directorIdentities": 100,
+      "modelResolvable": 2000
+    }
+  },
+  "sample": [
+    {
+      "agentId": "AGENT-0001",
+      "name": "Executive Office Director Agent",
+      "departmentId": "cmwhuafr90001smnzwcox56sc",
+      "role": "manager",
+      "status": "provisioned",
+      "systemInstructions": "You are Executive Office Director Agent, a manager agent in the Executive Office department of ALO Labs.\nPurpose: Orchestrates the department: decomposes requests, assigns work to department agents and reports status.\nOperate only for tenant \"alo-labs\" and within department \"exec-office\". Never read or change another department's or tenant's data.\nUse only your approved tools. Actions in this list require explicit human approval before execution: external_send, payment, delete_record, publish_content, grant_access, change_permissions.\nCite the source for every factual claim. If evidence is missing or uncertain, say so instead of guessing.\nRecord each task outcome and any escalation in the execution history.",
+      "runtimeProfile": "{\"evaluationProfile\":{\"lastEvaluatedAt\":null,\"metrics\":[\"task_success_rate\",\"citation_coverage\",\"policy_violations\",\"latency_p95_ms\",\"delegation_accuracy\"],\"suiteId\":\"role:director\",\"thresholds\":{\"citation_coverage\":0.9,\"policy_violations\":0,\"task_success_rate\":0.8}},\"knowledgeAccess\":{\"crossDepartment\":false,\"departmentSlug\":\"exec-office\",\"scope\":\"department:exec-office\",\"sources\":[\"company_policies\",\"board_minutes\",\"financial_reports\"]},\"memoryPolicy\":{\"personalDataAllowed\":false,\"profile\":\"long\",\"retentionDays\":365,\"scope\":\"department_agent\"},\"modelConfig\":{\"fallbackPolicy\":\"balanced\",\"maxOutputTokens\":16000,\"pinnedModel\":null,\"policy\":\"reasoning\",\"temperature\":0.2},\"provisioning\":{\"managedBy\":\"workforce-plan\",\"planVersion\":\"workforce-plan@1\",\"sequence\":1},\"resourceLimits\":{\"dailyTokenBudget\":250000,\"maxConcurrentTasks\":2,\"maxTokensPerTask\":16000,\"timeoutSeconds\":600},\"roleKey\":\"director\",\"taskQueue\":{\"partitionKey\":\"agent:AGENT-0001\",\"queueName\":\"agentos\"}}",
+      "allowedTools": "[\"calculate\"]",
+      "modelPolicy": "reasoning",
+      "fallbackPolicy": "balanced",
+      "employeeKey": "AIEMP-0001",
+      "employeeStatus": "provisioned",
+      "supervisorEmployeeKey": null
+    },
+    {
+      "agentId": "AGENT-0002",
+      "name": "Executive Office Senior Specialist Agent",
+      "departmentId": "cmwhuafr90001smnzwcox56sc",
+      "role": "specialist",
+      "status": "provisioned",
+      "systemInstructions": "You are Executive Office Senior Specialist Agent, a specialist agent in the Executive Office department of ALO Labs.\nPurpose: Handles complex domain tasks that need deep department expertise.\nOperate only for tenant \"alo-labs\" and within department \"exec-office\". Never read or change another department's or tenant's data.\nUse only your approved tools. Actions in this list require explicit human approval before execution: external_send, payment, delete_record, publish_content, grant_access, change_permissions.\nCite the source for every factual claim. If evidence is missing or uncertain, say so instead of guessing.\nRecord each task outcome and any escalation in the execution history.",
+      "runtimeProfile": "{\"evaluationProfile\":{\"lastEvaluatedAt\":null,\"metrics\":[\"task_success_rate\",\"citation_coverage\",\"policy_violations\",\"latency_p95_ms\"],\"suiteId\":\"role:senior-specialist\",\"thresholds\":{\"citation_coverage\":0.9,\"policy_violations\":0,\"task_success_rate\":0.8}},\"knowledgeAccess\":{\"crossDepartment\":false,\"departmentSlug\":\"exec-office\",\"scope\":\"department:exec-office\",\"sources\":[\"company_policies\",\"board_minutes\",\"financial_reports\"]},\"memoryPolicy\":{\"personalDataAllowed\":false,\"profile\":\"standard\",\"retentionDays\":90,\"scope\":\"department_agent\"},\"modelConfig\":{\"fallbackPolicy\":\"fast\",\"maxOutputTokens\":8000,\"pinnedModel\":null,\"policy\":\"balanced\",\"temperature\":0.4},\"provisioning\":{\"managedBy\":\"workforce-plan\",\"planVersion\":\"workforce-plan@1\",\"sequence\":2},\"resourceLimits\":{\"dailyTokenBudget\":150000,\"maxConcurrentTasks\":2,\"maxTokensPerTask\":8000,\"timeoutSeconds\":300},\"roleKey\":\"senior-specialist\",\"taskQueue\":{\"partitionKey\":\"agent:AGENT-0002\",\"queueName\":\"agentos\"}}",
+      "allowedTools": "[\"calculate\"]",
+      "modelPolicy": "balanced",
+      "fallbackPolicy": "fast",
+      "employeeKey": "AIEMP-0002",
+      "employeeStatus": "provisioned",
+      "supervisorEmployeeKey": "AIEMP-0001"
+    },
+    {
+      "agentId": "AGENT-0003",
+      "name": "Executive Office Strategic Planning Agent",
+      "departmentId": "cmwhuafr90001smnzwcox56sc",
+      "role": "planner",
+      "status": "provisioned",
+      "systemInstructions": "You are Executive Office Strategic Planning Agent, a planner agent in the Executive Office department of ALO Labs.\nPurpose: Maintains departmental plans, roadmaps and milestone dependencies.\nOperate only for tenant \"alo-labs\" and within department \"exec-office\". Never read or change another department's or tenant's data.\nUse only your approved tools. Actions in this list require explicit human approval before execution: external_send, payment, delete_record, publish_content, grant_access, change_permissions.\nCite the source for every factual claim. If evidence is missing or uncertain, say so instead of guessing.\nRecord each task outcome and any escalation in the execution history.",
+      "runtimeProfile": "{\"evaluationProfile\":{\"lastEvaluatedAt\":null,\"metrics\":[\"task_success_rate\",\"citation_coverage\",\"policy_violations\",\"latency_p95_ms\"],\"suiteId\":\"role:strategic-planner\",\"thresholds\":{\"citation_coverage\":0.9,\"policy_violations\":0,\"task_success_rate\":0.8}},\"knowledgeAccess\":{\"crossDepartment\":false,\"departmentSlug\":\"exec-office\",\"scope\":\"department:exec-office\",\"sources\":[\"company_policies\",\"board_minutes\",\"financial_reports\"]},\"memoryPolicy\":{\"personalDataAllowed\":false,\"profile\":\"standard\",\"retentionDays\":90,\"scope\":\"department_agent\"},\"modelConfig\":{\"fallbackPolicy\":\"balanced\",\"maxOutputTokens\":16000,\"pinnedModel\":null,\"policy\":\"reasoning\",\"temperature\":0.2},\"provisioning\":{\"managedBy\":\"workforce-plan\",\"planVersion\":\"workforce-plan@1\",\"sequence\":3},\"resourceLimits\":{\"dailyTokenBudget\":250000,\"maxConcurrentTasks\":2,\"maxTokensPerTask\":16000,\"timeoutSeconds\":600},\"roleKey\":\"strategic-planner\",\"taskQueue\":{\"partitionKey\":\"agent:AGENT-0003\",\"queueName\":\"agentos\"}}",
+      "allowedTools": "[\"calculate\"]",
+      "modelPolicy": "reasoning",
+      "fallbackPolicy": "balanced",
+      "employeeKey": "AIEMP-0003",
+      "employeeStatus": "provisioned",
+      "supervisorEmployeeKey": "AIEMP-0001"
+    },
+    {
+      "agentId": "AGENT-0004",
+      "name": "Executive Office Execution Agent",
+      "departmentId": "cmwhuafr90001smnzwcox56sc",
+      "role": "execution",
+      "status": "provisioned",
+      "systemInstructions": "You are Executive Office Execution Agent, a execution agent in the Executive Office department of ALO Labs.\nPurpose: Executes operational work items and tracks them to completion.\nOperate only for tenant \"alo-labs\" and within department \"exec-office\". Never read or change another department's or tenant's data.\nUse only your approved tools. Actions in this list require explicit human approval before execution: external_send, payment, delete_record, publish_content, grant_access, change_permissions.\nCite the source for every factual claim. If evidence is missing or uncertain, say so instead of guessing.\nRecord each task outcome and any escalation in the execution history.",
+      "runtimeProfile": "{\"evaluationProfile\":{\"lastEvaluatedAt\":null,\"metrics\":[\"task_success_rate\",\"citation_coverage\",\"policy_violations\",\"latency_p95_ms\"],\"suiteId\":\"role:execution\",\"thresholds\":{\"citation_coverage\":0.9,\"policy_violations\":0,\"task_success_rate\":0.8}},\"knowledgeAccess\":{\"crossDepartment\":false,\"departmentSlug\":\"exec-office\",\"scope\":\"department:exec-office\",\"sources\":[\"company_policies\",\"board_minutes\",\"financial_reports\"]},\"memoryPolicy\":{\"personalDataAllowed\":false,\"profile\":\"short\",\"retentionDays\":90,\"scope\":\"department_agent\"},\"modelConfig\":{\"fallbackPolicy\":\"balanced\",\"maxOutputTokens\":4000,\"pinnedModel\":null,\"policy\":\"fast\",\"temperature\":0.4},\"provisioning\":{\"managedBy\":\"workforce-plan\",\"planVersion\":\"workforce-plan@1\",\"sequence\":4},\"resourceLimits\":{\"dailyTokenBudget\":100000,\"maxConcurrentTasks\":4,\"maxTokensPerTask\":4000,\"timeoutSeconds\":180},\"roleKey\":\"execution\",\"taskQueue\":{\"partitionKey\":\"agent:AGENT-0004\",\"queueName\":\"agentos\"}}",
+      "allowedTools": "[\"calculate\"]",
+      "modelPolicy": "fast",
+      "fallbackPolicy": "balanced",
+      "employeeKey": "AIEMP-0004",
+      "employeeStatus": "provisioned",
+      "supervisorEmployeeKey": "AIEMP-0001"
+    },
+    {
+      "agentId": "AGENT-0005",
+      "name": "Executive Office Quality Assurance Agent",
+      "departmentId": "cmwhuafr90001smnzwcox56sc",
+      "role": "qa",
+      "status": "provisioned",
+      "systemInstructions": "You are Executive Office Quality Assurance Agent, a qa agent in the Executive Office department of ALO Labs.\nPurpose: Reviews departmental outputs against the quality checklist before release.\nOperate only for tenant \"alo-labs\" and within department \"exec-office\". Never read or change another department's or tenant's data.\nUse only your approved tools. Actions in this list require explicit human approval before execution: external_send, payment, delete_record, publish_content, grant_access, change_permissions.\nCite the source for every factual claim. If evidence is missing or uncertain, say so instead of guessing.\nRecord each task outcome and any escalation in the execution history.",
+      "runtimeProfile": "{\"evaluationProfile\":{\"lastEvaluatedAt\":null,\"metrics\":[\"task_success_rate\",\"citation_coverage\",\"policy_violations\",\"latency_p95_ms\",\"defect_escape_rate\"],\"suiteId\":\"role:quality-assurance\",\"thresholds\":{\"citation_coverage\":0.9,\"policy_violations\":0,\"task_success_rate\":0.8}},\"knowledgeAccess\":{\"crossDepartment\":false,\"departmentSlug\":\"exec-office\",\"scope\":\"department:exec-office\",\"sources\":[\"company_policies\",\"board_minutes\",\"financial_reports\"]},\"memoryPolicy\":{\"personalDataAllowed\":false,\"profile\":\"standard\",\"retentionDays\":90,\"scope\":\"department_agent\"},\"modelConfig\":{\"fallbackPolicy\":\"balanced\",\"maxOutputTokens\":16000,\"pinnedModel\":null,\"policy\":\"reasoning\",\"temperature\":0.2},\"provisioning\":{\"managedBy\":\"workforce-plan\",\"planVersion\":\"workforce-plan@1\",\"sequence\":5},\"resourceLimits\":{\"dailyTokenBudget\":250000,\"maxConcurrentTasks\":2,\"maxTokensPerTask\":16000,\"timeoutSeconds\":600},\"roleKey\":\"quality-assurance\",\"taskQueue\":{\"partitionKey\":\"agent:AGENT-0005\",\"queueName\":\"agentos\"}}",
+      "allowedTools": "[\"calculate\"]",
+      "modelPolicy": "reasoning",
+      "fallbackPolicy": "balanced",
+      "employeeKey": "AIEMP-0005",
+      "employeeStatus": "provisioned",
+      "supervisorEmployeeKey": "AIEMP-0001"
+    }
+  ],
+  "execution": {
+    "healthyRoute": {
+      "provider": "probe-healthy",
+      "calls": 1,
+      "tokens": {
+        "promptTokens": 3,
+        "completionTokens": 1,
+        "totalTokens": 4
+      }
+    },
+    "failover": {
+      "primaryCalls": 1,
+      "fallbackCalls": 1,
+      "outcome": "probe-ok"
+    },
+    "paidBlocked": {
+      "refused": true,
+      "paidCalls": 0
+    },
+    "freeOnlyMode": false
+  },
+  "executionChecks": [
+    {
+      "id": "execution.healthy_route_completes",
+      "pass": true,
+      "expected": "probe-ok (1 call)",
+      "actual": "probe-ok (1 call)"
+    },
+    {
+      "id": "execution.failover_executes_once",
+      "pass": true,
+      "expected": "probe-ok with exactly 1 fallback call",
+      "actual": "probe-ok with 1 fallback call(s)",
+      "detail": "A provider switch must never run the task twice."
+    },
+    {
+      "id": "execution.no_silent_paid_fallback",
+      "pass": true,
+      "expected": "refused with 0 paid calls",
+      "actual": "refused with 0 paid call(s)",
+      "detail": "Provider \"ollama\" is unavailable: No providers are available under the current company permissions, quota and billing policy."
+    },
+    {
+      "id": "execution.free_only_mode_readable",
+      "pass": true,
+      "expected": "boolean",
+      "actual": false,
+      "detail": "FREE_ONLY_MODE=(unset)"
+    }
+  ],
+  "verdict": {
+    "checks": 14,
+    "passed": 14,
+    "failed": 0,
+    "ok": true,
+    "scope": "Preconditions for all provisioned employees were verified from the database, and router execution/failover/free-only behaviour was probed with a deterministic in-process provider. Hosted and local inference were NOT contacted by this run."
+  }
+}

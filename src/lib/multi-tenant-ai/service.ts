@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { AIEmbeddingRequest, AIEmbeddingResponse, AIRequest, AIResponse, AIStreamChunk } from '@/lib/ai-router/types';
 import { ensureRouterSynced } from '@/lib/ai-router';
+import { isFreeOnlyMode } from '@/lib/ai-router/free-only-mode';
+import { releaseAIIdempotencyKey, reserveAIIdempotencyKey } from './idempotency';
 import { isTrustedLocalProviderConfig } from '@/lib/ai-provider-catalog';
 import { routerNameForConfig, type ProviderConfigRecord } from '@/lib/ai-router/provider-registry';
 import { AIRouterError, AIModelNotFoundError } from '@/lib/ai-router/types';
@@ -34,6 +36,14 @@ export interface CompanyAIRequestOptions {
   maxTokens?: number;
   /** Server-generated correlation key; never sourced from browser JSON. */
   requestId?: string;
+  /**
+   * Caller-supplied idempotency key for a logical AI call. When supplied, the
+   * call refuses to start a provider request if an identical key is already
+   * `running` or has already `success`-fully completed for this tenant. Failover
+   * within the call reuses one key — only a *separate* duplicate is refused.
+   * See ./idempotency.ts.
+   */
+  idempotencyKey?: string;
 }
 
 export class CompanyAIError extends Error {
@@ -348,8 +358,17 @@ async function buildPreparedRouting(input: {
     (classification === 'confidential' || classification === 'restricted'
       ? settings.confidentialDataExternalAllowed
       : true);
-  const paidAllowed = policy.allowPaid && input.options.profile === 'approved_paid' && company.paidApiAllowed &&
+  // FREE-ONLY MODE (global, operator-controlled) sits above per-company policy.
+  // When it is on, paid routes are never eligible regardless of company flags,
+  // the paid budget ceiling is treated as $0, and no automatic billing path can
+  // be taken. See src/lib/ai-router/free-only-mode.ts.
+  const freeOnlyMode = isFreeOnlyMode();
+  const paidAllowed = !freeOnlyMode && policy.allowPaid && input.options.profile === 'approved_paid' && company.paidApiAllowed &&
     budget.paidApiAllowed && budget.maxPaidBudgetUsd > 0 && !budget.autoBillingEnabled;
+  if (freeOnlyMode) {
+    // Local inference is preferred outright in FREE-ONLY MODE.
+    policy.preferLocal = true;
+  }
   const tokens = Math.max(1, input.requiredContextTokens);
   const now = new Date();
   const [monthUsage, dayUsage, monthCost] = await Promise.all([
@@ -728,6 +747,29 @@ export async function executeCompanyAIChat(
   const requestedOutputTokens = Math.min(request.maxTokens ?? profile.defaultMaxOutputTokens, profile.defaultMaxOutputTokens, 32_768);
   const prepared = await buildPreparedRouting({ actor, options, requiredContextTokens: inputTokens + requestedOutputTokens });
   throwIfRequestAborted(request.signal);
+  // Duplicate-execution prevention: refuse to start a second provider request
+  // for a logical call that is already running or already succeeded. Failover
+  // inside this call keeps the same reservation, so switching providers never
+  // duplicates work.
+  let idempotencyRecordId: string | undefined;
+  if (options.idempotencyKey) {
+    const reservation = await reserveAIIdempotencyKey({
+      companyId: actor.companyId,
+      idempotencyKey: options.idempotencyKey,
+      profile: options.profile,
+    });
+    idempotencyRecordId = reservation.acquired ? reservation.existingRecordId : undefined;
+    if (!reservation.acquired) {
+      throw new CompanyAIError(
+        reservation.existingStatus === 'success'
+          ? 'This AI request has already completed for the supplied idempotency key; it was not executed again.'
+          : 'This AI request is already running for the supplied idempotency key; it was not executed again.',
+        409,
+        'DUPLICATE_AI_REQUEST',
+        prepared.requestId,
+      );
+    }
+  }
   const maxOutputTokens = Math.max(1, Math.min(requestedOutputTokens, prepared.policy.maxOutputTokens));
   const effectiveRequest = { ...request, model: request.model ?? '', maxTokens: maxOutputTokens };
   const estimatedTotalTokens = inputTokens + maxOutputTokens;
@@ -753,7 +795,11 @@ export async function executeCompanyAIChat(
     });
     throw new CompanyAIError(reason, 503, 'CANCEL_UNSUPPORTED', prepared.requestId);
   }
-  if (!eligible.length) await throwDeferred(prepared, actor, options, estimatedTotalTokens, request.model);
+  if (!eligible.length) {
+    // Nothing was executed, so the reservation must not block a later retry.
+    if (idempotencyRecordId) await releaseAIIdempotencyKey(idempotencyRecordId, 'deferred');
+    await throwDeferred(prepared, actor, options, estimatedTotalTokens, request.model);
+  }
 
   const router = await ensureRouterSynced();
   let lastError: unknown;
@@ -818,6 +864,9 @@ export async function executeCompanyAIChat(
   const reason = code === 'RATE_LIMITED'
     ? 'Authorized free/local routes are rate-limited and no permitted fallback is available. The request was deferred.'
     : 'Authorized local/free routes could not complete the request. No paid fallback was attempted.';
+  // Every eligible route failed: release the reservation so an operator or the
+  // caller can retry deliberately (terminal state, so it is never a duplicate).
+  if (idempotencyRecordId) await releaseAIIdempotencyKey(idempotencyRecordId, 'failure');
   throw new CompanyAIError(reason, 503, code === 'RATE_LIMITED' ? 'RATE_LIMITED_DEFERRED' : 'AUTHORIZED_ROUTE_FAILED', prepared.requestId);
 }
 
