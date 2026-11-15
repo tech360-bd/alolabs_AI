@@ -19,7 +19,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'What should I include in the first message?',
-    a: 'Your departments, the workflows that eat the most hours, and the tools you already use. That is enough for us to propose a first deployment scope.',
+    a: 'Your teams, the work that eats the most hours, and the tools you already use. That is enough for us to propose a first scope.',
   },
   {
     q: 'Do you work with partners and resellers?',
@@ -74,14 +74,14 @@ export function ContactPage() {
       <PageHero
         crumbs={[{ href: '/site/contact', label: 'Contact' }]}
         eyebrow="Contact"
-        title={<>Talk to the team behind AgentOS.</>}
+        title={<>Talk to the ALO Labs team.</>}
         lead="Tell us which department hurts most. We reply within one business day — with a real person, a proposed scope and no newsletter spam."
       />
 
       <Section
         eyebrow="Send a message"
         title="One form, straight into the CRM."
-        lead="Your enquiry is captured as a lead in our own AgentOS CRM — the same product we ship — and routed to the right person."
+        lead="Your enquiry goes straight to our team and is routed to the right person."
       >
         <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-8">
@@ -90,7 +90,7 @@ export function ContactPage() {
           <div className="space-y-4">
             <ContactTile icon={Mail} label="Email" lines={[COMPANY.email, 'Replies within one business day']} href={COMPANY.emailHref} />
             <ContactTile icon={Phone} label="Phone" lines={[COMPANY.phone, 'Mon–Fri, business hours CT']} href={COMPANY.phoneHref} />
-            <ContactTile icon={MessageSquare} label="Live chat" lines={['In the command centre', 'for customers on any plan']} href="/" />
+            <ContactTile icon={MessageSquare} label="Live chat" lines={['In the client portal', 'for every client']} href="/portal" />
             <ContactTile icon={Globe} label="Website" lines={[COMPANY.website, ...COMPANY.domains.map((d) => d.value)]} href={COMPANY.websiteHref} />
           </div>
         </div>
@@ -175,8 +175,8 @@ export function ContactPage() {
             </a>
           </Button>
           <Button size="lg" variant="outline" className="gap-2" asChild>
-            <Link href="/site/press">
-              Marketing kit for press <ArrowRight className="size-4" />
+            <Link href="/portal">
+              Client portal <ArrowRight className="size-4" />
             </Link>
           </Button>
         </div>
@@ -184,7 +184,7 @@ export function ContactPage() {
 
       <CtaBand
         title="Prefer to see the product first?"
-        lead="Open the command centre and run a command yourself — then talk to us with questions that matter."
+        lead="Already a client? Sign in to the portal to raise a request or message your account manager."
       />
     </>
   )

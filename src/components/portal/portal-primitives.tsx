@@ -3,81 +3,195 @@
 /**
  * Portal primitives — the shared client-side furniture for /portal/*.
  *
- * The portal is a *functional* customer surface, not a marketing surface, so
- * the chrome here is intentionally thin: a compact header with the official
- * ALO Labs mark, the signed-in user's email, and a logout link. State handling
- * (loading / error / empty / data) is centralized in <StateList/> so every page
- * renders the same four states honestly — no fake data, no shimmer without a
- * network call.
+ * The portal is the CLIENT surface: a place to buy services, follow projects,
+ * review deliverables, pay invoices and get support. The chrome is thin and
+ * business-focused: the official ALO Labs mark, the client's own name, and
+ * navigation between those areas. State handling (loading / error / empty /
+ * data) is centralized in <StateList/> so every page renders the same four
+ * states honestly — no fake data.
  *
  * Colour comes from `BRAND.blue` / `BRAND.orange` only; nothing here re-types a
- * hex value. No `src/components/panels/*` or `src/components/enterprise/panels/*`
- * is ever imported — the portal is a customer surface and must not pull in any
- * internal workforce panel.
+ * hex value. No `src/components/panels/*`, `src/components/enterprise/*` or
+ * `src/components/dashboard/*` is ever imported — those are the internal
+ * workspace and have no place on a client surface. All data comes from
+ * `/api/portal/**`, the only API a client session is allowed to call.
  */
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Mark } from '@/components/brand/alo-logo'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BRAND, BRAND_FONTS, COMPANY } from '@/lib/brand/tokens'
-import { LogOut, ChevronRight, AlertCircle } from 'lucide-react'
+import { LogOut, ChevronRight, AlertCircle, Bell } from 'lucide-react'
 
 // ─── Portal user context ────────────────────────────────────────────────────
 
+/** What the client shell knows about the signed-in client. Nothing internal. */
 export interface PortalUser {
-  userId: string
-  email: string
   name: string
-  role: string
-  companyId?: string
-  companySlug?: string
-  companyRole?: string
+  email: string
+  companyName: string
 }
 
-const PortalUserContext = React.createContext<PortalUser | null>(null)
+interface PortalContextValue {
+  user: PortalUser
+  /** Session token supplied by the server-rendered layout, used as a fallback. */
+  token: string | null
+}
+
+const PortalUserContext = React.createContext<PortalContextValue | null>(null)
 
 export function PortalUserProvider({
   user,
+  token = null,
   children,
 }: {
   user: PortalUser
+  token?: string | null
   children: React.ReactNode
 }) {
-  return <PortalUserContext.Provider value={user}>{children}</PortalUserContext.Provider>
+  const value = React.useMemo(() => ({ user, token }), [user, token])
+  return <PortalUserContext.Provider value={value}>{children}</PortalUserContext.Provider>
 }
 
 export function usePortalUser(): PortalUser {
   const ctx = React.useContext(PortalUserContext)
   if (!ctx) throw new Error('usePortalUser must be used inside <PortalUserProvider>')
-  return ctx
+  return ctx.user
+}
+
+// ─── Portal API client ──────────────────────────────────────────────────────
+
+function storedToken(): string | null {
+  try {
+    return localStorage.getItem('alo_token') || localStorage.getItem('token')
+  } catch {
+    return null
+  }
+}
+
+/** Thrown by `portalFetch` for any non-2xx response. `message` is safe to show. */
+export class PortalApiError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message)
+    this.name = 'PortalApiError'
+  }
+}
+
+type PortalFetch = <T = unknown>(path: string, init?: RequestInit) => Promise<T>
+
+/**
+ * Returns a fetch bound to the client session. `path` is relative to
+ * `/api/portal`. A 401 means the session has ended, so the browser is sent to
+ * the sign-in page.
+ */
+export function usePortalFetch(): { portalFetch: PortalFetch; portalDownload: (path: string, fileName: string) => Promise<void> } {
+  const ctx = React.useContext(PortalUserContext)
+  const fallbackToken = ctx?.token ?? null
+
+  const raw = React.useCallback(
+    async (path: string, init: RequestInit = {}) => {
+      const token = storedToken() || fallbackToken
+      const headers = new Headers(init.headers)
+      if (token) headers.set('Authorization', `Bearer ${token}`)
+      if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json')
+      }
+      const res = await fetch(`/api/portal${path}`, { ...init, headers, cache: 'no-store' })
+      if (res.status === 401) {
+        window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`)
+        throw new PortalApiError(401, 'Your session has ended. Please sign in again.')
+      }
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null
+        throw new PortalApiError(res.status, data?.error || 'Something went wrong. Please try again.')
+      }
+      return res
+    },
+    [fallbackToken],
+  )
+
+  const portalFetch = React.useCallback(
+    async <T,>(path: string, init?: RequestInit) => (await raw(path, init)).json() as Promise<T>,
+    [raw],
+  ) as PortalFetch
+
+  const portalDownload = React.useCallback(
+    async (path: string, fileName: string) => {
+      // Downloads are authorised requests, not plain links: the file is only
+      // served to the session that owns it.
+      const res = await raw(path.replace(/^\/api\/portal/, ''))
+      // Prefer the stored file name sent by the server (it has the extension).
+      const disposition = res.headers.get('Content-Disposition') ?? ''
+      const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1]
+      let serverName = ''
+      try { serverName = encoded ? decodeURIComponent(encoded) : '' } catch { serverName = '' }
+      const url = URL.createObjectURL(await res.blob())
+      const link = document.createElement('a')
+      link.href = url
+      link.download = serverName || fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    },
+    [raw],
+  )
+
+  return { portalFetch, portalDownload }
+}
+
+/** Load one portal resource with honest loading / error state and a reload. */
+export function usePortalData<T>(path: string | null) {
+  const { portalFetch } = usePortalFetch()
+  const [data, setData] = React.useState<T | null>(null)
+  const [loading, setLoading] = React.useState(Boolean(path))
+  const [error, setError] = React.useState('')
+  const [version, setVersion] = React.useState(0)
+
+  React.useEffect(() => {
+    if (!path) return
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    portalFetch<T>(path)
+      .then((result) => { if (!cancelled) setData(result) })
+      .catch((err: unknown) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Something went wrong.') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [path, portalFetch, version])
+
+  const reload = React.useCallback(() => setVersion((v) => v + 1), [])
+  return { data, loading, error, reload }
 }
 
 // ─── Portal shell ───────────────────────────────────────────────────────────
 
 const PORTAL_NAV: { href: string; label: string }[] = [
-  { href: '/portal', label: 'Home' },
+  { href: '/portal', label: 'Dashboard' },
   { href: '/portal/services', label: 'Services' },
-  { href: '/portal/api-keys', label: 'API Keys' },
-  { href: '/portal/usage', label: 'Usage' },
-  { href: '/portal/tasks', label: 'Tasks' },
-  { href: '/portal/webhooks', label: 'Webhooks' },
+  { href: '/portal/projects', label: 'Projects' },
+  { href: '/portal/deliverables', label: 'Deliverables' },
+  { href: '/portal/billing', label: 'Billing' },
+  { href: '/portal/support', label: 'Support' },
 ]
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const user = usePortalUser()
-  const router = useRouter()
+  const ctx = React.useContext(PortalUserContext)
+  const pathname = usePathname() ?? '/portal'
   const [signingOut, setSigningOut] = React.useState(false)
 
   const onLogout = React.useCallback(async () => {
     setSigningOut(true)
+    const token = storedToken() || ctx?.token || ''
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ token }),
         credentials: 'same-origin',
       })
     } catch {
@@ -90,9 +204,11 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
       } catch {
         /* ignore */
       }
-      router.push('/login')
+      window.location.assign('/login')
     }
-  }, [router])
+  }, [ctx?.token])
+
+  const isActive = (href: string) => (href === '/portal' ? pathname === '/portal' : pathname.startsWith(href))
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: BRAND.canvas }}>
@@ -113,7 +229,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                   letterSpacing: '0.04em',
                 }}
               >
-                {COMPANY.product.toUpperCase()}
+                {COMPANY.legalName.toUpperCase()}
               </span>
               <span
                 style={{
@@ -124,18 +240,19 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                   textTransform: 'uppercase',
                 }}
               >
-                Customer Portal
+                Client Portal
               </span>
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1 ml-2">
+          <nav className="hidden md:flex items-center gap-1 ml-2" aria-label="Client portal">
             {PORTAL_NAV.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive(item.href) ? 'page' : undefined}
                 className="px-3 py-1.5 rounded-md text-[13px] font-medium hover:bg-slate-100"
-                style={{ color: BRAND.ink }}
+                style={isActive(item.href) ? { color: BRAND.blue, background: BRAND.tint } : { color: BRAND.ink }}
               >
                 {item.label}
               </Link>
@@ -143,16 +260,24 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-3">
+            <Link
+              href="/portal/notifications"
+              className="inline-flex size-9 items-center justify-center rounded-md hover:bg-slate-100"
+              aria-label="Notifications"
+              style={{ color: BRAND.blue }}
+            >
+              <Bell className="size-4" />
+            </Link>
             <div className="hidden sm:flex flex-col items-end leading-tight">
               <span className="text-[12px] font-medium" style={{ color: BRAND.ink }}>
                 {user.name || user.email}
               </span>
               <span
-                className="text-[11px] font-mono max-w-[220px] truncate"
+                className="text-[11px] max-w-[220px] truncate"
                 style={{ color: BRAND.gray }}
-                title={user.email}
+                title={user.companyName}
               >
-                {user.email}
+                {user.companyName}
               </span>
             </div>
             <Button
@@ -167,6 +292,21 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         </div>
+
+        {/* Small screens: the same areas as a horizontally scrolling row. */}
+        <nav className="md:hidden flex gap-1 overflow-x-auto px-4 pb-2" aria-label="Client portal">
+          {PORTAL_NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive(item.href) ? 'page' : undefined}
+              className="shrink-0 px-3 py-1.5 rounded-md text-[13px] font-medium"
+              style={isActive(item.href) ? { color: BRAND.blue, background: BRAND.tint } : { color: BRAND.ink }}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
 
         {/* Orange accent rule — the brand "action" colour reserved for the focal edge. */}
         <div className="h-[3px] w-full" style={{ background: BRAND.orange }} aria-hidden="true" />
@@ -285,7 +425,7 @@ export function ErrorBanner({
         <p className="text-[13px] font-semibold" style={{ color: BRAND.ink }}>
           Couldn’t load this section.
         </p>
-        <p className="mt-1 text-[12px] font-mono break-all" style={{ color: BRAND.gray }}>
+        <p className="mt-1 text-[12px]" style={{ color: BRAND.gray }}>
           {message}
         </p>
       </div>
@@ -442,4 +582,91 @@ export function fmtDate(iso: string | null | undefined): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+/** Format an ISO date as a date only. */
+export function fmtDay(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+/** Format an amount in the account currency. */
+export function fmtMoney(amount: number | null | undefined, currency = 'USD'): string {
+  const value = Number(amount) || 0
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value)
+  } catch {
+    return `${currency} ${value.toFixed(2)}`
+  }
+}
+
+/** Human file size. */
+export function fmtSize(bytes: number): string {
+  if (!bytes) return '0 KB'
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+type Tone = 'blue' | 'orange' | 'gray' | 'green' | 'red'
+
+const STATUS_TONES: Record<string, Tone> = {
+  // projects
+  requested: 'gray', reviewing: 'blue', quotation: 'orange', approved: 'blue', in_progress: 'blue',
+  client_review: 'orange', revision: 'orange', completed: 'green', cancelled: 'gray',
+  // deliverables
+  delivered: 'orange', revision_requested: 'orange', superseded: 'gray',
+  // billing
+  sent: 'orange', accepted: 'green', declined: 'gray', expired: 'gray', issued: 'blue',
+  partially_paid: 'orange', paid: 'green', overdue: 'red', void: 'gray', refunded: 'gray',
+  // support
+  open: 'blue', awaiting_support: 'blue', awaiting_client: 'orange', resolved: 'green', closed: 'gray',
+  // milestones
+  pending: 'gray',
+}
+
+const STATUS_TEXT: Record<string, string> = {
+  in_progress: 'In progress', client_review: 'Client review', revision_requested: 'Revision requested',
+  partially_paid: 'Partially paid', awaiting_support: 'Awaiting our response', awaiting_client: 'Awaiting your reply',
+  delivered: 'Awaiting your review',
+}
+
+/** A status badge with one consistent colour language across the portal. */
+export function StatusPill({ status, label }: { status: string; label?: string }) {
+  const text = label ?? STATUS_TEXT[status] ?? status.replace(/_/g, ' ')
+  return <Pill tone={STATUS_TONES[status] ?? 'gray'}>{text}</Pill>
+}
+
+/** A thin progress bar in the brand blue. */
+export function ProgressBar({ value }: { value: number }) {
+  const pct = Math.max(0, Math.min(100, Math.round(value)))
+  return (
+    <div
+      className="h-1.5 w-full overflow-hidden rounded-full"
+      style={{ background: BRAND.tint }}
+      role="progressbar"
+      aria-valuenow={pct}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: BRAND.blue }} />
+    </div>
+  )
+}
+
+/** A headline figure on the dashboard and billing pages. */
+export function StatCard({ label, value, hint, href }: { label: string; value: React.ReactNode; hint?: string; href?: string }) {
+  const body = (
+    <div className="rounded-lg border p-4 h-full" style={{ borderColor: BRAND.grayLine, background: '#FFFFFF' }}>
+      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: BRAND.gray }}>
+        {label}
+      </p>
+      <p className="mt-2 text-[26px] font-bold leading-none" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
+        {value}
+      </p>
+      {hint ? <p className="mt-2 text-[12px]" style={{ color: BRAND.gray }}>{hint}</p> : null}
+    </div>
+  )
+  return href ? <Link href={href} className="block hover:opacity-90">{body}</Link> : body
 }

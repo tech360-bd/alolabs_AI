@@ -53,6 +53,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  try {
+    await requireCompanyAuth();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   return NextResponse.json({
     kind: 'music',
     available: false,

@@ -14,9 +14,22 @@ export interface V1Context {
   identity: V1Identity;
 }
 
+/**
+ * Is this path part of the public AI service plane (`/api/v1/ai/<service>`)?
+ * That plane returns sanitised DTOs only and is the single place a client
+ * company's API key is accepted. `/api/v1/ai/health` is public liveness.
+ */
+export function isAiServicePlanePath(pathname: string): boolean {
+  const segments = pathname.split('/').filter(Boolean);
+  return segments[0] === 'api' && segments[1] === 'v1' && segments[2] === 'ai'
+    && segments.length >= 4 && segments[3] !== 'health';
+}
+
 /** Authenticate the request or throw a uniform 401. */
 export async function v1Auth(request: NextRequest): Promise<V1Identity> {
-  const identity = await authenticateV1(request);
+  const identity = await authenticateV1(request, {
+    allowClientKeys: isAiServicePlanePath(request.nextUrl.pathname),
+  });
   if (!identity) {
     throw new V1Error('Unauthorized', 401);
   }

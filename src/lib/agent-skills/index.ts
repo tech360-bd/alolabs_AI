@@ -94,6 +94,9 @@ const bodyLoaders: Record<string, () => Promise<{ SKILL_BODIES: Record<string, s
   'cursor-create-plugin': () => import('./content/cursor-create-plugin.generated.ts'),
   'opencode': () => import('./content/opencode.generated.ts'),
   'ai-memory': () => import('./content/ai-memory.generated.ts'),
+  'agency-agents': () => import('./content/agency-agents.generated.ts'),
+  'open-agency': () => import('./content/open-agency.generated.ts'),
+  'agency-orchestrator': () => import('./content/agency-orchestrator.generated.ts'),
 };
 
 const STOP_WORDS = new Set([

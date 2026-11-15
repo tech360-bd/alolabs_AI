@@ -1,5 +1,6 @@
 'use client'
 
+import { audienceForToken, isClientPagePath } from '@/lib/access/surfaces'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAppStore } from '@/store/app'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -38,12 +39,16 @@ export default function LoginPage() {
    * it is a same-origin absolute path — a protocol-relative `//evil.com` or a
    * full URL would otherwise turn the login form into an open redirect.
    */
-  const redirectAfterLogin = useCallback(() => {
+  const redirectAfterLogin = useCallback((token?: string | null) => {
+    // Clients land in the service portal, ALO Labs personnel in the internal
+    // workspace. This only picks the landing page — the server decides what
+    // each session may actually open (see src/lib/access/surfaces.ts).
+    const isClient = audienceForToken(token) === 'client'
+    const home = isClient ? '/portal' : '/dashboard'
     const requested = new URLSearchParams(window.location.search).get('next')
-    const safe = requested && requested.startsWith('/') && !requested.startsWith('//')
-      ? requested
-      : '/dashboard'
-    window.location.assign(safe)
+    const sameOrigin = Boolean(requested && requested.startsWith('/') && !requested.startsWith('//'))
+    const ownSurface = sameOrigin && isClientPagePath(requested as string) === isClient
+    window.location.assign(ownSurface ? (requested as string) : home)
   }, [])
 
   // ── Form State ───────────────────────────────────────────────────────────
@@ -155,7 +160,7 @@ export default function LoginPage() {
         const data = await res.json()
         login(data.user, data.token)
         toast({ title: 'Welcome to ALO Labs!', description: `Account created as ${data.user.name}` })
-        redirectAfterLogin()
+        redirectAfterLogin(data.token)
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Registration failed.')
         setStep('error')
@@ -239,7 +244,7 @@ export default function LoginPage() {
           title: 'Welcome back!',
           description: `Logged in as ${data.user.name}`,
         })
-        redirectAfterLogin()
+        redirectAfterLogin(data.token)
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'An unexpected error occurred.'
         setError(message)
@@ -286,7 +291,7 @@ export default function LoginPage() {
         title: 'Welcome back!',
         description: `Logged in as ${data.user.name}`,
       })
-      redirectAfterLogin()
+      redirectAfterLogin(data.token)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Verification failed.'
       setMfaError(message)
@@ -347,10 +352,10 @@ export default function LoginPage() {
 
           {/* Branding */}
           <h1 className="text-xl font-bold tracking-tight text-[#1E293B]">
-            <span className="text-[#FF6A00]">ALO Labs</span>{' '}
-            <span className="text-[#003ABC]">AgentOS</span>
+            <span className="text-[#FF6A00]">ALO</span>{' '}
+            <span className="text-[#003ABC]">Labs</span>
           </h1>
-          <p className="text-sm text-[#64748B] mt-0.5">AI Agent Operating System</p>
+          <p className="text-sm text-[#64748B] mt-0.5">Sign in to your account</p>
         </CardHeader>
 
         <CardContent className="px-8 pb-8">
@@ -531,7 +536,7 @@ export default function LoginPage() {
               <div className="mb-6">
                 <h2 className="text-lg font-semibold text-[#1E293B]">Create your account</h2>
                 <p className="text-sm text-[#64748B] mt-1">
-                  Get started with ALO Labs AgentOS — free to explore
+                  Create a client account to request services and follow your projects
                 </p>
               </div>
 

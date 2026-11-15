@@ -20,6 +20,7 @@ import type {
 } from './types';
 import { localOnlyEnabled } from './model-tiers';
 import { isFreeOnlyMode } from './free-only-mode';
+import { localOnlyEnabled, freeOnlyModeEnabled } from './model-tiers';
 import {
   AIRouterError,
   AICircuitOpenError,
@@ -140,6 +141,13 @@ export class AIRouter {
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
   private _destroyed = false;
   private decisionRecorder: RoutingDecisionRecorder | null = null;
+  /**
+   * Runtime override for the FREE-ONLY operating mode. `null` defers to the
+   * `FREE_ONLY` environment flag; a boolean forces the mode on/off until the
+   * next override. Intended for the Super Admin control plane — it cannot be
+   * flipped by request context, only by an explicit administrator action.
+   */
+  private freeOnlyModeOverride: boolean | null = null;
 
   // ─── Provider Management ────────────────────────────────────────
 
@@ -177,6 +185,15 @@ export class AIRouter {
   /** Install a sink for routing decisions (persisted by the application layer). */
   setDecisionRecorder(recorder: RoutingDecisionRecorder | null): void {
     this.decisionRecorder = recorder;
+  }
+
+  /** Administrator control for the FREE-ONLY operating mode (see model-tiers.ts). */
+  setFreeOnlyMode(enabled: boolean | null): void {
+    this.freeOnlyModeOverride = enabled;
+  }
+
+  private isFreeOnlyMode(): boolean {
+    return this.freeOnlyModeOverride ?? freeOnlyModeEnabled();
   }
 
   /** Tenant a provider is restricted to (undefined = shared). */
@@ -233,7 +250,9 @@ export class AIRouter {
     if (available.length === 0) {
       throw new AIProviderUnavailableError(
         'ollama',
-        'No providers are available under the current company permissions, quota and billing policy.',
+        this.isFreeOnlyMode()
+          ? 'No providers are eligible: FREE-ONLY mode is enabled and no local or verified free provider is currently available. Queued tasks will not fall back to paid endpoints.'
+          : 'No providers are available under the current company permissions, quota and billing policy.',
       );
     }
 
@@ -997,6 +1016,7 @@ export class AIRouter {
     // FREE-ONLY MODE is a global ceiling above caller context. Even a caller
     // that sets allowPaid=true cannot reach a paid provider while it is on.
     const freeOnlyMode = isFreeOnlyMode();
+    const freeOnly = this.isFreeOnlyMode();
 
     return Array.from(this.providers.values()).filter((entry) => {
       const isLocal = entry.isLocal;
@@ -1011,6 +1031,13 @@ export class AIRouter {
         (freeOnlyMode
           ? (context.allowVerifiedFree !== false && freeEligible)
           : (context.allowVerifiedFree === true && (freeEligible || explicitlyAllowed)));
+        (context.allowPaid === true && explicitlyAllowed) ||
+        (context.allowVerifiedFree === true && (entry.provider.freeOnly || explicitlyAllowed));
+      // FREE-ONLY mode is a global operating gate: a provider that is neither
+      // local nor a verified free-only adapter is ineligible for EVERY request,
+      // even one whose context authorizes paid usage. Only a Super Admin
+      // disabling the mode can make such a provider eligible again.
+      const permittedInFreeOnlyMode = !freeOnly || isLocal || entry.provider.freeOnly;
       const hasAllowedModel = !allowedModels || entry.provider.supportedModels.some((model) => allowedModels.has(model.id));
 
       return !entry.health.circuitOpen &&
@@ -1019,6 +1046,7 @@ export class AIRouter {
         (!allowedNames || explicitlyAllowed) &&
         (!localOnly || isLocal) &&
         permittedByBilling &&
+        permittedInFreeOnlyMode &&
         hasAllowedModel;
     });
   }

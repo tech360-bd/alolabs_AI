@@ -180,6 +180,19 @@ export function localOnlyEnabled(env: NodeJS.ProcessEnv = process.env): boolean 
   return isLocalInferenceConfigured(env);
 }
 
+/**
+ * FREE-ONLY operating mode (`FREE_ONLY=true`). Stronger than a per-request
+ * `allowPaid=false`: while enabled, ONLY local inference and providers whose
+ * adapter carries the verified free-only flag are eligible — for every
+ * request, including ones whose context tries to authorize paid usage.
+ * Enabling paid providers requires disabling the mode (a deliberate Super
+ * Admin action), never a per-request override. Default is off, so existing
+ * deployments keep their current billing behaviour.
+ */
+export function freeOnlyModeEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return envFlag(env.FREE_ONLY) === true;
+}
+
 /** Provider names are considered local only when their configured endpoint is a trusted private target. */
 export function localProviderNames(env: NodeJS.ProcessEnv = process.env): string[] {
   const names: string[] = [];

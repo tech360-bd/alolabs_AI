@@ -110,20 +110,20 @@ describe('brand — corporate identity', () => {
     expect(COMPANY.email).toBe('info@alolabs.net')
   })
 
-  it('lists the four domains from the guideline footer', () => {
-    expect(COMPANY.domains.map((d) => d.value)).toEqual([
-      'alolabs.net',
-      'command.alolabs.net',
-      'agents.alolabs.net',
-      'api.alolabs.net',
-    ])
+  it('lists only client-facing addresses (no internal hostnames)', () => {
+    expect(COMPANY.domains.map((d) => d.value)).toEqual(['alolabs.net', 'alolabs.net/portal'])
+  })
+
+  it('names nothing internal in the client-facing product tokens', () => {
+    const facing = [COMPANY.product, COMPANY.tagline, ...COMPANY.domains.map((d) => `${d.label} ${d.value}`), ...HEADLINE_STATS.map((s) => `${s.value} ${s.label}`)].join(' ')
+    expect(facing).not.toMatch(/AgentOS|agents?\b|department|command cent/i)
   })
 
   it('carries the headline statistics', () => {
     expect(HEADLINE_STATS.map((s) => `${s.value} ${s.label}`)).toEqual([
-      '1 Command Center',
-      '1020 AI Agents',
-      '100+ Departments',
+      '6 Service Lines',
+      '1 Client Portal',
+      '1 Day Reply Time',
       'Unlimited Possibilities',
     ])
   })

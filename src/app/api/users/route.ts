@@ -1,3 +1,4 @@
+import { INTERNAL_ROLES, isInternalRole } from '@/lib/access/surfaces';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole } from '@/lib/api-auth';
@@ -66,6 +67,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'password is required' }, { status: 400 });
     }
 
+    // This endpoint creates INTERNAL personnel accounts and nothing else.
+    // The role must be named explicitly and must be an internal role: there is
+    // no default, so an omitted or mistyped role can never produce a staff
+    // login by accident. Customer logins are created only by client
+    // registration / onboarding (provisionClientAccount).
+    if (typeof body.role !== 'string' || !isInternalRole(body.role)) {
+      return NextResponse.json(
+        { error: 'role is required and must be an internal role', allowed: INTERNAL_ROLES },
+        { status: 400 },
+      );
+    }
+
     const passwordHash = await hashPassword(body.password);
 
     const newUser = await db.user.create({
@@ -73,7 +86,7 @@ export async function POST(request: NextRequest) {
         email: body.email.toLowerCase(),
         passwordHash,
         name: body.name,
-        role: body.role || 'viewer',
+        role: body.role,
         isActive: body.isActive !== false,
       },
     });

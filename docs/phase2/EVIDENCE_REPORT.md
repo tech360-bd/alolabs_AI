@@ -48,6 +48,8 @@ All 9 review findings (6 P1 + 3 P2) on PR #30 are resolved. The work is additive
 - **Test:** `f2-scope-authorization.test.ts` — 9 tests verify `ai:tasks` scope works, insufficient scope rejected, `*` wildcard works, case-sensitivity enforced, no broader-scope leakage.
 
 ### F3: Customer portal envelope handling
+
+> **Superseded (2026-11-15).** The portal pages named below (`usage`, `tasks`, and the API-key / webhook pages) were removed when the client portal was separated from the internal platform. The portal now talks only to `/api/portal/**`. See `docs/CLIENT_PORTAL_SEPARATION.md`.
 - **Original finding:** Portal pages consumed `/v1/*` responses with `data.data ?? data.services` fallbacks — fragile because `/v1/*` wraps in `{success, data}`.
 - **Root cause:** `useApiGet` returned the raw JSON; portal pages tried multiple field names.
 - **Files changed:** `src/lib/api.ts` (added `fetchApiV1`), `src/hooks/use-api-actions.ts` (added `useApiGetV1`), `src/app/portal/{page,services,usage,tasks}.tsx`

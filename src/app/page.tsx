@@ -4,7 +4,7 @@ import './home.css'
 
 /**
  * The public website. This is what a first-time visitor sees at
- * https://alolabs.net — the product story, AI agent information, and contact.
+ * https://alolabs.net — the services we offer, how we deliver them, and contact.
  * The authenticated application lives at `/dashboard` and
  * is not reachable without a session.
  *
@@ -15,13 +15,13 @@ import './home.css'
  */
 
 export const metadata: Metadata = {
-  title: 'ALO Labs AgentOS — AI Agent Operating System',
+  title: 'ALO Labs — AI-Powered Business Services',
   description:
-    'Explore ALO Labs AgentOS: an AI agent operating system bringing agents, knowledge, workflows and human oversight together.',
+    'ALO Labs delivers AI-powered business services — automation, CRM, communications, content and custom software — with a client portal to follow every project.',
   openGraph: {
-    title: 'ALO Labs AgentOS — AI Agent Operating System',
-    description: 'Bring AI agents, knowledge, workflows and human oversight together with ALO Labs AgentOS.',
-    siteName: 'ALO Labs AgentOS',
+    title: 'ALO Labs — AI-Powered Business Services',
+    description: 'AI-powered business services, delivered by an accountable team and followed in your client portal.',
+    siteName: 'ALO Labs',
     images: ['/brand/alo-logo-horizontal.svg'],
   },
 }

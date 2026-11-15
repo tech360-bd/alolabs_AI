@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole } from '@/lib/api-auth';
+import { isInternalRole } from '@/lib/access/surfaces';
 
 export async function PUT(
   request: NextRequest,
@@ -17,6 +18,31 @@ export async function PUT(
     }
 
     const { name, email, role, isActive } = body;
+
+    if (role !== undefined) {
+      if (typeof role !== 'string' || !/^[a-z_]{2,40}$/.test(role)) {
+        return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+      }
+      // Nobody edits their own role: a role change always needs a second person.
+      if (id === user.userId && role !== existing.role) {
+        return NextResponse.json({ error: 'You cannot change your own role' }, { status: 409 });
+      }
+      // A login that belongs to a client company is a customer. It cannot be
+      // given an internal role — that would hand a customer the internal
+      // surface. Internal staff get their own, separate account.
+      if (isInternalRole(role) && !isInternalRole(existing.role)) {
+        const clientMembership = await db.companyUser.findFirst({
+          where: { userId: id, company: { accountType: 'client' } },
+          select: { id: true },
+        });
+        if (clientMembership) {
+          return NextResponse.json(
+            { error: 'This login belongs to a client account and cannot be given an internal role. Create a separate internal account instead.' },
+            { status: 409 },
+          );
+        }
+      }
+    }
 
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;

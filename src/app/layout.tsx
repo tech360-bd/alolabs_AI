@@ -13,12 +13,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.alolabs.net'),
-  title: "ALO Labs AgentOS — AI Agent Operating System",
-  description: "A secure, multi-tenant AI agent operating system for managing, orchestrating, and monitoring autonomous AI agents at scale.",
+  title: "ALO Labs — AI-Powered Business Services",
+  description: "ALO Labs delivers AI-powered business services: process automation, CRM and marketing automation, communications, content and custom software.",
   keywords: [
-    'AI agent', 'agent operating system', 'multi-tenant AI', 'AI orchestration',
-    'autonomous agents', 'AI CRM', 'agent management', 'ALO Labs', 'AgentOS',
-    'AI workflows', 'real-time analytics', 'agent monitoring',
+    'ALO Labs', 'AI services', 'business process automation', 'CRM automation',
+    'marketing automation', 'AI communications', 'custom software', 'client portal',
   ],
   manifest: "/manifest.json",
   icons: {
@@ -30,15 +29,15 @@ export const metadata: Metadata = {
     shortcut: ['/brand/alo-mark.svg'],
   },
   openGraph: {
-    title: 'ALO Labs AgentOS — AI Agent Operating System',
-    description: 'An AI agent operating system bringing agents, knowledge, workflows and human oversight together.',
-    siteName: 'ALO Labs AgentOS',
+    title: 'ALO Labs — AI-Powered Business Services',
+    description: 'AI-powered business services, delivered by an accountable team and followed in your client portal.',
+    siteName: 'ALO Labs',
     images: ['/brand/alo-logo-horizontal.svg'],
   },
   other: {
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "black-translucent",
-    "apple-mobile-web-app-title": "ALO AgentOS",
+    "apple-mobile-web-app-title": "ALO Labs",
   },
 };
 
@@ -55,7 +54,7 @@ export default function RootLayout({
         <link rel="mask-icon" href="/brand/alo-mark.svg" color="#FF6A00" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="ALO AgentOS" />
+        <meta name="apple-mobile-web-app-title" content="ALO Labs" />
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
         {/*
           Editorial typography stack: Instrument Serif for titles and callouts,

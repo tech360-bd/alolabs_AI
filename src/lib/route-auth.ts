@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from './auth';
+import { isInternalRole } from './access/surfaces';
 
 type AuthUser = {
   userId: string;
@@ -56,6 +57,10 @@ export function withAuth(handler: AuthenticatedHandler) {
 
     if (!user || !user.isActive) {
       return NextResponse.json({ error: 'Unauthorized: user not found or inactive' }, { status: 401 });
+    }
+    // `withAuth` guards internal routes only (see src/lib/access/surfaces.ts).
+    if (!isInternalRole(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized: invalid token' }, { status: 401 });
     }
 
     const authUser: AuthUser = {
