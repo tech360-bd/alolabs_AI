@@ -10,7 +10,10 @@
 'use strict'
 
 if (process.env.SANDBOX_SQLITE_SHIM === '1') {
+  // This preload hooks CommonJS module loading.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Module = require('node:module')
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const path = require('node:path')
   const originalLoad = Module._load
 

@@ -174,7 +174,8 @@ const optionalSurfaces = [
   ['deploy/systemd/alolabs-agent-hub.service', [/Environment=PORT=3011/]],
   ['deploy/nginx/agentos.conf', [/server 127\.0\.0\.1:3011;/]],
   ['nginx.conf.example', [/server 127\.0\.0\.1:3011;/]],
-  ['ecosystem.config.js', [/PORT: 3011/]],
+  // PM2 accepts either a numeric port or the equivalent environment string.
+  ['ecosystem.config.js', [/^\s*PORT:\s*(?:3011|'3011'|"3011"),?\s*$/m]],
 ];
 for (const [rel, patterns] of optionalSurfaces) {
   if (!existsSync(join(root, rel))) continue; // surface removed; nothing to assert

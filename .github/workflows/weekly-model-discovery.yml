@@ -1,4 +1,4 @@
-# Weekly open-source AI model discovery (Phase 12).
+# Weekly AI model discovery (Phase 12); licences require human review.
 #
 # Read-only: fetches public model catalogues, produces a Markdown report for
 # human review, and opens/updates a tracking issue for authorized internal
@@ -28,6 +28,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Test discovery price filtering and report
+        run: node --test __tests__/scripts/model-discovery.node-test.mjs
+
       - name: Run discovery script
         id: discovery
         run: |
@@ -52,7 +55,7 @@ jobs:
           gh label create "$LABEL" --description "Weekly open-source model discovery (human review required)" --color 1D76DB --force 2>/dev/null || true
 
           EXISTING=$(gh issue list --label "$LABEL" --state open --limit 1 --json number --jq '.[0].number' || echo "")
-          TITLE="Weekly open-source AI model discovery — ${{ steps.discovery.outputs.date }} (human review required)"
+          TITLE="Weekly AI model discovery — ${{ steps.discovery.outputs.date }} (human review required)"
 
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body "$(cat /tmp/discovery/body.md)"

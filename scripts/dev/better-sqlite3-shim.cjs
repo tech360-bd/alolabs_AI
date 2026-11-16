@@ -22,6 +22,8 @@
 
 'use strict'
 
+// CommonJS is required for the preload-based sandbox shim.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { DatabaseSync } = require('node:sqlite')
 
 function normalise(value) {
