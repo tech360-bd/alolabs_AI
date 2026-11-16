@@ -4,6 +4,8 @@
 
 The issue is an intentionally created human-review report, not a failed job. The scheduled [run 43899920459](https://github.com/tech360-bd/alolabs_AI/actions/runs/43899920459) completed successfully and the workflow created the issue as configured. It does not authorize or deploy any model. Review of licences, pricing, privacy, behaviour, hardware and Super Admin approval remains necessary.
 
+The PR's CI also exposed a pre-existing failure on `main`: the Prisma delegate checker matched `db.client*` in a documentation comment as if it were a real delegate. Rewording that comment preserves the check and application behavior; it does not weaken the gate.
+
 The report generator nevertheless had a real classification defect: `Number(null)`, `Number('')` and similar values are zero, and a sufficiently tiny non-zero numeric string can underflow to zero. Consequently absent or non-zero pricing could be reported as explicit zero. A `:free` suffix also bypassed price checks, even when prices contradicted it. The correction requires explicit zero values for both prompt and completion, including for `:free` identifiers. It excludes unverified rows rather than asserting their prices. The report also clarifies that neither zero token prices nor a catalogue listing proves an open-source licence, or that other modalities and fees are free. The original issue is a historical snapshot and should not be treated as verified model or pricing evidence.
 
 ## Pull request audit

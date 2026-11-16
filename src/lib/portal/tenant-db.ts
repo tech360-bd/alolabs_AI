@@ -1,7 +1,7 @@
 /**
  * tenantDb — tenant isolation at the query level for the client portal.
  *
- * Portal handlers do not touch `db.client*` directly. They call
+ * Portal handlers do not touch client model delegates directly. They call
  * `tenantDb(companyId)`, and every operation it exposes has the caller's
  * `companyId` merged into the WHERE clause (and into `data` on create) by this
  * module — the handler cannot forget it and cannot override it:
