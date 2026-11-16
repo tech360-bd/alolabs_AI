@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Target,
@@ -113,7 +114,7 @@ export default function SEOChallengePanel() {
       const statusParam = tab !== 'all' ? tab : ''
       const params = new URLSearchParams()
       if (statusParam) params.set('status', statusParam)
-      const res = await fetch(`/api/seo/challenges?${params}`)
+      const res = await apiFetch(`/api/seo/challenges?${params}`)
       const data = await res.json()
       setChallenges(data.challenges || [])
       setStats(data.stats || { active: 0, completed: 0, paused: 0, totalChallenges: 0, totalTasks: 0, completedTasks: 0, avgScoreImprovement: 0 })
@@ -139,7 +140,7 @@ export default function SEOChallengePanel() {
     setSaving(true)
     try {
       const keywords = formKeywords.split(',').map((k) => k.trim()).filter(Boolean)
-      const res = await fetch('/api/seo/challenges', {
+      const res = await apiFetch('/api/seo/challenges', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: formTitle, targetKeywords: keywords, durationDays: parseInt(formDuration, 10), websiteUrl: formUrl }),
@@ -152,7 +153,7 @@ export default function SEOChallengePanel() {
 
   const toggleTask = async (challengeId: string, taskIndex: number) => {
     try {
-      const res = await fetch('/api/seo/challenges', {
+      const res = await apiFetch('/api/seo/challenges', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: challengeId, markTaskComplete: taskIndex }),
@@ -167,7 +168,7 @@ export default function SEOChallengePanel() {
   const togglePause = async (challenge: SEOChallenge) => {
     try {
       const newStatus = challenge.status === 'paused' ? 'active' : 'paused'
-      const res = await fetch('/api/seo/challenges', {
+      const res = await apiFetch('/api/seo/challenges', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: challenge.id, status: newStatus }),

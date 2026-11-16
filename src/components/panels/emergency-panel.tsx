@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   OctagonAlert,
@@ -75,7 +76,7 @@ export default function EmergencyPanel() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/emergency')
+      const res = await apiFetch('/api/emergency')
       const data = await res.json()
       setToggles(data.toggles || [])
       setActivity(data.activity || [])
@@ -99,7 +100,7 @@ export default function EmergencyPanel() {
     }
     setToggling(key)
     try {
-      const res = await fetch('/api/emergency', {
+      const res = await apiFetch('/api/emergency', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: key, enabled }),
@@ -126,7 +127,7 @@ export default function EmergencyPanel() {
       // Toggle all switches
       await Promise.all(
         toggles.map((t) =>
-          fetch('/api/emergency', {
+          apiFetch('/api/emergency', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: t.key, enabled: enable }),

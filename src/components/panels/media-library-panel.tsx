@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Image,
@@ -224,7 +225,7 @@ export default function MediaLibraryPanel() {
       if (activeFolder !== 'all') params.set('folder', activeFolder)
       if (activeTypeFilter !== 'all') params.set('type', activeTypeFilter)
 
-      const res = await fetch(`/api/media?${params}`)
+      const res = await apiFetch(`/api/media?${params}`)
       if (res.ok) {
         const json = await res.json()
         setFiles(json.data || [])
@@ -239,7 +240,7 @@ export default function MediaLibraryPanel() {
 
   const fetchFolders = useCallback(async () => {
     try {
-      const res = await fetch('/api/media/folders', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      const res = await apiFetch('/api/media/folders', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       if (res.ok) {
         const json = await res.json()
         setFolders(json.data || [])
@@ -311,7 +312,7 @@ export default function MediaLibraryPanel() {
           prev.map((p) => (p.id === item.id ? { ...p, status: 'uploading', progress: -1 } : p))
         )
 
-        const res = await fetch('/api/media/upload', {
+        const res = await apiFetch('/api/media/upload', {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           body: formData,
@@ -365,7 +366,7 @@ export default function MediaLibraryPanel() {
 
   const handleDelete = async (ids: string[]) => {
     try {
-      const res = await fetch('/api/media', {
+      const res = await apiFetch('/api/media', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids }),
@@ -393,7 +394,7 @@ export default function MediaLibraryPanel() {
   const handleMoveToFolder = async (folderName: string) => {
     if (selectedFiles.size === 0) return
     try {
-      const res = await fetch('/api/media', {
+      const res = await apiFetch('/api/media', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -416,7 +417,7 @@ export default function MediaLibraryPanel() {
   const handleAiTag = async (file: MediaFile) => {
     setAiTagging(file.id)
     try {
-      const res = await fetch('/api/media/ai-tag', {
+      const res = await apiFetch('/api/media/ai-tag', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ fileId: file.id }),
@@ -441,7 +442,7 @@ export default function MediaLibraryPanel() {
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return
     try {
-      const res = await fetch('/api/media/folders', {
+      const res = await apiFetch('/api/media/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newFolderName.trim() }),

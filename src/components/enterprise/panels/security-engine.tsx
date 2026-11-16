@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { Shield, Scan, Radar, Ban, Search, Wrench, AlertTriangle, Clock, CheckCircle2, Lock } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'

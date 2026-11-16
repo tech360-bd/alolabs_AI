@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { FileCode, Search, Star, TrendingUp, Sparkles } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

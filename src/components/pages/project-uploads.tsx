@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Plus, Trash2, FileUp } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiFetch, fetchApi } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { useState } from 'react'
 
@@ -33,7 +33,7 @@ export default function ProjectUploadsPage() {
       fd.append('name', uploadForm.name || file.name)
       fd.append('description', uploadForm.description)
       const token = (await import('@/store/app')).useAppStore.getState().token
-      const res = await fetch('/api/uploads', {
+      const res = await apiFetch('/api/uploads', {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd,

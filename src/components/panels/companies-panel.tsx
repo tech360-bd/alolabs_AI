@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import { Building2, Globe, Wifi } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -23,7 +24,7 @@ export default function CompaniesPanel() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/companies')
+    apiFetch('/api/companies')
       .then((r) => r.json())
       .then((res) => setCompanies(res.data || []))
       .catch(() => {})

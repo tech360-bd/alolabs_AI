@@ -145,7 +145,7 @@ describe('AgentsRegistryPanel', () => {
     render(<AgentsRegistryPanel />);
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('/api/departments');
+      expect(mockFetch.mock.calls.some(([url]) => url === '/api/departments')).toBe(true);
     });
   });
 });

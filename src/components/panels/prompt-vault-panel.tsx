@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Lock,
@@ -104,7 +105,7 @@ export default function PromptVaultPanel() {
       const params = new URLSearchParams()
       if (tab !== 'all') params.set('category', tab)
       if (search) params.set('search', search)
-      const res = await fetch(`/api/prompts?${params}`)
+      const res = await apiFetch(`/api/prompts?${params}`)
       const data = await res.json()
       setPrompts(data.prompts || [])
     } catch {
@@ -133,7 +134,7 @@ export default function PromptVaultPanel() {
     }
     setSaving(true)
     try {
-      const res = await fetch('/api/prompts', {
+      const res = await apiFetch('/api/prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: formName, category: formCategory, content: formContent, version: formVersion }),
@@ -159,7 +160,7 @@ export default function PromptVaultPanel() {
     setFullContent('')
     // Fetch full content from settings
     try {
-      const res = await fetch('/api/prompts')
+      const res = await apiFetch('/api/prompts')
       const data = await res.json()
       // Find in all prompts - we need the full content from a direct settings query
       // For now we'll just use the preview
@@ -187,7 +188,7 @@ export default function PromptVaultPanel() {
     if (!selectedPrompt) return
     setSaving(true)
     try {
-      const res = await fetch('/api/prompts', {
+      const res = await apiFetch('/api/prompts', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: selectedPrompt.id, content: formContent, version: formVersion }),
@@ -209,7 +210,7 @@ export default function PromptVaultPanel() {
 
   const toggleLock = async (prompt: Prompt) => {
     try {
-      const res = await fetch('/api/prompts', {
+      const res = await apiFetch('/api/prompts', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: prompt.id, locked: !prompt.locked }),
@@ -236,7 +237,7 @@ export default function PromptVaultPanel() {
     if (!selectedPrompt) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/prompts?id=${selectedPrompt.id}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/prompts?id=${selectedPrompt.id}`, { method: 'DELETE' })
       if (res.ok) {
         toast.success('Deleted', { description: 'Prompt deleted successfully'  })
         setDeleteOpen(false)

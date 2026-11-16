@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   Send, Crown, Radio, Loader2, Check, CheckCheck,
@@ -78,7 +79,7 @@ export default function SuperCommandingChat() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    fetch('/api/companies', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    apiFetch('/api/companies', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then((r) => r.json())
       .then((res) => {
         const list = (res.data || []).map((c: { id: string; name: string; slug: string; webCrmConnected: boolean }) => ({
@@ -88,7 +89,7 @@ export default function SuperCommandingChat() {
       })
       .catch(() => {})
       .finally(() => setInitialLoading(false))
-    fetch('/api/enterprise/stats', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    apiFetch('/api/enterprise/stats', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then((r) => (r.ok ? r.json() : null))
       .then((res) => {
         if (res && typeof res.agents === 'number') setAgentCount(res.agents)
@@ -128,7 +129,7 @@ export default function SuperCommandingChat() {
     }, 300)
 
     try {
-      const res = await fetch('/api/super-chat', {
+      const res = await apiFetch('/api/super-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
@@ -181,7 +182,7 @@ export default function SuperCommandingChat() {
   const clearChat = async () => {
     setMessages([])
     try {
-      await fetch('/api/super-chat?sessionId=super-admin-chat', { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      await apiFetch('/api/super-chat?sessionId=super-admin-chat', { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} })
     } catch { /* ignore */ }
   }
 

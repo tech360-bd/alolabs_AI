@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { fetchApi, fetchApiRaw, AUTH_TOKEN_KEY } from '@/lib/api'
+import { apiFetch, fetchApi, fetchApiRaw, AUTH_TOKEN_KEY } from '@/lib/api-client'
 
 interface RunTask {
   id: string
@@ -161,7 +161,7 @@ async function streamRunEvents(
   onEvent: (event: RunEvent) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(`/api/runs/${runId}/events`, {
+  const res = await apiFetch(`/api/runs/${runId}/events`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     signal,
   })

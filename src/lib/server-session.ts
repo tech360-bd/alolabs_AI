@@ -17,9 +17,9 @@
  * sends a client to the portal; `requireClientServerSession` does the reverse.
  * Neither renders a single byte of the other surface's HTML.
  *
- * The same cookie is set by `POST /api/auth/login` and cleared by
- * `POST /api/auth/logout`, so there is exactly one credential the server trusts
- * for page rendering.
+ * The JWT is returned to browser clients for Bearer authorization and mirrored
+ * in an httpOnly cookie for server-rendered page gates. API authorization does
+ * not depend on the cookie.
  *
  * This file imports Prisma and must only be used from server components,
  * route handlers, or server actions — never from a client component and never
@@ -33,7 +33,7 @@ import { verifySessionToken } from './auth'
 import { audienceForRole, type Audience } from './access/surfaces'
 import { recordAccessViolation } from './access/audit'
 
-/** Name of the httpOnly cookie that carries the opaque session token. */
+/** Name of the httpOnly compatibility cookie that mirrors the session JWT. */
 export const SESSION_COOKIE = 'session-token'
 
 export interface ServerSessionUser {

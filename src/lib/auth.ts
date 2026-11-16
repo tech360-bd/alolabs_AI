@@ -2,36 +2,18 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { db } from './db';
-import { sessionKey, legacySessionKey } from './session-token';
-import { addSessionToIndex, removeSessionFromIndex, clearSessionIndex } from './session-index';
-import { CLIENT_TOKEN_PREFIX, audienceForRole, audienceForToken, type Audience } from './access/surfaces';
+import { hashSessionToken, sessionKey, legacySessionKey } from './session-token';
+import { removeSessionFromIndex, removeSessionIndexEntry, clearSessionIndex } from './session-index';
+import { audienceForRole, audienceForToken, type Audience } from './access/surfaces';
 import { recordAccessViolation } from './access/audit';
 
 const SALT_ROUNDS = 12;
-const TOKEN_LENGTH = 48;
 const JWT_EXPIRES_IN = '24h';
-
-/**
- * Session lifetime. Sessions are opaque random tokens persisted in the
- * Settings table (`session:<sha256(token)>`), with explicit `expiresAt` and an
- * idle timeout, so a leaked token cannot be used forever and a restart never
- * resurrects a revoked session.
- *
- * TOKENS ARE HASHED AT REST. The bearer token is only ever returned to the
- * client; the database stores its SHA-256 digest as the lookup key. A read of
- * the Settings table — via SQL injection, a stolen backup, or an over-broad
- * admin export — therefore yields digests that cannot be replayed. Hashing
- * (not bcrypt) is correct here: the token is already 48 bytes of CSPRNG output,
- * so there is no low-entropy secret for an attacker to brute-force, and a fast
- * digest keeps every request from paying a key-derivation cost.
- *
- * Rows written before this change are keyed by the raw token. They are still
- * honoured on read and lazily re-keyed on first successful use, so deploying
- * this does not sign anyone out. See `legacySessionKey`.
- */
-const SESSION_TTL_HOURS = Number(process.env.SESSION_TTL_HOURS ?? 24);
-const SESSION_IDLE_HOURS = Number(process.env.SESSION_IDLE_HOURS ?? 12);
-/** How often (ms) lastUsedAt is written back; avoids a write per request. */
+const configuredSessionTtl = Number(process.env.SESSION_TTL_HOURS ?? 24);
+const configuredIdleHours = Number(process.env.SESSION_IDLE_HOURS ?? 12);
+const SESSION_TTL_HOURS = Number.isFinite(configuredSessionTtl) && configuredSessionTtl > 0 ? configuredSessionTtl : 24;
+const SESSION_IDLE_HOURS = Number.isFinite(configuredIdleHours) && configuredIdleHours >= 0 ? configuredIdleHours : 12;
+/** Avoid a database write on every authenticated request. */
 const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 
 function resolveJwtSecret(): string {
@@ -40,7 +22,7 @@ function resolveJwtSecret(): string {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('JWT_SECRET must be set (>= 32 chars) in production');
   }
-  // Development/test only: a per-process random secret. Never a hardcoded string.
+  // Development/test only: a per-process random secret. Never a hardcoded key.
   if (!globalThis.__aloDevJwtSecret) {
     globalThis.__aloDevJwtSecret = crypto.randomBytes(32).toString('hex');
   }
@@ -51,26 +33,41 @@ declare global {
   var __aloDevJwtSecret: string | undefined;
 }
 
-// ─── JWT Functions ─────────────────────────────────────────────────
+// ─── JWT Functions ──────────────────────────────────────────────────────────
 
 export interface JwtPayload {
   userId: string;
   role?: string;
+  jti?: string;
+  aud?: Audience;
+  iat?: number;
+  exp?: number;
 }
 
 export function signToken(payload: JwtPayload, expiresIn: number | string = JWT_EXPIRES_IN): string {
-  return jwt.sign(payload, resolveJwtSecret(), { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] });
+  return jwt.sign(payload, resolveJwtSecret(), {
+    algorithm: 'HS256',
+    expiresIn: expiresIn as jwt.SignOptions['expiresIn'],
+  });
 }
 
+/** Verifies the signature and pins JWTs to HS256; malformed/expired tokens fail closed. */
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    return jwt.verify(token, resolveJwtSecret()) as JwtPayload;
+    const decoded = jwt.verify(token, resolveJwtSecret(), { algorithms: ['HS256'] }) as jwt.JwtPayload & Partial<JwtPayload>;
+    const userId = typeof decoded.userId === 'string'
+      ? decoded.userId
+      : typeof decoded.sub === 'string'
+        ? decoded.sub
+        : null;
+    if (!userId) return null;
+    return { ...decoded, userId };
   } catch {
     return null;
   }
 }
 
-// ─── Password Functions ────────────────────────────────────────────
+// ─── Password Functions ─────────────────────────────────────────────────────
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);
@@ -85,35 +82,34 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
-// ─── Session Token Functions (DB-backed) ───────────────────────────
+// ─── Database-backed JWT Sessions ────────────────────────────────────────────
 
 export interface SessionRecord {
+  /** Prisma Session.id; absent only on legacy Settings-backed sessions. */
+  id?: string;
   userId: string;
   createdAt: string;
   expiresAt: string;
   lastUsedAt: string;
-  /** Free-form origin marker: password, oauth:<provider>, mfa */
   method?: string;
-  /**
-   * The access surface this session was minted for. Absent only on sessions
-   * created before the surfaces were separated; those are classified on first
-   * use from the owner's role.
-   */
   aud?: Audience;
+  deviceInfo?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  isRefreshToken?: boolean;
 }
 
 export interface SessionCreateOptions {
   method?: string;
   ttlHours?: number;
+  deviceInfo?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  isRefreshToken?: boolean;
 }
 
 export interface SessionVerifyOptions {
-  /**
-   * Which surface the caller serves. Defaults to `internal`, so every existing
-   * call site — and any future one that forgets to choose — refuses client
-   * sessions. Only the client route group passes `client`; only the shared
-   * account endpoints pass `any`.
-   */
+  /** Defaults to internal. Only client and shared-account handlers opt out. */
   audience?: Audience | 'any';
 }
 
@@ -124,12 +120,23 @@ export interface VerifiedSession {
   role: string;
 }
 
-/**
- * The owner's current role, read on every verification. A session is only as
- * good as the account behind it: a deleted or deactivated user, or one whose
- * role has moved to the other surface, must stop working immediately rather
- * than when the token happens to expire.
- */
+interface PrismaSessionRow {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  audience: string;
+  method: string;
+  deviceInfo: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  isRefreshToken: boolean;
+  createdAt: Date;
+  lastUsedAt: Date;
+  expiresAt: Date;
+  revokedAt: Date | null;
+}
+
+/** The owner's current role is authoritative; claims never grant access by themselves. */
 async function loadSessionOwner(userId: string): Promise<{ role: string; isActive: boolean } | null> {
   const owner = await db.user.findUnique({
     where: { id: userId },
@@ -139,15 +146,145 @@ async function loadSessionOwner(userId: string): Promise<{ role: string; isActiv
   return { role: owner.role, isActive: owner.isActive !== false };
 }
 
-// Key derivation is shared with src/lib/session-manager.ts on purpose: both
-// modules read and write the same `session:` keyspace, and a private copy in
-// each is how logout silently broke when hashing was added here alone.
-// See src/lib/session-token.ts.
+function toSessionRecord(row: PrismaSessionRow): SessionRecord {
+  return {
+    id: row.id,
+    userId: row.userId,
+    createdAt: row.createdAt.toISOString(),
+    expiresAt: row.expiresAt.toISOString(),
+    lastUsedAt: row.lastUsedAt.toISOString(),
+    method: row.method,
+    aud: row.audience === 'client' ? 'client' : 'internal',
+    deviceInfo: row.deviceInfo ?? undefined,
+    ipAddress: row.ipAddress ?? undefined,
+    userAgent: row.userAgent ?? undefined,
+    isRefreshToken: row.isRefreshToken,
+  };
+}
 
-/**
- * Re-key a legacy raw-token row to its hashed key. Best-effort: if the write
- * fails the session still verifies, it simply migrates on a later request.
- */
+export async function createSessionToken(userId: string, options: SessionCreateOptions = {}): Promise<string> {
+  const owner = await loadSessionOwner(userId);
+  if (!owner || !owner.isActive) throw new Error('Cannot create a session for a missing or inactive user');
+
+  const audience = audienceForRole(owner.role);
+  const now = new Date();
+  const ttlHours = options.ttlHours && Number.isFinite(options.ttlHours) && options.ttlHours > 0
+    ? options.ttlHours
+    : SESSION_TTL_HOURS;
+  const expiresAt = new Date(now.getTime() + ttlHours * 60 * 60 * 1000);
+  const pendingHash = `pending:${crypto.randomBytes(24).toString('hex')}`;
+  const session = await db.session.create({
+    data: {
+      userId,
+      tokenHash: pendingHash,
+      audience,
+      method: options.method ?? 'password',
+      deviceInfo: options.deviceInfo?.slice(0, 191),
+      ipAddress: options.ipAddress?.slice(0, 191),
+      userAgent: options.userAgent?.slice(0, 191),
+      isRefreshToken: options.isRefreshToken ?? false,
+      createdAt: now,
+      lastUsedAt: now,
+      expiresAt,
+    },
+    select: { id: true },
+  });
+
+  const token = signToken({ userId, role: owner.role, jti: session.id, aud: audience }, Math.floor(ttlHours * 60 * 60));
+  try {
+    await db.session.update({
+      where: { id: session.id },
+      data: { tokenHash: hashSessionToken(token) },
+    });
+  } catch (error) {
+    await db.session.delete({ where: { id: session.id } }).catch(() => undefined);
+    throw error;
+  }
+
+  return token;
+}
+
+function parseSessionRecord(raw: string): SessionRecord | null {
+  try {
+    const data = JSON.parse(raw) as Partial<SessionRecord> & { id?: string };
+    const userId = typeof data.userId === 'string' ? data.userId : undefined;
+    if (!userId || typeof data.expiresAt !== 'string' || typeof data.createdAt !== 'string') return null;
+    return {
+      ...(typeof data.id === 'string' ? { id: data.id } : {}),
+      userId,
+      createdAt: data.createdAt,
+      expiresAt: data.expiresAt,
+      lastUsedAt: typeof data.lastUsedAt === 'string' ? data.lastUsedAt : data.createdAt,
+      method: typeof data.method === 'string' ? data.method : undefined,
+      ...(data.aud === 'internal' || data.aud === 'client' ? { aud: data.aud } : {}),
+      deviceInfo: typeof data.deviceInfo === 'string' ? data.deviceInfo : undefined,
+      ipAddress: typeof data.ipAddress === 'string' ? data.ipAddress : undefined,
+      userAgent: typeof data.userAgent === 'string' ? data.userAgent : undefined,
+      isRefreshToken: data.isRefreshToken === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function isSessionExpired(record: SessionRecord, now: Date = new Date()): boolean {
+  const expiresAt = Date.parse(record.expiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt <= now.getTime()) return true;
+  const lastUsed = Date.parse(record.lastUsedAt);
+  return SESSION_IDLE_HOURS > 0
+    && Number.isFinite(lastUsed)
+    && now.getTime() - lastUsed > SESSION_IDLE_HOURS * 60 * 60 * 1000;
+}
+
+async function verifyJwtSession(
+  token: string,
+  payload: JwtPayload,
+  options: SessionVerifyOptions,
+): Promise<VerifiedSession | null> {
+  if (!payload.jti || !payload.aud) return null;
+
+  const row = await db.session.findUnique({ where: { id: payload.jti } }) as PrismaSessionRow | null;
+  if (!row || row.revokedAt || row.tokenHash !== hashSessionToken(token)) return null;
+  if (row.userId !== payload.userId || row.audience !== payload.aud) return null;
+
+  const record = toSessionRecord(row);
+  const now = new Date();
+  if (isSessionExpired(record, now)) {
+    await db.session.delete({ where: { id: row.id } }).catch(() => undefined);
+    return null;
+  }
+
+  const owner = await loadSessionOwner(row.userId);
+  if (!owner || !owner.isActive) {
+    await db.session.delete({ where: { id: row.id } }).catch(() => undefined);
+    return null;
+  }
+
+  const audience = audienceForRole(owner.role);
+  if (record.aud !== audience || audienceForToken(token) !== audience) {
+    await db.session.delete({ where: { id: row.id } }).catch(() => undefined);
+    return null;
+  }
+
+  const expected = options.audience ?? 'internal';
+  if (expected !== 'any' && expected !== audience) {
+    await recordAccessViolation({
+      type: audience === 'client' ? 'client_to_internal_denied' : 'internal_to_client_denied',
+      userId: row.userId,
+      role: owner.role,
+      reason: `session audience "${audience}" presented to the ${expected} surface`,
+    });
+    return null;
+  }
+
+  if (now.getTime() - row.lastUsedAt.getTime() > SESSION_TOUCH_INTERVAL_MS) {
+    record.lastUsedAt = now.toISOString();
+    await db.session.update({ where: { id: row.id }, data: { lastUsedAt: now } }).catch(() => undefined);
+  }
+  return { userId: row.userId, session: record, audience, role: owner.role };
+}
+
+/** Re-key a legacy raw-token row to its hashed Settings key on first valid use. */
 async function migrateLegacySessionKey(token: string, value: string): Promise<void> {
   const hashed = sessionKey(token);
   const legacy = legacySessionKey(token);
@@ -159,135 +296,49 @@ async function migrateLegacySessionKey(token: string, value: string): Promise<vo
     });
     await db.settings.delete({ where: { key: legacy } });
   } catch {
-    // Leave the legacy row in place; a later request retries the migration.
+    // Leave the legacy row in place; the next valid request can retry.
   }
 }
 
-export async function createSessionToken(userId: string, options: SessionCreateOptions = {}): Promise<string> {
-  // The surface is decided here, from the stored role, and nowhere else. No
-  // caller can ask for an internal session: an account that cannot be proven
-  // to hold an internal role gets a client one.
-  const owner = await loadSessionOwner(userId).catch(() => null);
-  const audience: Audience = owner ? audienceForRole(owner.role) : 'client';
-  const secret = crypto.randomBytes(TOKEN_LENGTH).toString('hex');
-  const token = audience === 'client' ? `${CLIENT_TOKEN_PREFIX}${secret}` : secret;
-  const now = new Date();
-  const ttlHours = options.ttlHours && options.ttlHours > 0 ? options.ttlHours : SESSION_TTL_HOURS;
-  const record: SessionRecord = {
-    userId,
-    createdAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + ttlHours * 60 * 60 * 1000).toISOString(),
-    lastUsedAt: now.toISOString(),
-    method: options.method,
-    aud: audience,
-  };
-  await db.settings.upsert({
-    where: { key: sessionKey(token) },
-    update: { value: JSON.stringify(record), updatedAt: now },
-    create: { key: sessionKey(token), value: JSON.stringify(record), type: 'json' },
-  });
-
-  // Register the session in the per-user index. Without this the index is only
-  // ever written by session-manager's own createSession(), which nothing on the
-  // login path calls — so GET /api/auth/sessions returned an empty "active
-  // devices" list and DELETE ?all=true revoked nothing while reporting success.
-  // Best-effort: a failure here must not fail the login itself.
-  await addSessionToIndex(userId, token).catch(() => {});
-
-  return token;
-}
-
-function parseSessionRecord(raw: string): SessionRecord | null {
-  try {
-    const data = JSON.parse(raw) as Partial<SessionRecord> & { id?: string };
-    const userId = typeof data.userId === 'string' ? data.userId : typeof data.id === 'string' ? data.id : undefined;
-    if (!userId) return null;
-    // Legacy sessions (created before expiry enforcement) carry no expiresAt.
-    // They are treated as expired: the user must sign in again once.
-    if (typeof data.expiresAt !== 'string' || typeof data.createdAt !== 'string') return null;
-    return {
-      userId,
-      createdAt: data.createdAt,
-      expiresAt: data.expiresAt,
-      lastUsedAt: typeof data.lastUsedAt === 'string' ? data.lastUsedAt : data.createdAt,
-      method: typeof data.method === 'string' ? data.method : undefined,
-      ...(data.aud === 'internal' || data.aud === 'client' ? { aud: data.aud } : {}),
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function isSessionExpired(record: SessionRecord, now: Date = new Date()): boolean {
-  const expiresAt = Date.parse(record.expiresAt);
-  if (!Number.isFinite(expiresAt) || expiresAt <= now.getTime()) return true;
-  const lastUsed = Date.parse(record.lastUsedAt);
-  if (SESSION_IDLE_HOURS > 0 && Number.isFinite(lastUsed)) {
-    if (now.getTime() - lastUsed > SESSION_IDLE_HOURS * 60 * 60 * 1000) return true;
-  }
-  return false;
-}
-
-/**
- * Validates an opaque session token: it must exist, be well-formed, be
- * unexpired (absolute TTL and idle timeout), belong to an active account, and
- * have been minted for the surface the caller serves. Expired sessions are
- * deleted. Successful validation refreshes lastUsedAt at most every few minutes.
- *
- * SURFACE SEPARATION
- * ------------------
- * This is the single point every session-authenticated request passes through
- * — `requireAuth`, `withAuth`, `secureRoute`, the v1 handlers, the server page
- * gate and the ~90 routes that call it directly. It refuses client sessions
- * unless the caller explicitly asks for them, so the whole internal API is
- * closed to clients by default rather than route by route.
- */
-export async function verifySessionToken(
+async function verifyLegacySession(
   token: string,
-  options: SessionVerifyOptions = {},
+  options: SessionVerifyOptions,
 ): Promise<VerifiedSession | null> {
-  if (!token || typeof token !== 'string' || token.length > 512) return null;
+  let stored = await db.settings.findUnique({ where: { key: sessionKey(token) } });
+  let key = sessionKey(token);
 
-  let session = await db.settings.findUnique({ where: { key: sessionKey(token) } });
-
-  // Fall back to the pre-hashing raw-token key, then migrate it in place so the
-  // plaintext row disappears on first successful use. Without this, deploying
-  // token hashing would invalidate every live session at once.
-  if (!session) {
+  if (!stored) {
     const legacy = await db.settings.findUnique({ where: { key: legacySessionKey(token) } });
     if (!legacy) return null;
     const legacyRecord = parseSessionRecord(legacy.value);
-    // Only migrate a session that is still valid; expired ones are dropped below.
     if (legacyRecord && !isSessionExpired(legacyRecord)) {
       await migrateLegacySessionKey(token, legacy.value);
-      session = await db.settings.findUnique({ where: { key: sessionKey(token) } });
-      if (!session) return null;
+      stored = await db.settings.findUnique({ where: { key: sessionKey(token) } });
+      if (!stored) {
+        // Keep a valid old session working if the best-effort re-key failed.
+        stored = legacy;
+        key = legacySessionKey(token);
+      }
     } else {
-      session = legacy;
+      stored = legacy;
+      key = legacySessionKey(token);
     }
   }
 
-  const record = parseSessionRecord(session.value);
+  const record = parseSessionRecord(stored.value);
   const now = new Date();
   if (!record || isSessionExpired(record, now)) {
     await deleteSessionToken(token);
     return null;
   }
 
-  // ── Account + surface checks ────────────────────────────────────────────
   const owner = await loadSessionOwner(record.userId);
-  if (!owner) {
-    // The account no longer exists: the session is meaningless.
+  if (!owner || !owner.isActive) {
     await deleteSessionToken(token);
     return null;
   }
-  if (!owner.isActive) return null;
 
   const audience = audienceForRole(owner.role);
-  // The role moved to the other surface after this session was minted, or the
-  // token class does not match the account (a pre-separation session held by
-  // a customer). Either way the session is revoked: the user signs in again
-  // and receives a token for the surface they actually belong to.
   if ((record.aud && record.aud !== audience) || audienceForToken(token) !== audience) {
     await deleteSessionToken(token);
     return null;
@@ -299,80 +350,121 @@ export async function verifySessionToken(
       type: audience === 'client' ? 'client_to_internal_denied' : 'internal_to_client_denied',
       userId: record.userId,
       role: owner.role,
-      reason: `session audience "${audience}" presented to the ${expected} surface`,
+      reason: `legacy session audience "${audience}" presented to the ${expected} surface`,
     });
     return null;
   }
 
-  const needsAudienceStamp = !record.aud;
-  if (needsAudienceStamp) record.aud = audience;
-  if (needsAudienceStamp || now.getTime() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_INTERVAL_MS) {
+  if (!record.aud) record.aud = audience;
+  if (now.getTime() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_INTERVAL_MS) {
     record.lastUsedAt = now.toISOString();
     await db.settings.update({
-      where: { key: sessionKey(token) },
+      where: { key },
       data: { value: JSON.stringify(record), updatedAt: now },
-    }).catch(() => { /* best-effort touch */ });
+    }).catch(() => undefined);
   }
   return { userId: record.userId, session: record, audience, role: owner.role };
 }
 
-/** Deletes every session that belongs to a user (password change, admin revoke). */
-export async function revokeUserSessions(userId: string): Promise<number> {
-  const sessions = await db.settings.findMany({ where: { key: { startsWith: 'session:' } }, select: { id: true, value: true } });
-  let revoked = 0;
-  for (const session of sessions) {
-    try {
-      const data = JSON.parse(session.value) as { userId?: string };
-      if (data.userId === userId) {
-        await db.settings.delete({ where: { id: session.id } });
-        revoked += 1;
-      }
-    } catch { /* skip malformed */ }
+/**
+ * Validate the JWT signature/expiry, the matching DB Session row, the active
+ * account, current audience, absolute/idle expiry and caller's route audience.
+ * Opaque Settings-backed tokens are accepted only as a rolling-upgrade path.
+ */
+export async function verifySessionToken(
+  token: string,
+  options: SessionVerifyOptions = {},
+): Promise<VerifiedSession | null> {
+  if (!token || typeof token !== 'string' || token.length > 4096) return null;
+
+  if (token.split('.').length === 3) {
+    const payload = verifyToken(token);
+    return payload ? verifyJwtSession(token, payload, options) : null;
   }
-  // This path scans rows rather than trusting the index, so it works even when
-  // the index is stale — but the index must still be cleared, or
-  // listActiveSessions() would keep advertising sessions that are now gone.
-  if (revoked > 0) await clearSessionIndex(userId).catch(() => {});
-  return revoked;
+  return verifyLegacySession(token, options);
 }
 
-/** Removes expired session rows. Safe to run periodically. */
-export async function purgeExpiredSessions(now: Date = new Date()): Promise<number> {
-  const sessions = await db.settings.findMany({ where: { key: { startsWith: 'session:' } }, select: { id: true, key: true, value: true } });
-  let purged = 0;
-  for (const session of sessions) {
-    if (session.key.startsWith('session:meta:')) continue;
-    const record = parseSessionRecord(session.value);
-    if (!record || isSessionExpired(record, now)) {
-      await db.settings.delete({ where: { id: session.id } }).catch(() => undefined);
-      purged += 1;
+/** Revoke every database-backed and legacy session for a user. */
+export async function revokeUserSessions(userId: string): Promise<number> {
+  const dbResult = await db.session.deleteMany({ where: { userId } });
+  const legacyRows = await db.settings.findMany({
+    where: { key: { startsWith: 'session:' } },
+    select: { id: true, key: true, value: true },
+  });
+
+  let legacyRevoked = 0;
+  for (const row of legacyRows) {
+    if (row.key.startsWith('session:meta:')) continue;
+    try {
+      const record = JSON.parse(row.value) as { userId?: string };
+      if (record.userId === userId) {
+        await db.settings.delete({ where: { id: row.id } });
+        legacyRevoked += 1;
+      }
+    } catch {
+      // Skip malformed legacy entries; they cannot be tied safely to this user.
     }
   }
-  return purged;
+  await db.settings.deleteMany({
+    where: { key: { startsWith: `session:meta:${userId}:` } },
+  }).catch(() => undefined);
+  await clearSessionIndex(userId).catch(() => undefined);
+  return dbResult.count + legacyRevoked;
 }
 
+/** Remove expired JWT rows and expired legacy Settings rows. */
+export async function purgeExpiredSessions(now: Date = new Date()): Promise<number> {
+  const dbRows = await db.session.findMany({
+    select: { id: true, userId: true, expiresAt: true, lastUsedAt: true },
+  });
+  const expiredDb = dbRows.filter((row) => isSessionExpired({
+    userId: row.userId,
+    createdAt: row.expiresAt.toISOString(),
+    expiresAt: row.expiresAt.toISOString(),
+    lastUsedAt: row.lastUsedAt.toISOString(),
+  }, now));
+  const dbResult = expiredDb.length
+    ? await db.session.deleteMany({ where: { id: { in: expiredDb.map((row) => row.id) } } })
+    : { count: 0 };
+
+  const settingsRows = await db.settings.findMany({
+    where: { key: { startsWith: 'session:' } },
+    select: { id: true, key: true, value: true },
+  });
+  let legacyPurged = 0;
+  for (const row of settingsRows) {
+    if (row.key.startsWith('session:meta:')) continue;
+    const record = parseSessionRecord(row.value);
+    if (!record || isSessionExpired(record, now)) {
+      await db.settings.delete({ where: { id: row.id } }).catch(() => undefined);
+      if (record) {
+        await removeSessionIndexEntry(record.userId, row.key.slice('session:'.length)).catch(() => undefined);
+      }
+      legacyPurged += 1;
+    }
+  }
+  return dbResult.count + legacyPurged;
+}
+
+/** Delete by token digest (JWT or legacy) and remove its legacy index entry. */
 export async function deleteSessionToken(token: string): Promise<void> {
-  // Resolve the owning user BEFORE deleting, so the per-user index can be kept
-  // in sync. Otherwise revoked sessions linger in the index and
-  // listActiveSessions() keeps reporting devices that no longer exist.
+  if (!token || typeof token !== 'string') return;
+  const tokenHash = hashSessionToken(token);
   let userId: string | undefined;
+
+  const dbSession = await db.session.findUnique({
+    where: { tokenHash },
+    select: { id: true, userId: true },
+  }).catch(() => null);
+  if (dbSession) {
+    userId = dbSession.userId;
+    await db.session.delete({ where: { id: dbSession.id } }).catch(() => undefined);
+  }
+
   for (const key of [sessionKey(token), legacySessionKey(token)]) {
     const row = await db.settings.findUnique({ where: { key } }).catch(() => null);
-    if (row) {
-      userId = parseSessionRecord(row.value)?.userId;
-      break;
-    }
+    if (row && !userId) userId = parseSessionRecord(row.value)?.userId;
+    await db.settings.delete({ where: { key } }).catch(() => undefined);
   }
-
-  // Remove both the hashed row and any not-yet-migrated legacy row, so that a
-  // revoke or logout cannot leave a usable plaintext session behind.
-  for (const key of [sessionKey(token), legacySessionKey(token)]) {
-    try {
-      await db.settings.delete({ where: { key } });
-    } catch {
-      // Session may already be deleted
-    }
-  }
-
-  if (userId) await removeSessionFromIndex(userId, token).catch(() => {});
+  if (userId) await removeSessionFromIndex(userId, token).catch(() => undefined);
 }

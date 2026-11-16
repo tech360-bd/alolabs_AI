@@ -5,10 +5,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 class MockNextRequest {
   private _body: Record<string, unknown>;
   private _url: string;
+  headers: Headers;
 
-  constructor(url: string, body: Record<string, unknown> = {}) {
+  constructor(url: string, body: Record<string, unknown> = {}, headers: Record<string, string> = {}) {
     this._url = url;
     this._body = body;
+    this.headers = new Headers(headers);
   }
 
   async json() {
@@ -34,14 +36,14 @@ vi.mock('next/server', () => ({
 
 const mockListUserSessions = vi.fn();
 const mockDestroySession = vi.fn();
+const mockDestroyListedSession = vi.fn();
 const mockDestroyAllUserSessions = vi.fn();
-const mockCreateSession = vi.fn();
 
 vi.mock('@/lib/security/session-manager', () => ({
   listUserSessions: (...args: unknown[]) => mockListUserSessions(...args),
   destroySession: (...args: unknown[]) => mockDestroySession(...args),
+  destroyListedSession: (...args: unknown[]) => mockDestroyListedSession(...args),
   destroyAllUserSessions: (...args: unknown[]) => mockDestroyAllUserSessions(...args),
-  createSession: (...args: unknown[]) => mockCreateSession(...args),
 }));
 
 // ─── Mock API Auth ──────────────────────────────────────────────────
@@ -112,6 +114,7 @@ describe('GET /api/security/session', () => {
     const now = new Date().toISOString();
     mockListUserSessions.mockResolvedValue([
       {
+        id: 'session-1',
         token: '',
         metadata: {
           userId: 'user-1',
@@ -146,26 +149,40 @@ describe('DELETE /api/security/session', () => {
     vi.clearAllMocks();
   });
 
-  it('should return 400 when no token or sessionCreatedAt', async () => {
+  it('should return 400 when no token or session identifier is supplied', async () => {
     const req = new MockNextRequest('http://localhost/api/security/session', {});
     const response = await SESSION_DELETE(req as any);
     expect(response.status).toBe(400);
   });
 
-  it('should destroy session by token', async () => {
+  it('should destroy a token only for the authenticated user', async () => {
     mockDestroySession.mockResolvedValue(true);
     const req = new MockNextRequest('http://localhost/api/security/session', { token: 'session-token' });
     const response = await SESSION_DELETE(req as any);
     expect(response.status).toBe(200);
+    expect(mockDestroySession).toHaveBeenCalledWith('session-token', 'user-1');
     const data = await response.json();
     expect(data.success).toBe(true);
   });
 
-  it('should return 404 when session not found', async () => {
-    mockDestroySession.mockResolvedValue(false);
-    const req = new MockNextRequest('http://localhost/api/security/session', { token: 'nonexistent' });
+  it('should revoke a listed session by safe session id', async () => {
+    mockDestroyListedSession.mockResolvedValue(true);
+    const req = new MockNextRequest('http://localhost/api/security/session', { sessionId: 'session-row-1' });
     const response = await SESSION_DELETE(req as any);
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(200);
+    expect(mockDestroyListedSession).toHaveBeenCalledWith('user-1', {
+      sessionId: 'session-row-1',
+      sessionCreatedAt: undefined,
+    });
+  });
+
+  it('rejects ambiguous identifiers', async () => {
+    const req = new MockNextRequest('http://localhost/api/security/session', {
+      sessionId: 'session-1',
+      sessionCreatedAt: new Date().toISOString(),
+    });
+    const response = await SESSION_DELETE(req as any);
+    expect(response.status).toBe(400);
   });
 });
 
@@ -175,30 +192,46 @@ describe('POST /api/security/session (logout all others)', () => {
   });
 
   it('should report no other sessions when only 1 exists', async () => {
-    mockListUserSessions.mockResolvedValue([{ token: '', metadata: { createdAt: '' }, isActive: true }]);
-    const req = new MockNextRequest('http://localhost/api/security/session', {});
+    mockListUserSessions.mockResolvedValue([{ id: 'session-1', token: '', metadata: { createdAt: '' }, isActive: true }]);
+    const req = new MockNextRequest(
+      'http://localhost/api/security/session',
+      {},
+      { authorization: 'Bearer keep-this' },
+    );
     const response = await SESSION_POST(req as any);
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.terminatedCount).toBe(0);
   });
 
-  it('should destroy all other sessions', async () => {
+  it('should preserve the authenticated Bearer session while revoking others', async () => {
     mockListUserSessions.mockResolvedValue([
-      { token: '', metadata: { createdAt: '2025-01-01' }, isActive: true },
-      { token: '', metadata: { createdAt: '2025-01-02' }, isActive: true },
-      { token: '', metadata: { createdAt: '2025-01-03' }, isActive: true },
+      { id: 'session-1', token: '', metadata: { createdAt: '2025-01-01' }, isActive: true },
+      { id: 'session-2', token: '', metadata: { createdAt: '2025-01-02' }, isActive: true },
+      { id: 'session-3', token: '', metadata: { createdAt: '2025-01-03' }, isActive: true },
     ]);
-    mockDestroyAllUserSessions.mockResolvedValue(3);
-    mockCreateSession.mockResolvedValue('new-token');
+    mockDestroyAllUserSessions.mockResolvedValue(2);
 
-    const req = new MockNextRequest('http://localhost/api/security/session', {
-      currentToken: 'keep-this',
-    });
+    const req = new MockNextRequest(
+      'http://localhost/api/security/session',
+      { currentToken: 'keep-this' },
+      { authorization: 'Bearer keep-this' },
+    );
     const response = await SESSION_POST(req as any);
     expect(response.status).toBe(200);
+    expect(mockDestroyAllUserSessions).toHaveBeenCalledWith('user-1', 'keep-this');
     const data = await response.json();
-    expect(data.terminatedCount).toBe(3);
+    expect(data.terminatedCount).toBe(2);
+  });
+
+  it('rejects a body currentToken that differs from the authenticated token', async () => {
+    const req = new MockNextRequest(
+      'http://localhost/api/security/session',
+      { currentToken: 'somebody-elses-token' },
+      { authorization: 'Bearer keep-this' },
+    );
+    const response = await SESSION_POST(req as any);
+    expect(response.status).toBe(400);
   });
 });
 

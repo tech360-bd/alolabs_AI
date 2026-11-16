@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -231,7 +232,7 @@ export function UniversityDirectoryPanel() {
       if (uniSearch) params.set('search', uniSearch)
       if (uniCountryFilter !== 'all') params.set('country', uniCountryFilter)
       if (uniTypeFilter !== 'all') params.set('type', uniTypeFilter)
-      const res = await fetch(`/api/universities?${params}`)
+      const res = await apiFetch(`/api/universities?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!json.success) throw new Error(json.error || 'Fetch failed')
@@ -251,7 +252,7 @@ export function UniversityDirectoryPanel() {
       if (courseSearch) params.set('search', courseSearch)
       if (courseLevelFilter !== 'all') params.set('level', courseLevelFilter)
       if (courseMaxTuition) params.set('maxTuition', courseMaxTuition)
-      const res = await fetch(`/api/universities/courses?${params}`)
+      const res = await apiFetch(`/api/universities/courses?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!json.success) throw new Error(json.error || 'Fetch failed')
@@ -271,7 +272,7 @@ export function UniversityDirectoryPanel() {
       if (scholarshipSearch) params.set('search', scholarshipSearch)
       if (scholarshipTypeFilter !== 'all') params.set('type', scholarshipTypeFilter)
       if (scholarshipCoverageFilter !== 'all') params.set('coverage', scholarshipCoverageFilter)
-      const res = await fetch(`/api/universities/scholarships?${params}`)
+      const res = await apiFetch(`/api/universities/scholarships?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!json.success) throw new Error(json.error || 'Fetch failed')
@@ -290,7 +291,7 @@ export function UniversityDirectoryPanel() {
       const params = new URLSearchParams({ limit: '100' })
       if (accTypeFilter !== 'all') params.set('type', accTypeFilter)
       if (accMaxCost) params.set('maxCostPerWeek', accMaxCost)
-      const res = await fetch(`/api/universities/accommodation?${params}`)
+      const res = await apiFetch(`/api/universities/accommodation?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!json.success) throw new Error(json.error || 'Fetch failed')
@@ -320,7 +321,7 @@ export function UniversityDirectoryPanel() {
         sortBy: 'rankingQS',
         sortOrder: 'asc',
       })
-      const res = await fetch(`/api/universities?${params}`)
+      const res = await apiFetch(`/api/universities?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!json.success) throw new Error(json.error || 'Fetch failed')
@@ -335,7 +336,7 @@ export function UniversityDirectoryPanel() {
   // Fetch all universities for country list
   const fetchAllUniversitiesForCountries = useCallback(async () => {
     try {
-      const res = await fetch('/api/universities?limit=100')
+      const res = await apiFetch('/api/universities?limit=100')
       if (!res.ok) return
       const json = await res.json()
       if (!json.success) return

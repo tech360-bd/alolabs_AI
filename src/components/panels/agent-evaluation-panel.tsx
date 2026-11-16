@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   ClipboardCheck,
@@ -154,7 +155,7 @@ export default function AgentEvaluationPanel() {
     setError(null)
 
     try {
-      const res = await fetch('/api/evaluations')
+      const res = await apiFetch('/api/evaluations')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!cancelled) {
@@ -223,7 +224,7 @@ export default function AgentEvaluationPanel() {
     setSubmitting(true)
     try {
       const criteria = getCriteriaForType(newEval.type)
-      const res = await fetch('/api/evaluations', {
+      const res = await apiFetch('/api/evaluations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Bot, Activity, AlertTriangle, CheckCircle2, XCircle, Clock, Zap, Shield, BarChart3, RefreshCw, ArrowRight, Plus, Play, Pause, RotateCcw, Eye, MessageSquare, TrendingUp, Heart } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 
 const CATEGORIES = ['Business', 'CRM', 'Marketing', 'Support', 'Research', 'Productivity', 'Technical']
 

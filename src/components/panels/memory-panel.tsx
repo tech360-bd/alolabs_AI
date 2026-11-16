@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Brain, Database, Archive, Search, Plus, Trash2, ChevronLeft, ChevronRight, Flame, Thermometer, Snowflake } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -78,10 +79,10 @@ export default function MemoryPanel() {
   useEffect(() => {
     setStatsLoading(true)
     Promise.all([
-      fetch('/api/memory?temperature=hot&limit=1').then((r) => r.json()),
-      fetch('/api/memory?temperature=warm&limit=1').then((r) => r.json()),
-      fetch('/api/memory?temperature=cold&limit=1').then((r) => r.json()),
-      fetch('/api/memory?limit=1').then((r) => r.json()),
+      apiFetch('/api/memory?temperature=hot&limit=1').then((r) => r.json()),
+      apiFetch('/api/memory?temperature=warm&limit=1').then((r) => r.json()),
+      apiFetch('/api/memory?temperature=cold&limit=1').then((r) => r.json()),
+      apiFetch('/api/memory?limit=1').then((r) => r.json()),
     ])
       .then(([hotRes, warmRes, coldRes, allRes]) => {
         setStats({
@@ -115,7 +116,7 @@ export default function MemoryPanel() {
     if (searchStr) params.set('search', searchStr)
     if (catFilter) params.set('category', catFilter)
 
-    fetch(`/api/memory?${params}`)
+    apiFetch(`/api/memory?${params}`)
       .then((r) => r.json())
       .then((res) => {
         if (!cancelled) {
@@ -151,7 +152,7 @@ export default function MemoryPanel() {
     if (!newAgentId || !newContent.trim()) return
     setSubmitting(true)
     try {
-      await fetch('/api/memory', {
+      await apiFetch('/api/memory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId: newAgentId, content: newContent.trim(), category: newCategory, temperature: newTemperature }),
@@ -169,7 +170,7 @@ export default function MemoryPanel() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     try {
-      await fetch(`/api/memory?id=${deleteTarget.id}`, { method: 'DELETE' })
+      await apiFetch(`/api/memory?id=${deleteTarget.id}`, { method: 'DELETE' })
       setDeleteTarget(null)
       fetchMemories(tab, search, categoryFilter, page)
     } catch { /* ignore */ }

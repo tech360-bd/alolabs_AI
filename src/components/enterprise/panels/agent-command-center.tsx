@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

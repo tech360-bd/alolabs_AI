@@ -22,7 +22,7 @@ import {
   MessageSquare, Send, Megaphone, BarChart3, Plus, RefreshCw, Search,
   Clock, CheckCircle2, AlertCircle, Loader2,
 } from 'lucide-react'
-import { fetchApi, buildQueryString } from '@/lib/api'
+import { fetchApi, buildQueryString } from '@/lib/api-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

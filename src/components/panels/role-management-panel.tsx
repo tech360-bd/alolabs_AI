@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   Shield,
@@ -140,7 +141,7 @@ export default function RoleManagementPanel() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/roles')
+      const res = await apiFetch('/api/roles')
       const data = await res.json()
       setRoles(data.data || [])
     } catch {
@@ -180,7 +181,7 @@ export default function RoleManagementPanel() {
     setSubmitting(true)
     try {
       const isEdit = !!editingId
-      const res = await fetch('/api/roles', {
+      const res = await apiFetch('/api/roles', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingId, ...form }),
@@ -200,7 +201,7 @@ export default function RoleManagementPanel() {
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      await fetch('/api/roles', {
+      await apiFetch('/api/roles', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: deleteConfirm.id }),

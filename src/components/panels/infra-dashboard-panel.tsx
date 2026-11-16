@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -464,7 +465,7 @@ export default function InfraDashboardPanel() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/infra/status')
+      const res = await apiFetch('/api/infra/status')
       const data = await res.json()
       setServices(data.services || [])
     } catch {
@@ -489,7 +490,7 @@ export default function InfraDashboardPanel() {
     setPinging(true)
     setPingResults(null)
     try {
-      const res = await fetch('/api/infra/ping', { method: 'POST' })
+      const res = await apiFetch('/api/infra/ping', { method: 'POST' })
       const data = await res.json()
       setPingResults(data.results)
       // Log results
@@ -512,7 +513,7 @@ export default function InfraDashboardPanel() {
   const handlePingOne = async (type: string) => {
     setPinging(true)
     try {
-      const res = await fetch('/api/infra/ping', { method: 'POST' })
+      const res = await apiFetch('/api/infra/ping', { method: 'POST' })
       const data = await res.json()
       const result = data.results[type] as PingResult | undefined
       if (result) {
@@ -532,7 +533,7 @@ export default function InfraDashboardPanel() {
   const handleConnect = async (type: string, config: Record<string, unknown>, action: string) => {
     setConnecting(type)
     try {
-      const res = await fetch('/api/infra/connect', {
+      const res = await apiFetch('/api/infra/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, config, action }),
@@ -554,7 +555,7 @@ export default function InfraDashboardPanel() {
   const handleDisconnect = async (type: string) => {
     setConnecting(type)
     try {
-      await fetch('/api/infra/connect', {
+      await apiFetch('/api/infra/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, action: 'disconnect' }),

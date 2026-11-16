@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
@@ -110,7 +111,7 @@ export default function ContactsPanel() {
     if (!newFirstName.trim() || !newEmail.trim()) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/crm/contacts', {
+      const res = await apiFetch('/api/crm/contacts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName: newFirstName.trim(), lastName: newLastName.trim(), email: newEmail.trim() }),
@@ -138,7 +139,7 @@ export default function ContactsPanel() {
       if (status) params.set('status', status)
       params.set('page', String(pageNum))
       params.set('limit', String(limit))
-      const res = await fetch(`/api/crm/contacts?${params}`)
+      const res = await apiFetch(`/api/crm/contacts?${params}`)
       if (!res.ok) throw new Error('Failed to fetch contacts')
       const json = await res.json()
       setContacts(json.data || [])
@@ -174,7 +175,7 @@ export default function ContactsPanel() {
   const deleteContact = async (id: string) => {
     if (!confirm('Delete this contact and all related records?')) return
     try {
-      await fetch(`/api/crm/contacts/${id}`, { method: 'DELETE' })
+      await apiFetch(`/api/crm/contacts/${id}`, { method: 'DELETE' })
       if (selectedContact?.id === id) setSelectedContact(null)
       fetchContacts(search, statusFilter, page)
     } catch (err) {

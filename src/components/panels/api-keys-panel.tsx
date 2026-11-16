@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Key,
@@ -137,8 +138,8 @@ export default function ApiKeysPanel() {
   const fetchData = useCallback(async () => {
     try {
       const [keysRes, companiesRes] = await Promise.all([
-        fetch('/api/api-keys'),
-        fetch('/api/companies'),
+        apiFetch('/api/api-keys'),
+        apiFetch('/api/companies'),
       ])
       const keysData = await keysRes.json()
       const companiesData = await companiesRes.json()
@@ -160,7 +161,7 @@ export default function ApiKeysPanel() {
   const handleCreate = async () => {
     setCreating(true)
     try {
-      const res = await fetch('/api/api-keys', {
+      const res = await apiFetch('/api/api-keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(createForm),
@@ -189,7 +190,7 @@ export default function ApiKeysPanel() {
   const handleAction = async () => {
     setActioning(true)
     try {
-      await fetch('/api/api-keys', {
+      await apiFetch('/api/api-keys', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

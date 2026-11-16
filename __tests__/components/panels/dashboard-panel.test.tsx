@@ -122,8 +122,9 @@ describe('WebCrmDashboard (dashboard panel)', () => {
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
-    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/dashboard/stats'));
-    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/crm-connections'));
-    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/audit-logs'));
+    const requestedPaths = mockFetch.mock.calls.map(([url]) => String(url));
+    expect(requestedPaths.some((url) => url.includes('/dashboard/stats'))).toBe(true);
+    expect(requestedPaths.some((url) => url.includes('/crm-connections'))).toBe(true);
+    expect(requestedPaths.some((url) => url.includes('/audit-logs'))).toBe(true);
   });
 });

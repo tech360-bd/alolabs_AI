@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -99,7 +100,7 @@ export default function DealPipelinePanel() {
     try {
       setLoading(true)
       setError(null)
-      const res = await fetch('/api/crm/pipelines')
+      const res = await apiFetch('/api/crm/pipelines')
       if (!res.ok) throw new Error('Failed to fetch pipelines')
       const json = await res.json()
       const data: Pipeline[] = json.data || []
@@ -125,7 +126,7 @@ export default function DealPipelinePanel() {
       params.set('status', 'active')
       params.set('limit', '100')
       if (searchTerm) params.set('search', searchTerm)
-      const res = await fetch(`/api/crm/deals?${params}`)
+      const res = await apiFetch(`/api/crm/deals?${params}`)
       if (!res.ok) return
       const json = await res.json()
       const deals: Deal[] = json.data || []

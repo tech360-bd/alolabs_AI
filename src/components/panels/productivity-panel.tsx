@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef } from 'react'
 import { Gauge, Zap, Target, Shield, BarChart2, Clock, TrendingUp, Award, Search, Filter } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -93,7 +94,7 @@ export default function ProductivityPanel() {
     let cancelled = false
      
     setLoading(true)
-    fetch('/api/productivity/report')
+    apiFetch('/api/productivity/report')
       .then((r) => r.json())
       .then((res) => {
         if (!cancelled) setReport(res)

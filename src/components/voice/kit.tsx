@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { apiFetch } from '@/lib/api-client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -31,7 +32,7 @@ export function useVoiceApi<T>(url: string) {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(url, { cache: 'no-store' })
+      const res = await apiFetch(url, { cache: 'no-store' })
       const body = await res.json()
       if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`)
       setData(body as T)
@@ -51,7 +52,7 @@ export function useVoiceApi<T>(url: string) {
 
 export async function voiceMutate(url: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown): Promise<{ ok: boolean; data?: Record<string, unknown>; error?: string }> {
   try {
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,

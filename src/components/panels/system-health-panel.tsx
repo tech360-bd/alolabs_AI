@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import {
   Activity,
@@ -119,8 +120,8 @@ export default function SystemHealthPanel() {
 
   const loadHealthData = () => {
     Promise.all([
-      fetch('/api/system-health?deep=true').then((r) => r.json()),
-      fetch('/api/system-health').then((r) => r.json()),
+      apiFetch('/api/system-health?deep=true').then((r) => r.json()),
+      apiFetch('/api/system-health').then((r) => r.json()),
     ])
       .then(([deepRes, healthRes]) => {
         const deepData = deepRes.data || deepRes

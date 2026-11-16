@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from '@/store/app'
 
 const mocks = vi.hoisted(() => ({ fetchApi: vi.fn() }))
-vi.mock('@/lib/api', () => ({ fetchApi: mocks.fetchApi }))
+vi.mock('@/lib/api-client', () => ({ fetchApi: mocks.fetchApi }))
 import EnterpriseOverview from '@/components/enterprise/panels/enterprise-overview'
 
 const stats = {

@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Plug,
@@ -153,8 +154,8 @@ export default function IntegrationManagerPanel() {
   const fetchData = useCallback(async () => {
     try {
       const [integrationsRes, companiesRes] = await Promise.all([
-        fetch('/api/integrations'),
-        fetch('/api/companies'),
+        apiFetch('/api/integrations'),
+        apiFetch('/api/companies'),
       ])
       const integrationsData = await integrationsRes.json()
       const companiesData = await companiesRes.json()
@@ -200,7 +201,7 @@ export default function IntegrationManagerPanel() {
     setSubmitting(true)
     try {
       const isEdit = !!editingId
-      const res = await fetch('/api/integrations', {
+      const res = await apiFetch('/api/integrations', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingId, ...form }),
@@ -220,7 +221,7 @@ export default function IntegrationManagerPanel() {
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      await fetch('/api/integrations', {
+      await apiFetch('/api/integrations', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: deleteConfirm.id }),
@@ -237,7 +238,7 @@ export default function IntegrationManagerPanel() {
   const handleToggle = async (integration: Integration) => {
     setTogglingId(integration.id)
     try {
-      await fetch('/api/integrations', {
+      await apiFetch('/api/integrations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

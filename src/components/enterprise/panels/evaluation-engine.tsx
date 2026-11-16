@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { BarChart3, ClipboardCheck, Star, Trophy, ArrowUpDown, FileText, Clock, CheckCircle2 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useCallback, useEffect, useState } from 'react'
 import {
   Activity,
@@ -114,7 +115,7 @@ export default function JobMonitorPanel() {
 
   const fetchJobs = useCallback(async () => {
     try {
-      const res = await fetch('/api/jobs')
+      const res = await apiFetch('/api/jobs')
       const json = await res.json()
       if (json.data && Array.isArray(json.data)) {
         setJobs(json.data)

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import { Bot, ListTodo, Building2, Zap, ArrowRight } from 'lucide-react'
 
 interface StatData {

@@ -21,7 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import type { EnterpriseView } from '../types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────

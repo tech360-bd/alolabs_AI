@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Video,
@@ -125,7 +126,7 @@ export default function VideoHubPanel() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/video-hub')
+      const res = await apiFetch('/api/video-hub')
       const json = await res.json()
       if (json.data) {
         setData(json.data)

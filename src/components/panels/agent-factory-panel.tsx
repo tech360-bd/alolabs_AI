@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Cpu,
@@ -108,7 +109,7 @@ function SkillBuildsTab() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/skill-factory/build')
+    apiFetch('/api/skill-factory/build')
       .then((r) => r.json())
       .then((data) => setItems(Array.isArray(data) ? data : data.data || []))
       .catch(() => {})
@@ -168,7 +169,7 @@ function WorkflowBuildsTab() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/workflow-factory/build')
+    apiFetch('/api/workflow-factory/build')
       .then((r) => r.json())
       .then((data) => setItems(Array.isArray(data) ? data : data.data || []))
       .catch(() => {})
@@ -252,7 +253,7 @@ export default function AgentFactoryPanel() {
 
   // Fetch departments
   useEffect(() => {
-    fetch('/api/departments')
+    apiFetch('/api/departments')
       .then((r) => r.json())
       .then((res) => setDepartments(res.data || []))
       .catch(() => {})
@@ -261,7 +262,7 @@ export default function AgentFactoryPanel() {
   // Fetch build requests
   const fetchBuilds = useCallback(() => {
     setLoading(true)
-    fetch('/api/agent-factory/build')
+    apiFetch('/api/agent-factory/build')
       .then((r) => r.json())
       .then((data) => {
         setBuilds(Array.isArray(data) ? data : [])
@@ -278,7 +279,7 @@ export default function AgentFactoryPanel() {
     if (!formName.trim()) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/agent-factory/build', {
+      const res = await apiFetch('/api/agent-factory/build', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

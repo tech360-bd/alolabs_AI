@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Rocket,
@@ -92,7 +93,7 @@ export default function DeploymentPanel() {
     try {
       const params = new URLSearchParams({ limit: '50' })
       if (filterStatus) params.set('status', filterStatus)
-      const res = await fetch(`/api/deploy?${params}`)
+      const res = await apiFetch(`/api/deploy?${params}`)
       if (res.ok) {
         const json = await res.json()
         setDeployments(json.data || [])
@@ -110,7 +111,7 @@ export default function DeploymentPanel() {
     if (!domain.trim()) return
     setDeploying(true)
     try {
-      const res = await fetch('/api/deploy', {
+      const res = await apiFetch('/api/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domain: domain.trim(), projectType: projectType || null }),

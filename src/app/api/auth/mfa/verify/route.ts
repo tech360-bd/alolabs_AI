@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
 import { createSessionToken, verifySessionToken } from '@/lib/auth';
+import { z } from 'zod';
+import { parseBody } from '@/lib/validators';
+
+const MFA_TEMP_TTL_MS = 5 * 60 * 1000;
+const REMEMBER_ME_TTL_HOURS = 30 * 24;
+const mfaVerifyBodySchema = z.object({
+  userId: z.string().min(1).max(191).optional(),
+  tempToken: z.string().min(1).max(128).optional(),
+  code: z.string().regex(/^\d{6}$/),
+  context: z.enum(['login', 'setup']).optional(),
+}).strict();
+
+function sessionTtlHours(rememberMe: boolean): number {
+  if (rememberMe) return REMEMBER_ME_TTL_HOURS;
+  const configured = Number(process.env.SESSION_TTL_HOURS ?? 24);
+  return Number.isFinite(configured) && configured > 0 ? configured : 24;
+}
 
 /**
  * Generate a TOTP code per RFC 6238 using HMAC-SHA1.
@@ -125,15 +142,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { tempToken, code, context } = body;
-
-    if (!code) {
-      return NextResponse.json(
-        { error: 'Verification code is required' },
-        { status: 400 }
-      );
+    const body = await request.json().catch(() => null);
+    const parsedBody = parseBody(mfaVerifyBodySchema, body);
+    if (parsedBody.error) {
+      return NextResponse.json({ error: parsedBody.error.message }, { status: parsedBody.error.status });
     }
+    const { tempToken, code, context } = parsedBody.data;
 
     // ── Login context: verify TOTP and create session ──────────────────────
     if (context === 'login') {
@@ -157,14 +171,24 @@ export async function POST(request: NextRequest) {
       }
 
       let userId: string;
+      let rememberMe = false;
+      let createdAt: number;
       try {
-        const parsed = JSON.parse(tempEntry.value);
+        const parsed = JSON.parse(tempEntry.value) as { userId?: unknown; rememberMe?: unknown; createdAt?: unknown };
+        if (typeof parsed.userId !== 'string' || typeof parsed.createdAt !== 'number') throw new Error('invalid MFA temp record');
         userId = parsed.userId;
+        rememberMe = parsed.rememberMe === true;
+        createdAt = parsed.createdAt;
       } catch {
         return NextResponse.json(
           { error: 'Invalid verification token data' },
           { status: 401 }
         );
+      }
+
+      if (Date.now() - createdAt >= MFA_TEMP_TTL_MS) {
+        await db.settings.delete({ where: { key: `mfa_temp:${tempToken}` } }).catch(() => undefined);
+        return NextResponse.json({ error: 'Verification token has expired' }, { status: 401 });
       }
 
       // Delete the temp token so it cannot be reused
@@ -176,10 +200,10 @@ export async function POST(request: NextRequest) {
         where: { id: userId },
       });
 
-      if (!user) {
+      if (!user || !user.isActive) {
         return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
+          { error: 'Invalid or inactive user' },
+          { status: 401 }
         );
       }
 
@@ -197,8 +221,17 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create session token
-      const token = await createSessionToken(user.id, { method: 'mfa' });
+      // Create the same Prisma-backed JWT session used by password login.
+      const ttlHours = sessionTtlHours(rememberMe);
+      const userAgent = request.headers.get('user-agent') || 'unknown';
+      const token = await createSessionToken(user.id, {
+        method: 'mfa',
+        ttlHours,
+        isRefreshToken: rememberMe,
+        ipAddress: clientIp,
+        userAgent,
+        deviceInfo: userAgent,
+      });
 
       // Update last login
       await db.user.update({
@@ -206,7 +239,7 @@ export async function POST(request: NextRequest) {
         data: { lastLoginAt: new Date() },
       });
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         user: {
           id: user.id,
           email: user.email,
@@ -215,6 +248,14 @@ export async function POST(request: NextRequest) {
         },
         token,
       });
+      response.cookies.set('session-token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: Math.floor(ttlHours * 60 * 60),
+      });
+      return response;
     }
 
     // ── Setup context: enable MFA after first verification ─────────────────

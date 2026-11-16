@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Wifi, WifiOff, RefreshCw, Send, TestTube2, ChevronDown, ChevronUp,
@@ -59,7 +60,7 @@ export default function CrmConnectionsPanel() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/crm-connections')
+      const res = await apiFetch('/api/crm-connections')
       const json = await res.json()
       setConnections(json.data || [])
       setSummary(json.summary || null)
@@ -77,7 +78,7 @@ export default function CrmConnectionsPanel() {
   const handleAction = async (companyId: string, action: string, config?: object) => {
     setActionLoading(`${companyId}-${action}`)
     try {
-      const res = await fetch('/api/crm-connections', {
+      const res = await apiFetch('/api/crm-connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ companyId, action, config }),

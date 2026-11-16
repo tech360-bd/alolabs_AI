@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { ImageIcon, Video, Music, Mic, Sparkles, Loader2, ExternalLink } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import { toast } from 'sonner'
 
 type Kind = 'image' | 'music' | 'video' | 'audio'

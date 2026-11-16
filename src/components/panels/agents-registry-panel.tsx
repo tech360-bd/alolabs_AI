@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef } from 'react'
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -38,7 +39,7 @@ export default function AgentsRegistryPanel() {
   const limit = 50
 
   useEffect(() => {
-    fetch('/api/departments')
+    apiFetch('/api/departments')
       .then((r) => r.json())
       .then((res) => setDepartments(res.data || []))
       .catch(() => {})
@@ -65,7 +66,7 @@ export default function AgentsRegistryPanel() {
     if (deptFilter) params.set('department', deptFilter)
     if (statusFilter) params.set('status', statusFilter)
 
-    fetch(`/api/agents?${params}`)
+    apiFetch(`/api/agents?${params}`)
       .then((r) => r.json())
       .then((res) => {
         if (!cancelled) {

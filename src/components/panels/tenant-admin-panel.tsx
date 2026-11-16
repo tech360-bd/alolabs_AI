@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Building2,
@@ -228,8 +229,8 @@ export default function TenantAdminPanel() {
 
   const loadCompanies = useCallback(() => {
     Promise.all([
-      fetch('/api/companies').then((r) => r.json()).catch(() => ({ data: [] })),
-      fetch('/api/billing/subscriptions').then((r) => r.json()).catch(() => ({ data: [] })),
+      apiFetch('/api/companies').then((r) => r.json()).catch(() => ({ data: [] })),
+      apiFetch('/api/billing/subscriptions').then((r) => r.json()).catch(() => ({ data: [] })),
     ])
       .then(([compRes, subRes]) => {
         const compData = (compRes.data || []) as { id: string; name: string; slug: string; status: string }[]
@@ -255,10 +256,10 @@ export default function TenantAdminPanel() {
     setLoading(true)
 
     Promise.all([
-      fetch(`/api/tenant-admin/config?companyId=${selectedCompany}`).then((r) => r.json()).catch(() => ({ config: null })),
-      fetch(`/api/tenant-admin/quotas?companyId=${selectedCompany}`).then((r) => r.json()).catch(() => ({})),
-      fetch(`/api/tenant-admin/users?companyId=${selectedCompany}`).then((r) => r.json()).catch(() => ({ users: [] })),
-      fetch(`/api/quality?companyId=${selectedCompany}`).then((r) => r.json()).catch(() => ({ data: [] })),
+      apiFetch(`/api/tenant-admin/config?companyId=${selectedCompany}`).then((r) => r.json()).catch(() => ({ config: null })),
+      apiFetch(`/api/tenant-admin/quotas?companyId=${selectedCompany}`).then((r) => r.json()).catch(() => ({})),
+      apiFetch(`/api/tenant-admin/users?companyId=${selectedCompany}`).then((r) => r.json()).catch(() => ({ users: [] })),
+      apiFetch(`/api/quality?companyId=${selectedCompany}`).then((r) => r.json()).catch(() => ({ data: [] })),
     ])
       .then(([configRes, quotaRes, usersRes, qualityRes]) => {
         // Config
@@ -321,7 +322,7 @@ export default function TenantAdminPanel() {
   // Load all users for the add-user dialog
   const loadAllUsers = async () => {
     try {
-      const res = await fetch('/api/users')
+      const res = await apiFetch('/api/users')
       const data = await res.json()
       const userList = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []
       setAllUsers(userList.map((u: { id: string; name: string; email: string }) => ({ id: u.id, name: u.name, email: u.email })))
@@ -334,7 +335,7 @@ export default function TenantAdminPanel() {
     if (!selectedCompany) return
     setConfigSaving(true)
     try {
-      await fetch(`/api/tenant-admin/config?companyId=${selectedCompany}`, {
+      await apiFetch(`/api/tenant-admin/config?companyId=${selectedCompany}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -356,7 +357,7 @@ export default function TenantAdminPanel() {
     if (!selectedCompany) return
     setQuotaSaving(true)
     try {
-      await fetch(`/api/companies/${selectedCompany}`, {
+      await apiFetch(`/api/companies/${selectedCompany}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -380,7 +381,7 @@ export default function TenantAdminPanel() {
   const handleAddUser = async () => {
     if (!selectedCompany || !addUserForm.userId) return
     try {
-      await fetch(`/api/tenant-admin/users?companyId=${selectedCompany}`, {
+      await apiFetch(`/api/tenant-admin/users?companyId=${selectedCompany}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -400,7 +401,7 @@ export default function TenantAdminPanel() {
   const handleRemoveUser = async (userId: string) => {
     if (!selectedCompany) return
     try {
-      await fetch(`/api/tenant-admin/users/${userId}?companyId=${selectedCompany}`, {
+      await apiFetch(`/api/tenant-admin/users/${userId}?companyId=${selectedCompany}`, {
         method: 'DELETE',
       })
       loadTenantData()

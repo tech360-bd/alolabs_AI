@@ -1,84 +1,107 @@
 /**
- * Sessions are bound to a surface.
- *
- * A session is minted for exactly one audience — `internal` (ALO Labs
- * personnel) or `client` (a customer of the portal) — decided from the owner's
- * stored role at sign-in. `verifySessionToken` admits a token only on the
- * surface it was minted for, and re-checks the stored role on every call so a
- * role change takes effect immediately.
+ * Sessions are bound to one audience: internal staff or the client portal.
+ * JWT claims provide a routing hint only; the signed token and database row,
+ * plus the owner's current role, are authoritative in the route auth helper.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const store = new Map<string, { key: string; value: string }>();
-const users = new Map<string, { id: string; role: string; isActive: boolean }>();
-
-vi.mock('@/lib/db', () => ({
-  db: {
-    user: {
-      findUnique: async ({ where }: { where: { id: string } }) => users.get(where.id) ?? null,
-    },
-    settings: {
-      findUnique: async ({ where }: { where: { key: string } }) => store.get(where.key) ?? null,
-      findMany: async () => [...store.values()],
-      upsert: async ({ where, create, update }: { where: { key: string }; create: { key: string; value: string }; update: { value: string } }) => {
-        const existing = store.get(where.key);
-        if (existing) existing.value = update.value;
-        else store.set(where.key, { key: create.key, value: create.value });
-        return store.get(where.key);
-      },
-      update: async ({ where, data }: { where: { key: string }; data: { value: string } }) => {
-        const existing = store.get(where.key);
-        if (!existing) throw Object.assign(new Error('not found'), { code: 'P2025' });
-        existing.value = data.value;
-        return existing;
-      },
-      delete: async ({ where }: { where: { key: string } }) => {
-        store.delete(where.key);
-        return {};
-      },
-      deleteMany: async () => ({ count: 0 }),
-    },
-  },
+const state = vi.hoisted(() => ({
+  users: new Map<string, { id: string; role: string; isActive: boolean }>(),
+  sessions: [] as Array<Record<string, any>>,
+  sequence: 0,
 }));
+
+vi.mock('@/lib/db', () => {
+  const findSession = (where: Record<string, any>) => state.sessions.find((row) =>
+    (where.id === undefined || row.id === where.id)
+    && (where.tokenHash === undefined || row.tokenHash === where.tokenHash),
+  ) ?? null;
+  return {
+    db: {
+      user: {
+        findUnique: vi.fn(async ({ where }: any) => state.users.get(where.id) ?? null),
+      },
+      session: {
+        create: vi.fn(async ({ data }: any) => {
+          const row = { id: `session-${++state.sequence}`, revokedAt: null, ...data };
+          state.sessions.push(row);
+          return { id: row.id };
+        }),
+        update: vi.fn(async ({ where, data }: any) => {
+          const row = findSession(where);
+          if (!row) throw new Error('session not found');
+          Object.assign(row, data);
+          return row;
+        }),
+        findUnique: vi.fn(async ({ where }: any) => findSession(where)),
+        findFirst: vi.fn(async ({ where }: any) => findSession(where)),
+        findMany: vi.fn(async ({ where }: any = {}) => state.sessions.filter((row) => !where?.userId || row.userId === where.userId)),
+        delete: vi.fn(async ({ where }: any) => {
+          const index = state.sessions.findIndex((row) => row.id === where.id);
+          if (index >= 0) state.sessions.splice(index, 1);
+          return { count: index >= 0 ? 1 : 0 };
+        }),
+        deleteMany: vi.fn(async ({ where }: any) => {
+          const before = state.sessions.length;
+          const kept = state.sessions.filter((row) => {
+            if (where?.userId && row.userId !== where.userId) return true;
+            if (where?.id?.in && !where.id.in.includes(row.id)) return true;
+            return false;
+          });
+          state.sessions.splice(0, state.sessions.length, ...kept);
+          return { count: before - kept.length };
+        }),
+      },
+      settings: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+        upsert: vi.fn().mockResolvedValue({}),
+        update: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      securityEvent: { create: vi.fn().mockResolvedValue({}) },
+    },
+  };
+});
 
 import { createSessionToken, verifySessionToken } from '@/lib/auth';
 import { CLIENT_TOKEN_PREFIX, audienceForToken } from '@/lib/access/surfaces';
 
 beforeEach(() => {
-  store.clear();
-  users.clear();
-  users.set('staff', { id: 'staff', role: 'admin', isActive: true });
-  users.set('client', { id: 'client', role: 'client', isActive: true });
-  users.set('viewer', { id: 'viewer', role: 'viewer', isActive: true });
+  state.sessions.splice(0, state.sessions.length);
+  state.users.clear();
+  state.sequence = 0;
+  process.env.JWT_SECRET = 'test-jwt-secret-that-is-long-enough-for-hmac';
+  state.users.set('staff', { id: 'staff', role: 'admin', isActive: true });
+  state.users.set('client', { id: 'client', role: 'client', isActive: true });
+  state.users.set('viewer', { id: 'viewer', role: 'viewer', isActive: true });
 });
 
 describe('session audience', () => {
-  it('mints a client-class token for a client and a plain one for staff', async () => {
+  it('mints signed JWTs whose audience matches the owner role', async () => {
     const clientToken = await createSessionToken('client');
     const staffToken = await createSessionToken('staff');
-    expect(clientToken.startsWith(CLIENT_TOKEN_PREFIX)).toBe(true);
-    expect(staffToken.startsWith(CLIENT_TOKEN_PREFIX)).toBe(false);
+    expect(clientToken.split('.')).toHaveLength(3);
+    expect(staffToken.split('.')).toHaveLength(3);
     expect(audienceForToken(clientToken)).toBe('client');
     expect(audienceForToken(staffToken)).toBe('internal');
   });
 
   it('treats every role outside the internal allow-list as a client', async () => {
     const token = await createSessionToken('viewer');
-    expect(token.startsWith(CLIENT_TOKEN_PREFIX)).toBe(true);
-    expect(await verifySessionToken(token)).toBeNull();
+    await expect(verifySessionToken(token)).resolves.toBeNull();
     expect((await verifySessionToken(token, { audience: 'client' }))?.audience).toBe('client');
   });
 
-  it('gives an unknown account a client session, never an internal one', async () => {
-    const token = await createSessionToken('nobody');
-    expect(token.startsWith(CLIENT_TOKEN_PREFIX)).toBe(true);
-    expect(await verifySessionToken(token)).toBeNull();
+  it('refuses to mint a session for an unknown account', async () => {
+    await expect(createSessionToken('nobody')).rejects.toThrow('missing or inactive user');
   });
 
   it('refuses a client session wherever an internal one is required (the default)', async () => {
     const token = await createSessionToken('client');
-    expect(await verifySessionToken(token)).toBeNull();
-    expect(await verifySessionToken(token, { audience: 'internal' })).toBeNull();
+    await expect(verifySessionToken(token)).resolves.toBeNull();
+    await expect(verifySessionToken(token, { audience: 'internal' })).resolves.toBeNull();
     const session = await verifySessionToken(token, { audience: 'client' });
     expect(session?.userId).toBe('client');
     expect(session?.audience).toBe('client');
@@ -86,7 +109,7 @@ describe('session audience', () => {
 
   it('refuses a staff session on the client surface', async () => {
     const token = await createSessionToken('staff');
-    expect(await verifySessionToken(token, { audience: 'client' })).toBeNull();
+    await expect(verifySessionToken(token, { audience: 'client' })).resolves.toBeNull();
     expect((await verifySessionToken(token))?.audience).toBe('internal');
   });
 
@@ -98,35 +121,34 @@ describe('session audience', () => {
   it('stops honouring an internal session the moment the owner is demoted', async () => {
     const token = await createSessionToken('staff');
     expect(await verifySessionToken(token)).not.toBeNull();
-    users.set('staff', { id: 'staff', role: 'client', isActive: true });
-    expect(await verifySessionToken(token)).toBeNull();
-    // …and the stale internal token does not become a client session either.
-    expect(await verifySessionToken(token, { audience: 'client' })).toBeNull();
-    expect(await verifySessionToken(token, { audience: 'any' })).toBeNull();
+    state.users.set('staff', { id: 'staff', role: 'client', isActive: true });
+    await expect(verifySessionToken(token)).resolves.toBeNull();
+    await expect(verifySessionToken(token, { audience: 'client' })).resolves.toBeNull();
+    await expect(verifySessionToken(token, { audience: 'any' })).resolves.toBeNull();
   });
 
   it('does not let a promoted client reuse their client token on the internal surface', async () => {
     const token = await createSessionToken('client');
-    users.set('client', { id: 'client', role: 'admin', isActive: true });
-    expect(await verifySessionToken(token)).toBeNull();
-    expect(await verifySessionToken(token, { audience: 'client' })).toBeNull();
+    state.users.set('client', { id: 'client', role: 'admin', isActive: true });
+    await expect(verifySessionToken(token)).resolves.toBeNull();
+    await expect(verifySessionToken(token, { audience: 'client' })).resolves.toBeNull();
   });
 
-  it('rejects a session whose stored audience was tampered to "internal"', async () => {
+  it('rejects a session whose stored audience was tampered to internal', async () => {
     const token = await createSessionToken('client');
-    for (const row of store.values()) {
-      if (!row.key.startsWith('session:')) continue;
-      const record = JSON.parse(row.value);
-      if (record.userId === 'client') row.value = JSON.stringify({ ...record, aud: 'internal' });
-    }
-    expect(await verifySessionToken(token)).toBeNull();
-    expect(await verifySessionToken(token, { audience: 'any' })).toBeNull();
+    state.sessions[0].audience = 'internal';
+    await expect(verifySessionToken(token)).resolves.toBeNull();
+    await expect(verifySessionToken(token, { audience: 'any' })).resolves.toBeNull();
   });
 
   it('rejects a deactivated owner on every surface', async () => {
     const token = await createSessionToken('client');
-    users.set('client', { id: 'client', role: 'client', isActive: false });
-    expect(await verifySessionToken(token, { audience: 'client' })).toBeNull();
-    expect(await verifySessionToken(token, { audience: 'any' })).toBeNull();
+    state.users.set('client', { id: 'client', role: 'client', isActive: false });
+    await expect(verifySessionToken(token, { audience: 'client' })).resolves.toBeNull();
+    await expect(verifySessionToken(token, { audience: 'any' })).resolves.toBeNull();
+  });
+
+  it('keeps the alc_ prefix only for old opaque client-session routing', () => {
+    expect(audienceForToken(`${CLIENT_TOKEN_PREFIX}${'b'.repeat(96)}`)).toBe('client');
   });
 });

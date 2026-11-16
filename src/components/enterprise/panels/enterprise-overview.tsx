@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import { useAppStore } from '@/store/app'
 import {
   Building2, Bot, Scale, ClipboardList, Network, Database, FileCode, Wrench,

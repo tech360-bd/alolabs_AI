@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Users,
@@ -215,7 +216,7 @@ function useApiData<T>(url: string) {
   const refetch = useCallback(() => {
     setLoading(true)
     setError(null)
-    fetch(url)
+    apiFetch(url)
       .then((r) => r.json())
       .then((res) => {
         setData(Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : [])
@@ -248,7 +249,7 @@ function UsersTab() {
 
   const handleToggleActive = async (u: UserItem) => {
     const newStatus = u.status === 'active' ? 'disabled' : 'active'
-    await fetch(`/api/users/${u.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) })
+    await apiFetch(`/api/users/${u.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) })
     refetch()
   }
 
@@ -420,7 +421,7 @@ function SubscriptionsTab() {
   const { data, loading, refetch } = useApiData<SubItem>('/api/billing/subscriptions')
 
   const handleAction = async (id: string, action: string) => {
-    await fetch(`/api/billing/subscriptions/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) })
+    await apiFetch(`/api/billing/subscriptions/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) })
     refetch()
   }
 
@@ -540,7 +541,7 @@ function MonitoringTab() {
 
   const fetchHealth = useCallback(() => {
     setLoading(true)
-    fetch('/api/health')
+    apiFetch('/api/health')
       .then((r) => r.json())
       .then((res) => setHealth(res.data || res))
       .catch(() => {})
@@ -694,13 +695,13 @@ function BackupsTab() {
 
   const handleCreate = async () => {
     setCreating(true)
-    await fetch('/api/backups', { method: 'POST' })
+    await apiFetch('/api/backups', { method: 'POST' })
     setCreating(false)
     refetch()
   }
 
   const handleRestore = async (id: string) => {
-    await fetch(`/api/backups/${id}/restore`, { method: 'POST' })
+    await apiFetch(`/api/backups/${id}/restore`, { method: 'POST' })
     refetch()
   }
 
@@ -778,7 +779,7 @@ function SocialTab() {
   const { data, loading, refetch } = useApiData<SocialAccount>('/api/social/accounts')
 
   const handleDisconnect = async (id: string) => {
-    await fetch(`/api/social/accounts/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/social/accounts/${id}`, { method: 'DELETE' })
     refetch()
   }
 
@@ -896,7 +897,7 @@ function WorkersTab() {
   const { data, loading, refetch } = useApiData<WorkerItem>('/api/workers')
 
   const handleRestart = async (id: string) => {
-    await fetch(`/api/workers/${id}/restart`, { method: 'POST' })
+    await apiFetch(`/api/workers/${id}/restart`, { method: 'POST' })
     refetch()
   }
 
@@ -967,7 +968,7 @@ function SettingsTab() {
   const [featureEmail, setFeatureEmail] = useState(true)
 
   useEffect(() => {
-    fetch('/api/settings')
+    apiFetch('/api/settings')
       .then((r) => r.json())
       .then((res) => {
         const items = Array.isArray(res.data) ? res.data : []
@@ -987,7 +988,7 @@ function SettingsTab() {
 
   const handleSave = async () => {
     setSaving(true)
-    await fetch('/api/settings', {
+    await apiFetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify([
@@ -1076,7 +1077,7 @@ function DeployTab() {
 
   const fetchDeploy = useCallback(() => {
     setLoading(true)
-    fetch('/api/deploy')
+    apiFetch('/api/deploy')
       .then((r) => r.json())
       .then((res) => setDeploy(res.data || res))
       .catch(() => {})
@@ -1087,7 +1088,7 @@ function DeployTab() {
 
   const handleDeploy = async () => {
     setTriggering(true)
-    await fetch('/api/deploy', { method: 'POST' })
+    await apiFetch('/api/deploy', { method: 'POST' })
     setTriggering(false)
     fetchDeploy()
   }
@@ -1215,7 +1216,7 @@ function RecentEmailsList() {
   useEffect(() => {
     async function fetchEmails() {
       try {
-        const res = await fetch('/api/email/inbox?limit=5')
+        const res = await apiFetch('/api/email/inbox?limit=5')
         if (res.ok) {
           const json = await res.json()
           if (Array.isArray(json.emails || json.data)) {

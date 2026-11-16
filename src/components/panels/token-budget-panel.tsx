@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Wallet,
@@ -114,9 +115,9 @@ export default function TokenBudgetPanel() {
     const params = selectedCompany ? `?companyId=${selectedCompany}` : ''
 
     Promise.all([
-      fetch('/api/companies').then((r) => r.json()).catch(() => ({ data: [] })),
-      fetch(`/api/token-budget${params}`).then((r) => r.json()).catch(() => []),
-      fetch(`/api/token-usage${params}`).then((r) => r.json()).catch(() => []),
+      apiFetch('/api/companies').then((r) => r.json()).catch(() => ({ data: [] })),
+      apiFetch(`/api/token-budget${params}`).then((r) => r.json()).catch(() => []),
+      apiFetch(`/api/token-usage${params}`).then((r) => r.json()).catch(() => []),
     ])
       .then(([compRes, budgetRes, usageRes]) => {
         const compData = compRes.data || []
@@ -147,7 +148,7 @@ export default function TokenBudgetPanel() {
   const handleRecordUsage = async () => {
     if (!usageForm.agentName || !usageForm.tokensUsed) return
     try {
-      await fetch('/api/token-usage', {
+      await apiFetch('/api/token-usage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

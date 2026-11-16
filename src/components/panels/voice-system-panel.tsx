@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef } from 'react'
 import {
   Mic,
@@ -187,7 +188,7 @@ export default function VoiceSystemPanel() {
   const [voiceFilter, setVoiceFilter] = useState('all')
 
   useEffect(() => {
-    fetch('/api/voice-system')
+    apiFetch('/api/voice-system')
       .then((r) => r.json())
       .then((data) => {
         if (data.models) setModels(data.models)
@@ -208,7 +209,7 @@ export default function VoiceSystemPanel() {
     if (!ttsText.trim()) return
     setTtsGenerating(true)
     try {
-      const res = await fetch('/api/voice-system', {
+      const res = await apiFetch('/api/voice-system', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'tts', text: ttsText, voice: ttsVoice, speed: ttsSpeed }),
@@ -256,7 +257,7 @@ export default function VoiceSystemPanel() {
       formData.append('audio', selectedFile)
       formData.append('action', 'stt')
       formData.append('language', sttLanguage)
-      const res = await fetch('/api/voice-system', {
+      const res = await apiFetch('/api/voice-system', {
         method: 'POST',
         body: formData,
       })

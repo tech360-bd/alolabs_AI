@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   ShieldCheck,
@@ -139,7 +140,7 @@ export default function ApprovalsPanel() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetch('/api/approvals?status=pending&page=1&limit=50')
+    apiFetch('/api/approvals?status=pending&page=1&limit=50')
       .then((r) => r.json())
       .then((res) => {
         if (!cancelled) {
@@ -169,7 +170,7 @@ export default function ApprovalsPanel() {
 
   const handleAction = useCallback(async (approvalId: string, action: 'approve' | 'reject', commentText?: string) => {
     try {
-      const res = await fetch(`/api/approvals?action=${action}`, {
+      const res = await apiFetch(`/api/approvals?action=${action}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ approvalId, comment: commentText }),

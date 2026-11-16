@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useMemo } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -448,7 +449,7 @@ export default function ModelHubPanel() {
     const params = new URLSearchParams()
     if (family && family !== 'all') params.set('family', family)
     if (search) params.set('search', search)
-    fetch(`/api/open-source-models?${params.toString()}`)
+    apiFetch(`/api/open-source-models?${params.toString()}`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.json()
@@ -465,7 +466,7 @@ export default function ModelHubPanel() {
   }
 
   useEffect(() => {
-    fetch('/api/model-hub')
+    apiFetch('/api/model-hub')
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.json()

@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useMemo } from 'react'
 import {
   Building2,
@@ -109,7 +110,7 @@ export default function DepartmentsPanel() {
   const [createForm, setCreateForm] = useState({ name: '', description: '', head: '', parentId: '' })
 
   useEffect(() => {
-    fetch('/api/departments')
+    apiFetch('/api/departments')
       .then((r) => r.json())
       .then((res) => {
         const apiDepts = (res.data || []) as Department[]

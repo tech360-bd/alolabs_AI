@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 const mocks = vi.hoisted(() => ({ fetchApi: vi.fn() }))
-vi.mock('@/lib/api', () => ({ fetchApi: mocks.fetchApi }))
+vi.mock('@/lib/api-client', () => ({ fetchApi: mocks.fetchApi }))
 
 import AIProvidersPanel from '@/components/enterprise/panels/ai-providers'
 

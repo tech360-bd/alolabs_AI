@@ -3,7 +3,7 @@ import { db } from './db'
 import { verifySessionToken } from './auth'
 import { isInternalRole } from './access/surfaces'
 
-/** Cookie that carries the opaque server session token (set by /api/auth/login). */
+/** Compatibility cookie containing the JWT mirrored for server-rendered pages. */
 const SESSION_COOKIE = 'session-token'
 
 export interface AuthenticatedUser {
@@ -20,9 +20,9 @@ export async function getAuthUser(): Promise<AuthenticatedUser | null> {
   const authHeader = headersList.get('authorization')
   let token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : ''
 
-  // Fall back to the httpOnly session cookie. Server components and browser
-  // navigations carry the cookie but no Authorization header, and the login
-  // route sets both, so accepting either keeps one identity for both transports.
+  // SSR compatibility fallback. Browser API clients use the Bearer token from
+  // localStorage; the mirrored httpOnly cookie only supports server-rendered
+  // page gates and older same-origin callers during the migration.
   if (!token) {
     const cookieStore = await cookies()
     token = cookieStore.get(SESSION_COOKIE)?.value ?? ''

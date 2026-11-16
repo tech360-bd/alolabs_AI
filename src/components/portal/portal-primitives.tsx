@@ -19,11 +19,13 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Mark } from '@/components/brand/alo-logo'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BRAND, BRAND_FONTS, COMPANY } from '@/lib/brand/tokens'
+import { apiFetch } from '@/lib/api-client'
+import { useAppStore } from '@/store/app'
 import { LogOut, ChevronRight, AlertCircle, Bell } from 'lucide-react'
 
 // ─── Portal user context ────────────────────────────────────────────────────
@@ -99,9 +101,12 @@ export function usePortalFetch(): { portalFetch: PortalFetch; portalDownload: (p
       if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json')
       }
-      const res = await fetch(`/api/portal${path}`, { ...init, headers, cache: 'no-store' })
+      const res = await apiFetch(`/api/portal${path}`, { ...init, headers, cache: 'no-store' }, {
+        authToken: token,
+        includeCompany: false,
+        redirectTo: `/login?next=${encodeURIComponent(window.location.pathname)}`,
+      })
       if (res.status === 401) {
-        window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`)
         throw new PortalApiError(401, 'Your session has ended. Please sign in again.')
       }
       if (!res.ok) {
@@ -182,31 +187,31 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const user = usePortalUser()
   const ctx = React.useContext(PortalUserContext)
   const pathname = usePathname() ?? '/portal'
+  const router = useRouter()
   const [signingOut, setSigningOut] = React.useState(false)
 
   const onLogout = React.useCallback(async () => {
     setSigningOut(true)
     const token = storedToken() || ctx?.token || ''
     try {
-      await fetch('/api/auth/logout', {
+      await apiFetch('/api/auth/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ token }),
-        credentials: 'same-origin',
+      }, {
+        authToken: token || null,
+        includeCompany: false,
       })
     } catch {
       /* best-effort; the server clears the cookie regardless */
     } finally {
       try {
-        localStorage.removeItem('alo_token')
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+        useAppStore.getState().logout()
       } catch {
-        /* ignore */
+        /* ignore; the destination login page will resolve session state */
       }
-      window.location.assign('/login')
+      router.push('/login')
     }
-  }, [ctx?.token])
+  }, [ctx?.token, router])
 
   const isActive = (href: string) => (href === '/portal' ? pathname === '/portal' : pathname.startsWith(href))
 

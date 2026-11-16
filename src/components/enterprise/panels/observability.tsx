@@ -5,7 +5,7 @@ import { Eye, Activity, Bot, Clock, Database, AlertTriangle, CheckCircle2, XCirc
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import { useAppStore } from '@/store/app'
 
 interface ObservabilityStats {

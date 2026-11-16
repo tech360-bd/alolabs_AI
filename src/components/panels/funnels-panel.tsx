@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   GitBranch,
@@ -102,7 +103,7 @@ export default function FunnelsPanel() {
 
   const fetchFunnels = useCallback(async () => {
     try {
-      const res = await fetch('/api/funnels')
+      const res = await apiFetch('/api/funnels')
       const data = await res.json()
       setFunnels(data.funnels || [])
       setStats(data.stats || { total: 0, avgConversionRate: 0, totalVisitors: 0, totalLeads: 0 })
@@ -168,7 +169,7 @@ export default function FunnelsPanel() {
     setSaving(true)
     try {
       if (editMode && selectedFunnel) {
-        const res = await fetch('/api/funnels', {
+        const res = await apiFetch('/api/funnels', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: selectedFunnel.id, name: formName, description: formDescription, steps: formSteps }),
@@ -176,7 +177,7 @@ export default function FunnelsPanel() {
         if (res.ok) { toast.success('Updated', { description: 'Funnel updated successfully'  }); setAddOpen(false); fetchFunnels(); if (selectedFunnel) { const data = await res.json(); setSelectedFunnel({ ...selectedFunnel, ...data }) } }
         else { const data = await res.json(); toast.error('Error', { description: data.error }) }
       } else {
-        const res = await fetch('/api/funnels', {
+        const res = await apiFetch('/api/funnels', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: formName, description: formDescription, steps: formSteps }),
@@ -191,7 +192,7 @@ export default function FunnelsPanel() {
   const handleDelete = async (funnel: Funnel) => {
     if (!confirm(`Delete funnel "${funnel.name}"?`)) return
     try {
-      const res = await fetch(`/api/funnels?id=${funnel.id}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/funnels?id=${funnel.id}`, { method: 'DELETE' })
       if (res.ok) { toast.success('Deleted', { description: 'Funnel deleted'  }); setSelectedFunnel(null); fetchFunnels() }
     } catch { toast.error('Error', { description: 'Failed to delete funnel' }) }
   }

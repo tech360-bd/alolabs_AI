@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   Database,
@@ -143,7 +144,7 @@ export default function ModelRegistryPanel() {
     setError(null)
 
     try {
-      const res = await fetch('/api/models')
+      const res = await apiFetch('/api/models')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!cancelled) {
@@ -206,7 +207,7 @@ export default function ModelRegistryPanel() {
     if (!newModel.modelId || !newModel.name) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/models', {
+      const res = await apiFetch('/api/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

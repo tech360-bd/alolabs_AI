@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Cpu,
@@ -173,7 +174,7 @@ export default function GpuMonitorPanel() {
 
   const loadData = useCallback(() => {
     setIsRefreshing(true)
-    fetch('/api/gpu-monitor')
+    apiFetch('/api/gpu-monitor')
       .then((r) => r.json())
       .then((data) => {
         if (data.resources) setResources(data.resources)

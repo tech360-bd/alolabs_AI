@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { GitBranch, Activity, CheckCircle2, XCircle, PauseCircle, PlayCircle, Clock, TrendingUp } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'

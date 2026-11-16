@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import { Wrench, Plus, Search, Shield, AlertTriangle, Loader2, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -100,7 +101,7 @@ export default function ToolRegistryPanel() {
       const params = new URLSearchParams()
       if (filterCategory) params.set('category', filterCategory)
       if (search) params.set('search', search)
-      const res = await fetch(`/api/tools?${params}`)
+      const res = await apiFetch(`/api/tools?${params}`)
       const data = await res.json()
       setTools(data.tools || [])
     } catch {
@@ -131,7 +132,7 @@ export default function ToolRegistryPanel() {
     }
     setSaving(true)
     try {
-      const res = await fetch('/api/tools', {
+      const res = await apiFetch('/api/tools', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -167,7 +168,7 @@ export default function ToolRegistryPanel() {
     if (!selectedTool) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/tools?id=${selectedTool.id}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/tools?id=${selectedTool.id}`, { method: 'DELETE' })
       if (res.ok) {
         toast.success('Deleted', { description: 'Tool removed from registry'  })
         setDeleteOpen(false)

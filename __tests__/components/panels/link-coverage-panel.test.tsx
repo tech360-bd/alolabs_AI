@@ -6,6 +6,15 @@ import type { EntryCheck } from '@/lib/link-coverage/types';
 
 const mockFetch = vi.fn();
 
+function expectApiFetchCalled(path: string): void {
+  const call = mockFetch.mock.calls.find(([url]) => url === path);
+  expect(call).toBeDefined();
+  const init = call?.[1] as RequestInit | undefined;
+  const headers = new Headers(init?.headers);
+  expect(headers.get('Accept')).toBe('application/json');
+  expect(init?.credentials).toBe('omit');
+}
+
 function entry(overrides: Partial<EntryCheck> = {}): EntryCheck {
   return {
     id: 'openrouter',
@@ -120,10 +129,7 @@ describe('LinkCoveragePanel', () => {
     expect(screen.getByText('45')).toBeInTheDocument();
     expect(screen.getByText('11')).toBeInTheDocument();
     expect(screen.getByText(/Evidence files on disk: 162 \/ 162/)).toBeInTheDocument();
-    expect(mockFetch).toHaveBeenCalledWith(
-      '/api/super-admin/link-coverage',
-      expect.objectContaining({ headers: { Accept: 'application/json' } }),
-    );
+    expectApiFetchCalled('/api/super-admin/link-coverage');
   });
 
   it('expands a row to show the evidence path, size and hash', async () => {
@@ -189,12 +195,7 @@ describe('LinkCoveragePanel', () => {
 
     await user.click(screen.getByText('Re-check all files'));
 
-    await waitFor(() =>
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/super-admin/link-coverage?refresh=1',
-        expect.objectContaining({ headers: { Accept: 'application/json' } }),
-      ),
-    );
+    await waitFor(() => expectApiFetchCalled('/api/super-admin/link-coverage?refresh=1'));
   });
 
   it('explains a 403 instead of showing an empty table', async () => {

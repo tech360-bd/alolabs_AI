@@ -23,15 +23,13 @@
  *  A. Auth coverage — every API route handler that the edge allowlist does NOT
  *     cover must reference a known auth helper, unless it appears in the
  *     documented EXCEPTIONS table below.
- *  B. Prefix over-match — the edge matches allowlist entries with
- *     `pathname === r.path || pathname.startsWith(r.path)`. An entry without a
- *     trailing slash therefore also exposes every route beneath its prefix.
- *     This reports routes made public by that behaviour, so a new route cannot
- *     be silently exposed by an existing prefix entry.
+ *  B. Prefix over-match — only allowlist entries whose path ends in `/` may
+ *     match descendants. An exact entry such as `/api/health` must not expose
+ *     `/api/health/deep` or `/api/health-anything` by accident.
  *
- * The allowlist is PARSED from src/proxy.ts, never duplicated here, so the guard
- * cannot drift from the thing it is checking. If parsing yields nothing the
- * guard fails loudly rather than passing vacuously.
+ * The allowlist is PARSED from src/proxy.ts, never duplicated here, so the
+ * guard cannot drift from the thing it is checking. If parsing yields nothing
+ * the guard fails loudly rather than passing vacuously.
  *
  * Dependency-free by design: bun.lock cannot be regenerated in restricted
  * environments and CI runs `bun install --frozen-lockfile`, so this must not
@@ -50,7 +48,7 @@ const violations = [];
 const notes = [];
 const fail = (msg) => violations.push(msg);
 
-// ─── 1. Parse the authoritative allowlist out of src/proxy.ts ────────────────
+// ─── 1. Parse the authoritative public-route table ──────────────────────────
 
 const proxyPath = 'src/proxy.ts';
 if (!existsSync(join(root, proxyPath))) {
@@ -68,15 +66,22 @@ for (const m of proxySrc.matchAll(entryRe)) {
 }
 
 if (allowlist.length === 0) {
-  // Guard against a proxy.ts refactor silently disabling this check.
+  // Guard against a proxy refactor silently disabling this check.
   console.error('validate-route-auth: FATAL — parsed 0 entries from PUBLIC_API_ROUTES.');
   console.error('  The allowlist format in src/proxy.ts probably changed; update this script.');
   process.exit(1);
 }
 
-// The edge also treats these query strings as public regardless of path.
+// Query-string auth bypasses are forbidden. Keep this check against the proxy,
+// where request URL handling lives, rather than the route-table helper.
 const publicQueryParams = [...proxySrc.matchAll(/PUBLIC_QUERY_PARAMS[\s\S]*?\[([^\]]*)\]/g)]
   .flatMap((m) => [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]));
+if (publicQueryParams.length > 0) {
+  fail(`query-parameter auth bypass found in ${proxyPath}: ${publicQueryParams.join(', ')}`);
+}
+if (!proxySrc.includes('matchesPublicApiRoute(PUBLIC_API_ROUTES, pathname, method)')) {
+  fail(`${proxyPath} does not use the shared exact/prefix matcher for PUBLIC_API_ROUTES`);
+}
 
 // ─── 2. Enumerate API route files and the methods they export ────────────────
 
@@ -137,20 +142,18 @@ const EXCEPTIONS = {
     'Serves static content from @/lib/enterprise-roadmap. Verified: no db import, ' +
     'no companyId, no process.env, no tenant data. Not in the edge allowlist, so a ' +
     'Bearer header is still required to reach it at all.',
-  '/api/auth/mfa/resend':
-    'No-op stub that returns a fixed { success: true } message and touches no state ' +
-    '(see gap G5). Tracked for removal or real implementation; nothing to protect yet.',
 };
 
 // ─── 4. Check A — auth coverage ──────────────────────────────────────────────
 
 /** Does the edge allowlist cover this path+method? */
 function edgeCovers(routePath, method) {
-  return allowlist.some(
-    (r) =>
-      (routePath === r.path || routePath.startsWith(r.path)) &&
-      r.methods.includes(method),
-  );
+  return allowlist.some((entry) => {
+    const matchesPath = entry.path.endsWith('/')
+      ? routePath.startsWith(entry.path)
+      : routePath === entry.path;
+    return matchesPath && entry.methods.includes(method);
+  });
 }
 
 let checked = 0;
@@ -178,24 +181,26 @@ for (const path of Object.keys(EXCEPTIONS)) {
   }
 }
 
-// ─── 5. Check B — prefix over-match in the edge allowlist ────────────────────
+// ─── 5. Check B — accidental prefix over-match in the edge allowlist ────────
+// Exact entries must never behave like prefixes. Prefix entries are intentional
+// only when the path ends in `/`; those are the only ones that are skipped here.
 
 for (const entry of allowlist) {
-  if (entry.path.endsWith('/')) continue; // trailing slash scopes the prefix correctly
+  if (entry.path.endsWith('/')) continue; // an explicit, slash-delimited prefix
   const shadowed = routes.filter(
     (r) => r.routePath !== entry.path && r.routePath.startsWith(entry.path),
   );
   for (const r of shadowed) {
     const overlapping = r.methods.filter((m) => entry.methods.includes(m));
     if (overlapping.length === 0) continue;
-    // A route the author listed explicitly is public on purpose; only routes
-    // exposed *incidentally* by a broader prefix are worth reporting.
-    if (allowlist.some((a) => a.path === r.routePath)) continue;
+    // A route with its own exact public entry was listed intentionally; this
+    // check is only about paths that inherit publicity from a broader entry.
+    if (allowlist.some((candidate) => candidate.path === r.routePath && candidate.methods.some((m) => overlapping.includes(m)))) continue;
     if (EXCEPTIONS[r.routePath]) continue;
-    if (r.hasAuth) continue; // still performs its own check, so not exposed
+    if (r.hasAuth) continue; // an independent handler check still protects it
     fail(
-      `${r.rel}: ${overlapping.join('/')} ${r.routePath} is made public by the ` +
-      `startsWith match on allowlist entry '${entry.path}' in src/proxy.ts, and has no auth helper of its own.`,
+      `${r.rel}: ${overlapping.join('/')} ${r.routePath} would be made public by an accidental ` +
+      `startsWith match on exact allowlist entry '${entry.path}' in ${proxyPath}.`,
     );
   }
 }
@@ -208,9 +213,6 @@ console.log(
   `${allowlist.length} allowlist entries, ` +
   `${Object.keys(EXCEPTIONS).length} documented exception(s)`,
 );
-if (publicQueryParams.length) {
-  console.log(`validate-route-auth: query-param bypasses present [${publicQueryParams.join(', ')}] — not analysed`);
-}
 for (const n of notes) console.log(`  note: ${n}`);
 
 if (violations.length) {

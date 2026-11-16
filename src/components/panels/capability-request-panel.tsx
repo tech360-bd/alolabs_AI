@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Search,
@@ -111,7 +112,7 @@ export default function CapabilityRequestPanel() {
 
   const fetchRequests = useCallback(() => {
     setLoading(true)
-    fetch('/api/capability/requests')
+    apiFetch('/api/capability/requests')
       .then((r) => r.json())
       .then((data) => {
         setRequests(data.requests || [])
@@ -128,7 +129,7 @@ export default function CapabilityRequestPanel() {
     if (!newRequest.type || !newRequest.title.trim()) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/capability/request', {
+      const res = await apiFetch('/api/capability/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -160,7 +161,7 @@ export default function CapabilityRequestPanel() {
     if (!confirmTarget || !confirmAction) return
     setActionLoading(true)
     try {
-      const res = await fetch('/api/capability/request', {
+      const res = await apiFetch('/api/capability/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

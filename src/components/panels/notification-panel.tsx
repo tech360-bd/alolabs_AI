@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Bell,
@@ -112,7 +113,7 @@ export default function NotificationPanel() {
   const fetchNotifications = useCallback(async () => {
     try {
       const tabParam = activeTab === 'unread' ? 'unread' : activeTab === 'alerts' ? 'alerts' : activeTab === 'system' ? 'system' : ''
-      const res = await fetch(`/api/notifications?tab=${tabParam}`)
+      const res = await apiFetch(`/api/notifications?tab=${tabParam}`)
       if (res.ok) {
         const json = await res.json()
         setNotifications(json.data || [])
@@ -131,7 +132,7 @@ export default function NotificationPanel() {
 
   const handleMarkRead = async (id: string) => {
     try {
-      await fetch('/api/notifications/read', {
+      await apiFetch('/api/notifications/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: [id] }),
@@ -145,7 +146,7 @@ export default function NotificationPanel() {
   const handleMarkAllRead = async () => {
     setMarkingAll(true)
     try {
-      await fetch('/api/notifications/read', {
+      await apiFetch('/api/notifications/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ markAll: true }),

@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Palette,
@@ -79,7 +80,7 @@ export default function BrandManagementPanel() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/brands')
+      const res = await apiFetch('/api/brands')
       const data = await res.json()
       const loaded: BrandConfig[] = data.data || []
       // Merge with defaults so we always have both brands
@@ -124,7 +125,7 @@ export default function BrandManagementPanel() {
     setSaving(true)
     try {
       const brand = editState[companyId]
-      await fetch('/api/brands', {
+      await apiFetch('/api/brands', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(brand),

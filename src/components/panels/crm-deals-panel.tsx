@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
@@ -146,7 +147,7 @@ export default function CrmDealsPanel() {
       if (contactSearch) params.set('search', contactSearch)
       if (contactStatusFilter) params.set('status', contactStatusFilter)
       params.set('limit', '50')
-      const res = await fetch(`/api/crm/contacts?${params}`)
+      const res = await apiFetch(`/api/crm/contacts?${params}`)
       const json = await res.json()
       if (json.data) setContacts(json.data)
     } catch (e) { console.error(e) }
@@ -159,7 +160,7 @@ export default function CrmDealsPanel() {
       if (dealStageFilter) params.set('stageId', dealStageFilter)
       if (dealSearch) params.set('search', dealSearch)
       params.set('limit', '50')
-      const res = await fetch(`/api/crm/deals?${params}`)
+      const res = await apiFetch(`/api/crm/deals?${params}`)
       const json = await res.json()
       if (json.data) setDeals(json.data)
     } catch (e) { console.error(e) }
@@ -167,7 +168,7 @@ export default function CrmDealsPanel() {
 
   const fetchPipelines = async () => {
     try {
-      const res = await fetch('/api/crm/pipelines')
+      const res = await apiFetch('/api/crm/pipelines')
       const json = await res.json()
       if (json.data) setPipelines(json.data)
     } catch (e) { console.error(e) }
@@ -178,7 +179,7 @@ export default function CrmDealsPanel() {
       const params = new URLSearchParams()
       if (activityTypeFilter) params.set('type', activityTypeFilter)
       params.set('limit', '50')
-      const res = await fetch(`/api/crm/activities?${params}`)
+      const res = await apiFetch(`/api/crm/activities?${params}`)
       const json = await res.json()
       if (json.data) setActivities(json.data)
     } catch (e) { console.error(e) }
@@ -196,20 +197,20 @@ export default function CrmDealsPanel() {
   // ── Delete handlers ──
   const deleteContact = async (id: string) => {
     if (!confirm('Delete this contact and all related records?')) return
-    await fetch(`/api/crm/contacts/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/crm/contacts/${id}`, { method: 'DELETE' })
     setSelectedContact(null)
     fetchContacts()
   }
 
   const deleteDeal = async (id: string) => {
     if (!confirm('Delete this deal?')) return
-    await fetch(`/api/crm/deals/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/crm/deals/${id}`, { method: 'DELETE' })
     setSelectedDeal(null)
     fetchDeals()
   }
 
   const createPipeline = async (name: string, description?: string) => {
-    await fetch('/api/crm/pipelines', {
+    await apiFetch('/api/crm/pipelines', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, description }),
     })
@@ -218,7 +219,7 @@ export default function CrmDealsPanel() {
 
   const calculateScore = async (contactId: string) => {
     try {
-      const res = await fetch('/api/crm/lead-score', {
+      const res = await apiFetch('/api/crm/lead-score', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contactId }),
       })
@@ -227,7 +228,7 @@ export default function CrmDealsPanel() {
         setSelectedContact({ ...selectedContact, score: json.data.score })
       }
       if (selectedContact) {
-        const detail = await fetch(`/api/crm/contacts/${contactId}`)
+        const detail = await apiFetch(`/api/crm/contacts/${contactId}`)
         const d = await detail.json()
         if (d.data) setSelectedContact(d.data)
       }
@@ -281,7 +282,7 @@ export default function CrmDealsPanel() {
               onDelete={deleteContact}
               onScore={() => calculateScore(selectedContact.id)}
               onRefresh={async () => {
-                const res = await fetch(`/api/crm/contacts/${selectedContact.id}`)
+                const res = await apiFetch(`/api/crm/contacts/${selectedContact.id}`)
                 const json = await res.json()
                 if (json.data) setSelectedContact(json.data)
               }}
@@ -413,7 +414,7 @@ export default function CrmDealsPanel() {
               onBack={() => setSelectedDeal(null)}
               onDelete={deleteDeal}
               onRefresh={async () => {
-                const res = await fetch(`/api/crm/deals/${selectedDeal.id}`)
+                const res = await apiFetch(`/api/crm/deals/${selectedDeal.id}`)
                 const json = await res.json()
                 if (json.data) setSelectedDeal(json.data)
               }}
@@ -624,7 +625,7 @@ function ContactDetailView({ contact, onBack, onDelete, onScore, onRefresh }: {
   const [noteText, setNoteText] = useState('')
 
   const saveEdit = async () => {
-    await fetch(`/api/crm/contacts/${contact.id}`, {
+    await apiFetch(`/api/crm/contacts/${contact.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...editForm, tags: editForm.tags }),
     })
@@ -634,7 +635,7 @@ function ContactDetailView({ contact, onBack, onDelete, onScore, onRefresh }: {
 
   const addNote = async () => {
     if (!noteText.trim()) return
-    await fetch('/api/crm/activities', {
+    await apiFetch('/api/crm/activities', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contactId: contact.id, type: 'note', subject: 'Note added', description: noteText }),
     })
@@ -859,7 +860,7 @@ function DealDetailView({ deal, pipelines, onBack, onDelete, onRefresh }: {
   const [moveStage, setMoveStage] = useState(deal.stageId)
 
   const moveDeal = async () => {
-    await fetch(`/api/crm/deals/${deal.id}`, {
+    await apiFetch(`/api/crm/deals/${deal.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stageId: moveStage }),
     })
@@ -1065,7 +1066,7 @@ function AddContactDialog({ onSave }: { onSave: () => void }) {
     if (!form.firstName || !form.lastName || !form.email) return
     setSaving(true)
     try {
-      await fetch('/api/crm/contacts', {
+      await apiFetch('/api/crm/contacts', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
@@ -1134,7 +1135,7 @@ function AddDealDialog({ contacts, pipelines, onSave }: {
     if (!form.contactId || !form.pipelineId || !form.stageId || !form.title) return
     setSaving(true)
     try {
-      await fetch('/api/crm/deals', {
+      await apiFetch('/api/crm/deals', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contactId: form.contactId, pipelineId: form.pipelineId, stageId: form.stageId,
@@ -1285,7 +1286,7 @@ function AddActivityDialog({ contacts, deals, onSave }: {
     if (!form.type || !form.subject) return
     setSaving(true)
     try {
-      await fetch('/api/crm/activities', {
+      await apiFetch('/api/crm/activities', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contactId: form.contactId || undefined, dealId: form.dealId || undefined,

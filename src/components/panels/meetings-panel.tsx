@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Calendar,
@@ -99,7 +100,7 @@ export default function MeetingsPanel() {
     try {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
-      const res = await fetch(`/api/meetings?${params}`)
+      const res = await apiFetch(`/api/meetings?${params}`)
       const data = await res.json()
       setMeetings(data.meetings || [])
       setStats(data.stats || { total: 0, scheduled: 0, completed: 0, cancelled: 0, upcomingThisWeek: 0, avgDuration: 0 })
@@ -150,7 +151,7 @@ export default function MeetingsPanel() {
     setSaving(true)
     try {
       const attendees = formAttendees.split(',').map((a) => a.trim()).filter(Boolean)
-      const res = await fetch('/api/meetings', {
+      const res = await apiFetch('/api/meetings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: formTitle, description: formDescription, date: `${formDate}T${formTime}:00`, duration: parseInt(formDuration, 10), attendees, meetingLink: formLink }),

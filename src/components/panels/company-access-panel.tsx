@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import {
   Shield,
@@ -130,7 +131,7 @@ export default function CompanyAccessPanel() {
     let cancelled = false
     setLoading(true)
     Promise.all([
-      fetch('/api/company-access').then((r) => r.json()),
+      apiFetch('/api/company-access').then((r) => r.json()),
     ])
       .then(([accessRes]) => {
         if (cancelled) return
@@ -148,7 +149,7 @@ export default function CompanyAccessPanel() {
   }, [])
 
   const reload = () => {
-    fetch('/api/company-access')
+    apiFetch('/api/company-access')
       .then((r) => r.json())
       .then((accessRes) => {
         const data = accessRes.data || accessRes
@@ -190,7 +191,7 @@ export default function CompanyAccessPanel() {
   const handleConfirmAccess = async () => {
     const { companyId, groupName, newLevel } = actionDialog
     try {
-      await fetch('/api/company-access', {
+      await apiFetch('/api/company-access', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ companyId, group: groupName, accessLevel: newLevel }),
@@ -202,7 +203,7 @@ export default function CompanyAccessPanel() {
 
   const handleGrantAccess = async () => {
     try {
-      await fetch('/api/company-access', {
+      await apiFetch('/api/company-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -219,7 +220,7 @@ export default function CompanyAccessPanel() {
 
   const handleRevokeAccess = async () => {
     try {
-      await fetch('/api/company-access', {
+      await apiFetch('/api/company-access', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

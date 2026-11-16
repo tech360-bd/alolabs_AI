@@ -1,6 +1,6 @@
 'use client'
 
-import { fetchApi, buildQueryString } from '@/lib/api'
+import { fetchApi, buildQueryString } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { useState, useEffect, useRef } from 'react'
 

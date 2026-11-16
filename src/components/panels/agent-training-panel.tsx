@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   GraduationCap,
@@ -131,7 +132,7 @@ export default function AgentTrainingPanel() {
       if (statusFilter && statusFilter !== '__all__') params.set('status', statusFilter)
       if (typeFilter && typeFilter !== '__all__') params.set('type', typeFilter)
 
-      const res = await fetch(`/api/training?${params}`)
+      const res = await apiFetch(`/api/training?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!cancelled) {
@@ -194,7 +195,7 @@ export default function AgentTrainingPanel() {
     if (!newProgram.agentId) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/training', {
+      const res = await apiFetch('/api/training', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

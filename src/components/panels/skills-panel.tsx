@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef } from 'react'
 import { Search, ChevronLeft, ChevronRight, Eye, Wrench, Shield, Zap, AlertTriangle, Ban, CheckCircle2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -77,11 +78,11 @@ export default function SkillsPanel() {
      
     setStatsLoading(true)
     Promise.all([
-      fetch('/api/skills?limit=1').then((r) => r.json()),
-      fetch('/api/skills?status=approved&limit=1').then((r) => r.json()),
-      fetch('/api/skills?status=private&limit=1').then((r) => r.json()),
-      fetch('/api/skills?status=quarantined&limit=1').then((r) => r.json()),
-      fetch('/api/skills?status=disabled&limit=1').then((r) => r.json()),
+      apiFetch('/api/skills?limit=1').then((r) => r.json()),
+      apiFetch('/api/skills?status=approved&limit=1').then((r) => r.json()),
+      apiFetch('/api/skills?status=private&limit=1').then((r) => r.json()),
+      apiFetch('/api/skills?status=quarantined&limit=1').then((r) => r.json()),
+      apiFetch('/api/skills?status=disabled&limit=1').then((r) => r.json()),
     ])
       .then(([all, approved, priv, quar, dis]) => {
         setStats({
@@ -117,7 +118,7 @@ export default function SkillsPanel() {
     if (categoryFilter) params.set('category', categoryFilter)
     if (statusFilter) params.set('status', statusFilter)
 
-    fetch(`/api/skills?${params}`)
+    apiFetch(`/api/skills?${params}`)
       .then((r) => r.json())
       .then((res) => {
         if (!cancelled) {

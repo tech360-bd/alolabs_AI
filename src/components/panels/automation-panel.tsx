@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useMemo } from 'react'
 import {
   Card,
@@ -298,7 +299,7 @@ export default function AutomationPanel() {
 
   /* ── Data Fetching ── */
   useEffect(() => {
-    fetch('/api/automation/triggers?limit=100')
+    apiFetch('/api/automation/triggers?limit=100')
       .then(r => r.json())
       .then(d => {
         const items: Automation[] = ((d.data || d.items || d || []) as Record<string, unknown>[]).map((t: Record<string, unknown>) => {
@@ -344,7 +345,7 @@ export default function AutomationPanel() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/automation/logs?limit=100')
+    apiFetch('/api/automation/logs?limit=100')
       .then(r => r.json())
       .then(d => {
         const items: Execution[] = ((d.data || d.items || d || []) as Record<string, unknown>[]).map((l: Record<string, unknown>) => {
@@ -374,7 +375,7 @@ export default function AutomationPanel() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/automation-suggestions?limit=100')
+    apiFetch('/api/automation-suggestions?limit=100')
       .then(r => r.json())
       .then(d => {
         const raw = (d.data || d.items || d || []) as Record<string, unknown>[]
