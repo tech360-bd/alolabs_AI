@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { fetchApi, buildQueryString } from '@/lib/api'
+import { fetchApi, buildQueryString } from '@/lib/api-client'
 
 interface UseDataTableOptions<T> {
   endpoint: string

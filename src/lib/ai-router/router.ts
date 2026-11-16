@@ -18,9 +18,8 @@ import type {
   AILoadBalanceConfig,
   AICapability,
 } from './types';
-import { localOnlyEnabled } from './model-tiers';
+import { freeOnlyModeEnabled, localOnlyEnabled } from './model-tiers';
 import { isFreeOnlyMode } from './free-only-mode';
-import { localOnlyEnabled, freeOnlyModeEnabled } from './model-tiers';
 import {
   AIRouterError,
   AICircuitOpenError,
@@ -1031,8 +1030,6 @@ export class AIRouter {
         (freeOnlyMode
           ? (context.allowVerifiedFree !== false && freeEligible)
           : (context.allowVerifiedFree === true && (freeEligible || explicitlyAllowed)));
-        (context.allowPaid === true && explicitlyAllowed) ||
-        (context.allowVerifiedFree === true && (entry.provider.freeOnly || explicitlyAllowed));
       // FREE-ONLY mode is a global operating gate: a provider that is neither
       // local nor a verified free-only adapter is ineligible for EVERY request,
       // even one whose context authorizes paid usage. Only a Super Admin

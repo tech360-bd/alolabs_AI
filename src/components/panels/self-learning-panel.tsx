@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { fetchApi } from '@/lib/api';
+import { fetchApi } from '@/lib/api-client';
 
 // ── Types ──────────────────────────────────────────────────────
 interface DashboardData {

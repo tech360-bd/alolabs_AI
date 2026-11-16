@@ -1,6 +1,7 @@
 'use client'
 
 import { audienceForToken, isClientPagePath } from '@/lib/access/surfaces'
+import { apiFetch } from '@/lib/api-client'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAppStore } from '@/store/app'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -117,7 +118,7 @@ export default function LoginPage() {
     setError(null)
     try {
       const next = new URLSearchParams(window.location.search).get('next') || ''
-      const res = await fetch(`/api/auth/oauth/${encodeURIComponent(provider)}?next=${encodeURIComponent(next)}`)
+      const res = await apiFetch(`/api/auth/oauth/${encodeURIComponent(provider)}?next=${encodeURIComponent(next)}`, { credentials: 'include' })
       const payload = await res.json().catch(() => ({}))
       if (!res.ok || !payload?.authorizationUrl) {
         throw new Error(payload?.error || 'Could not start the sign-in flow. Please try again.')
@@ -148,10 +149,11 @@ export default function LoginPage() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch('/api/auth/register', {
+        const res = await apiFetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, password }),
+          credentials: 'include',
         })
         if (!res.ok) {
           const data = await res.json().catch(() => ({}))
@@ -179,7 +181,7 @@ export default function LoginPage() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch('/api/auth/password-reset', {
+        const res = await apiFetch('/api/auth/password-reset', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
@@ -209,10 +211,11 @@ export default function LoginPage() {
 
       try {
         // Authenticate via API
-        const res = await fetch('/api/auth/login', {
+        const res = await apiFetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, rememberMe }),
+          credentials: 'include',
         })
 
         if (!res.ok) {
@@ -269,7 +272,7 @@ export default function LoginPage() {
 
     try {
       // Verify MFA code via API
-      const res = await fetch('/api/auth/mfa/verify', {
+      const res = await apiFetch('/api/auth/mfa/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -278,6 +281,7 @@ export default function LoginPage() {
           code: mfaCode,
           context: 'login',
         }),
+        credentials: 'include',
       })
 
       if (!res.ok) {
@@ -315,7 +319,7 @@ export default function LoginPage() {
     if (mfaCountdown > 0 || !mfaData) return
 
     try {
-      const res = await fetch('/api/auth/mfa/resend', {
+      const res = await apiFetch('/api/auth/mfa/resend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: mfaData.userId, tempToken: mfaData.tempToken }),

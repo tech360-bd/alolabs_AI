@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Telescope,
@@ -414,15 +415,15 @@ export default function ObservatoryPanel() {
     try {
       const [healthRes, statsRes, queuesRes, tokenRes, alertsRes, logsRes, sysHealthRes, reqRateRes, tokenChartRes] =
         await Promise.all([
-          fetch('/api/health').then((r) => r.json()).catch(() => null),
-          fetch('/api/dashboard/stats').then((r) => r.json()).catch(() => null),
-          fetch('/api/queues').then((r) => r.json()).catch(() => null),
-          fetch('/api/token-usage?limit=1').then((r) => r.json()).catch(() => null),
-          fetch('/api/alerts').then((r) => r.json()).catch(() => null),
-          fetch(`/api/logs?limit=50${logLevel !== 'All' ? `&level=${logLevel}` : ''}`).then((r) => r.json()).catch(() => null),
-          fetch('/api/system-health?deep=true').then((r) => r.json()).catch(() => null),
-          fetch('/api/metrics?name=request_rate&period=5m&agg=sum&from=' + new Date(Date.now() - 3600000).toISOString()).then((r) => r.json()).catch(() => null),
-          fetch('/api/metrics?name=token_usage&period=1h&agg=sum&from=' + new Date(Date.now() - 3600000).toISOString()).then((r) => r.json()).catch(() => null),
+          apiFetch('/api/health').then((r) => r.json()).catch(() => null),
+          apiFetch('/api/dashboard/stats').then((r) => r.json()).catch(() => null),
+          apiFetch('/api/queues').then((r) => r.json()).catch(() => null),
+          apiFetch('/api/token-usage?limit=1').then((r) => r.json()).catch(() => null),
+          apiFetch('/api/alerts').then((r) => r.json()).catch(() => null),
+          apiFetch(`/api/logs?limit=50${logLevel !== 'All' ? `&level=${logLevel}` : ''}`).then((r) => r.json()).catch(() => null),
+          apiFetch('/api/system-health?deep=true').then((r) => r.json()).catch(() => null),
+          apiFetch('/api/metrics?name=request_rate&period=5m&agg=sum&from=' + new Date(Date.now() - 3600000).toISOString()).then((r) => r.json()).catch(() => null),
+          apiFetch('/api/metrics?name=token_usage&period=1h&agg=sum&from=' + new Date(Date.now() - 3600000).toISOString()).then((r) => r.json()).catch(() => null),
         ])
 
       if (healthRes) setHealth(healthRes)
@@ -455,7 +456,7 @@ export default function ObservatoryPanel() {
 
   // Re-fetch logs when filter changes
   useEffect(() => {
-    fetch('/api/logs?limit=50' + (logLevel !== 'All' ? `&level=${logLevel}` : ''))
+    apiFetch('/api/logs?limit=50' + (logLevel !== 'All' ? `&level=${logLevel}` : ''))
       .then((r) => r.json())
       .then((res) => { if (res?.data) setLogs(res.data) })
       .catch(() => {})
@@ -466,7 +467,7 @@ export default function ObservatoryPanel() {
   const handleSilenceAlert = async (id: string) => {
     try {
       const silencedUntil = new Date(Date.now() + 4 * 3600 * 1000).toISOString()
-      await fetch('/api/alerts', {
+      await apiFetch('/api/alerts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, silencedUntil }),
@@ -479,7 +480,7 @@ export default function ObservatoryPanel() {
 
   const handleAckAlert = async (id: string) => {
     try {
-      await fetch('/api/alerts', {
+      await apiFetch('/api/alerts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, acknowledge: true }),
@@ -493,11 +494,11 @@ export default function ObservatoryPanel() {
   const handleCollectMetrics = async () => {
     setCollecting(true)
     try {
-      await fetch('/api/metrics/collect', { method: 'POST' })
+      await apiFetch('/api/metrics/collect', { method: 'POST' })
       // Refresh charts after collecting
       const [reqRateRes, tokenChartRes] = await Promise.all([
-        fetch('/api/metrics?name=request_rate&period=5m&agg=sum&from=' + new Date(Date.now() - 3600000).toISOString()).then((r) => r.json()),
-        fetch('/api/metrics?name=token_usage&period=1h&agg=sum&from=' + new Date(Date.now() - 3600000).toISOString()).then((r) => r.json()),
+        apiFetch('/api/metrics?name=request_rate&period=5m&agg=sum&from=' + new Date(Date.now() - 3600000).toISOString()).then((r) => r.json()),
+        apiFetch('/api/metrics?name=token_usage&period=1h&agg=sum&from=' + new Date(Date.now() - 3600000).toISOString()).then((r) => r.json()),
       ])
       if (reqRateRes?.data?.buckets) setRequestRateBuckets(reqRateRes.data.buckets)
       if (tokenChartRes?.data?.buckets) setTokenBuckets(tokenChartRes.data.buckets)
@@ -510,7 +511,7 @@ export default function ObservatoryPanel() {
     setMetricLoading(true)
     try {
       const from = new Date(Date.now() - parsePeriodToMs(metricPeriod)).toISOString()
-      const res = await fetch(`/api/metrics?name=${encodeURIComponent(metricName)}&agg=${metricAgg}&period=${metricPeriod}&from=${from}`)
+      const res = await apiFetch(`/api/metrics?name=${encodeURIComponent(metricName)}&agg=${metricAgg}&period=${metricPeriod}&from=${from}`)
       const data = await res.json()
       setMetricResults(data)
     } catch {

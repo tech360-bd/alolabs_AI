@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useMemo } from 'react'
 import {
   GitBranch,
@@ -92,7 +93,7 @@ export default function WorkflowsPanel() {
   const [newWorkflowCategory, setNewWorkflowCategory] = useState('')
 
   useEffect(() => {
-    fetch('/api/workflows')
+    apiFetch('/api/workflows')
       .then((r) => r.json())
       .then((res) => setWorkflows(res.data || []))
       .catch(() => {})

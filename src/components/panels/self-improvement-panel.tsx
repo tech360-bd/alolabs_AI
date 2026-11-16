@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef } from 'react'
 import { TrendingUp, FileText, Lightbulb, CheckCircle2, Clock, XCircle, Search, ChevronRight, Filter } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -103,7 +104,7 @@ export default function SelfImprovementPanel() {
     let cancelled = false
      
     setLoading(true)
-    fetch('/api/self-improvement/report')
+    apiFetch('/api/self-improvement/report')
       .then((r) => r.json())
       .then((res) => {
         if (!cancelled) setReport(res)

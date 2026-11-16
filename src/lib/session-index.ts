@@ -2,27 +2,14 @@ import { db } from '@/lib/db';
 import { hashSessionToken } from '@/lib/session-token';
 
 /**
- * The per-user session index: `user:sessions:<userId>` -> JSON array of token
- * DIGESTS.
+ * Compatibility helpers for the legacy per-user Settings index:
+ * `user:sessions:<userId>` -> JSON array of token digests.
  *
- * WHY THIS IS A SEPARATE MODULE
- * -----------------------------
- * `src/lib/auth.ts` mints session tokens on login and `src/lib/session-manager.ts`
- * lists and revokes them. Both need this index. It used to be private to
- * session-manager.ts, which meant auth.ts never populated it — so
- * `listActiveSessions()` always returned `[]` for real logins and
- * `revokeAllSessions()` always revoked nothing, while `DELETE
- * /api/auth/sessions?all=true` reported success. The "active devices" screen
- * and "sign out all other devices" were both non-functional.
- *
- * Extracting the index to a leaf module lets both callers share one
- * implementation. Keeping it here rather than in either caller also avoids
- * inverting the layering (auth.ts is the lower-level module) and prevents a
- * third divergent copy — the same failure mode that broke logout when key
- * derivation was duplicated. See src/lib/session-token.ts.
- *
- * Only DIGESTS are stored. This array is a second copy of every live
- * credential, so plaintext here would undo the hashing of the session rows.
+ * New JWT sessions are authoritative in Prisma `Session` rows and are listed
+ * or revoked directly there. Older opaque Settings-backed sessions may still
+ * have index entries, so these helpers remain for rolling migration and
+ * cleanup. Entries are digests where possible; raw values are accepted only
+ * to remove historical plaintext index entries safely.
  */
 
 const USER_SESSIONS_KEY_PREFIX = 'user:sessions:';
@@ -67,7 +54,7 @@ async function filterSessionIndex(
   await writeSessionIndex(userId, filtered);
 }
 
-/** Record a newly issued token against its user. Stores the digest. */
+/** Add a legacy opaque token to the compatibility index; JWT sessions use Prisma rows. */
 export async function addSessionToIndex(userId: string, token: string): Promise<void> {
   const entries = await readSessionIndex(userId);
   const digest = hashSessionToken(token);

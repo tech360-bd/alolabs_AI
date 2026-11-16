@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   ShieldCheck,
@@ -164,7 +165,7 @@ function MfaTab() {
 
   const fetchMfaStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/auth/me')
+      const res = await apiFetch('/api/auth/me')
       if (res.ok) {
         const data = await res.json()
         setMfaEnabled(data.user?.mfaEnabled ?? false)
@@ -183,7 +184,7 @@ function MfaTab() {
   const handleEnableMfa = async () => {
     setMfaLoading(true)
     try {
-      const res = await fetch('/api/auth/mfa/setup', { method: 'POST' })
+      const res = await apiFetch('/api/auth/mfa/setup', { method: 'POST' })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'Failed to setup MFA')
@@ -205,7 +206,7 @@ function MfaTab() {
     if (!verifyCode.trim()) return
     setVerifying(true)
     try {
-      const res = await fetch('/api/auth/mfa/verify', {
+      const res = await apiFetch('/api/auth/mfa/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: verifyCode }),
@@ -231,7 +232,7 @@ function MfaTab() {
   const handleDisableMfa = async () => {
     setDisabling(true)
     try {
-      const res = await fetch('/api/auth/mfa/disable', { method: 'POST' })
+      const res = await apiFetch('/api/auth/mfa/disable', { method: 'POST' })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'Failed to disable MFA')
@@ -520,7 +521,7 @@ function OAuthTab() {
 
   const fetchProviders = useCallback(async () => {
     try {
-      const res = await fetch('/api/auth/oauth/providers')
+      const res = await apiFetch('/api/auth/oauth/providers')
       if (res.ok) {
         const data = await res.json()
         setProviders(data.data || data.providers || [])
@@ -563,7 +564,7 @@ function OAuthTab() {
     setSaving(true)
     try {
       const url = editingProvider ? `/api/auth/oauth/providers?id=${editingProvider.id}` : '/api/auth/oauth/providers'
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -593,7 +594,7 @@ function OAuthTab() {
     if (!deleteId) return
     setDeletingId(deleteId)
     try {
-      const res = await fetch(`/api/auth/oauth/providers?id=${deleteId}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/auth/oauth/providers?id=${deleteId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Failed to delete')
       toast.success('Provider Deleted', { description: 'OAuth provider has been removed.'  })
       setProviders((prev) => prev.filter((p) => p.id !== deleteId))
@@ -860,7 +861,7 @@ function SsoTab() {
 
   const fetchSsoConfig = useCallback(async () => {
     try {
-      const res = await fetch('/api/auth/sso')
+      const res = await apiFetch('/api/auth/sso')
       if (res.ok) {
         const data = await res.json()
         const config = data.data || data.config || data
@@ -893,7 +894,7 @@ function SsoTab() {
     }
     setSaving(true)
     try {
-      const res = await fetch('/api/auth/sso', {
+      const res = await apiFetch('/api/auth/sso', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

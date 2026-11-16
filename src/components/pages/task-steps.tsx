@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { fetchApi, buildQueryString } from '@/lib/api'
+import { fetchApi, buildQueryString } from '@/lib/api-client'
 import TableShell from '@/components/table-shell'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'

@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import {
@@ -323,7 +324,7 @@ export default function QueuePanel() {
 
   // ─── Load queues from REST API as fallback ─────────────────────────────
   const loadQueues = useCallback(() => {
-    fetch('/api/queues')
+    apiFetch('/api/queues')
       .then((r) => r.json())
       .then((res) => {
         const apiQueues = Array.isArray(res) ? res : res.data || res.queues || []
@@ -371,7 +372,7 @@ export default function QueuePanel() {
   const loadQueueItems = useCallback(async (queueId: string) => {
     if (queueItemsMap[queueId]) return // Already have items from socket
     try {
-      const res = await fetch(`/api/queues/${queueId}/items`)
+      const res = await apiFetch(`/api/queues/${queueId}/items`)
       const data = await res.json()
       const items: QueueItem[] = Array.isArray(data) ? data : data.data || data.items || []
       setQueueItemsMap((prev) => ({ ...prev, [queueId]: items }))

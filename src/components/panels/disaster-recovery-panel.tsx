@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   ShieldAlert,
@@ -141,7 +142,7 @@ export default function DisasterRecoveryPanel() {
     setError(null)
 
     try {
-      const res = await fetch('/api/disaster-recovery')
+      const res = await apiFetch('/api/disaster-recovery')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!cancelled) {
@@ -231,7 +232,7 @@ export default function DisasterRecoveryPanel() {
   const handleFailoverTest = async () => {
     setFailoverRunning(true)
     try {
-      const res = await fetch('/api/disaster-recovery', {
+      const res = await apiFetch('/api/disaster-recovery', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'Full Failover', triggeredBy: 'Manual Test' }),

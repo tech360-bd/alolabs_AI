@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Ticket,
@@ -119,7 +120,7 @@ export default function TicketsPanel() {
       const params = new URLSearchParams()
       if (statusFilter) params.set('status', statusFilter)
       if (search) params.set('search', search)
-      const res = await fetch(`/api/tickets?${params}`)
+      const res = await apiFetch(`/api/tickets?${params}`)
       const data = await res.json()
       setTickets(data.tickets || [])
       setStats(data.stats || { open: 0, in_progress: 0, resolved: 0, closed: 0, total: 0 })
@@ -150,7 +151,7 @@ export default function TicketsPanel() {
     }
     setSaving(true)
     try {
-      const res = await fetch('/api/tickets', {
+      const res = await apiFetch('/api/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -188,7 +189,7 @@ export default function TicketsPanel() {
     setDetailStatus(newStatus)
     setSaving(true)
     try {
-      const res = await fetch(`/api/tickets/${selectedTicket.id}`, {
+      const res = await apiFetch(`/api/tickets/${selectedTicket.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -211,7 +212,7 @@ export default function TicketsPanel() {
     setDetailPriority(newPriority)
     setSaving(true)
     try {
-      const res = await fetch(`/api/tickets/${selectedTicket.id}`, {
+      const res = await apiFetch(`/api/tickets/${selectedTicket.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ priority: newPriority }),
@@ -232,7 +233,7 @@ export default function TicketsPanel() {
     if (!selectedTicket || !newComment.trim()) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/tickets/${selectedTicket.id}`, {
+      const res = await apiFetch(`/api/tickets/${selectedTicket.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ addComment: newComment }),
@@ -254,7 +255,7 @@ export default function TicketsPanel() {
     if (!selectedTicket) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/tickets/${selectedTicket.id}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/tickets/${selectedTicket.id}`, { method: 'DELETE' })
       if (res.ok) {
         setSelectedTicket(null)
         fetchTickets()

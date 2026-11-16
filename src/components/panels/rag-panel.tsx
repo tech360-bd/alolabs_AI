@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Database,
@@ -145,9 +146,9 @@ export default function RagPanel() {
   const fetchAll = useCallback(() => {
     setLoading(true)
     Promise.all([
-      fetch('/api/rag/collections').then((r) => r.json()),
-      fetch('/api/rag/documents').then((r) => r.json()),
-      fetch('/api/rag/logs').then((r) => r.json()),
+      apiFetch('/api/rag/collections').then((r) => r.json()),
+      apiFetch('/api/rag/documents').then((r) => r.json()),
+      apiFetch('/api/rag/logs').then((r) => r.json()),
     ])
       .then(([cols, docs, logs]) => {
         setCollections(Array.isArray(cols) ? cols : [])
@@ -166,7 +167,7 @@ export default function RagPanel() {
     if (!colName.trim()) return
     setColSubmitting(true)
     try {
-      const res = await fetch('/api/rag/collections', {
+      const res = await apiFetch('/api/rag/collections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: colName.trim(), description: colDesc || undefined }),
@@ -188,7 +189,7 @@ export default function RagPanel() {
     if (!docName.trim() || !docCollectionId) return
     setDocSubmitting(true)
     try {
-      const res = await fetch('/api/rag/documents', {
+      const res = await apiFetch('/api/rag/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -218,7 +219,7 @@ export default function RagPanel() {
     setQueryLoading(true)
     setQueryResult(null)
     try {
-      const res = await fetch('/api/rag/query', {
+      const res = await apiFetch('/api/rag/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -230,7 +231,7 @@ export default function RagPanel() {
       const data = await res.json()
       setQueryResult(data)
       // Refresh logs
-      fetch('/api/rag/logs')
+      apiFetch('/api/rag/logs')
         .then((r) => r.json())
         .then((logs) => setQueryLogs(Array.isArray(logs) ? logs : []))
         .catch(() => {})

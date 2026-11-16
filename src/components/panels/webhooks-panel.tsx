@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Webhook,
@@ -133,8 +134,8 @@ export default function WebhooksPanel() {
   const fetchData = useCallback(async () => {
     try {
       const [webhooksRes, companiesRes] = await Promise.all([
-        fetch('/api/webhooks'),
-        fetch('/api/companies'),
+        apiFetch('/api/webhooks'),
+        apiFetch('/api/companies'),
       ])
       const webhooksData = await webhooksRes.json()
       const companiesData = await companiesRes.json()
@@ -179,7 +180,7 @@ export default function WebhooksPanel() {
     setSubmitting(true)
     try {
       const isEdit = !!editingId
-      const res = await fetch('/api/webhooks', {
+      const res = await apiFetch('/api/webhooks', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingId, ...form }),
@@ -199,7 +200,7 @@ export default function WebhooksPanel() {
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      await fetch('/api/webhooks', {
+      await apiFetch('/api/webhooks', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: deleteConfirm.id }),
@@ -216,7 +217,7 @@ export default function WebhooksPanel() {
   const handleTest = async (id: string) => {
     setTestingId(id)
     try {
-      const res = await fetch('/api/webhooks', {
+      const res = await apiFetch('/api/webhooks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'test', id }),

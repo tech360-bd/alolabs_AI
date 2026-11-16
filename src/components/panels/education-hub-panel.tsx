@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   BookOpen,
@@ -344,7 +345,7 @@ export default function EducationHubPanel() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/education-hub')
+      const res = await apiFetch('/api/education-hub')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!cancelled) {

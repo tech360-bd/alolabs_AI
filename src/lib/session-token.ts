@@ -1,38 +1,17 @@
 import crypto from 'crypto';
 
 /**
- * Shared session-token key derivation.
+ * Shared session-token hashing and legacy Settings-key helpers.
  *
- * WHY THIS MODULE EXISTS
- * ----------------------
- * Session rows live in the `Settings` table under a single shared `session:`
- * keyspace, but two independent modules read and write it:
+ * New sessions are signed JWTs whose SHA-256 digest is stored in
+ * `Prisma.Session.tokenHash`; they do not use Settings keys. The `session:`
+ * key helpers below exist only for opaque Settings-backed sessions created by
+ * older releases and are retained to support the rolling migration and cleanup.
  *
- *   - `src/lib/auth.ts`              — mints tokens on login (the live path:
- *                                      `POST /api/auth/login` → createSessionToken)
- *   - `src/lib/session-manager.ts`   — verifies, lists, refreshes and revokes
- *                                      them (`/api/auth/sessions`, cron cleanup)
- *
- * Each used to define its own private `sessionKey()`. That is only safe for as
- * long as the two implementations stay byte-identical. When token hashing was
- * added to `auth.ts` alone, `revokeSession()` kept looking up the unhashed key,
- * silently missed the row, and **logout stopped invalidating the session** —
- * the bearer token remained valid after the user signed out.
- *
- * Deriving the key in exactly one place makes that class of bug impossible:
- * neither module can drift from the other.
- *
- * THREAT MODEL
- * ------------
- * The bearer token is returned to the client and never persisted. Only its
- * SHA-256 digest is stored, as the row key. A read of the Settings table — SQL
- * injection, a stolen backup, an over-broad admin export — therefore yields
- * digests that cannot be replayed.
- *
- * SHA-256 rather than bcrypt/argon2 is the correct choice here: the token is
- * 48 bytes of CSPRNG output, so there is no low-entropy secret for an attacker
- * to brute-force offline, and a fast digest avoids a key-derivation cost on
- * every authenticated request.
+ * Bearer tokens are never persisted in plaintext. A fast SHA-256 digest is
+ * appropriate for the high-entropy signed token and avoids a password-hashing
+ * cost on every authenticated request. The digest is the lookup value in both
+ * the Prisma model and the legacy Settings-key bridge.
  */
 
 export const SESSION_KEY_PREFIX = 'session:';

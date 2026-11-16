@@ -1,368 +1,203 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import crypto from 'crypto';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-/** Session tokens are indexed and stored by this digest, never in plaintext. */
-const sha256 = (value: string): string =>
-  crypto.createHash('sha256').update(value).digest('hex');
-
-// Mock @/lib/db before importing session-manager
-vi.mock('@/lib/db', () => ({
-  db: {
-    // Sessions are bound to the owner's stored role: these suites exercise the
-    // internal (staff) path. The client path is covered in session-audience.test.ts.
-    user: { findUnique: async () => ({ id: 'staff-user', role: 'admin', isActive: true }) },
-    settings: {
-      upsert: vi.fn().mockResolvedValue({}),
-      findUnique: vi.fn().mockResolvedValue(null),
-      findMany: vi.fn().mockResolvedValue([]),
-      delete: vi.fn().mockResolvedValue({}),
-      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
-      update: vi.fn().mockResolvedValue({}),
-    },
-  },
+const state = vi.hoisted(() => ({
+  users: new Map<string, { id: string; role: string; isActive: boolean } | null>(),
+  sessions: [] as Array<Record<string, any>>,
+  settings: new Map<string, Record<string, any>>(),
+  sequence: 0,
 }));
 
-import {
-  createSession,
-  verifySession,
-  revokeSession,
-  revokeAllSessions,
-  cleanupExpiredSessions,
-  refreshSession,
-  type SessionData,
-} from '@/lib/session-manager';
-import { db } from '@/lib/db';
-
-const mockedDb = vi.mocked(db);
-
-// Helper to build a valid session data object
-function makeSessionData(overrides: Partial<SessionData> = {}): SessionData {
-  const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-  return {
-    userId: 'user-1',
-    createdAt: new Date().toISOString(),
-    expiresAt: future,
-    lastUsedAt: new Date().toISOString(),
-    // Minted for the internal surface (this module is internal-only).
-    aud: 'internal',
-    ...overrides,
+vi.mock('@/lib/db', () => {
+  const matchesSession = (row: Record<string, any>, where: Record<string, any> = {}) => {
+    if (where.id && typeof where.id === 'string' && row.id !== where.id) return false;
+    if (where.id?.in && !where.id.in.includes(row.id)) return false;
+    if (where.userId && row.userId !== where.userId) return false;
+    if (where.tokenHash && row.tokenHash !== where.tokenHash) return false;
+    if (where.expiresAt?.gt && row.expiresAt <= where.expiresAt.gt) return false;
+    if (where.expiresAt?.lte && row.expiresAt > where.expiresAt.lte) return false;
+    if (where.revokedAt === null && row.revokedAt !== null) return false;
+    return true;
   };
-}
+  const matchesSettings = (row: Record<string, any>, where: Record<string, any> = {}) => {
+    if (typeof where.key === 'string' && row.key !== where.key) return false;
+    if (where.key?.startsWith && !row.key.startsWith(where.key.startsWith)) return false;
+    if (where.key?.in && !where.key.in.includes(row.key)) return false;
+    if (where.OR && !where.OR.some((condition: any) => matchesSettings(row, condition))) return false;
+    return true;
+  };
+  return {
+    db: {
+      user: {
+        findUnique: vi.fn(async ({ where }: any) => state.users.has(where.id)
+          ? state.users.get(where.id)
+          : { id: where.id, role: 'admin', isActive: true }),
+      },
+      session: {
+        create: vi.fn(async ({ data }: any) => {
+          const row = { id: `session-${++state.sequence}`, revokedAt: null, ...data };
+          state.sessions.push(row);
+          return { id: row.id };
+        }),
+        update: vi.fn(async ({ where, data }: any) => {
+          const row = state.sessions.find((candidate) => candidate.id === where.id);
+          if (!row) throw new Error('session not found');
+          Object.assign(row, data);
+          return row;
+        }),
+        findUnique: vi.fn(async ({ where }: any) => state.sessions.find((row) => matchesSession(row, where)) ?? null),
+        findFirst: vi.fn(async ({ where }: any) => state.sessions.find((row) => matchesSession(row, where)) ?? null),
+        findMany: vi.fn(async ({ where }: any = {}) => state.sessions.filter((row) => matchesSession(row, where))),
+        delete: vi.fn(async ({ where }: any) => {
+          const index = state.sessions.findIndex((row) => row.id === where.id);
+          if (index >= 0) state.sessions.splice(index, 1);
+          return { count: index >= 0 ? 1 : 0 };
+        }),
+        deleteMany: vi.fn(async ({ where }: any) => {
+          const before = state.sessions.length;
+          const kept = state.sessions.filter((row) => !matchesSession(row, where));
+          state.sessions.splice(0, state.sessions.length, ...kept);
+          return { count: before - kept.length };
+        }),
+      },
+      settings: {
+        findUnique: vi.fn(async ({ where }: any) => state.settings.get(where.key) ?? null),
+        findMany: vi.fn(async ({ where }: any = {}) => [...state.settings.values()].filter((row) => matchesSettings(row, where))),
+        upsert: vi.fn(async ({ where, create, update }: any) => {
+          const existing = state.settings.get(where.key);
+          if (existing) Object.assign(existing, update);
+          else state.settings.set(where.key, { id: `setting-${++state.sequence}`, ...create });
+          return state.settings.get(where.key);
+        }),
+        update: vi.fn(async ({ where, data }: any) => {
+          const row = state.settings.get(where.key);
+          if (!row) throw new Error('setting not found');
+          Object.assign(row, data);
+          return row;
+        }),
+        delete: vi.fn(async ({ where }: any) => {
+          const row = state.settings.get(where.key);
+          if (row) state.settings.delete(where.key);
+          return row ?? {};
+        }),
+        deleteMany: vi.fn(async ({ where }: any) => {
+          let count = 0;
+          for (const [key, row] of state.settings) {
+            if (matchesSettings(row, where)) {
+              state.settings.delete(key);
+              count += 1;
+            }
+          }
+          return { count };
+        }),
+      },
+    },
+  };
+});
 
-describe('Session Manager', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    // Default: findUnique returns null, upsert/update succeed
-    mockedDb.settings.findUnique.mockResolvedValue(null);
-    mockedDb.settings.upsert.mockResolvedValue({});
-    mockedDb.settings.update.mockResolvedValue({});
-    mockedDb.settings.delete.mockResolvedValue({});
-    mockedDb.settings.deleteMany.mockResolvedValue({ count: 0 });
+import {
+  cleanupExpiredSessions,
+  createSession,
+  listActiveSessions,
+  refreshSession,
+  revokeOtherSessions,
+  revokeSession,
+  revokeSessionById,
+  verifySession,
+} from '@/lib/session-manager';
+import { verifySessionToken } from '@/lib/auth';
+
+beforeEach(() => {
+  state.users.clear();
+  state.sessions.splice(0, state.sessions.length);
+  state.settings.clear();
+  state.sequence = 0;
+  process.env.JWT_SECRET = 'test-jwt-secret-that-is-long-enough-for-hmac';
+});
+
+describe('Prisma-backed session manager', () => {
+  it('creates JWT sessions and verifies them through the shared auth helper', async () => {
+    const token = await createSession('user-1', { deviceInfo: 'Firefox/Linux', ipAddress: '10.0.0.1' });
+    expect(token.split('.')).toHaveLength(3);
+    expect((await verifySession(token))?.userId).toBe('user-1');
+    expect(await verifySessionToken(token)).not.toBeNull();
+    expect(state.sessions[0].deviceInfo).toBe('Firefox/Linux');
   });
 
-  // ─── createSession ─────────────────────────────────────────────
-
-  describe('createSession', () => {
-    it('should return a 96-char hex token (48 bytes)', async () => {
-      const token = await createSession('user-1');
-      expect(token).toBeDefined();
-      expect(token).toMatch(/^[a-f0-9]{96}$/);
-    });
-
-    it('should call upsert with default 1-hour TTL', async () => {
-      await createSession('user-1');
-      const calls = mockedDb.settings.upsert.mock.calls;
-      // First call is the session record
-      const sessionCall = calls[0][0];
-      expect(sessionCall?.where.key).toMatch(/^session:[a-f0-9]+$/);
-      const data = JSON.parse(sessionCall!.create.value as string);
-      const expiresAtDate = new Date(data.expiresAt);
-      const now = new Date();
-      const diffMs = expiresAtDate.getTime() - now.getTime();
-      // Should be roughly 1 hour (allow 2s tolerance for test execution)
-      expect(diffMs).toBeGreaterThan(59 * 60 * 1000);
-      expect(diffMs).toBeLessThan(61 * 60 * 1000);
-    });
-
-    it('should call upsert with 30-day TTL when rememberMe is true', async () => {
-      await createSession('user-1', { rememberMe: true });
-      const calls = mockedDb.settings.upsert.mock.calls;
-      const sessionCall = calls[0][0];
-      const data = JSON.parse(sessionCall!.create.value as string);
-      const expiresAtDate = new Date(data.expiresAt);
-      const now = new Date();
-      const diffMs = expiresAtDate.getTime() - now.getTime();
-      // Should be roughly 30 days
-      const expected30d = 30 * 24 * 60 * 60 * 1000;
-      expect(diffMs).toBeGreaterThan(expected30d - 2000);
-      expect(diffMs).toBeLessThan(expected30d + 2000);
-    });
-
-    it('should store deviceInfo and ipAddress when provided', async () => {
-      await createSession('user-1', {
-        deviceInfo: 'Chrome/MacOS',
-        ipAddress: '10.0.0.1',
-      });
-      const calls = mockedDb.settings.upsert.mock.calls;
-      const data = JSON.parse(calls[0][0]!.create.value as string);
-      expect(data.deviceInfo).toBe('Chrome/MacOS');
-      expect(data.ipAddress).toBe('10.0.0.1');
-    });
-
-    it('should upsert the session record AND add to user session list', async () => {
-      await createSession('user-1');
-      // First call: session record, second call: user sessions index
-      expect(mockedDb.settings.upsert).toHaveBeenCalledTimes(2);
-      const secondCall = mockedDb.settings.upsert.mock.calls[1][0];
-      expect(secondCall?.where.key).toBe('user:sessions:user-1');
-    });
+  it('lists active sessions with stable ids and never returns a replayable token', async () => {
+    const token = await createSession('user-2', { userAgent: 'Chrome' });
+    const sessions = await listActiveSessions('user-2');
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].id).toBe(state.sessions[0].id);
+    expect(sessions[0].session.userAgent).toBe('Chrome');
+    expect(sessions[0].token).not.toContain(token);
+    expect(sessions[0].token).toHaveLength(8);
   });
 
-  // ─── verifySession ─────────────────────────────────────────────
-
-  describe('verifySession', () => {
-    it('should return null for empty token', async () => {
-      const result = await verifySession('');
-      expect(result).toBeNull();
-    });
-
-    it('should return null when session not found', async () => {
-      mockedDb.settings.findUnique.mockResolvedValue(null);
-      const result = await verifySession('nonexistent');
-      expect(result).toBeNull();
-    });
-
-    it('should return session data for valid non-expired session', async () => {
-      const sessionData = makeSessionData();
-      mockedDb.settings.findUnique.mockResolvedValue({
-        key: 'session:abc',
-        value: JSON.stringify(sessionData),
-      });
-      const result = await verifySession('abc');
-      expect(result).not.toBeNull();
-      expect(result!.userId).toBe('user-1');
-    });
-
-    it('should return null and revoke expired session', async () => {
-      const expiredData = makeSessionData({
-        expiresAt: new Date(Date.now() - 1000).toISOString(),
-      });
-      // verifySession: findUnique → session record
-      // revokeSession: findUnique → session record (to get userId)
-      // removeUserSessionToken: findUnique → null (no user session list)
-      mockedDb.settings.findUnique
-        .mockResolvedValueOnce({ key: 'session:expired', value: JSON.stringify(expiredData) })
-        .mockResolvedValueOnce({ key: 'session:expired', value: JSON.stringify(expiredData) })
-        .mockResolvedValueOnce(null);
-      const result = await verifySession('expired');
-      expect(result).toBeNull();
-      // Should have attempted to revoke (delete)
-      expect(mockedDb.settings.delete).toHaveBeenCalled();
-    });
-
-    it('should return null for corrupted JSON', async () => {
-      mockedDb.settings.findUnique.mockResolvedValue({
-        key: 'session:bad',
-        value: 'not-json{{',
-      });
-      const result = await verifySession('bad');
-      expect(result).toBeNull();
-    });
-
-    it('should extend TTL on verification (sliding expiry)', async () => {
-      const sessionData = makeSessionData();
-      mockedDb.settings.findUnique.mockResolvedValue({
-        key: 'session:slide',
-        value: JSON.stringify(sessionData),
-      });
-      const result = await verifySession('slide');
-      expect(result).not.toBeNull();
-      // Should call update to save new expiry
-      expect(mockedDb.settings.update).toHaveBeenCalledTimes(1);
-    });
+  it('revokes a session and invalidates the JWT', async () => {
+    const token = await createSession('user-3');
+    await expect(revokeSession(token)).resolves.toBe(true);
+    await expect(verifySession(token)).resolves.toBeNull();
+    await expect(listActiveSessions('user-3')).resolves.toEqual([]);
   });
 
-  // ─── revokeSession ──────────────────────────────────────────────
-
-  describe('revokeSession', () => {
-    it('should return false when session not found', async () => {
-      mockedDb.settings.findUnique.mockResolvedValue(null);
-      const result = await revokeSession('nonexistent');
-      expect(result).toBe(false);
-    });
-
-    it('should return true and delete session when found', async () => {
-      mockedDb.settings.findUnique
-        .mockResolvedValueOnce({
-          key: 'session:tok1',
-          value: JSON.stringify(makeSessionData({ userId: 'user-X' })),
-        })
-        .mockResolvedValueOnce(null); // removeUserSessionToken: no user session list
-      mockedDb.settings.update.mockResolvedValue({});
-      const result = await revokeSession('tok1');
-      expect(result).toBe(true);
-      expect(mockedDb.settings.delete).toHaveBeenCalledWith({
-        where: { key: 'session:tok1' },
-      });
-    });
+  it('revokes a listed session only for its owning user', async () => {
+    await createSession('user-4');
+    const [session] = await listActiveSessions('user-4');
+    await expect(revokeSessionById('somebody-else', session.id)).resolves.toBe(false);
+    await expect(revokeSessionById('user-4', session.id)).resolves.toBe(true);
+    expect(await listActiveSessions('user-4')).toHaveLength(0);
   });
 
-  // ─── revokeAllSessions ──────────────────────────────────────────
-
-  describe('revokeAllSessions', () => {
-    it('should return 0 when user has no session record', async () => {
-      mockedDb.settings.findUnique.mockResolvedValue(null);
-      const result = await revokeAllSessions('user-no-sessions');
-      expect(result).toBe(0);
-    });
-
-    it('should return 0 for empty token list', async () => {
-      mockedDb.settings.findUnique.mockResolvedValue({
-        key: 'user:sessions:user-1',
-        value: JSON.stringify([]),
-      });
-      const result = await revokeAllSessions('user-1');
-      expect(result).toBe(0);
-    });
-
-    it('should delete all session records and return count', async () => {
-      mockedDb.settings.findUnique.mockResolvedValue({
-        key: 'user:sessions:user-1',
-        value: JSON.stringify(['tok1', 'tok2', 'tok3']),
-      });
-      const result = await revokeAllSessions('user-1');
-      expect(result).toBe(3);
-
-      // These index entries are legacy plaintext, so revocation must target
-      // BOTH the hashed row (current format) and the plaintext row (pre-hashing
-      // format). Targeting only one would leave a valid session behind.
-      const arg = mockedDb.settings.deleteMany.mock.calls[0][0];
-      const keys: string[] = arg.where.key.in;
-      for (const t of ['tok1', 'tok2', 'tok3']) {
-        expect(keys).toContain(`session:${sha256(t)}`);
-        expect(keys).toContain(`session:${t}`);
-      }
-      expect(keys).toHaveLength(6);
-    });
-
-    it('should not double-hash index entries that are already digests', async () => {
-      const digest = sha256('real-token');
-      mockedDb.settings.findUnique.mockResolvedValue({
-        key: 'user:sessions:user-2',
-        value: JSON.stringify([digest]),
-      });
-      await revokeAllSessions('user-2');
-      const keys: string[] = mockedDb.settings.deleteMany.mock.calls[0][0].where.key.in;
-      // A digest entry maps to exactly one key — hashing it again would produce
-      // a key that matches no row and silently revoke nothing.
-      expect(keys).toEqual([`session:${digest}`]);
-      expect(keys).not.toContain(`session:${sha256(digest)}`);
-    });
-
-    it('should handle corrupted JSON gracefully', async () => {
-      mockedDb.settings.findUnique.mockResolvedValue({
-        key: 'user:sessions:user-1',
-        value: 'not-valid-json',
-      });
-      const result = await revokeAllSessions('user-1');
-      expect(result).toBe(0);
-    });
+  it('signs out other devices while preserving the current JWT', async () => {
+    const current = await createSession('user-5');
+    const other1 = await createSession('user-5');
+    const other2 = await createSession('user-5');
+    await expect(revokeOtherSessions('user-5', current)).resolves.toBe(2);
+    expect(await verifySession(current)).not.toBeNull();
+    expect(await verifySession(other1)).toBeNull();
+    expect(await verifySession(other2)).toBeNull();
+    expect(await listActiveSessions('user-5')).toHaveLength(1);
   });
 
-  // ─── cleanupExpiredSessions ─────────────────────────────────────
-
-  describe('cleanupExpiredSessions', () => {
-    it('should return 0 when no sessions exist', async () => {
-      mockedDb.settings.findMany.mockResolvedValue([]);
-      const result = await cleanupExpiredSessions();
-      expect(result).toBe(0);
-    });
-
-    it('should clean up expired sessions and return count', async () => {
-      const expiredSession = makeSessionData({
-        userId: 'user-cleanup',
-        expiresAt: new Date(Date.now() - 10000).toISOString(),
-      });
-      mockedDb.settings.findMany.mockResolvedValue([
-        { key: 'session:expired1', value: JSON.stringify(expiredSession) },
-      ]);
-      // For removeUserSessionToken: findUnique for user session list
-      mockedDb.settings.findUnique.mockResolvedValue(null);
-
-      const result = await cleanupExpiredSessions();
-      expect(result).toBe(1);
-      expect(mockedDb.settings.deleteMany).toHaveBeenCalledWith({
-        where: { key: { in: ['session:expired1'] } },
-      });
-    });
-
-    it('should also clean up corrupted session records', async () => {
-      mockedDb.settings.findMany.mockResolvedValue([
-        { key: 'session:corrupt', value: 'bad-json' },
-      ]);
-      mockedDb.settings.findUnique.mockResolvedValue(null);
-
-      const result = await cleanupExpiredSessions();
-      expect(result).toBe(1);
-    });
-
-    it('should skip non-expired sessions', async () => {
-      const activeSession = makeSessionData();
-      mockedDb.settings.findMany.mockResolvedValue([
-        { key: 'session:active', value: JSON.stringify(activeSession) },
-      ]);
-
-      const result = await cleanupExpiredSessions();
-      expect(result).toBe(0);
-      expect(mockedDb.settings.deleteMany).not.toHaveBeenCalled();
-    });
+  it('rotates a session and immediately invalidates the old JWT', async () => {
+    const old = await createSession('user-6', { rememberMe: true, deviceInfo: 'Phone' });
+    const next = await refreshSession(old);
+    expect(next).toBeTruthy();
+    expect(next).not.toBe(old);
+    expect(await verifySession(old)).toBeNull();
+    const session = await verifySession(next!);
+    expect(session?.userId).toBe('user-6');
+    expect(session?.deviceInfo).toBe('Phone');
+    expect(session?.isRefreshToken).toBe(true);
   });
 
-  // ─── refreshSession ─────────────────────────────────────────────
+  it('cleans expired JWT-backed rows', async () => {
+    const token = await createSession('user-7');
+    state.sessions[0].expiresAt = new Date(Date.now() - 1000);
+    await expect(cleanupExpiredSessions()).resolves.toBe(1);
+    await expect(verifySession(token)).resolves.toBeNull();
+  });
 
-  describe('refreshSession', () => {
-    it('should return null for invalid token', async () => {
-      mockedDb.settings.findUnique.mockResolvedValue(null);
-      const result = await refreshSession('invalid');
-      expect(result).toBeNull();
+  it('includes a still-live hashed legacy session without exposing its token', async () => {
+    const opaque = 'legacy-session-token';
+    const crypto = await import('crypto');
+    const tokenHash = crypto.createHash('sha256').update(opaque).digest('hex');
+    const now = new Date();
+    const key = `session:${tokenHash}`;
+    state.settings.set(key, {
+      id: 'legacy-row',
+      key,
+      value: JSON.stringify({
+        userId: 'user-8',
+        createdAt: now.toISOString(),
+        lastUsedAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
+      }),
     });
-
-    it('should return a new token and revoke the old one', async () => {
-      const sessionData = makeSessionData({
-        deviceInfo: 'Firefox/Linux',
-        ipAddress: '192.168.1.1',
-      });
-
-      // verifySession: findUnique for session → return session record
-      // verifySession: update to extend TTL → ok
-      // createSession (via refreshSession): upsert session → ok
-      // addUserSessionToken: findUnique for user:sessions → return null (first time)
-      // addUserSessionToken: upsert user sessions index → ok
-      // findUnique for new session (to mark as refresh) → return new session data
-      // update new session to set isRefreshToken → ok
-      // revokeSession: findUnique for old session → return session record
-      // revokeSession: delete old session → ok
-      // removeUserSessionToken: findUnique for user:sessions → return token list
-      // removeUserSessionToken: update user sessions list → ok
-      mockedDb.settings.findUnique
-        .mockResolvedValueOnce({ key: 'session:old', value: JSON.stringify(sessionData) }) // verifySession: surface check (verifySessionToken)
-        .mockResolvedValueOnce({ key: 'session:old', value: JSON.stringify(sessionData) }) // verifySession lookup
-        .mockResolvedValueOnce(null) // addUserSessionToken: no existing user session list
-        .mockResolvedValueOnce({ key: 'session:new', value: JSON.stringify({ ...sessionData, isRefreshToken: false }) }) // refreshSession: find new session
-        .mockResolvedValueOnce({ key: 'session:old', value: JSON.stringify(sessionData) }) // revokeSession: find old session
-        .mockResolvedValueOnce({ key: 'user:sessions:user-1', value: JSON.stringify(['new-token-placeholder']) }); // removeUserSessionToken
-
-      mockedDb.settings.update.mockResolvedValue({});
-
-      const newToken = await refreshSession('old');
-      expect(newToken).not.toBeNull();
-      expect(typeof newToken).toBe('string');
-      expect(newToken!.length).toBe(96);
-
-      // Should have deleted the old session
-      expect(mockedDb.settings.delete).toHaveBeenCalledWith({
-        where: { key: 'session:old' },
-      });
-    });
+    const sessions = await listActiveSessions('user-8');
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].id).toMatch(/^legacy-/);
+    expect(sessions[0].token).not.toContain(opaque);
+    expect(sessions[0].session.userId).toBe('user-8');
   });
 });

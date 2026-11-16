@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import {
   Building2,
@@ -140,7 +141,7 @@ export default function SisterCompaniesPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/sister-companies')
+    apiFetch('/api/sister-companies')
       .then((r) => r.json())
       .then((data) => {
         if (data.companies) setCompanies(data.companies)

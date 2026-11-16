@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Cpu,
@@ -79,7 +80,7 @@ export default function WorkerManagerPanel() {
 
   const fetchWorkers = useCallback(async () => {
     try {
-      const res = await fetch('/api/workers')
+      const res = await apiFetch('/api/workers')
       if (res.ok) {
         const json = await res.json()
         setWorkers(json.data || [])
@@ -97,7 +98,7 @@ export default function WorkerManagerPanel() {
   const handleAction = async (workerId: string, action: 'start' | 'stop' | 'restart') => {
     setActionLoading(`${workerId}-${action}`)
     try {
-      const res = await fetch('/api/workers/action', {
+      const res = await apiFetch('/api/workers/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, workerId }),
@@ -118,7 +119,7 @@ export default function WorkerManagerPanel() {
   const handleSavePool = async () => {
     setSavingPool(true)
     try {
-      const res = await fetch('/api/workers/action', {
+      const res = await apiFetch('/api/workers/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update_pool', config: pool }),

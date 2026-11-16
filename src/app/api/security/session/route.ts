@@ -1,208 +1,129 @@
 /**
  * Session API
- * ALO Labs AIOS — Manage user sessions.
  *
- * GET    /api/security/session — List active sessions for current user
- * DELETE /api/security/session — Logout specific session
- * POST   /api/security/session — Logout all other sessions (keep current)
+ * GET    /api/security/session — list the current user's active sessions
+ * DELETE /api/security/session — revoke one of the current user's sessions
+ * POST   /api/security/session — revoke all other sessions, preserving caller
  */
-
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { requireAuth } from '@/lib/api-auth';
+import { parseBody } from '@/lib/validators';
 import {
-  listUserSessions,
-  destroySession,
   destroyAllUserSessions,
+  destroyListedSession,
+  destroySession,
+  listUserSessions,
 } from '@/lib/security/session-manager';
 
-// ─── GET: List Sessions ──────────────────────────────────────────────
+const deleteSessionSchema = z.object({
+  token: z.string().min(1).max(4096).optional(),
+  sessionId: z.string().min(1).max(191).optional(),
+  sessionCreatedAt: z.string().datetime().optional(),
+}).refine(
+  (body) => [body.token, body.sessionId, body.sessionCreatedAt].filter(Boolean).length === 1,
+  'Provide exactly one of token, sessionId, or sessionCreatedAt',
+);
+
+const logoutOthersSchema = z.object({
+  // Older clients sent this in the JSON body. It is accepted only when it
+  // exactly matches the authenticated Authorization header and is never used
+  // as an independent credential.
+  currentToken: z.string().min(1).max(4096).optional(),
+}).strict();
+
+function bearerToken(request: Request): string | null {
+  const header = request.headers.get('authorization');
+  if (!header?.startsWith('Bearer ')) return null;
+  const token = header.slice('Bearer '.length).trim();
+  return token || null;
+}
+
+function parseError(error: { status: number; message: string }) {
+  return NextResponse.json({ error: error.message }, { status: error.status });
+}
 
 export async function GET() {
   try {
     const user = await requireAuth();
-
     const sessions = await listUserSessions(user.userId);
-
-    // Sanitize: remove sensitive info
-    const safeSessions = sessions.map((s) => ({
-      userAgent: s.metadata.userAgent ?? 'Unknown',
-      device: s.metadata.device ?? 'Unknown',
-      ipAddress: s.metadata.ipAddress
-        ? s.metadata.ipAddress.replace(/(\d+\.\d+)\.\d+\.\d+/, '$1.*.*')
+    const safeSessions = sessions.map((session) => ({
+      id: session.id,
+      device: session.metadata.device ?? 'Unknown',
+      userAgent: session.metadata.userAgent ?? 'Unknown',
+      ipAddress: session.metadata.ipAddress
+        ? session.metadata.ipAddress.replace(/(\d+\.\d+)\.\d+\.\d+/, '$1.*.*')
         : 'Unknown',
-      createdAt: s.metadata.createdAt,
-      lastActivityAt: s.metadata.lastActivityAt,
-      expiresAt: s.metadata.expiresAt,
+      createdAt: session.metadata.createdAt,
+      lastActivityAt: session.metadata.lastActivityAt,
+      expiresAt: session.metadata.expiresAt,
+      isActive: session.isActive,
     }));
-
-    return NextResponse.json({
-      sessions: safeSessions,
-      total: safeSessions.length,
-    });
+    return NextResponse.json({ sessions: safeSessions, total: safeSessions.length });
   } catch (error: unknown) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     console.error('Session list error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
-// ─── DELETE: Logout Specific Session ─────────────────────────────────
 
 export async function DELETE(request: Request) {
   try {
     const user = await requireAuth();
-
     const body = await request.json().catch(() => ({}));
-    const { token, sessionCreatedAt } = body as {
-      token?: string;
-      sessionCreatedAt?: string;
-    };
+    const parsed = parseBody(deleteSessionSchema, body);
+    if (parsed.error) return parseError(parsed.error);
 
-    if (!token && !sessionCreatedAt) {
-      return NextResponse.json(
-        { error: 'token or sessionCreatedAt is required' },
-        { status: 400 },
-      );
+    const { token, sessionId, sessionCreatedAt } = parsed.data;
+    const destroyed = token
+      ? await destroySession(token, user.userId)
+      : await destroyListedSession(user.userId, { sessionId, sessionCreatedAt });
+    if (!destroyed) {
+      return NextResponse.json({ error: 'Session not found or already expired' }, { status: 404 });
     }
-
-    if (token) {
-      // Direct token destruction
-      const destroyed = await destroySession(token);
-      if (!destroyed) {
-        return NextResponse.json(
-          { error: 'Session not found or already expired' },
-          { status: 404 },
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Session terminated',
-      });
-    }
-
-    // Find session by createdAt and destroy it
-    if (sessionCreatedAt) {
-      const sessions = await listUserSessions(user.userId);
-      const targetSession = sessions.find(
-        (s) => s.metadata.createdAt === sessionCreatedAt,
-      );
-
-      if (!targetSession) {
-        return NextResponse.json(
-          { error: 'Session not found' },
-          { status: 404 },
-        );
-      }
-
-      // We can't destroy without the token — need to find it
-      // Use the token hash from the meta record
-      const { db } = await import('@/lib/db');
-      const metaRecords = await db.settings.findMany({
-        where: {
-          key: {
-            startsWith: `session:meta:${user.userId}:`,
-          },
-        },
-      });
-
-      for (const record of metaRecords) {
-        try {
-          const data = JSON.parse(record.value) as {
-            tokenHash: string;
-            createdAt: string;
-          };
-          if (data.createdAt === sessionCreatedAt) {
-            // Construct a dummy token that hashes to the stored hash
-            // Since we don't store raw tokens, delete by Settings key
-            await db.settings.deleteMany({
-              where: {
-                OR: [
-                  { key: `session:${data.tokenHash}` },
-                  { key: record.key },
-                ],
-              },
-            });
-
-            return NextResponse.json({
-              success: true,
-              message: 'Session terminated',
-            });
-          }
-        } catch {
-          continue;
-        }
-      }
-
-      return NextResponse.json(
-        { error: 'Session not found' },
-        { status: 404 },
-      );
-    }
-
-    return NextResponse.json(
-      { error: 'token or sessionCreatedAt is required' },
-      { status: 400 },
-    );
+    return NextResponse.json({ success: true, message: 'Session terminated' });
   } catch (error: unknown) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     console.error('Session delete error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
-// ─── POST: Logout All Other Sessions ─────────────────────────────────
 
 export async function POST(request: Request) {
   try {
     const user = await requireAuth();
-
     const body = await request.json().catch(() => ({}));
-    const { currentToken } = body as { currentToken?: string };
+    const parsed = parseBody(logoutOthersSchema, body);
+    if (parsed.error) return parseError(parsed.error);
 
-    // Get all sessions
+    const currentToken = bearerToken(request);
+    if (!currentToken) {
+      return NextResponse.json({ error: 'Bearer token required' }, { status: 401 });
+    }
+    if (parsed.data.currentToken && parsed.data.currentToken !== currentToken) {
+      return NextResponse.json({ error: 'currentToken must match the authenticated session' }, { status: 400 });
+    }
+
     const sessions = await listUserSessions(user.userId);
-
     if (sessions.length <= 1) {
-      return NextResponse.json({
-        success: true,
-        message: 'No other sessions to terminate',
-        terminatedCount: 0,
-      });
+      return NextResponse.json({ success: true, message: 'No other sessions to terminate', terminatedCount: 0 });
     }
 
-    // Destroy all sessions
-    const destroyedCount = await destroyAllUserSessions(user.userId);
-
-    // Re-create current session
-    if (currentToken) {
-      const { createSession } = await import('@/lib/security/session-manager');
-      await createSession(user.userId);
-    }
-
+    const terminatedCount = await destroyAllUserSessions(user.userId, currentToken);
     return NextResponse.json({
       success: true,
-      message: `${destroyedCount} session(s) terminated. Current session preserved.`,
-      terminatedCount: destroyedCount,
+      message: `${terminatedCount} other session(s) terminated. Current session preserved.`,
+      terminatedCount,
     });
   } catch (error: unknown) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     console.error('Session logout-all error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,7 +28,7 @@ export default function AuditLogsPanel() {
     let cancelled = false
      
     setLoading(true)
-    fetch(`/api/audit-logs?page=${page}&limit=${limit}`)
+    apiFetch(`/api/audit-logs?page=${page}&limit=${limit}`)
       .then((r) => r.json())
       .then((res) => {
         if (!cancelled) {

@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   GraduationCap,
@@ -148,7 +149,7 @@ export default function InterviewHubPanel() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/interview-hub')
+      const res = await apiFetch('/api/interview-hub')
       const json = await res.json()
       if (json.data) {
         setData(json.data)

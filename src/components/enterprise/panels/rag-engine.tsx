@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 
 interface RagEngineStats {
   collections: number

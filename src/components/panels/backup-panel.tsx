@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   HardDrive,
@@ -90,7 +91,7 @@ export default function BackupPanel() {
 
   const fetchBackups = useCallback(async () => {
     try {
-      const res = await fetch('/api/backups')
+      const res = await apiFetch('/api/backups')
       if (res.ok) {
         const json = await res.json()
         setBackups(json.data || [])
@@ -108,7 +109,7 @@ export default function BackupPanel() {
   const handleCreate = async () => {
     setCreating(true)
     try {
-      const res = await fetch('/api/backups/create', { method: 'POST' })
+      const res = await apiFetch('/api/backups/create', { method: 'POST' })
       const json = await res.json().catch(() => ({}))
       if (res.ok) {
         const validation = json.validation as { tables?: number; inserts?: number } | undefined
@@ -132,7 +133,7 @@ export default function BackupPanel() {
     if (!restoreDialog) return
     setRestoring(restoreDialog.id)
     try {
-      const res = await fetch('/api/backups/restore', {
+      const res = await apiFetch('/api/backups/restore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ backupId: restoreDialog.backupId }),
@@ -159,7 +160,7 @@ export default function BackupPanel() {
   const handleSaveConfig = async () => {
     setSavingConfig(true)
     try {
-      const res = await fetch('/api/backups', {
+      const res = await apiFetch('/api/backups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'update_config', config }),

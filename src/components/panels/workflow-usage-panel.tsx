@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   GitBranch,
@@ -98,7 +99,7 @@ export default function WorkflowUsagePanel() {
       const params = new URLSearchParams()
       if (periodFilter) params.set('period', periodFilter)
 
-      const res = await fetch(`/api/usage/workflows?${params}`)
+      const res = await apiFetch(`/api/usage/workflows?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!cancelled) {

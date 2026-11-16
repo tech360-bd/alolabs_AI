@@ -13,6 +13,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { AloLabsLogo, Mark, BrandRule } from '@/components/brand/alo-logo'
+import { apiFetch } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import { BRAND, BRAND_FONTS, COMPANY, GRADIENTS, HEADLINE_STATS } from '@/lib/brand/tokens'
 import {
@@ -550,7 +551,7 @@ export function ContactForm({
     const data = Object.fromEntries(new FormData(form).entries()) as Record<string, string>
     setState('sending')
     try {
-      const res = await fetch('/api/public/contact', {
+      const res = await apiFetch('/api/public/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...data, subject: data.subject || subject }),

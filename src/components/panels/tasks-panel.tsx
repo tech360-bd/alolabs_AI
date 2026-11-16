@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import {
   ListTodo,
@@ -143,7 +144,7 @@ export default function TasksPanel() {
   const [createForm, setCreateForm] = useState<CreateTaskForm>({ title: '', description: '', priority: 'medium', assignee: '', dueDate: '', tags: '' })
 
   useEffect(() => {
-    fetch('/api/tasks?page=1&limit=50')
+    apiFetch('/api/tasks?page=1&limit=50')
       .then((r) => r.json())
       .then((res) => {
         const apiTasks = (res.logs || []).map((t: Record<string, unknown>) => ({

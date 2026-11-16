@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import { Server, Plus, Play, Square, RefreshCw, Activity, Loader2, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -81,7 +82,7 @@ export default function McpManagerPanel() {
 
   const fetchServers = useCallback(async () => {
     try {
-      const res = await fetch('/api/mcp-servers')
+      const res = await apiFetch('/api/mcp-servers')
       const data = await res.json()
       setServers(data.servers || [])
     } catch {
@@ -100,7 +101,7 @@ export default function McpManagerPanel() {
   const handleAction = async (server: McpServer, newStatus: string) => {
     setActioning(server.id)
     try {
-      const res = await fetch('/api/mcp-servers', {
+      const res = await apiFetch('/api/mcp-servers', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: server.id, status: newStatus }),
@@ -111,7 +112,7 @@ export default function McpManagerPanel() {
         // If restarting, set to active after a delay
         if (newStatus === 'restarting') {
           setTimeout(async () => {
-            await fetch('/api/mcp-servers', {
+            await apiFetch('/api/mcp-servers', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ id: server.id, status: 'active' }),
@@ -145,7 +146,7 @@ export default function McpManagerPanel() {
     }
     setSaving(true)
     try {
-      const res = await fetch('/api/mcp-servers', {
+      const res = await apiFetch('/api/mcp-servers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -180,7 +181,7 @@ export default function McpManagerPanel() {
     if (!selectedServer) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/mcp-servers?id=${selectedServer.id}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/mcp-servers?id=${selectedServer.id}`, { method: 'DELETE' })
       if (res.ok) {
         toast.success('Deleted', { description: 'MCP server removed'  })
         setDeleteOpen(false)

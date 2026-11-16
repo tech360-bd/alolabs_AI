@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   AlertTriangle,
@@ -106,7 +107,7 @@ export default function IncidentPanel() {
     try {
       const params = new URLSearchParams()
       if (tab !== 'all') params.set('status', tab)
-      const res = await fetch(`/api/incidents?${params}`)
+      const res = await apiFetch(`/api/incidents?${params}`)
       const data = await res.json()
       setIncidents(data.incidents || [])
       setStats(data.stats || { active: 0, investigating: 0, resolved: 0, total: 0 })
@@ -124,7 +125,7 @@ export default function IncidentPanel() {
   // Also fetch all for stats
   const fetchAllStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/incidents')
+      const res = await apiFetch('/api/incidents')
       const data = await res.json()
       setStats(data.stats || { active: 0, investigating: 0, resolved: 0, total: 0 })
     } catch {
@@ -151,7 +152,7 @@ export default function IncidentPanel() {
     }
     setSaving(true)
     try {
-      const res = await fetch('/api/incidents', {
+      const res = await apiFetch('/api/incidents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -192,7 +193,7 @@ export default function IncidentPanel() {
     if (!resolveIncident || !resolveText.trim()) return
     setSaving(true)
     try {
-      const res = await fetch('/api/incidents', {
+      const res = await apiFetch('/api/incidents', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: resolveIncident.id, status: 'resolved', resolution: resolveText }),
@@ -214,7 +215,7 @@ export default function IncidentPanel() {
   const handleInvestigate = async (incident: Incident) => {
     setSaving(true)
     try {
-      const res = await fetch('/api/incidents', {
+      const res = await apiFetch('/api/incidents', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: incident.id, status: 'investigating' }),

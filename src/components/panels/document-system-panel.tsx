@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import {
   FileText,
@@ -200,7 +201,7 @@ export default function DocumentSystemPanel() {
   const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
-    fetch('/api/documents')
+    apiFetch('/api/documents')
       .then((r) => r.json())
       .then((data) => {
         if (data.documents) setDocuments(data.documents)

@@ -1,21 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock the db module before importing auth
-const mockSettingsUpsert = vi.fn().mockResolvedValue({});
-const mockSettingsFindUnique = vi.fn().mockResolvedValue(null);
-const mockSettingsDelete = vi.fn().mockResolvedValue({});
+// Mock the DB modules before importing auth. New sessions are persisted in the
+// Prisma Session model; Settings is retained below for the opaque-token bridge.
+const mockUserFindUnique = vi.fn();
+const mockSessionCreate = vi.fn();
+const mockSessionUpdate = vi.fn();
+const mockSessionFindUnique = vi.fn();
+const mockSessionDelete = vi.fn();
+const mockSettingsFindUnique = vi.fn();
+const mockSettingsDelete = vi.fn();
+const mockSettingsUpdate = vi.fn();
+let sessionSequence = 0;
 
 vi.mock('@/lib/db', () => ({
   db: {
     // Sessions are bound to the owner's stored role: these suites exercise the
     // internal (staff) path. The client path is covered in session-audience.test.ts.
-    user: { findUnique: async () => ({ id: 'staff-user', role: 'admin', isActive: true }) },
+    user: { findUnique: (...args: unknown[]) => mockUserFindUnique(...args) },
+    session: {
+      create: (...args: unknown[]) => mockSessionCreate(...args),
+      update: (...args: unknown[]) => mockSessionUpdate(...args),
+      findUnique: (...args: unknown[]) => mockSessionFindUnique(...args),
+      delete: (...args: unknown[]) => mockSessionDelete(...args),
+    },
     settings: {
-      upsert: (...args: unknown[]) => mockSettingsUpsert(...args),
       findUnique: (...args: unknown[]) => mockSettingsFindUnique(...args),
       delete: (...args: unknown[]) => mockSettingsDelete(...args),
       // A pre-separation session is stamped with its audience on first use.
-      update: async () => ({}),
+      update: (...args: unknown[]) => mockSettingsUpdate(...args),
     },
   },
 }));
@@ -27,10 +39,20 @@ import {
   verifySessionToken,
   deleteSessionToken,
 } from '@/lib/auth';
+import { hashSessionToken, legacySessionKey, sessionKey } from '@/lib/session-token';
 
 describe('auth utilities — expanded v2', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionSequence = 0;
+    mockUserFindUnique.mockReset().mockResolvedValue({ id: 'staff-user', role: 'admin', isActive: true });
+    mockSessionCreate.mockReset().mockImplementation(async () => ({ id: `prisma-session-${++sessionSequence}` }));
+    mockSessionUpdate.mockReset().mockResolvedValue({});
+    mockSessionFindUnique.mockReset().mockResolvedValue(null);
+    mockSessionDelete.mockReset().mockResolvedValue({});
+    mockSettingsFindUnique.mockReset().mockResolvedValue(null);
+    mockSettingsDelete.mockReset().mockResolvedValue({});
+    mockSettingsUpdate.mockReset().mockResolvedValue({});
   });
 
   // ─── hashPassword ────────────────────────────────────────────────
@@ -119,35 +141,51 @@ describe('auth utilities — expanded v2', () => {
   // ─── createSessionToken ──────────────────────────────────────────
 
   describe('createSessionToken', () => {
-    it('should generate a hex token of correct length (96 chars)', async () => {
+    it('issues a compact signed JWT', async () => {
       const token = await createSessionToken('user-1');
-      expect(token).toMatch(/^[a-f0-9]+$/);
-      expect(token.length).toBe(96); // 48 bytes * 2 hex chars
+      expect(token.split('.')).toHaveLength(3);
+      expect(token).not.toMatch(/^[a-f0-9]+$/);
     });
 
-    it('should store the session in the database', async () => {
-      await createSessionToken('user-42');
-      expect(mockSettingsUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { key: expect.stringMatching(/^session:[a-f0-9]+$/) },
-        }),
-      );
+    it('stores only a SHA-256 digest in the Prisma session row', async () => {
+      const token = await createSessionToken('user-42');
+      const createArgs = mockSessionCreate.mock.calls[0][0];
+      expect(createArgs).toMatchObject({
+        data: {
+          userId: 'user-42',
+          audience: 'internal',
+          method: 'password',
+          tokenHash: expect.stringMatching(/^pending:/),
+          expiresAt: expect.any(Date),
+        },
+        select: { id: true },
+      });
+      expect(mockSessionUpdate).toHaveBeenCalledWith({
+        where: { id: 'prisma-session-1' },
+        data: { tokenHash: hashSessionToken(token) },
+      });
+      expect(createArgs.data.tokenHash).not.toBe(token);
+      expect(mockSessionUpdate.mock.calls[0][0].data.tokenHash).not.toBe(token);
     });
 
-    it('should store the userId in the session data', async () => {
-      await createSessionToken('user-abc');
-      const call = mockSettingsUpsert.mock.calls[0][0];
-      const createData = call.create || call;
-      const parsed = JSON.parse(createData.value);
-      expect(parsed.userId).toBe('user-abc');
+    it('includes the database session id and owner identity in the JWT claims', async () => {
+      const token = await createSessionToken('user-abc');
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+      expect(payload).toMatchObject({
+        userId: 'user-abc',
+        role: 'admin',
+        jti: 'prisma-session-1',
+        aud: 'internal',
+      });
     });
 
-    it('should generate unique tokens each time', async () => {
+    it('generates unique JWTs tied to distinct session rows', async () => {
       const tokens = new Set<string>();
       for (let i = 0; i < 10; i++) {
         tokens.add(await createSessionToken('user-1'));
       }
       expect(tokens.size).toBe(10);
+      expect(mockSessionCreate).toHaveBeenCalledTimes(10);
     });
   });
 
@@ -236,11 +274,22 @@ describe('auth utilities — expanded v2', () => {
   // ─── deleteSessionToken ──────────────────────────────────────────
 
   describe('deleteSessionToken', () => {
-    it('should call db.settings.delete with correct key', async () => {
-      await deleteSessionToken('some-token-here');
-      expect(mockSettingsDelete).toHaveBeenCalledWith({
-        where: { key: 'session:some-token-here' },
+    it('revokes a Prisma session by the stored token digest', async () => {
+      const token = 'some-jwt-token';
+      mockSessionFindUnique.mockResolvedValue({ id: 'db-session-1', userId: 'user-1' });
+      await deleteSessionToken(token);
+      expect(mockSessionFindUnique).toHaveBeenCalledWith({
+        where: { tokenHash: hashSessionToken(token) },
+        select: { id: true, userId: true },
       });
+      expect(mockSessionDelete).toHaveBeenCalledWith({ where: { id: 'db-session-1' } });
+    });
+
+    it('also removes hashed and raw-key Settings records from the compatibility path', async () => {
+      const token = 'legacy-token-here';
+      await deleteSessionToken(token);
+      expect(mockSettingsDelete).toHaveBeenCalledWith({ where: { key: sessionKey(token) } });
+      expect(mockSettingsDelete).toHaveBeenCalledWith({ where: { key: legacySessionKey(token) } });
     });
 
     it('should not throw if session does not exist', async () => {
@@ -249,7 +298,9 @@ describe('auth utilities — expanded v2', () => {
     });
 
     it('should resolve even if DB throws', async () => {
-      mockSettingsDelete.mockRejectedValue(new Error('Any error'));
+      mockSessionFindUnique.mockRejectedValue(new Error('DB error'));
+      mockSettingsFindUnique.mockRejectedValue(new Error('DB error'));
+      mockSettingsDelete.mockRejectedValue(new Error('DB error'));
       await expect(deleteSessionToken('any-token')).resolves.toBeUndefined();
     });
   });

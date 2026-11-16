@@ -150,33 +150,33 @@ describe('the proxy routes each audience to its own surface', () => {
 
   it('sends a client away from /dashboard and staff away from /portal', async () => {
     const { proxy } = await import('@/proxy');
-    const client = proxy(page('/dashboard', tokens.clientA));
+    const client = await proxy(page('/dashboard', tokens.clientA));
     expect(client.status).toBeGreaterThanOrEqual(300);
     expect(new URL(client.headers.get('location')!).pathname).toBe('/portal');
 
-    const staff = proxy(page('/portal/projects', tokens.staff));
+    const staff = await proxy(page('/portal/projects', tokens.staff));
     expect(new URL(staff.headers.get('location')!).pathname).toBe('/dashboard');
   });
 
   it('never forwards a client API call to an internal handler', async () => {
     const { proxy } = await import('@/proxy');
     for (const path of ['/api/agents', '/api/internal/clients', '/api/v1/runs', '/api/departments']) {
-      const response = proxy(new NextRequest(`http://localhost${path}`, { headers: { authorization: `Bearer ${tokens.clientA}` } }));
+      const response = await proxy(new NextRequest(`http://localhost${path}`, { headers: { authorization: `Bearer ${tokens.clientA}` } }));
       expect(response.headers.get('x-middleware-rewrite') ?? '', path).toContain('/api/access-denied');
     }
   });
 
   it('never forwards a staff API call to a portal handler', async () => {
     const { proxy } = await import('@/proxy');
-    const response = proxy(new NextRequest('http://localhost/api/portal/projects', { headers: { authorization: `Bearer ${tokens.staff}` } }));
+    const response = await proxy(new NextRequest('http://localhost/api/portal/projects', { headers: { authorization: `Bearer ${tokens.staff}` } }));
     expect(response.headers.get('x-middleware-rewrite') ?? '').toContain('/api/access-denied');
   });
 
   it('lets each audience through to its own API', async () => {
     const { proxy } = await import('@/proxy');
-    const client = proxy(new NextRequest('http://localhost/api/portal/projects', { headers: { authorization: `Bearer ${tokens.clientA}` } }));
+    const client = await proxy(new NextRequest('http://localhost/api/portal/projects', { headers: { authorization: `Bearer ${tokens.clientA}` } }));
     expect(client.headers.get('x-middleware-rewrite')).toBeNull();
-    const staff = proxy(new NextRequest('http://localhost/api/internal/clients', { headers: { authorization: `Bearer ${tokens.staff}` } }));
+    const staff = await proxy(new NextRequest('http://localhost/api/internal/clients', { headers: { authorization: `Bearer ${tokens.staff}` } }));
     expect(staff.headers.get('x-middleware-rewrite')).toBeNull();
   });
 });

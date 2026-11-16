@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Settings,
@@ -152,11 +153,11 @@ export default function SettingsPanel() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/settings').then((r) => r.json()).then((res) => {
+      apiFetch('/api/settings').then((r) => r.json()).then((res) => {
         const apiSettings = res.data || []
         if (apiSettings.length > 0) setSettings(apiSettings)
       }).catch(() => {}),
-      fetch('/api/infra/status').then((r) => r.json()).then((res) => {
+      apiFetch('/api/infra/status').then((r) => r.json()).then((res) => {
         if (res.services && Array.isArray(res.services)) setInfraServices(res.services)
       }).catch(() => {}),
     ]).finally(() => setLoading(false))
@@ -168,7 +169,7 @@ export default function SettingsPanel() {
   const handleToggle = useCallback(async (setting: Setting) => {
     const newVal = String(!toBool(setting.value))
     try {
-      const res = await fetch('/api/settings', {
+      const res = await apiFetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: setting.key, value: newVal, type: setting.type }),

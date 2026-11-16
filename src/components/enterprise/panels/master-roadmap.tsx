@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import {
   Calendar, MapPin, CheckCircle, Clock, AlertTriangle, ArrowRight,
   ChevronDown, ChevronUp, Target, DollarSign, Zap, Users, Flag,

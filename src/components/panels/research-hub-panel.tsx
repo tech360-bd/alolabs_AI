@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   BookOpen,
@@ -242,7 +243,7 @@ export default function ResearchHubPanel() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch('/api/research-hub')
+        const res = await apiFetch('/api/research-hub')
         if (res.ok) {
           const json = await res.json()
           setData(json)
@@ -286,7 +287,7 @@ export default function ResearchHubPanel() {
     setAiAssisting(sectionKey)
     const titleContent = proposalSections.find(s => s.key === 'title')?.content || 'Untitled Research'
     try {
-      const res = await fetch('/api/research-hub', {
+      const res = await apiFetch('/api/research-hub', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate', topic: titleContent, type: 'proposal', section: sectionKey }),

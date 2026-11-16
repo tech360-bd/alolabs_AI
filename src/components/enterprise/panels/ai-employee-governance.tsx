@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, History, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import { useAppStore } from '@/store/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

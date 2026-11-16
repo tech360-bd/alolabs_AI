@@ -10,7 +10,7 @@
  */
 
 import * as React from 'react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import { invoiceToHtml, invoiceEmailSubject, invoiceEmailText } from '@/lib/brand/invoice-html'
 import { type Invoice } from '@/lib/brand/invoice'
 import { BRAND, COMPANY } from '@/lib/brand/tokens'

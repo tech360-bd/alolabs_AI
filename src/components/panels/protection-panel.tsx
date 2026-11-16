@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import { Shield, ShieldCheck, ShieldX } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -26,7 +27,7 @@ export default function ProtectionPanel() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/protection')
+    apiFetch('/api/protection')
       .then((r) => r.json())
       .then((res) => {
         setStats(res.stats)

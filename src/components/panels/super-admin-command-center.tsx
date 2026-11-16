@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   Terminal, Send, Bot, Building2, Shield, Zap, Activity, AlertTriangle,
@@ -91,7 +92,7 @@ export default function SuperAdminCommandCenter() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/super-admin')
+      const res = await apiFetch('/api/super-admin')
       const json = await res.json()
       setData(json)
     } catch { /* ignore */ }
@@ -117,7 +118,7 @@ export default function SuperAdminCommandCenter() {
     addLog(`> ${cmd}`, 'info')
 
     try {
-      const res = await fetch('/api/super-admin', {
+      const res = await apiFetch('/api/super-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import { CreditCard, Ban, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -30,7 +31,7 @@ export default function PaymentGuardPanel() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/payment-guard')
+    apiFetch('/api/payment-guard')
       .then((r) => r.json())
       .then((res) => {
         setStats(res.stats)

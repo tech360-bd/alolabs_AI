@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { apiFetch } from '@/lib/api-client'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Shield,
   Key,
@@ -335,10 +336,10 @@ function OverviewTab() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/users?limit=100').then(r => r.json()).then(d => (d.data || d || []) as Record<string, unknown>[]).catch(() => []),
-      fetch('/api/auth/sessions').then(r => r.json()).then(d => (d.sessions || d.data || d || []) as Record<string, unknown>[]).catch(() => []),
-      fetch('/api/audit-logs?limit=100').then(r => r.json()).then(d => (d.logs || d.data || d || []) as Record<string, unknown>[]).catch(() => []),
-      fetch('/api/security-events?limit=50').then(r => r.json()).then(d => (d.data || d.items || d || []) as Record<string, unknown>[]).catch(() => []),
+      apiFetch('/api/users?limit=100').then(r => r.json()).then(d => (d.data || d || []) as Record<string, unknown>[]).catch(() => []),
+      apiFetch('/api/auth/sessions').then(r => r.json()).then(d => (d.sessions || d.data || d || []) as Record<string, unknown>[]).catch(() => []),
+      apiFetch('/api/audit-logs?limit=100').then(r => r.json()).then(d => (d.logs || d.data || d || []) as Record<string, unknown>[]).catch(() => []),
+      apiFetch('/api/security-events?limit=50').then(r => r.json()).then(d => (d.data || d.items || d || []) as Record<string, unknown>[]).catch(() => []),
     ]).then(([usersData, sessionsData, logsData, alertsData]) => {
       setUsers(usersData.map((u: Record<string, unknown>) => ({
         id: u.id as string,
@@ -357,7 +358,7 @@ function OverviewTab() {
         device: (s.device || s.userAgent || 'Unknown') as string,
         deviceType: 'desktop' as const,
         browser: (s.userAgent || 'N/A') as string,
-        ip: (s.ip as string) || '',
+        ip: (s.ipAddress as string) || '',
         location: '',
         lastActivity: (s.lastActivityAt || s.updatedAt || s.createdAt || '') as string,
         createdAt: (s.createdAt || '') as string,
@@ -541,8 +542,8 @@ function UsersRolesTab() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/users?limit=100').then(r => r.json()).then(d => (d.data || d || []) as Record<string, unknown>[]).catch(() => []),
-      fetch('/api/roles?limit=100').then(r => r.json()).then(d => (d.data || d.items || d || []) as Record<string, unknown>[]).catch(() => []),
+      apiFetch('/api/users?limit=100').then(r => r.json()).then(d => (d.data || d || []) as Record<string, unknown>[]).catch(() => []),
+      apiFetch('/api/roles?limit=100').then(r => r.json()).then(d => (d.data || d.items || d || []) as Record<string, unknown>[]).catch(() => []),
     ]).then(([usersData, rolesData]) => {
       setUsers(usersData.map((u: Record<string, unknown>) => ({
         id: u.id as string,
@@ -851,7 +852,7 @@ function MfaTab() {
   })
 
   useEffect(() => {
-    fetch('/api/users?limit=100')
+    apiFetch('/api/users?limit=100')
       .then(r => r.json())
       .then(d => {
         const items = (d.data || d || []) as Record<string, unknown>[]
@@ -1067,7 +1068,7 @@ function OAuthTab() {
   const [editingProvider, setEditingProvider] = useState<OAuthProvider | null>(null)
 
   useEffect(() => {
-    fetch('/api/auth/oauth/providers')
+    apiFetch('/api/auth/oauth/providers')
       .then(r => r.json())
       .then(d => {
         const items = (d.providers || d.data || d || []) as Record<string, unknown>[]
@@ -1193,34 +1194,41 @@ function SessionsTab() {
   const [loading, setLoading] = useState(true)
   const [timeoutConfig, setTimeoutConfig] = useState({ session: '30', idle: '15', maxConcurrent: '5' })
 
-  useEffect(() => {
-    fetch('/api/auth/sessions')
-      .then(r => r.json())
-      .then(d => {
-        const items = (d.sessions || d.data || d || []) as Record<string, unknown>[]
-        setSessions(items.map((s: Record<string, unknown>, i: number) => ({
-          id: (s.id || s.sessionId || s.token || `s-${i}`) as string,
-          userId: (s.userId as string) || '',
-          userName: (s.userId as string) || '',
-          device: (s.device || s.userAgent || 'Unknown') as string,
-          deviceType: 'desktop' as const,
-          browser: (s.userAgent || 'N/A') as string,
-          ip: (s.ip as string) || '',
-          location: '',
-          lastActivity: (s.lastActivityAt || s.updatedAt || s.createdAt || '') as string,
-          createdAt: (s.createdAt || '') as string,
-        })))
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+  const loadSessions = useCallback(async () => {
+    const response = await apiFetch('/api/auth/sessions')
+    if (!response.ok) throw new Error('Failed to load active sessions')
+    const data = await response.json()
+    const items = (data.sessions || data.data || data || []) as Record<string, unknown>[]
+    setSessions(items.map((session: Record<string, unknown>, index: number) => ({
+      id: (session.id || session.sessionId || `session-${index}`) as string,
+      userId: (session.userId as string) || '',
+      userName: (session.userId as string) || '',
+      device: (session.device || session.deviceInfo || session.userAgent || 'Unknown') as string,
+      deviceType: 'desktop' as const,
+      browser: (session.userAgent || 'N/A') as string,
+      ip: (session.ipAddress as string) || '',
+      location: '',
+      lastActivity: (session.lastActivityAt || session.createdAt || '') as string,
+      createdAt: (session.createdAt || '') as string,
+    })))
   }, [])
+
+  useEffect(() => {
+    loadSessions().catch(() => {}).finally(() => setLoading(false))
+  }, [loadSessions])
 
   const desktopCount = sessions.filter(s => s.deviceType === 'desktop').length
   const mobileCount = sessions.filter(s => s.deviceType === 'mobile').length
   const apiCount = sessions.filter(s => s.deviceType === 'api').length
 
-  const revokeSession = (id: string) => setSessions(sessions.filter(s => s.id !== id))
-  const revokeAll = () => setSessions([])
+  const revokeSession = async (id: string) => {
+    const response = await apiFetch(`/api/auth/sessions?sessionId=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    if (response.ok) await loadSessions()
+  }
+  const revokeAll = async () => {
+    const response = await apiFetch('/api/auth/sessions?all=true', { method: 'DELETE' })
+    if (response.ok) await loadSessions()
+  }
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-24 w-full" /><Skeleton className="h-48 w-full" /><Skeleton className="h-32 w-full" /></div>
 
@@ -1353,7 +1361,7 @@ function ApiAuthTab() {
   })
 
   useEffect(() => {
-    fetch('/api/api-keys')
+    apiFetch('/api/api-keys')
       .then(r => r.json())
       .then(d => {
         const items = (d.data || d || []) as Record<string, unknown>[]
@@ -1600,7 +1608,7 @@ function LoginHistoryTab() {
   })
 
   useEffect(() => {
-    fetch('/api/audit-logs?limit=200')
+    apiFetch('/api/audit-logs?limit=200')
       .then(r => r.json())
       .then(d => {
         const items = (d.logs || d.data || d || []) as Record<string, unknown>[]

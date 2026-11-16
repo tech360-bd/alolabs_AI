@@ -28,6 +28,28 @@ model User {
   managedDepartments    Department[]
   collaborationSessions CollaborationSession[]
   projects              Project[]
+  sessions              Session[]
+}
+
+model Session {
+  id             String    @id @default(cuid())
+  userId         String
+  tokenHash      String    @unique @db.VarChar(64)
+  audience       String    @default("internal") @db.VarChar(32)
+  method         String    @default("password") @db.VarChar(64)
+  deviceInfo     String?
+  ipAddress      String?
+  userAgent      String?
+  isRefreshToken Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  lastUsedAt     DateTime  @default(now())
+  expiresAt      DateTime
+  revokedAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
 }
 
 model Role {

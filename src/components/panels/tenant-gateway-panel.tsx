@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import {
   ArrowDown,
@@ -196,8 +197,8 @@ export default function TenantGatewayPanel() {
     async function fetchData() {
       try {
         const [usageRes, auditRes] = await Promise.all([
-          fetch('/api/usage'),
-          fetch('/api/audit-logs'),
+          apiFetch('/api/usage'),
+          apiFetch('/api/audit-logs'),
         ])
         const usageJson = await usageRes.json()
         const auditJson = await auditRes.json()

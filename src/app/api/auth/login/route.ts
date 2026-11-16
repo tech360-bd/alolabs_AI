@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import { compare } from 'bcrypt';
 import { db } from '@/lib/db';
 import { createSessionToken } from '@/lib/auth';
+import { z } from 'zod';
+import { parseBody } from '@/lib/validators';
 
 // ─── In-memory brute-force rate limiter ────────────────────────────────
 
@@ -14,6 +16,18 @@ const loginRateLimits = new Map<string, RateLimitEntry>();
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const MAX_ATTEMPTS_PER_EMAIL = 5;
 const MAX_ATTEMPTS_PER_IP = 20;
+const REMEMBER_ME_TTL_HOURS = 30 * 24;
+const loginBodySchema = z.object({
+  email: z.string({ error: 'Email and password are required' }).trim().email().max(255),
+  password: z.string({ error: 'Email and password are required' }).min(1).max(128),
+  rememberMe: z.boolean().optional().default(false),
+}).strict();
+
+function sessionTtlHours(rememberMe: boolean): number {
+  if (rememberMe) return REMEMBER_ME_TTL_HOURS;
+  const configured = Number(process.env.SESSION_TTL_HOURS ?? 24);
+  return Number.isFinite(configured) && configured > 0 ? configured : 24;
+}
 
 // Cleanup old entries every 60 seconds
 if (typeof globalThis !== 'undefined') {
@@ -58,15 +72,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { email, password } = body;
-
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
+    const body = await request.json().catch(() => null);
+    const parsed = parseBody(loginBodySchema, body);
+    if (parsed.error) {
+      return NextResponse.json({ error: parsed.error.message }, { status: parsed.error.status });
     }
+    const { email: submittedEmail, password, rememberMe } = parsed.data;
+    const email = submittedEmail.toLowerCase();
 
     // Check email-based rate limit
     if (!checkLoginRateLimit(`email:${email.toLowerCase()}`, MAX_ATTEMPTS_PER_EMAIL)) {
@@ -109,14 +121,18 @@ export async function POST(request: NextRequest) {
       if (typeof db.settings?.upsert === 'function') {
         await db.settings.upsert({
           where: { key: `mfa_temp:${tempToken}` },
-          create: { key: `mfa_temp:${tempToken}`, value: JSON.stringify({ userId: user.id }), type: 'json' },
-          update: { value: JSON.stringify({ userId: user.id }), type: 'json' },
+          create: {
+            key: `mfa_temp:${tempToken}`,
+            value: JSON.stringify({ userId: user.id, rememberMe, createdAt: Date.now() }),
+            type: 'json',
+          },
+          update: { value: JSON.stringify({ userId: user.id, rememberMe, createdAt: Date.now() }), type: 'json' },
         });
       } else if (typeof db.settings?.create === 'function') {
         await db.settings.create({
           data: {
             key: `mfa_temp:${tempToken}`,
-            value: JSON.stringify({ userId: user.id }),
+            value: JSON.stringify({ userId: user.id, rememberMe, createdAt: Date.now() }),
             type: 'json',
           },
         });
@@ -136,8 +152,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create real session token stored in Settings table
-    const token = await createSessionToken(user.id, { method: 'password' });
+    // Persist the JWT's digest in Prisma; return the JWT for Bearer clients.
+    const ttlHours = sessionTtlHours(rememberMe);
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const token = await createSessionToken(user.id, {
+      method: 'password',
+      ttlHours,
+      isRefreshToken: rememberMe,
+      ipAddress: clientIp,
+      userAgent,
+      deviceInfo: userAgent,
+    });
 
     // Update last login
     await db.user.update({
@@ -146,8 +171,6 @@ export async function POST(request: NextRequest) {
     });
 
     // Log login event to AuditLog
-    const userAgent = request.headers.get('user-agent') || 'unknown';
-
     await db.auditLog.create({
       data: {
         userId: user.id,
@@ -158,11 +181,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // The opaque session token is returned in the body for API clients, and is
-    // ALSO set as an httpOnly cookie. The cookie is what the server-side page
-    // gate reads (`src/lib/server-session.ts`) and what the edge gate checks in
-    // `src/proxy.ts`; without it the dashboard could not be protected without
-    // trusting client-side state, which is not a security boundary.
+    // Return the JWT for localStorage/Bearer API clients. Mirror it in an
+    // httpOnly cookie only so server-rendered page gates can authenticate before
+    // HTML is sent; private API authorization requires the Bearer header.
     const response = NextResponse.json({
       user: {
         id: user.id,
@@ -177,7 +198,7 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24, // matches SESSION_TTL_HOURS default of 24h
+      maxAge: Math.floor(ttlHours * 60 * 60),
     });
     return response;
   } catch (error) {

@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   DollarSign,
@@ -100,7 +101,7 @@ export default function CostEstimatePanel() {
 
   const fetchEstimates = useCallback(() => {
     setLoading(true)
-    fetch('/api/cost-estimate')
+    apiFetch('/api/cost-estimate')
       .then((r) => r.json())
       .then((data) => {
         setEstimates(Array.isArray(data) ? data : [])
@@ -117,7 +118,7 @@ export default function CostEstimatePanel() {
     if (!newEst.provider.trim() || !newEst.service.trim() || !newEst.cost) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/cost-estimate', {
+      const res = await apiFetch('/api/cost-estimate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,7 +151,7 @@ export default function CostEstimatePanel() {
     if (!confirmTarget || !confirmAction) return
     setActionLoading(true)
     try {
-      const res = await fetch(`/api/cost-estimates/${confirmTarget.id}`, {
+      const res = await apiFetch(`/api/cost-estimates/${confirmTarget.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: confirmAction }),

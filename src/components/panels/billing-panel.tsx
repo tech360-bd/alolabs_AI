@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   CreditCard,
@@ -216,7 +217,7 @@ function CreatePlanDialog({
     if (!form.name || !form.slug) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/billing/plans', {
+      const res = await apiFetch('/api/billing/plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -520,7 +521,7 @@ export default function BillingPanel() {
 
   // Fetch plans
   const fetchPlans = useCallback(() => {
-    fetch('/api/billing/plans')
+    apiFetch('/api/billing/plans')
       .then((r) => r.json())
       .then((res) => setPlans(res.data ?? []))
       .catch(() => {})
@@ -529,7 +530,7 @@ export default function BillingPanel() {
 
   // Fetch subscriptions
   const fetchSubscriptions = useCallback(() => {
-    fetch('/api/billing/subscriptions')
+    apiFetch('/api/billing/subscriptions')
       .then((r) => r.json())
       .then((res) => setSubscriptions(res.data ?? []))
       .catch(() => {})
@@ -538,7 +539,7 @@ export default function BillingPanel() {
 
   // Fetch invoices
   const fetchInvoices = useCallback(() => {
-    fetch('/api/billing/invoices')
+    apiFetch('/api/billing/invoices')
       .then((r) => r.json())
       .then((res) => setInvoices(res.data ?? []))
       .catch(() => {})
@@ -547,7 +548,7 @@ export default function BillingPanel() {
 
   // Fetch payments
   const fetchPayments = useCallback(() => {
-    fetch('/api/billing/payments')
+    apiFetch('/api/billing/payments')
       .then((r) => r.json())
       .then((res) => setPayments(res.data ?? []))
       .catch(() => {})
@@ -564,7 +565,7 @@ export default function BillingPanel() {
   // Subscription actions
   const handleSubscriptionAction = async (id: string, action: 'cancel' | 'pause' | 'resume') => {
     try {
-      const res = await fetch(`/api/billing/subscriptions/${id}`, {
+      const res = await apiFetch(`/api/billing/subscriptions/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),

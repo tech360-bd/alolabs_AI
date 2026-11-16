@@ -1,21 +1,23 @@
 /**
- * Session Manager
- * ALO Labs AIOS — Session management with configurable expiry,
- * multi-device support, and rotation. Stores sessions in the
- * Settings table (compatible with existing auth system).
+ * Compatibility facade for the legacy security-session API.
+ *
+ * All session lifecycle operations are delegated to the Prisma-backed JWT
+ * manager. This module only adapts its data shape for the existing security
+ * dashboard and keeps the Settings-backed opaque-token migration path alive.
  */
-
-import { randomBytes, createHash } from 'crypto';
-import { db } from '@/lib/db';
-
-// ─── Configuration ──────────────────────────────────────────────────
+import { createSessionToken, verifySessionToken } from '@/lib/auth';
+import {
+  listActiveSessions,
+  revokeAllSessions,
+  revokeOtherSessions,
+  revokeSessionByCreatedAt,
+  revokeSessionById,
+  revokeUserSession,
+  type SessionInfo as JwtSessionInfo,
+} from '@/lib/session-manager';
 
 const DEFAULT_SESSION_EXPIRY_HOURS = 24;
-const MAX_SESSION_AGE_HOURS = 168; // 7 days
-const SESSION_KEY_PREFIX = 'session:';
-const SESSION_META_PREFIX = 'session:meta:';
-
-// ─── Types ──────────────────────────────────────────────────────────
+const MAX_SESSION_AGE_HOURS = 168;
 
 export interface SessionMetadata {
   userId: string;
@@ -28,348 +30,110 @@ export interface SessionMetadata {
 }
 
 export interface SessionInfo {
+  id: string;
+  /** Short digest label only. Never a replayable JWT. */
   token: string;
   metadata: SessionMetadata;
   isActive: boolean;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────
-
-function generateToken(): string {
-  return randomBytes(48).toString('hex');
+function toMetadata(session: JwtSessionInfo['session']): SessionMetadata {
+  return {
+    userId: session.userId,
+    userAgent: session.userAgent,
+    ipAddress: session.ipAddress,
+    device: session.deviceInfo,
+    createdAt: session.createdAt,
+    lastActivityAt: session.lastUsedAt,
+    expiresAt: session.expiresAt,
+  };
 }
 
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
-
-function computeExpiry(lastActivityAt: Date): Date {
-  const expiresAt = new Date(lastActivityAt);
-  expiresAt.setHours(expiresAt.getHours() + DEFAULT_SESSION_EXPIRY_HOURS);
-
-  // Enforce maximum session age
-  const maxExpiry = new Date(expiresAt);
-  maxExpiry.setHours(maxExpiry.getHours() + MAX_SESSION_AGE_HOURS);
-
-  if (expiresAt > maxExpiry) {
-    return maxExpiry;
-  }
-
-  return expiresAt;
-}
-
-function isExpired(expiresAt: string): boolean {
-  return new Date(expiresAt) < new Date();
-}
-
-// ─── Session Creation ────────────────────────────────────────────────
-
-/**
- * Create a new session for a user.
- *
- * @param userId - The user's ID
- * @param metadata - Optional metadata (user agent, IP, device)
- * @param customExpiryHours - Override default expiry (max 168h / 7d)
- * @returns The session token (raw, not hashed)
- */
+/** Create a Prisma-backed JWT session; the optional duration is capped at 7d. */
 export async function createSession(
   userId: string,
-  metadata?: {
-    userAgent?: string;
-    ipAddress?: string;
-    device?: string;
-  },
+  metadata?: { userAgent?: string; ipAddress?: string; device?: string },
   customExpiryHours?: number,
 ): Promise<string> {
-  const token = generateToken();
-  const tokenHash = hashToken(token);
-  const now = new Date();
-
-  const expiryHours = Math.min(
-    customExpiryHours ?? DEFAULT_SESSION_EXPIRY_HOURS,
-    MAX_SESSION_AGE_HOURS,
-  );
-
-  const expiresAt = new Date(now);
-  expiresAt.setHours(expiresAt.getHours() + expiryHours);
-
-  const sessionData = {
-    userId,
+  const requested = customExpiryHours ?? DEFAULT_SESSION_EXPIRY_HOURS;
+  const ttlHours = Number.isFinite(requested) && requested > 0
+    ? Math.min(requested, MAX_SESSION_AGE_HOURS)
+    : DEFAULT_SESSION_EXPIRY_HOURS;
+  return createSessionToken(userId, {
+    method: 'security-manager',
+    ttlHours,
     userAgent: metadata?.userAgent,
     ipAddress: metadata?.ipAddress,
-    device: metadata?.device,
-    createdAt: now.toISOString(),
-    lastActivityAt: now.toISOString(),
-    expiresAt: expiresAt.toISOString(),
-  };
-
-  // Store session keyed by token hash
-  await db.settings.upsert({
-    where: { key: `${SESSION_KEY_PREFIX}${tokenHash}` },
-    create: {
-      key: `${SESSION_KEY_PREFIX}${tokenHash}`,
-      value: JSON.stringify(sessionData),
-    },
-    update: {
-      value: JSON.stringify(sessionData),
-    },
+    deviceInfo: metadata?.device,
+    isRefreshToken: ttlHours > DEFAULT_SESSION_EXPIRY_HOURS,
   });
-
-  // Store metadata keyed by userId:tokenHash for user-scoped lookups
-  await db.settings.upsert({
-    where: { key: `${SESSION_META_PREFIX}${userId}:${tokenHash}` },
-    create: {
-      key: `${SESSION_META_PREFIX}${userId}:${tokenHash}`,
-      value: JSON.stringify({
-        tokenHash,
-        ...sessionData,
-      }),
-    },
-    update: {
-      value: JSON.stringify({
-        tokenHash,
-        ...sessionData,
-      }),
-    },
-  });
-
-  return token;
 }
 
-// ─── Session Validation ─────────────────────────────────────────────
-
-/**
- * Validate a session token and extend its expiry.
- *
- * @param token - Raw session token
- * @returns Session info if valid, null if invalid/expired
- */
-export async function validateSession(
-  token: string,
-): Promise<SessionInfo | null> {
-  const tokenHash = hashToken(token);
-
-  const session = await db.settings.findUnique({
-    where: { key: `${SESSION_KEY_PREFIX}${tokenHash}` },
-  });
-
-  if (!session) return null;
-
-  let sessionData: SessionMetadata;
-  try {
-    sessionData = JSON.parse(session.value) as SessionMetadata;
-  } catch {
-    return null;
-  }
-
-  // Check expiry
-  if (isExpired(sessionData.expiresAt)) {
-    await destroySession(token);
-    return null;
-  }
-
-  // Extend session (update lastActivityAt and recompute expiresAt)
-  const now = new Date();
-  const newExpiresAt = computeExpiry(now);
-
-  // Prevent extending beyond maximum age from creation
-  const maxFromCreation = new Date(sessionData.createdAt);
-  maxFromCreation.setHours(maxFromCreation.getHours() + MAX_SESSION_AGE_HOURS);
-
-  if (newExpiresAt > maxFromCreation) {
-    sessionData.expiresAt = maxFromCreation.toISOString();
-  } else {
-    sessionData.expiresAt = newExpiresAt.toISOString();
-  }
-
-  sessionData.lastActivityAt = now.toISOString();
-
-  const updatedValue = JSON.stringify(sessionData);
-
-  await db.settings.update({
-    where: { key: `${SESSION_KEY_PREFIX}${tokenHash}` },
-    data: { value: updatedValue },
-  });
-
-  // Also update the meta record
-  await db.settings
-    .findUnique({
-      where: { key: `${SESSION_META_PREFIX}${sessionData.userId}:${tokenHash}` },
-    })
-    .then(async (meta) => {
-      if (meta) {
-        await db.settings.update({
-          where: { key: meta.key },
-          data: {
-            value: JSON.stringify({ tokenHash, ...sessionData }),
-          },
-        });
-      }
-    })
-    .catch(() => {
-      /* ignore meta update failure */
-    });
-
+/** Validate and touch an internal or client JWT/legacy session. */
+export async function validateSession(token: string): Promise<SessionInfo | null> {
+  const verified = await verifySessionToken(token, { audience: 'any' });
+  if (!verified) return null;
   return {
-    token,
-    metadata: sessionData,
+    id: verified.session.id ?? '',
+    token: '',
+    metadata: toMetadata(verified.session),
     isActive: true,
   };
 }
 
-// ─── Session Destruction ────────────────────────────────────────────
-
-/**
- * Destroy a single session.
- */
-export async function destroySession(token: string): Promise<boolean> {
-  const tokenHash = hashToken(token);
-
-  const session = await db.settings.findUnique({
-    where: { key: `${SESSION_KEY_PREFIX}${tokenHash}` },
-  });
-
-  if (!session) return false;
-
-  let userId = '';
-  try {
-    const data = JSON.parse(session.value) as SessionMetadata;
-    userId = data.userId;
-  } catch {
-    // continue
-  }
-
-  // Delete both records
-  await db.settings.deleteMany({
-    where: {
-      OR: [
-        { key: `${SESSION_KEY_PREFIX}${tokenHash}` },
-        { key: `${SESSION_META_PREFIX}${userId}:${tokenHash}` },
-      ],
-    },
-  });
-
-  return true;
+/** Destroy an authenticated user's session. */
+export async function destroySession(token: string, userId?: string): Promise<boolean> {
+  if (!token) return false;
+  const verified = await verifySessionToken(token, { audience: 'any' });
+  if (!verified || (userId && verified.userId !== userId)) return false;
+  return revokeUserSession(verified.userId, token);
 }
 
-/**
- * Destroy all sessions for a user (logout all devices).
- */
-export async function destroyAllUserSessions(userId: string): Promise<number> {
-  // Find all session meta records for this user
-  const sessions = await db.settings.findMany({
-    where: {
-      key: { startsWith: `${SESSION_META_PREFIX}${userId}:` },
-    },
-  });
-
-  const keysToDelete: string[] = [];
-
-  for (const session of sessions) {
-    try {
-      const data = JSON.parse(session.value) as { tokenHash: string };
-      keysToDelete.push(`${SESSION_KEY_PREFIX}${data.tokenHash}`);
-    } catch {
-      // continue
-    }
-    keysToDelete.push(session.key);
-  }
-
-  if (keysToDelete.length === 0) return 0;
-
-  const result = await db.settings.deleteMany({
-    where: { key: { in: keysToDelete } },
-  });
-
-  return result.count;
-}
-
-// ─── Session Rotation ───────────────────────────────────────────────
-
-/**
- * Rotate a session token: issue a new token and invalidate the old one.
- * Useful after sensitive operations (password change, role change, etc.)
- */
-export async function rotateSessionToken(
-  oldToken: string,
-): Promise<string | null> {
-  const sessionInfo = await validateSession(oldToken);
-  if (!sessionInfo) return null;
-
-  // Create new session with same metadata
-  const newToken = await createSession(
-    sessionInfo.metadata.userId,
-    {
-      userAgent: sessionInfo.metadata.userAgent,
-      ipAddress: sessionInfo.metadata.ipAddress,
-      device: sessionInfo.metadata.device,
-    },
-  );
-
-  // Destroy old session
-  await destroySession(oldToken);
-
-  return newToken;
-}
-
-// ─── Session Count ──────────────────────────────────────────────────
-
-/**
- * Count active (non-expired) sessions for a user.
- */
-export async function getSessionCount(userId: string): Promise<number> {
-  const sessions = await db.settings.findMany({
-    where: {
-      key: { startsWith: `${SESSION_META_PREFIX}${userId}:` },
-    },
-  });
-
-  let count = 0;
-  for (const session of sessions) {
-    try {
-      const data = JSON.parse(session.value) as SessionMetadata;
-      if (!isExpired(data.expiresAt)) {
-        count++;
-      }
-    } catch {
-      // Skip invalid records
-    }
-  }
-
-  return count;
-}
-
-// ─── List User Sessions ─────────────────────────────────────────────
-
-/**
- * List all active sessions for a user.
- */
-export async function listUserSessions(
+/** Revoke a session by its safe listing id or legacy creation timestamp. */
+export async function destroyListedSession(
   userId: string,
-): Promise<SessionInfo[]> {
-  const sessions = await db.settings.findMany({
-    where: {
-      key: { startsWith: `${SESSION_META_PREFIX}${userId}:` },
-    },
-    orderBy: { createdAt: 'desc' },
+  options: { sessionId?: string; sessionCreatedAt?: string },
+): Promise<boolean> {
+  if (options.sessionId) return revokeSessionById(userId, options.sessionId);
+  if (options.sessionCreatedAt) return revokeSessionByCreatedAt(userId, options.sessionCreatedAt);
+  return false;
+}
+
+/** Revoke all sessions for a user, or preserve the currently authenticated one. */
+export async function destroyAllUserSessions(userId: string, currentToken?: string): Promise<number> {
+  if (currentToken) return revokeOtherSessions(userId, currentToken);
+  return revokeAllSessions(userId);
+}
+
+/** Rotate the current session, preserving its device metadata and lifetime class. */
+export async function rotateSessionToken(oldToken: string): Promise<string | null> {
+  const verified = await verifySessionToken(oldToken, { audience: 'any' });
+  if (!verified) return null;
+  const old = verified.session;
+  const longLived = old.isRefreshToken === true;
+  const token = await createSessionToken(old.userId, {
+    method: 'security-rotation',
+    ttlHours: longLived ? MAX_SESSION_AGE_HOURS : DEFAULT_SESSION_EXPIRY_HOURS,
+    deviceInfo: old.deviceInfo,
+    ipAddress: old.ipAddress,
+    userAgent: old.userAgent,
+    isRefreshToken: longLived,
   });
+  await revokeUserSession(old.userId, oldToken);
+  return token;
+}
 
-  const result: SessionInfo[] = [];
+export async function getSessionCount(userId: string): Promise<number> {
+  return (await listActiveSessions(userId)).length;
+}
 
-  for (const session of sessions) {
-    try {
-      const data = JSON.parse(session.value) as SessionMetadata;
-      if (!isExpired(data.expiresAt)) {
-        result.push({
-          token: '', // Never expose raw tokens in listings
-          metadata: data,
-          isActive: true,
-        });
-      }
-    } catch {
-      // Skip invalid records
-    }
-  }
-
-  return result;
+/** List current JWT rows plus still-live legacy records. */
+export async function listUserSessions(userId: string): Promise<SessionInfo[]> {
+  const sessions = await listActiveSessions(userId);
+  return sessions.map((session) => ({
+    id: session.id,
+    token: session.token,
+    metadata: toMetadata(session.session),
+    isActive: true,
+  }));
 }

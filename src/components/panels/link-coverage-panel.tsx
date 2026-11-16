@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
@@ -249,7 +250,7 @@ export default function LinkCoveragePanel() {
     if (force) setRefreshing(true)
     setError(null)
     try {
-      const res = await fetch(`/api/super-admin/link-coverage${force ? '?refresh=1' : ''}`, {
+      const res = await apiFetch(`/api/super-admin/link-coverage${force ? '?refresh=1' : ''}`, {
         headers: { Accept: 'application/json' },
       })
       if (!res.ok) {

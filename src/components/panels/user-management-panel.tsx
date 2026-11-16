@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   Users,
@@ -103,8 +104,8 @@ export default function UserManagementPanel() {
   const fetchData = useCallback(async () => {
     try {
       const [usersRes, companiesRes] = await Promise.all([
-        fetch('/api/users'),
-        fetch('/api/companies'),
+        apiFetch('/api/users'),
+        apiFetch('/api/companies'),
       ])
       const usersData = await usersRes.json()
       const companiesData = await companiesRes.json()
@@ -126,7 +127,7 @@ export default function UserManagementPanel() {
   const handleToggle = async (user: UserItem) => {
     setTogglingId(user.id)
     try {
-      await fetch('/api/users', {
+      await apiFetch('/api/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

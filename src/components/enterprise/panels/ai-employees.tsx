@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { fetchApi, fetchApiRaw } from '@/lib/api'
+import { fetchApi, fetchApiRaw } from '@/lib/api-client'
 import { Bot, Search, LayoutGrid, List, MessageSquare, Loader2, Trash2, Play, Activity, Clock, Zap, Brain, Database, BarChart3 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'

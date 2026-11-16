@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef } from 'react'
 import { BarChart3, CheckCircle, XCircle, Shield, Search, DollarSign, Clock, Zap, Filter } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -74,7 +75,7 @@ export default function UsagePanel() {
 
   // Fetch companies
   useEffect(() => {
-    fetch('/api/companies')
+    apiFetch('/api/companies')
       .then((r) => r.json())
       .then((res) => setCompanies(res.data || []))
       .catch(() => {})
@@ -87,8 +88,8 @@ export default function UsagePanel() {
     setLoading(true)
     const params = selectedCompany ? `?company=${selectedCompany}` : ''
     Promise.all([
-      fetch(`/api/usage${params}`).then((r) => r.json()),
-      fetch('/api/dashboard/usage').then((r) => r.json()),
+      apiFetch(`/api/usage${params}`).then((r) => r.json()),
+      apiFetch('/api/dashboard/usage').then((r) => r.json()),
     ])
       .then(([usageRes, dashRes]) => {
         if (!cancelled) {

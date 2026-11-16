@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 import {
   Rocket, Smartphone, ShieldCheck, TrendingUp, AlertTriangle, Building2,
   Bot, CheckCircle, Clock, Target, DollarSign, Users, Zap, ArrowRight,

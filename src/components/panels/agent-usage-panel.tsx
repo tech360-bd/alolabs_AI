@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   Bot,
@@ -100,7 +101,7 @@ export default function AgentUsagePanel() {
       const params = new URLSearchParams()
       if (periodFilter) params.set('period', periodFilter)
 
-      const res = await fetch(`/api/usage/agents?${params}`)
+      const res = await apiFetch(`/api/usage/agents?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (!cancelled) {

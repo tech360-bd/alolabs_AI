@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import { Search, Star, Download, Plus, Tag, Package, Bot, Workflow, User } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -162,7 +163,7 @@ function ListingDetailDialog({
 
   useEffect(() => {
     if (open && listing) {
-      fetch(`/api/marketplace/${listing.id}/reviews`)
+      apiFetch(`/api/marketplace/${listing.id}/reviews`)
         .then((r) => r.json())
         .then((res) => {
           setReviews(res.data ?? [])
@@ -322,7 +323,7 @@ function PublishDialog({
         .map((t) => t.trim())
         .filter(Boolean)
 
-      const res = await fetch('/api/marketplace', {
+      const res = await apiFetch('/api/marketplace', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -517,7 +518,7 @@ export default function MarketplacePanel() {
     params.set('page', String(page))
     params.set('limit', String(limit))
 
-    fetch(`/api/marketplace?${params.toString()}`)
+    apiFetch(`/api/marketplace?${params.toString()}`)
       .then((r) => r.json())
       .then((res) => {
         setListings(res.data ?? [])
@@ -533,7 +534,7 @@ export default function MarketplacePanel() {
 
   const handleInstall = async (id: string) => {
     try {
-      const res = await fetch(`/api/marketplace/${id}/install`, { method: 'POST' })
+      const res = await apiFetch(`/api/marketplace/${id}/install`, { method: 'POST' })
       if (res.ok) fetchListings()
     } catch {}
   }

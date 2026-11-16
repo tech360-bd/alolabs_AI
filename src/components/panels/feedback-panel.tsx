@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   MessageSquare,
@@ -106,7 +107,7 @@ export default function FeedbackPanel() {
 
   const fetchFeedback = useCallback(() => {
     setLoading(true)
-    fetch('/api/feedback')
+    apiFetch('/api/feedback')
       .then((r) => r.json())
       .then((data) => {
         setFeedback(Array.isArray(data) ? data : [])
@@ -123,7 +124,7 @@ export default function FeedbackPanel() {
     if (!category || !content.trim()) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/feedback', {
+      const res = await apiFetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

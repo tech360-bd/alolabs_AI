@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import { Bot, Building2, FolderTree, ClipboardList, CheckSquare, Zap, Activity, Shield, CreditCard } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -43,8 +44,8 @@ export default function CommandCenter() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/dashboard/stats').then((r) => r.json()),
-      fetch('/api/health').then((r) => r.json()),
+      apiFetch('/api/dashboard/stats').then((r) => r.json()),
+      apiFetch('/api/health').then((r) => r.json()),
     ])
       .then(([statsRes, healthRes]) => {
         setStats(statsRes)

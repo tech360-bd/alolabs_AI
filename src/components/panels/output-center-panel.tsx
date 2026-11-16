@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   FileText,
@@ -78,7 +79,7 @@ export default function OutputCenterPanel() {
       const params = new URLSearchParams({ page: String(page), limit: '50', search })
       if (typeFilter) params.set('type', typeFilter)
       if (statusFilter) params.set('status', statusFilter)
-      const res = await fetch(`/api/outputs?${params}`)
+      const res = await apiFetch(`/api/outputs?${params}`)
       if (res.ok) {
         const json = await res.json()
         setOutputs(json.data || [])

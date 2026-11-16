@@ -2,7 +2,7 @@ import React from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/lib/api', () => ({ fetchApi: vi.fn().mockRejectedValue(new Error('Failed to fetch')) }))
+vi.mock('@/lib/api-client', () => ({ fetchApi: vi.fn().mockRejectedValue(new Error('Failed to fetch')) }))
 import ApiGateway from '@/components/enterprise/panels/api-gateway'
 
 afterEach(cleanup)

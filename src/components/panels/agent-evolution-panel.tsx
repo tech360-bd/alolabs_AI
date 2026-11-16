@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -101,11 +102,11 @@ export default function AgentEvolutionPanel() {
     setLoading(true)
     try {
       const [statsRes, lineageRes, cyclesRes, qualRes, stopRes] = await Promise.all([
-        fetch('/api/enterprise/workforce-evolution?stats=true').then((r) => r.json()),
-        fetch('/api/enterprise/workforce-evolution?view=lineage').then((r) => r.json()),
-        fetch('/api/enterprise/workforce-evolution?view=cycles').then((r) => r.json()),
-        fetch(`/api/enterprise/workforce-evolution?view=qualification&agentId=${selectedAgentId}`).then((r) => r.json()),
-        fetch('/api/enterprise/workforce-evolution?view=emergency-stop').then((r) => r.json()),
+        apiFetch('/api/enterprise/workforce-evolution?stats=true').then((r) => r.json()),
+        apiFetch('/api/enterprise/workforce-evolution?view=lineage').then((r) => r.json()),
+        apiFetch('/api/enterprise/workforce-evolution?view=cycles').then((r) => r.json()),
+        apiFetch(`/api/enterprise/workforce-evolution?view=qualification&agentId=${selectedAgentId}`).then((r) => r.json()),
+        apiFetch('/api/enterprise/workforce-evolution?view=emergency-stop').then((r) => r.json()),
       ])
 
       setStats(statsRes)
@@ -126,7 +127,7 @@ export default function AgentEvolutionPanel() {
 
   const handleTriggerEmergencyStop = async () => {
     try {
-      const res = await fetch('/api/enterprise/workforce-evolution?action=emergency-stop', {
+      const res = await apiFetch('/api/enterprise/workforce-evolution?action=emergency-stop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -148,7 +149,7 @@ export default function AgentEvolutionPanel() {
 
   const handleLiftEmergencyStop = async (stopId: string) => {
     try {
-      const res = await fetch('/api/enterprise/workforce-evolution?action=emergency-stop', {
+      const res = await apiFetch('/api/enterprise/workforce-evolution?action=emergency-stop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,7 +173,7 @@ export default function AgentEvolutionPanel() {
     e.preventDefault()
     setSubmitting(true)
     try {
-      const res = await fetch('/api/enterprise/workforce-evolution', {
+      const res = await apiFetch('/api/enterprise/workforce-evolution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(proposalForm),

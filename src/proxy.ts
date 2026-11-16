@@ -5,60 +5,41 @@ import {
   isClientPagePath,
   isInternalPagePath,
 } from '@/lib/access/surfaces';
+import { matchesPublicApiRoute, type PublicApiRoute } from '@/lib/access/public-api-routes';
+import { verifyEdgeJwt, type EdgeJwtClaims } from '@/lib/access/edge-jwt';
 
 // ─── Public API routes (no Bearer token required) ────────────────────────────
-// Each entry specifies the path prefix and the allowed HTTP methods.
-// Routes not listed here require a Bearer token.
-
-const PUBLIC_API_ROUTES: { path: string; methods: string[] }[] = [
+// Exact entries match only that pathname. A trailing slash is required to
+// create an intentional prefix, preventing paths such as /api/auth/login-debug
+// from becoming public accidentally. Do not duplicate this table; the validator
+// parses this source, and query parameters never bypass authentication.
+export const PUBLIC_API_ROUTES: readonly PublicApiRoute[] = [
   { path: '/api/auth/login', methods: ['POST'] },
   { path: '/api/auth/register', methods: ['POST'] },
+  { path: '/api/auth/password-reset', methods: ['POST'] },
   { path: '/api/auth/mfa/verify', methods: ['POST'] },
+  { path: '/api/auth/mfa/resend', methods: ['POST'] },
   { path: '/api/auth/sso', methods: ['GET', 'POST'] },
   { path: '/api/auth/oauth', methods: ['GET', 'POST'] },
+  { path: '/api/auth/oauth/', methods: ['GET', 'POST'] },
   { path: '/api/health/live', methods: ['GET'] },
   { path: '/api/health/ready', methods: ['GET'] },
-  // Listed explicitly rather than relying on the '/api/health' prefix match
-  // below. Returns only { status: 'pong' }. Being public by accident of a
-  // startsWith() on a broader entry is how a future /api/health/<sensitive>
-  // route would get exposed without anyone deciding to expose it;
-  // scripts/validate-route-auth.mjs gates that in CI.
+  // The detailed diagnostics endpoint (/api/health/deep) remains private.
   { path: '/api/health/ping', methods: ['GET'] },
   { path: '/api/health', methods: ['GET'] },
-  { path: '/api/v1/health', methods: ['GET'] },   // AgentOS liveness (public)
-  // AI service-plane liveness (PR #30). Returns only { status: 'ok',
-  //   service, version, timestamp } — no infrastructure or tenant details.
-  // Listed explicitly (GET only) so a future /api/v1/ai/<sensitive> route
-  // cannot become public by accident of a prefix match; gated by
-  // scripts/validate-route-auth.mjs in CI.
+  { path: '/api/v1/health', methods: ['GET'] },
   { path: '/api/v1/ai/health', methods: ['GET'] },
   { path: '/api/ping', methods: ['GET'] },
   { path: '/api/infra/ping', methods: ['GET'] },
-  // NOTE: /api/enterprise/agents and /api/enterprise/overview used to be listed
-  // here, which made the dashboard's own data endpoints readable by anyone who
-  // found the URL. They now require credentials like every other private route.
-  // NOTE: /api/webhooks/ (the management CRUD surface — not inbound receivers)
-  // was previously listed here too. Its handlers self-verify sessions, but a
-  // future handler that forgot to verify would be silently public. Removed:
-  // inbound receivers verify their own platform signatures and are listed
-  // individually below.
+  // Enterprise and webhook management APIs are private. Inbound webhooks
+  // authenticate provider signatures in their individual handlers.
   { path: '/api/whatsapp/webhook', methods: ['GET', 'POST'] },
   { path: '/api/voice/telephony/webhook', methods: ['GET', 'POST'] },
   { path: '/api/public/', methods: ['GET', 'POST', 'PUT', 'DELETE'] },
 ];
 
-/**
- * There used to be a `PUBLIC_QUERY_PARAMS` list here containing `health=true`,
- * which made ANY api route public simply by appending `?health=true` to the URL.
- * That is an authentication bypass and has been removed; liveness lives at the
- * explicit `/api/health*` entries above.
- */
-function isPublicApiRoute(pathname: string, method: string): boolean {
-  return PUBLIC_API_ROUTES.some(
-    (r) =>
-      (pathname === r.path || pathname.startsWith(r.path)) &&
-      r.methods.includes(method.toUpperCase()),
-  );
+export function isPublicApiRoute(pathname: string, method: string): boolean {
+  return matchesPublicApiRoute(PUBLIC_API_ROUTES, pathname, method);
 }
 
 // ─── CSRF Protection ─────────────────────────────────────────────────────────
@@ -220,12 +201,12 @@ function isBlockedBot(request: NextRequest): boolean {
 // ------------------
 // There are two private page groups and they never mix: the internal AgentOS
 // pages (`INTERNAL_PAGE_PREFIXES` in src/lib/access/surfaces.ts) and the client
-// portal (`/portal/**`). Client session tokens carry a fixed prefix that is
-// part of the hashed token, so this layer can tell the two classes apart
-// without a database and turn a client away from an internal page — or an
-// internal API — before any handler runs. The token class is NOT trusted as
-// proof of anything: `verifySessionToken` re-derives the surface from the
-// stored session and the user's current role on every request.
+// portal (`/portal/**`). Session JWTs carry an `aud` claim. The proxy uses it
+// only as a page-routing hint; the server page gate verifies the JWT against
+// the database before rendering. For private APIs, HS256 Bearer JWTs are
+// verified here with Web Crypto, then each handler rechecks the Session row
+// and current role. The old `alc_` opaque-token prefix is only a temporary
+// rollout hint and is never proof of identity.
 const SESSION_COOKIE_NAME = 'session-token';
 
 function isPrivatePageRoute(pathname: string): boolean {
@@ -250,7 +231,7 @@ function getClientIp(request: NextRequest): string {
 
 // ─── Proxy ──────────────────────────────────────────────────────────────────
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Lazy cleanup of stale in-memory entries (replaces setInterval)
   lazyCleanup();
 
@@ -271,6 +252,53 @@ export function proxy(request: NextRequest) {
   const forwardedHeaders = new Headers(request.headers);
   forwardedHeaders.set(REQUEST_PATH_HEADER, pathname);
   forwardedHeaders.set(REQUEST_METHOD_HEADER, method);
+  // This is an internal assertion produced only after signature verification;
+  // never let a caller supply it themselves.
+  forwardedHeaders.delete('x-alo-authenticated-user-id');
+
+  // Verify private API Bearer JWTs before forwarding the request. The database
+  // row, revocation state and current account role are checked again by the
+  // route-level auth helper. Old opaque tokens are temporarily passed through
+  // to those helpers during the rolling migration, but are never stamped as
+  // proxy-verified identities.
+  let hasV1Key = false;
+  let edgeClaims: EdgeJwtClaims | null = null;
+  if (isApi && !isPublicApiRoute(pathname, method)) {
+    const authHeader = request.headers.get('authorization');
+    hasV1Key = pathname.startsWith('/api/v1/') && Boolean(request.headers.get('x-api-key')?.trim());
+    if (!hasV1Key) {
+      if (!authHeader?.startsWith('Bearer ')) {
+        return NextResponse.json(
+          { error: 'Unauthorized', message: 'Missing or invalid Authorization header' },
+          { status: 401 },
+        );
+      }
+      const token = authHeader.slice('Bearer '.length).trim();
+      if (!token) {
+        return NextResponse.json(
+          { error: 'Unauthorized', message: 'Empty bearer token' },
+          { status: 401 },
+        );
+      }
+
+      if (token.split('.').length === 3) {
+        const secret = process.env.JWT_SECRET;
+        if (secret && secret.length >= 32) {
+          edgeClaims = await verifyEdgeJwt(token, secret);
+          if (!edgeClaims) {
+            return NextResponse.json({ error: 'Unauthorized', message: 'Invalid or expired Bearer JWT' }, { status: 401 });
+          }
+          forwardedHeaders.set('x-alo-authenticated-user-id', edgeClaims.userId);
+        } else if (process.env.NODE_ENV === 'production') {
+          return NextResponse.json({ error: 'Unauthorized', message: 'JWT verification is not configured' }, { status: 401 });
+        }
+        // In development without JWT_SECRET, the Node route auth helper still
+        // verifies using its per-process development key.
+      } else if (!/^(?:alc_)?[a-f0-9]{96}$/.test(token)) {
+        return NextResponse.json({ error: 'Unauthorized', message: 'Unsupported Bearer credential' }, { status: 401 });
+      }
+    }
+  }
 
   // ── Security headers (applied to every matched route) ────────────────────
   const response = NextResponse.next({ request: { headers: forwardedHeaders } });
@@ -309,45 +337,19 @@ export function proxy(request: NextRequest) {
     response.headers.set('Cache-Control', 'private, no-store');
   }
 
-  // ── API auth enforcement (Bearer token presence check) ─────────────────
-  // Full DB-based session verification happens in per-route handlers
-  // via requireAuth() from @/lib/api-auth.
-  if (isApi && !isPublicApiRoute(pathname, method)) {
-    const authHeader = request.headers.get('authorization');
-    // Versioned API clients may use a company-scoped X-API-Key. The handler
-    // verifies its hash, status, expiry, tenant and scopes; proxy only checks
-    // that credentials are present (as it does for Bearer sessions).
-    const hasV1Key = pathname.startsWith('/api/v1/') && Boolean(request.headers.get('x-api-key')?.trim());
-    if (!hasV1Key && (!authHeader || !authHeader.startsWith('Bearer '))) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Missing or invalid Authorization header' },
-        { status: 401 },
-      );
-    }
-    if (!hasV1Key && !authHeader!.substring(7)) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Empty bearer token' },
-        { status: 401 },
-      );
-    }
-
-    // ── Route-group separation ────────────────────────────────────────────
-    // A client session may call `/api/portal/**` and the shared account
-    // endpoints — nothing else. An internal session may call everything except
-    // the client route group. The refused request never reaches its handler:
-    // it is rewritten to the audit endpoint, which records the attempt and
-    // answers every client probe with the same 404, so the shape of the
-    // internal API cannot be mapped by guessing URLs.
-    if (!hasV1Key && pathname !== ACCESS_DENIED_ROUTE) {
-      const bearerAudience = audienceForToken(authHeader!.substring(7).trim());
-      if (!audienceMayCallApi(bearerAudience, pathname, method)) {
-        const denied = NextResponse.rewrite(new URL(ACCESS_DENIED_ROUTE, request.url), {
-          request: { headers: forwardedHeaders },
-        });
-        denied.headers.set('Cache-Control', 'private, no-store');
-        denied.headers.set('X-Content-Type-Options', 'nosniff');
-        return denied;
-      }
+  // ── API audience separation ──────────────────────────────────────────────
+  // Bearer JWT signatures were verified before the downstream request headers
+  // were built. The route-level helper revalidates the session against Prisma.
+  if (isApi && !isPublicApiRoute(pathname, method) && !hasV1Key && pathname !== ACCESS_DENIED_ROUTE) {
+    const bearer = request.headers.get('authorization')!.slice('Bearer '.length).trim();
+    const bearerAudience = edgeClaims?.audience ?? audienceForToken(bearer);
+    if (!audienceMayCallApi(bearerAudience, pathname, method)) {
+      const denied = NextResponse.rewrite(new URL(ACCESS_DENIED_ROUTE, request.url), {
+        request: { headers: forwardedHeaders },
+      });
+      denied.headers.set('Cache-Control', 'private, no-store');
+      denied.headers.set('X-Content-Type-Options', 'nosniff');
+      return denied;
     }
   }
 
@@ -418,6 +420,20 @@ export function proxy(request: NextRequest) {
       'X-RateLimit-Remaining',
       String(Math.min(rateResult.remaining, bruteCheck.remainingAttempts)),
     );
+  }
+
+  // ── Rate limits for public recovery/MFA endpoints ───────────────────────
+  if (
+    method === 'POST' &&
+    (pathname === '/api/auth/password-reset' || pathname === '/api/auth/mfa/resend')
+  ) {
+    const rateResult = checkRateLimit(`${ip}:${pathname}`, 10, 15 * 60 * 1000);
+    if (!rateResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': '900' } },
+      );
+    }
   }
 
   // ── Rate limiting for public API routes (general) ───────────────────────

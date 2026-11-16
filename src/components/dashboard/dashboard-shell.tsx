@@ -38,6 +38,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { AloLabsLogo, Mark } from '@/components/brand/alo-logo'
+import { apiFetch } from '@/lib/api-client'
 import { useAppStore } from '@/store/app'
 import {
   DASHBOARD_NAV,
@@ -198,9 +199,8 @@ export default function DashboardShell({ initialUser }: { initialUser?: Dashboar
   const handleLogout = useCallback(async () => {
     const token = localStorage.getItem('token') || localStorage.getItem('alo_token')
     try {
-      await fetch('/api/auth/logout', {
+      await apiFetch('/api/auth/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ token }),
       })
     } catch {

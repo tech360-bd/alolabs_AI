@@ -18,7 +18,7 @@ import {
   Minus, RefreshCw, Loader2, AlertTriangle, CheckCircle2, Info,
   ExternalLink, Globe,
 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi } from '@/lib/api-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

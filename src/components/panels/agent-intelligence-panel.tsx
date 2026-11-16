@@ -1,5 +1,6 @@
 'use client';
 
+import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Brain, Bot, Building2, Search, MessageSquare, TrendingUp, Shield, Sparkles,
@@ -200,7 +201,7 @@ export default function AgentIntelligencePanel() {
   const fetchDepartments = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/agent-intelligence/departments');
+      const res = await apiFetch('/api/agent-intelligence/departments');
       if (!res.ok) throw new Error('Failed to fetch departments');
       const data = await res.json();
       setDepartments(data.departments || []);
@@ -221,7 +222,7 @@ export default function AgentIntelligencePanel() {
   const fetchAgents = useCallback(async (deptId: string) => {
     try {
       setAgentsLoading(true);
-      const res = await fetch(`/api/agent-intelligence/agents?departmentId=${deptId}`);
+      const res = await apiFetch(`/api/agent-intelligence/agents?departmentId=${deptId}`);
       if (!res.ok) throw new Error('Failed to fetch agents');
       const data = await res.json();
       setAgents(data.agents || []);
@@ -250,7 +251,7 @@ export default function AgentIntelligencePanel() {
   const fetchAgentDetail = useCallback(async (agentId: string) => {
     try {
       setDetailLoading(true);
-      const res = await fetch(`/api/agent-intelligence/agent-detail?id=${agentId}`);
+      const res = await apiFetch(`/api/agent-intelligence/agent-detail?id=${agentId}`);
       if (!res.ok) throw new Error('Failed to fetch agent detail');
       const data = await res.json();
       setAgentDetail(data.agent || null);
@@ -276,7 +277,7 @@ export default function AgentIntelligencePanel() {
     setChatLoading(true);
 
     try {
-      const res = await fetch('/api/agent-intelligence/chat', {
+      const res = await apiFetch('/api/agent-intelligence/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId: selectedAgentId, message: userMsg }),

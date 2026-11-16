@@ -92,18 +92,33 @@ export function audienceForRole(role: string | null | undefined): Audience {
 
 // ─── Session tokens ──────────────────────────────────────────────────────────
 
-/**
- * Client sessions are minted with this prefix; internal sessions are bare hex.
- *
- * The prefix is part of the token that gets hashed for lookup, so it cannot be
- * stripped or added by the holder without invalidating the session. That lets
- * the request proxy — which has no database — route by token class, while the
- * authoritative decision still comes from the stored session record.
- */
+/** Prefix retained only to classify opaque client tokens during migration. */
 export const CLIENT_TOKEN_PREFIX = 'alc_';
 
+/**
+ * Read the audience claim from a compact JWT without treating it as verified.
+ * This is only a routing hint for the request proxy; API handlers verify the
+ * signature and database session. A forged claim can at most reach a handler
+ * that will reject the token.
+ */
+function jwtAudience(token: string): Audience | null {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const payload = JSON.parse(new TextDecoder().decode(bytes)) as { aud?: unknown };
+    return payload.aud === 'client' || payload.aud === 'internal' ? payload.aud : null;
+  } catch {
+    return null;
+  }
+}
+
 export function audienceForToken(token: string | null | undefined): Audience {
-  return typeof token === 'string' && token.startsWith(CLIENT_TOKEN_PREFIX) ? 'client' : 'internal';
+  if (typeof token !== 'string') return 'internal';
+  return jwtAudience(token) ?? (token.startsWith(CLIENT_TOKEN_PREFIX) ? 'client' : 'internal');
 }
 
 // ─── Route groups ────────────────────────────────────────────────────────────

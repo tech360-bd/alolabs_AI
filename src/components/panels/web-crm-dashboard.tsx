@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
   Users,
@@ -140,9 +141,9 @@ export default function WebCrmDashboard() {
   const fetchAll = useCallback(() => {
     setLoading(true)
     Promise.all([
-      fetch('/api/dashboard/stats').then((r) => r.json()),
-      fetch('/api/crm-connections').then((r) => r.json()),
-      fetch('/api/audit-logs?limit=20').then((r) => r.json()),
+      apiFetch('/api/dashboard/stats').then((r) => r.json()),
+      apiFetch('/api/crm-connections').then((r) => r.json()),
+      apiFetch('/api/audit-logs?limit=20').then((r) => r.json()),
     ])
       .then(([statsData, connData, logData]) => {
         setStats(statsData || null)
@@ -161,7 +162,7 @@ export default function WebCrmDashboard() {
     if (action === 'sync') {
       setSyncingId(companyId)
       try {
-        const res = await fetch('/api/crm-connections', {
+        const res = await apiFetch('/api/crm-connections', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ companyId, action }),

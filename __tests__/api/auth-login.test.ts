@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock NextRequest
 class MockNextRequest {
-  private body: Record<string, string>;
+  private body: Record<string, unknown>;
   private headersMap: Record<string, string>;
 
-  constructor(body: Record<string, string>, headers: Record<string, string> = {}) {
+  constructor(body: Record<string, unknown>, headers: Record<string, string> = {}) {
     this.body = body;
     this.headersMap = headers;
   }
@@ -68,6 +68,7 @@ vi.mock('@/lib/auth', () => ({
 
 import { POST } from '@/app/api/auth/login/route';
 import { compare } from 'bcrypt';
+import { createSessionToken } from '@/lib/auth';
 
 describe('POST /api/auth/login', () => {
   beforeEach(() => {
@@ -154,6 +155,40 @@ describe('POST /api/auth/login', () => {
     expect(data.user.mfaRequired).toBeUndefined();
   });
 
+  it('uses the 30-day remember-me lifetime for both the JWT and cookie', async () => {
+    mockUserFindUnique.mockResolvedValue({
+      id: 'user-remembered',
+      email: 'remembered@alo.com',
+      name: 'Remembered User',
+      role: 'admin',
+      isActive: true,
+      passwordHash: 'hashed',
+      otpEnabled: false,
+    });
+    vi.mocked(compare).mockResolvedValue(true);
+    mockUserUpdate.mockResolvedValue({});
+    mockAuditLogCreate.mockResolvedValue({});
+
+    const request = new MockNextRequest(
+      { email: 'remembered@alo.com', password: 'correct', rememberMe: true },
+      { 'x-real-ip': '203.0.113.7', 'user-agent': 'Firefox/Linux' },
+    );
+    const response = await POST(request as any);
+
+    expect(response.status).toBe(200);
+    expect(createSessionToken).toHaveBeenCalledWith('user-remembered', expect.objectContaining({
+      method: 'password',
+      ttlHours: 30 * 24,
+      isRefreshToken: true,
+      ipAddress: '203.0.113.7',
+      userAgent: 'Firefox/Linux',
+    }));
+    expect(setCookieMock).toHaveBeenCalledWith('session-token', 'session-token-abc', expect.objectContaining({
+      maxAge: 30 * 24 * 60 * 60,
+      httpOnly: true,
+    }));
+  });
+
   it('should return MFA pending when user has OTP enabled', async () => {
     mockUserFindUnique.mockResolvedValue({
       id: 'user-mfa',
@@ -166,7 +201,7 @@ describe('POST /api/auth/login', () => {
     });
     vi.mocked(compare).mockResolvedValue(true);
 
-    const request = new MockNextRequest({ email: 'mfa@alo.com', password: 'correct' });
+    const request = new MockNextRequest({ email: 'mfa@alo.com', password: 'correct', rememberMe: true });
     const response = await POST(request as any);
     expect(response.status).toBe(200);
     const data = await response.json();
@@ -174,6 +209,12 @@ describe('POST /api/auth/login', () => {
     expect(data.token).toBeNull();
     expect(data.user.mfaRequired).toBe(true);
     expect(data.tempToken).toBeDefined();
+
+    const stored = mockSettingsUpsert.mock.calls[0][0];
+    const pendingMetadata = JSON.parse(stored.create.value);
+    expect(pendingMetadata).toMatchObject({ userId: 'user-mfa', rememberMe: true });
+    expect(typeof pendingMetadata.createdAt).toBe('number');
+    expect(createSessionToken).not.toHaveBeenCalled();
   });
 
   it('should return 500 on unexpected error', async () => {
