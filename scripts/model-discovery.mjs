@@ -4,8 +4,8 @@
  *
  * Read-only discovery: fetches the current public model catalogue from
  * OpenRouter's public API (no credentials) and, when reachable, the Ollama
- * library index. Produces a Markdown report of open-weight / free-lane
- * models with licence-bearing fields where the source provides them.
+ * library index. Produces a Markdown report of free-lane models and Ollama library entries.
+ * Neither free pricing nor inclusion in a catalogue proves an open-source licence.
  *
  * HARD RULES:
  * - This script NEVER activates, registers, replaces or routes any
@@ -36,6 +36,14 @@ async function fetchText(url) {
   return res.text();
 }
 
+// Avoid Number(null), Number('') and numeric underflow treating missing or
+// non-zero prices as zero. Only accept an explicit, syntactically zero value.
+function isExplicitZeroPrice(value) {
+  if (typeof value === 'number') return Number.isFinite(value) && value === 0;
+  if (typeof value !== 'string') return false;
+  return /^\+?0+(?:\.0+)?(?:e[+-]?\d+)?$/i.test(value.trim());
+}
+
 /**
  * Free-lane models from OpenRouter. A lane is treated as free ONLY when the
  * API itself reports an explicit zero price for BOTH prompt and completion.
@@ -55,11 +63,7 @@ export function extractFreeModels(payload) {
       description: typeof m.description === 'string' ? m.description.slice(0, 400) : null,
     }))
     .filter((m) => {
-      const freeSuffix = /:free$/i.test(m.id);
-      const explicitZero =
-        Number(m.promptPrice) === 0 && Number(m.completionPrice) === 0 &&
-        Number.isFinite(Number(m.promptPrice)) && Number.isFinite(Number(m.completionPrice));
-      return freeSuffix || explicitZero;
+      return isExplicitZeroPrice(m.promptPrice) && isExplicitZeroPrice(m.completionPrice);
     })
     .sort((a, b) => a.id.localeCompare(b.id));
 }
@@ -79,13 +83,14 @@ function toolCalling(params) {
 
 export function buildReport({ openrouter, ollama }) {
   const lines = [];
-  lines.push('# Weekly Open-Source AI Model Discovery Report');
+  lines.push('# Weekly AI Model Discovery Report (human review required)');
   lines.push('');
   lines.push(`- Retrieval date (UTC): ${RETRIEVED_AT}`);
   lines.push('- Sources:');
   lines.push(`  - OpenRouter public models API: ${OPENROUTER_MODELS_URL}`);
   lines.push(`  - Ollama library index: ${OLLAMA_LIBRARY_URL}`);
-  lines.push('- **Review policy:** discovery output is INFORMATION ONLY. No model becomes');
+  lines.push('- **Review policy:** discovery output is INFORMATION ONLY; free pricing or');
+  lines.push('  catalogue inclusion does not establish an open-source licence. No model becomes');
   lines.push('  production-eligible without human review of the official licence, commercial');
   lines.push('  terms, privacy policy and behaviour tests. This workflow never activates,');
   lines.push('  replaces or routes production models.');
@@ -107,7 +112,8 @@ export function buildReport({ openrouter, ollama }) {
     }
     lines.push('');
     lines.push('Pricing evidence: the API reports explicit $0 prompt AND completion prices for');
-    lines.push('the lanes above (or the model carries the documented `:free` suffix). Free-tier');
+    lines.push('the lanes above. Other modalities and fees may have separate charges; verify');
+    lines.push('all pricing before use. Free-tier');
     lines.push('rate limits (RPM/RPD) are enforced by OpenRouter per account and are NOT visible');
     lines.push('in this API — verify current limits at https://openrouter.ai/docs#limits before use.');
   }
