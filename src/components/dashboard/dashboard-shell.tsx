@@ -47,6 +47,15 @@ import {
   DEFAULT_DASHBOARD_VIEW,
   type DashboardNavItem,
 } from '@/lib/dashboard/navigation'
+import {
+  DEFAULT_LOCALE,
+  LOCALE_LABELS,
+  navGroupLabel,
+  navItemLabel,
+  t,
+  type Locale,
+} from '@/lib/dashboard/i18n'
+import { Languages } from 'lucide-react'
 import LoginPage from '@/components/pages/login'
 
 // ─── Lazy panel registry ─────────────────────────────────────────────────────
@@ -81,23 +90,31 @@ function SidebarContent({
   collapsed,
   activeId,
   onSelect,
+  locale,
 }: {
   collapsed: boolean
   activeId: string
   onSelect: (id: string) => void
+  locale: Locale
 }) {
   const [query, setQuery] = useState('')
 
+  // Search matches both the English label and its localisation, so an operator
+  // typing in Bangla still finds the view.
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return DASHBOARD_NAV
     return DASHBOARD_NAV
       .map((group) => ({
         ...group,
-        items: group.items.filter((item) => item.label.toLowerCase().includes(q)),
+        items: group.items.filter(
+          (item) =>
+            item.label.toLowerCase().includes(q) ||
+            navItemLabel(locale, item.id, item.label).toLowerCase().includes(q),
+        ),
       }))
       .filter((group) => group.items.length > 0)
-  }, [query])
+  }, [query, locale])
 
   return (
     <div className="flex h-full flex-col">
@@ -108,8 +125,8 @@ function SidebarContent({
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search views…"
-              aria-label="Search dashboard views"
+              placeholder={t(locale, 'shell.search', 'Search views…')}
+              aria-label={t(locale, 'shell.search.aria', 'Search dashboard views')}
               className="h-8 pl-8 text-xs"
             />
           </div>
@@ -121,7 +138,7 @@ function SidebarContent({
             <div key={group.label} className="mb-2">
               {!collapsed && (
                 <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  {group.label}
+                  {navGroupLabel(locale, group.label)}
                 </p>
               )}
               {group.items.map((item: DashboardNavItem) => {
@@ -132,7 +149,7 @@ function SidebarContent({
                     key={item.id}
                     type="button"
                     onClick={() => onSelect(item.id)}
-                    title={collapsed ? item.label : undefined}
+                    title={collapsed ? navItemLabel(locale, item.id, item.label) : undefined}
                     aria-current={isActive ? 'page' : undefined}
                     className={[
                       'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150',
@@ -143,14 +160,16 @@ function SidebarContent({
                     ].join(' ')}
                   >
                     <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-[#0066CC]' : 'text-slate-500 dark:text-slate-400'}`} />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
+                    {!collapsed && <span className="truncate">{navItemLabel(locale, item.id, item.label)}</span>}
                   </button>
                 )
               })}
             </div>
           ))}
           {groups.length === 0 && (
-            <p className="px-3 py-6 text-center text-xs text-slate-400">No views match “{query}”.</p>
+            <p className="px-3 py-6 text-center text-xs text-slate-400">
+              {t(locale, 'shell.search.empty', 'No views match “{query}”.', { query })}
+            </p>
           )}
         </nav>
       </ScrollArea>
@@ -177,6 +196,7 @@ export default function DashboardShell({ initialUser }: { initialUser?: Dashboar
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE)
 
   // Hydrate the store and the saved theme after mount. Deliberately NOT an
   // early-return "is mounted" gate: the nav must be part of the server-rendered
@@ -186,12 +206,23 @@ export default function DashboardShell({ initialUser }: { initialUser?: Dashboar
     _init()
     const saved = localStorage.getItem('enterprise-theme')
     if (saved === 'light' || saved === 'dark') setTheme(saved)
+    const savedLocale = localStorage.getItem('alo-locale')
+    if (savedLocale === 'en' || savedLocale === 'bn-BD') setLocale(savedLocale)
+    else if (typeof navigator !== 'undefined' && navigator.language?.startsWith('bn')) setLocale('bn-BD')
   }, [_init])
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
       const next = prev === 'dark' ? 'light' : 'dark'
       localStorage.setItem('enterprise-theme', next)
+      return next
+    })
+  }, [])
+
+  const toggleLocale = useCallback(() => {
+    setLocale((prev) => {
+      const next: Locale = prev === 'en' ? 'bn-BD' : 'en'
+      localStorage.setItem('alo-locale', next)
       return next
     })
   }, [])
@@ -263,7 +294,7 @@ export default function DashboardShell({ initialUser }: { initialUser?: Dashboar
           </div>
 
           <div className="flex-1 overflow-hidden">
-            <SidebarContent collapsed={!sidebarOpen} activeId={view} onSelect={handleSelect} />
+            <SidebarContent collapsed={!sidebarOpen} activeId={view} onSelect={handleSelect} locale={locale} />
           </div>
 
           <div className={`border-t p-2 ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`}>
@@ -288,7 +319,7 @@ export default function DashboardShell({ initialUser }: { initialUser?: Dashboar
                   <div className={`flex h-14 items-center gap-3 border-b px-4 ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`}>
                     <AloLabsLogo size={28} tagline={false} />
                   </div>
-                  <SidebarContent collapsed={false} activeId={view} onSelect={handleSelect} />
+                  <SidebarContent collapsed={false} activeId={view} onSelect={handleSelect} locale={locale} />
                 </SheetContent>
               </Sheet>
 
@@ -301,7 +332,7 @@ export default function DashboardShell({ initialUser }: { initialUser?: Dashboar
                 <span className="text-slate-400">/</span>
                 <span className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
                   <CurrentIcon className="h-3.5 w-3.5" />
-                  {current?.label ?? 'Overview'}
+                  {current ? navItemLabel(locale, current.id, current.label) : 'Overview'}
                 </span>
               </div>
             </div>
@@ -312,10 +343,21 @@ export default function DashboardShell({ initialUser }: { initialUser?: Dashboar
                 <Activity className="h-3 w-3 text-emerald-500" />
                 <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Online</span>
               </div>
-              <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8" aria-label="Toggle theme">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleLocale}
+                className="h-8 gap-1.5 px-2 text-xs font-semibold"
+                aria-label={t(locale, 'shell.language', 'Language')}
+                title={t(locale, 'shell.language', 'Language')}
+              >
+                <Languages className="h-4 w-4" />
+                {LOCALE_LABELS[locale]}
+              </Button>
+              <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8" aria-label={t(locale, 'shell.theme', 'Toggle theme')}>
                 {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8" aria-label="Sign out">
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8" aria-label={t(locale, 'shell.logout', 'Sign out')}>
                 <LogOut className="h-4 w-4" />
               </Button>
               <Avatar className="h-8 w-8">

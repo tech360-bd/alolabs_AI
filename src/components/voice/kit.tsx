@@ -50,7 +50,7 @@ export function useVoiceApi<T>(url: string) {
   return { data, error, loading, refresh }
 }
 
-export async function voiceMutate(url: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown): Promise<{ ok: boolean; data?: Record<string, unknown>; error?: string }> {
+export async function voiceMutate(url: string, method: 'POST' | 'PATCH' | 'PUT' | 'DELETE', body?: unknown): Promise<{ ok: boolean; data?: Record<string, unknown>; error?: string }> {
   try {
     const res = await apiFetch(url, {
       method,
@@ -124,11 +124,12 @@ export function InfoNote({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+export function EmptyState({ title, hint, children }: { title: string; hint?: string; children?: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed py-10 text-center">
       <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{title}</p>
       {hint ? <p className="max-w-md text-xs text-slate-400">{hint}</p> : null}
+      {children}
     </div>
   )
 }
@@ -153,7 +154,7 @@ export function TableWrap({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function Th({ children }: { children: React.ReactNode }) {
+export function Th({ children }: { children?: React.ReactNode }) {
   return <th className="border-b bg-slate-50 px-3 py-2 text-left font-medium text-slate-500 dark:bg-slate-900 dark:text-slate-400">{children}</th>
 }
 export function Td({ children, className }: { children: React.ReactNode; className?: string }) {

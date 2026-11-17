@@ -25,6 +25,20 @@ const ENDPOINTS: Array<[string, string, string]> = [
   ['GET /api/voice/voices', 'Voice library', 'clones require verified consent'],
   ['GET /api/voice/consents', 'Clone consent records', 'PATCH verify/revoke — revocation is instant'],
   ['POST /api/voice/telephony/webhook', 'Provider webhook', 'x-alolabs-webhook-secret header required'],
+  ['GET /api/voice/ivr', 'IVR flows', 'POST creates · PATCH action=activate · PUT validates only'],
+  ['GET /api/voice/queues', 'Call queues & rosters', 'PATCH action=add_member/remove_member/update'],
+  ['GET /api/voice/business-hours', 'Business hours & holidays', 'returns live open/closed evaluation'],
+  ['POST /api/voice/routing', 'Inbound routing', 'dryRun:true returns the plan + reason chain'],
+  ['GET /api/voice/voicemail', 'Voicemail box', 'media only when a real adapter delivered audio'],
+  ['GET /api/voice/recordings', 'Recordings & transcripts', '?transcript=<id>&format=srt|vtt exports subtitles'],
+  ['GET /api/voice/crm', 'Customer 360 & CSV', '?export=csv · ?duplicates= · ?contactability='],
+  ['PATCH /api/voice/crm', 'CSV contact import', 'per-row report; duplicates skipped'],
+  ['GET /api/voice/intelligence', 'Call intelligence', 'insights carry quoted evidence + confidence'],
+  ['GET /api/voice/inbox', 'Omnichannel inbox', 'threads, timelines and templates'],
+  ['POST /api/voice/inbox', 'Approve AI drafts', 'action=approve requires a human approver'],
+  ['GET /api/voice/supervisor', 'Live floor & QA', 'metadata only — no live audio'],
+  ['GET /api/voice/benchmarks', 'Bangla speech benchmarks', 'WER computed server-side, not client-supplied'],
+  ['PUT /api/voice/pronunciation', 'Spoken-text preview', 'exact normalized text + substitution list'],
 ]
 
 export default function VoiceBillingApiPanel() {
