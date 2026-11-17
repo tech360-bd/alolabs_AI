@@ -1,31 +1,38 @@
 import { db } from '@/lib/db'
 import { readJson, requireString, optionalString, withCompany } from '@/lib/voice/api-helpers'
-import {
-  resolveTtsEngine,
-  engineSupportsLanguage,
-  countTtsCharacters,
-  SpeechEngineUnavailableError,
-} from '@/lib/voice/speech'
-import { meterTtsUsage } from '@/lib/voice/metering'
+import { runTtsJob, runTtsBatch } from '@/lib/voice/tts-service'
+import { speechCapabilitySnapshot } from '@/lib/voice/speech-bootstrap'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * Bangla TTS studio API (Module C).
  *
+ * GET   — recent jobs + the REAL speech-engine capability snapshot
+ * POST  — synthesize. Two shapes:
+ *           { text, language?, settings?, dryRun? }        → single job
+ *           { items: [{ text, language? }, …], batch }     → batch jobs
+ *
  * HONEST BEHAVIOR: when no speech engine is deployed the job is recorded and
- * immediately failed with error `no_speech_provider_configured` — the API
- * never returns synthetic/fake audio. The metering rows are also stamped
- * simulated=false; failed jobs meter nothing.
+ * immediately failed with error `no_speech_provider_configured` — the API never
+ * returns synthetic audio. Nothing is metered for a failed job.
  */
 export async function GET() {
   return withCompany(async (auth) => {
-    const jobs = await db.ttsJob.findMany({
-      where: { companyId: auth.companyId },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    })
-    return { data: jobs, total: jobs.length }
+    const [jobs, engines] = await Promise.all([
+      db.ttsJob.findMany({
+        where: { companyId: auth.companyId },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        select: {
+          id: true, text: true, language: true, status: true, characters: true,
+          durationSeconds: true, provider: true, simulated: true, error: true,
+          outputKey: true, outputFormat: true, createdAt: true,
+        },
+      }),
+      speechCapabilitySnapshot(),
+    ])
+    return { data: jobs, total: jobs.length, engines }
   })
 }
 
@@ -33,62 +40,41 @@ export async function POST(request: Request) {
   return withCompany(async (auth) => {
     const body = await readJson(request)
     if (!body) throw new Error('Invalid request: JSON body required')
+
+    const settings = typeof body.settings === 'object' && body.settings ? (body.settings as never) : undefined
+
+    // Batch mode: many texts, one request, per-item honest results.
+    if (Array.isArray(body.items)) {
+      const items = (body.items as Array<Record<string, unknown>>)
+        .map((item) => ({
+          text: typeof item.text === 'string' ? item.text : '',
+          language: typeof item.language === 'string' ? item.language : undefined,
+          voiceLibraryItemId: typeof item.voiceLibraryItemId === 'string' ? item.voiceLibraryItemId : undefined,
+        }))
+        .filter((item) => item.text.trim().length > 0)
+      if (items.length === 0) throw new Error('Invalid request: items must contain at least one { text }')
+      const batch = await runTtsBatch({
+        companyId: auth.companyId,
+        items,
+        language: optionalString(body, 'language'),
+        settings,
+      })
+      return { data: batch, notice: `${batch.completed} completed, ${batch.failed} failed.` }
+    }
+
     const text = requireString(body, 'text')
     const language = optionalString(body, 'language') ?? 'bn-BD'
-
-    const engine = resolveTtsEngine(optionalString(body, 'engine'))
-    if (!engineSupportsLanguage(engine.info, language)) {
-      throw new Error(
-        `refused: TTS engine "${engine.info.id}" does not support language "${language}" (available: ${engine.info.available})`,
-      )
-    }
-
-    const job = await db.ttsJob.create({
-      data: {
-        companyId: auth.companyId,
-        text,
-        language,
-        voiceLibraryItemId: optionalString(body, 'voiceLibraryItemId'),
-        settings: JSON.stringify(body.settings ?? {}),
-        characters: countTtsCharacters(text),
-        status: 'processing',
-      },
+    const result = await runTtsJob({
+      companyId: auth.companyId,
+      text,
+      language,
+      voiceLibraryItemId: optionalString(body, 'voiceLibraryItemId'),
+      engineId: optionalString(body, 'engine'),
+      settings,
+      dryRun: body.dryRun === true,
     })
 
-    try {
-      const result = await engine.synthesize({ text, language, voiceId: optionalString(body, 'voiceLibraryItemId'), settings: body.settings as never })
-      const updated = await db.ttsJob.update({
-        where: { id: job.id },
-        data: {
-          status: 'completed',
-          outputKey: result.audioKey,
-          outputFormat: result.format,
-          durationSeconds: result.durationSeconds,
-          provider: engine.info.id,
-          simulated: result.simulated,
-        },
-      })
-      await meterTtsUsage({
-        companyId: auth.companyId,
-        ttsJobId: job.id,
-        text,
-        durationSeconds: result.durationSeconds,
-        simulated: result.simulated,
-      })
-      return { data: updated }
-    } catch (err) {
-      const message = err instanceof SpeechEngineUnavailableError
-        ? 'no_speech_provider_configured'
-        : err instanceof Error ? err.message : 'tts_failed'
-      const failed = await db.ttsJob.update({
-        where: { id: job.id },
-        data: { status: 'failed', error: message, provider: engine.info.id },
-      })
-      return {
-        data: failed,
-        notice:
-          'Speech generation failed honestly — no audio was produced. Deploy a TTS engine (e.g. a Bangla-capable local model) and register it via registerTtsEngine(). See docs/BANGLA_VOICE_MODEL_EVALUATION.md.',
-      }
-    }
+    const job = await db.ttsJob.findFirst({ where: { id: result.jobId, companyId: auth.companyId } })
+    return { data: { job, result }, notice: result.notice }
   })
 }

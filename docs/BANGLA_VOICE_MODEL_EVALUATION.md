@@ -187,6 +187,35 @@ These are **targets, not achieved results**:
 
 A high average cannot override a critical number/currency error or a failing cohort. Arabic, Hindi and English require their own native review before being advertised. If thresholds are not met, label the capability experimental/unavailable and keep production calling on approved human/PBX flows.
 
+## 6.2 Executable harness (added 2026-11-17)
+
+The gating rules in §6.1 are now mechanical, not advisory:
+
+| Piece | Path | What it guarantees |
+|---|---|---|
+| Gate logic | `src/lib/voice/eval-harness.ts` | WER/CER are always computed from reference vs hypothesis. MOS/naturalness/intelligibility are **discarded** unless a named reviewer supplied them. |
+| CLI runner | `scripts/run-voice-benchmark.ts` | `--dry-run` prints the report without writing; otherwise persists one `VoiceBenchmark` row per sample. Exit 0 = all gates pass, 1 = fail, 2 = incomplete, 3 = usage error. |
+| API report | `GET /api/voice/benchmarks?gates=1` | Applies the same gates to the rows actually stored for the tenant. |
+| Tests | `__tests__/unit/lib/voice/eval-harness.test.ts` | Proves unattributed scores are dropped, empty corpora are "incomplete" not "pass", and a lost number/currency fails the run despite a high MOS. |
+
+**Critical-entity override.** A sample whose reference contains a number or
+currency expression and whose output loses it is reported as a critical failure
+and fails the whole run, regardless of averages — exactly the §6.1 rule that a
+high mean cannot mask a wrong amount.
+
+**What the harness cannot do.** It does not generate speech or transcripts; the
+hypothesis text must come from the engine under test. It does not judge
+naturalness — a human must listen. A run over English-only or imported corpora
+proves nothing about bn-BD, and the report says so when a condition had no
+samples (`applicable: false`, verdict `not_measured`).
+
+Example:
+
+```bash
+npx tsx scripts/run-voice-benchmark.ts \
+  --corpus corpus.json --engine piper-bn --engine-version 1.2.0 --task tts --dry-run
+```
+
 ## 7. Benchmark procedure and report contract
 
 No benchmark was run in Phase 0. The current sandbox has 2 visible CPUs, about 3.8 GiB RAM and no observed GPU; it is not the target speech host.

@@ -3870,6 +3870,9 @@ model PhoneNumber {
   assignedQueueId      String?
   forwardTo            String?
   recordingMode        String    @default("disabled") // disabled, on_demand, always_with_consent
+  // Free-form per-number config; `inboundRouting` holds after-hours action,
+  // forward number and voicemail prompt (see src/lib/voice/inbound-routing.ts).
+  metadata             String    @default("{}")
   timezone             String    @default("Asia/Dhaka")
   provisionedAt        DateTime?
   createdAt            DateTime  @default(now())
@@ -4880,4 +4883,164 @@ model ClientProjectExecution {
   @@index([projectId])
   @@index([runId])
   @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Voice & Contact Center — added 2026-11-17 by the spec-gap closure round.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Voicemail box per phone number/tenant (Module A). Media is only stored when a
+// real adapter delivers it; `storageKey` stays null for a sandbox leg.
+model Voicemail {
+  id              String    @id @default(cuid())
+  companyId       String
+  phoneNumberId   String?
+  callSessionId   String?
+  contactId       String?
+  fromNumber      String
+  durationSeconds Int       @default(0)
+  storageKey      String?
+  mimeType        String    @default("audio/wav")
+  transcript      String?
+  status          String    @default("unread") // unread, read, archived
+  assignedUserId  String?
+  simulated       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+}
+
+// A message on an omnichannel thread (Module I). Conversation/ConversationMessage
+// already serve web-chat/AI threads; this table adds channel + delivery state
+// for the unified inbox without rewriting those callers.
+model OmniChannelMessage {
+  id             String    @id @default(cuid())
+  companyId      String
+  conversationId String?
+  channel        String    // voice, sms, whatsapp, email, webchat, social
+  direction      String    @default("inbound") // inbound, outbound
+  contactId      String?
+  fromAddress    String
+  toAddress      String
+  body           String
+  status         String    @default("queued") // queued, sent, delivered, failed, received
+  assignedUserId String?
+  threadKey      String    // stable grouping key (contact + channel)
+  templateId     String?
+  aiDrafted      Boolean   @default(false)
+  approvedById   String?
+  metadata       String    @default("{}")
+  externalId     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([companyId, channel, createdAt])
+  @@index([companyId, threadKey])
+  @@index([companyId, status])
+}
+
+// Message template for SMS/WhatsApp/email (Module I). Provider submission is
+// separate: a template exists here only once an operator created it.
+model MessageTemplate {
+  id            String   @id @default(cuid())
+  companyId     String
+  channel       String   @default("sms") // sms, whatsapp, email
+  name          String
+  language      String   @default("bn-BD")
+  body          String
+  variables     String   @default("[]") // JSON list of {{var}} names
+  category      String   @default("utility") // marketing, utility, authentication
+  status        String   @default("draft") // draft, submitted, approved, rejected
+  externalId    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([companyId, channel, name])
+  @@index([companyId, channel])
+}
+
+// Pronunciation dictionary entry (Module C). Applied by the TTS text
+// normalizer BEFORE synthesis so Bangla names/currency/numbers are spoken
+// correctly instead of being guessed by the engine.
+model PronunciationEntry {
+  id        String   @id @default(cuid())
+  companyId String
+  language  String   @default("bn-BD")
+  term      String
+  phonetic  String
+  caseSensitive Boolean @default(false)
+  enabled   Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, language, term])
+  @@index([companyId, language])
+}
+
+// Call-intelligence evidence row (Module J). One row per derived insight so a
+// dashboard can cite the segment that produced it instead of asserting a mood.
+model CallInsight {
+  id            String   @id @default(cuid())
+  companyId     String
+  callSessionId String
+  kind          String   // intent, topic, objection, action_item, compliance, sentiment, keyword, csat, quality
+  label         String
+  value         String   @default("")
+  confidence    Float?
+  evidence      String   @default("[]") // JSON [{segmentIndex, quote}]
+  model         String?
+  createdAt     DateTime @default(now())
+
+  @@index([companyId, kind])
+  @@index([companyId, callSessionId])
+}
+
+// Supervisor quality review of a call (Module G/J). Human-entered only;
+// automated scores live on CallInsight with kind='quality'.
+model CallReview {
+  id             String   @id @default(cuid())
+  companyId      String
+  callSessionId  String
+  reviewerUserId String?
+  score          Float?
+  criteria       String   @default("{}") // JSON {criterion: score}
+  notes          String?
+  status         String   @default("draft") // draft, submitted, acknowledged, disputed
+  submittedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([companyId, callSessionId])
+  @@index([companyId, status])
+}
+
+// Speech-quality benchmark result (docs/BANGLA_VOICE_MODEL_EVALUATION.md).
+// Only real reviewer/measured rows belong here — WER appears only when a
+// reviewer supplied a reference transcript.
+model VoiceBenchmark {
+  id             String   @id @default(cuid())
+  companyId      String?
+  engine         String
+  engineVersion  String?
+  language       String   @default("bn-BD")
+  task           String   @default("tts") // tts, asr
+  sampleId       String
+  reviewerName   String?
+  referenceText  String?
+  hypothesisText String?
+  wer            Float?
+  cer            Float?
+  mos            Float?   // 1–5 native-speaker mean opinion score
+  naturalness    Float?
+  intelligibility Float?
+  latencyMs      Int?
+  audioProfile   String   @default("clean") // clean, noisy, telephone, code_switched
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  @@index([companyId, task, language])
+  @@index([engine, createdAt])
 }

@@ -19,7 +19,17 @@ export function jsonError(message: string, status: number): NextResponse {
   return NextResponse.json({ error: message }, { status })
 }
 
-export async function withCompany<T>(handler: Handler<T>): Promise<NextResponse> {
+/**
+ * A handler result that is already a full HTTP response (e.g. a CSV download
+ * or an audio stream). Returned untouched by `withCompany`, which otherwise
+ * JSON-encodes everything. Kept explicit so a route can never accidentally
+ * return `{}` where a file was intended.
+ */
+export class RawResponse {
+  constructor(readonly response: Response) {}
+}
+
+export async function withCompany<T>(handler: Handler<T>): Promise<NextResponse | Response> {
   try {
     let auth: CompanyAuth
     try {
@@ -28,6 +38,7 @@ export async function withCompany<T>(handler: Handler<T>): Promise<NextResponse>
       return jsonError('Unauthorized — company session required', 401)
     }
     const result = await handler(auth)
+    if (result instanceof RawResponse) return result.response
     return NextResponse.json(result as Record<string, unknown>)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error'

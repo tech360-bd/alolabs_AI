@@ -100,3 +100,8 @@ prisma/*.db-shm
 # Weekly open-source AI discovery reports (machine-generated, reviewed then
 # archived outside git if they need to be kept).
 docs/discovery/*.json
+
+# Bangla TTS engine install dir + generated audio (setup-bangla-tts.sh)
+.tts-venv/
+uploads/
+__pycache__/
