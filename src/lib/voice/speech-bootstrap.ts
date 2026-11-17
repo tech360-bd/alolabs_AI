@@ -14,12 +14,25 @@
  *
  * `ensureSpeechEngines()` is idempotent and cheap after the first call, so it
  * can be called at the top of any route or worker that needs speech.
+ *
+ * LIVENESS IS NOT A ONE-TIME FACT
+ * ------------------------------
+ * Registration happens once, but reachability does NOT: an engine process that
+ * dies keeps the old "available: true" forever if health is only probed at
+ * boot. `speechCapabilitySnapshot()` therefore re-probes a configured engine
+ * (throttled to HEALTH_REPROBE_MS) and reports it unavailable once its health
+ * endpoint stops answering, so the dashboard says "config is present but the
+ * engine is down" instead of claiming a capability that no longer exists.
  */
 
 import { registerAsrEngine, registerTtsEngine, resolveAsrEngine, resolveTtsEngine, ttsEngineIds } from './speech'
 import { buildConfiguredEngines } from './speech-adapters/http-engine'
 
+/** How long a health result is trusted before re-probing the engine. */
+const HEALTH_REPROBE_MS = 10_000
+
 let initialized = false
+let lastProbeAt = 0
 let bootstrapReport: {
   tts: { id: string; available: boolean; label: string; local: boolean; detail?: string } | null
   asr: { id: string; available: boolean; label: string; local: boolean; detail?: string } | null
@@ -62,7 +75,25 @@ export async function ensureSpeechEngines(): Promise<typeof bootstrapReport> {
 /** Test hook: forget the bootstrap so a new env is picked up. */
 export function resetSpeechEngineBootstrapForTests(): void {
   initialized = false
+  lastProbeAt = 0
   bootstrapReport = null
+}
+
+type Probeable = { health?: () => Promise<{ available: boolean; detail?: string }> }
+
+/**
+ * Probe an engine's liveness, tolerating both a missing `health()` and a
+ * throwing one. A probe that fails is itself evidence the engine is down, so it
+ * reports unavailable rather than assuming the best.
+ */
+async function probeHealth(engine: unknown): Promise<{ available: boolean; detail?: string } | null> {
+  const candidate = engine as Probeable
+  if (typeof candidate.health !== 'function') return null
+  try {
+    return await candidate.health()
+  } catch (err) {
+    return { available: false, detail: err instanceof Error ? err.message : 'health probe failed' }
+  }
 }
 
 /**
@@ -78,6 +109,22 @@ export async function speechCapabilitySnapshot(): Promise<{
   const report = await ensureSpeechEngines()
   const ttsEngine = resolveTtsEngine()
   const asrEngine = resolveAsrEngine()
+
+  // Re-probe a configured engine so a dead process cannot keep reporting as
+  // available. Throttled: an engine ping must not be paid on every page view.
+  // `health()` is optional on the interface (placeholders have none), so the
+  // probe is guarded rather than assumed.
+  if (report && report.configured && Date.now() - lastProbeAt > HEALTH_REPROBE_MS) {
+    lastProbeAt = Date.now()
+    if (report.tts) {
+      const health = await probeHealth(ttsEngine)
+      if (health) report.tts = { ...report.tts, available: health.available, detail: health.detail }
+    }
+    if (report.asr) {
+      const health = await probeHealth(asrEngine)
+      if (health) report.asr = { ...report.asr, available: health.available, detail: health.detail }
+    }
+  }
 
   // A configured engine's liveness comes from the boot probe; the placeholder
   // is structurally unavailable.

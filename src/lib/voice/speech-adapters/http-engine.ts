@@ -132,6 +132,25 @@ function storageKeyFor(engine: string, format: string): string {
 }
 
 /** Estimate duration from MP3/WAV byte length when the engine does not report it. */
+/**
+ * Determine the real container from the bytes we received.
+ *
+ * The job's requested `format` is a wish; this is what the engine actually
+ * sent back. Labelling WAV bytes "audio/mpeg" (or vice versa) makes the browser
+ * silently refuse to play a perfectly good file, which looks like an engine
+ * bug rather than a metadata one.
+ */
+export function sniffContentType(bytes: Buffer, requestedFormat: string): string {
+  if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WAVE') {
+    return 'audio/wav'
+  }
+  if (bytes.length >= 3 && bytes.toString('ascii', 0, 3) === 'ID3') return 'audio/mpeg'
+  // MPEG audio frame sync: 11 set bits.
+  if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) return 'audio/mpeg'
+  if (bytes.length >= 4 && bytes.toString('ascii', 0, 4) === 'OggS') return 'audio/ogg'
+  return requestedFormat === 'wav' ? 'audio/wav' : 'audio/mpeg'
+}
+
 export function estimateAudioDurationMs(bytes: number, format: string): number {
   if (!Number.isFinite(bytes) || bytes <= 0) return 0
   if (format === 'wav') {
@@ -290,11 +309,31 @@ export class HttpTtsEngine implements TtsEngine {
       if (!response.ok) {
         throw new SpeechEngineUnavailableError(this.info.id, `synthesis failed: HTTP ${response.status}`)
       }
-      return {
-        bytes: Buffer.from(await response.arrayBuffer()),
-        format,
-        contentType: format === 'wav' ? 'audio/wav' : 'audio/mpeg',
+      const bytes = Buffer.from(await response.arrayBuffer())
+      if (bytes.byteLength === 0) {
+        throw new SpeechEngineUnavailableError(this.info.id, 'engine returned zero bytes of audio')
       }
+      return {
+        bytes,
+        format,
+        // The engine decides what it actually produced; a WAV engine asked for
+        // "mp3" must not be labelled mp3, or the browser refuses to decode it.
+        contentType: sniffContentType(bytes, format),
+      }
+    } catch (err) {
+      if (err instanceof SpeechEngineUnavailableError) throw err
+      // Node's fetch reports a dead local engine as the bare string
+      // "fetch failed"; the useful part is in `.cause`. Surface the real reason
+      // and the URL so a misconfigured base URL is fixable from the error alone.
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new SpeechEngineUnavailableError(this.info.id, `synthesis timed out after ${timeoutMs}ms`)
+      }
+      const cause = err instanceof Error && err.cause instanceof Error ? `: ${err.cause.message}` : ''
+      const detail = err instanceof Error ? err.message : 'synthesis failed'
+      throw new SpeechEngineUnavailableError(
+        this.info.id,
+        `cannot reach speech engine at ${this.config.baseUrl} (${detail}${cause})`,
+      )
     } finally {
       clearTimeout(timer)
     }

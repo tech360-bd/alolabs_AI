@@ -21,6 +21,7 @@
 
 import { db } from '@/lib/db'
 import { getStorage } from '@/lib/storage'
+import { concatSpeechChunks, wavDurationSeconds } from './audio-concat'
 import {
   countTtsCharacters,
   engineSupportsLanguage,
@@ -165,6 +166,8 @@ export async function runTtsJob(input: TtsRequestInput): Promise<TtsJobResult> {
     }
   }
 
+  const format = input.settings?.format === 'wav' ? 'wav' : 'mp3'
+
   try {
     let totalDuration = 0
     let totalBytes = 0
@@ -200,14 +203,26 @@ export async function runTtsJob(input: TtsRequestInput): Promise<TtsJobResult> {
       }
     }
 
-    const format = input.settings?.format === 'wav' ? 'wav' : 'mp3'
     let outputKey: string | null = null
     let storageError: string | null = null
 
     if (audioParts.length > 0) {
       try {
+        // Chunks are independent files. Concatenating raw bytes corrupts a WAV
+        // (the header keeps the first chunk's length, so players stop after
+        // sentence one). Merge per format instead.
+        const merged = concatSpeechChunks(audioParts, format)
+        // Prefer the real measured duration over the estimate when the merged
+        // artefact can be measured.
+        if (format === 'wav') {
+          try {
+            totalDuration = wavDurationSeconds(merged)
+          } catch {
+            // Fall back to the per-chunk estimate already accumulated.
+          }
+        }
         const storage = getStorage()
-        const upload = await storage.upload(Buffer.concat(audioParts), `tts-${job.id}.${format}`, {
+        const upload = await storage.upload(merged, `tts-${job.id}.${format}`, {
           folder: 'voice/tts',
           mimeType: format === 'wav' ? 'audio/wav' : 'audio/mpeg',
           companyId: input.companyId,
