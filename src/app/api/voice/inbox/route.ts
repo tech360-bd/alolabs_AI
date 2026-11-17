@@ -97,7 +97,18 @@ export async function POST(request: Request) {
         approverUserId: auth.userId,
         editedBody: optionalString(body, 'editedBody'),
       })
-      return { data: approved, notice: 'Approved by a human — ready for the channel adapter to send.' }
+      // Name the approver in the response: the audit trail is the point of the
+      // gate, so the caller must be able to show WHO released the message.
+      const approver = approved.approvedById
+        ? await db.user.findUnique({
+            where: { id: approved.approvedById },
+            select: { name: true, email: true },
+          })
+        : null
+      return {
+        data: { ...approved, approvedBy: approver ? approver.name || approver.email : approved.approvedById ?? auth.userId },
+        notice: `Approved by ${approver ? approver.name || approver.email : 'the signed-in operator'} at ${approved.approvedAt} — ready for the channel adapter to send.`,
+      }
     }
 
     if (action === 'assign') {

@@ -169,7 +169,11 @@ export default function VoiceCrmPanel() {
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, phone, email or company" className="max-w-sm" />
             <Button variant="outline" onClick={() => setSearchTerm(query)}>Search</Button>
           </div>
-          {list.loading ? <Skeleton className="h-40" /> : !list.data || list.data.data.length === 0 ? (
+          {/* A failed request is NOT an empty list: showing "No contacts" when
+              the API is down would tell an operator their data vanished. */}
+          {list.loading ? <Skeleton className="h-40" /> : list.error ? (
+            <ErrorNote message={`Could not load contacts: ${list.error}`} />
+          ) : !list.data || list.data.data.length === 0 ? (
             <EmptyState title="No contacts" hint="Create one above, import a CSV, or let an inbound call identify a caller." />
           ) : (
             <TableWrap>

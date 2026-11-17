@@ -204,4 +204,50 @@ describe('speech engine configuration', () => {
     expect(withoutScores.confidence).toBe(0)
     expect(withoutScores.segments[0].confidence).toBeUndefined()
   })
+  describe('Bangla negation and evidence hygiene', () => {
+    it('never scores "অসন্তুষ্ট" (dissatisfied) as positive praise', () => {
+      const result = estimateSentiment([
+        { speaker: 'customer', text: 'আমার বিল ভুল হয়েছে, এটা খুব খারাপ সেবা, আমি অসন্তুষ্ট এবং রাগান্বিত' },
+      ]);
+      expect(result.label).toBe('negative');
+      expect(result.evidence.length).toBeGreaterThan(0);
+    });
+
+    it('treats English "unsatisfied" as negative, not satisfied', () => {
+      const result = estimateSentiment([{ speaker: 'customer', text: 'I am unsatisfied with this terrible service' }]);
+      expect(result.label).toBe('negative');
+    });
+
+    it('still reports genuine praise as positive', () => {
+      const result = estimateSentiment([{ speaker: 'customer', text: 'সেবা পেয়ে আমি খুব সন্তুষ্ট, ধন্যবাদ' }]);
+      expect(result.label).toBe('positive');
+    });
+
+    it('requires a second, positive segment before calling a complaint-filled call mixed', () => {
+      const result = estimateSentiment([
+        { speaker: 'customer', text: 'সেবা পেয়ে আমি খুব সন্তুষ্ট, ধন্যবাদ' },
+        { speaker: 'agent', text: 'কিন্তু ডেলিভারি খুব খারাপ ছিল' },
+      ]);
+      expect(result.label).toBe('mixed');
+      // One quote per segment — the same sentence must never be double-counted.
+      const indexes = result.evidence.map((e) => e.segmentIndex);
+      expect(new Set(indexes).size).toBe(indexes.length);
+    });
+
+    it('does not duplicate evidence when several lexicons hit one sentence', () => {
+      const result = estimateSentiment([
+        { speaker: 'customer', text: 'দাম অনেক বেশি, এটা খুব খারাপ, আমি অসন্তুষ্ট' },
+      ]);
+      const indexes = result.evidence.map((e) => e.segmentIndex);
+      expect(new Set(indexes).size).toBe(indexes.length);
+      expect(result.label).toBe('negative');
+    });
+
+    it('stays neutral on text with no sentiment signal at all', () => {
+      const result = estimateSentiment([{ speaker: 'agent', text: 'আজ আবহাওয়া মেঘলা' }]);
+      expect(result.label).toBe('neutral');
+      expect(result.confidence).toBe(0);
+    });
+  });
+
 })

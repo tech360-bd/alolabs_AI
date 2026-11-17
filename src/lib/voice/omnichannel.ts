@@ -240,7 +240,7 @@ export async function approveDraft(params: {
   messageId: string
   approverUserId: string
   editedBody?: string
-}): Promise<{ id: string; status: string; body: string }> {
+}): Promise<{ id: string; status: string; body: string; approvedById: string | null; approvedAt: string }> {
   const message = await db.omniChannelMessage.findFirst({
     where: { id: params.messageId, companyId: params.companyId },
     select: { id: true, aiDrafted: true, status: true, body: true, direction: true },
@@ -252,17 +252,24 @@ export async function approveDraft(params: {
   const body = params.editedBody?.trim() || message.body
   if (!body) throw new OmnichannelError('approved body cannot be empty')
 
+  // The approver is ALWAYS the authenticated human who called this — the
+  // database column is the audit record and is returned to the caller, so a UI
+  // can display "approved by <person>" instead of an anonymous hop.
+  const approvedAt = new Date()
   const updated = await db.omniChannelMessage.update({
     where: { id: message.id },
     data: {
       status: 'approved',
       approvedById: params.approverUserId,
       body,
-      metadata: JSON.stringify({ editedOnApproval: Boolean(params.editedBody) }),
+      metadata: JSON.stringify({
+        editedOnApproval: Boolean(params.editedBody),
+        approvedAt: approvedAt.toISOString(),
+      }),
     },
-    select: { id: true, status: true, body: true },
+    select: { id: true, status: true, body: true, approvedById: true },
   })
-  return updated
+  return { ...updated, approvedAt: approvedAt.toISOString() }
 }
 
 /** Assign a thread to an agent (must be a tenant member). */

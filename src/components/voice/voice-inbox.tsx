@@ -139,7 +139,9 @@ export default function VoiceInboxPanel() {
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base">Threads</CardTitle></CardHeader>
           <CardContent>
-            {threads.loading ? <Skeleton className="h-40" /> : !threads.data || threads.data.data.length === 0 ? (
+            {threads.loading ? <Skeleton className="h-40" /> : threads.error ? (
+              <ErrorNote message={`Could not load threads: ${threads.error}`} />
+            ) : !threads.data || threads.data.data.length === 0 ? (
               <EmptyState title="No threads yet" hint="Inbound messages from a configured channel adapter create threads automatically; you can also compose one." />
             ) : (
               <div className="space-y-1">

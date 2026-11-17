@@ -149,7 +149,9 @@ export default function VoiceSupervisorPanel() {
             <CardDescription>Human-handled calls only; answered = completed.</CardDescription>
           </CardHeader>
           <CardContent>
-            {performance.loading ? <Skeleton className="h-32" /> : !performance.data || performance.data.data.agents.length === 0 ? (
+            {performance.loading ? <Skeleton className="h-32" /> : performance.error ? (
+              <ErrorNote message={`Could not load performance: ${performance.error}`} />
+            ) : !performance.data || performance.data.data.agents.length === 0 ? (
               <EmptyState title="No human-handled calls yet" hint="Metrics appear when calls are assigned to agents." />
             ) : (
               <TableWrap>
@@ -176,7 +178,9 @@ export default function VoiceSupervisorPanel() {
             <CardDescription>Human-submitted reviews only. Automated scores live in Call Intelligence.</CardDescription>
           </CardHeader>
           <CardContent>
-            {qa.loading ? <Skeleton className="h-32" /> : !qa.data || qa.data.data.reviewCount === 0 ? (
+            {qa.loading ? <Skeleton className="h-32" /> : qa.error ? (
+              <ErrorNote message={`Could not load QA reviews: ${qa.error}`} />
+            ) : !qa.data || qa.data.data.reviewCount === 0 ? (
               <EmptyState title="No reviews submitted" hint="Review a call from Call Intelligence to start tracking QA." />
             ) : (
               <div className="space-y-3">

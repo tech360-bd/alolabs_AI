@@ -86,7 +86,9 @@ export default function VoiceIntelligencePanel() {
             <CardDescription>Transcripts exist only for AI conversations or completed ASR jobs.</CardDescription>
           </CardHeader>
           <CardContent>
-            {calls.loading ? <Skeleton className="h-32" /> : !calls.data || calls.data.data.length === 0 ? (
+            {calls.loading ? <Skeleton className="h-32" /> : calls.error ? (
+              <ErrorNote message={`Could not load calls: ${calls.error}`} />
+            ) : !calls.data || calls.data.data.length === 0 ? (
               <EmptyState title="No calls yet" hint="Place or receive a call, then analyze it here." />
             ) : (
               <TableWrap>
@@ -116,7 +118,9 @@ export default function VoiceIntelligencePanel() {
             <CardDescription>Intents and objections appearing across multiple calls — the fix list.</CardDescription>
           </CardHeader>
           <CardContent>
-            {(trends.data?.data?.trends?.length ?? 0) === 0 ? (
+            {trends.loading ? <Skeleton className="h-32" /> : trends.error ? (
+              <ErrorNote message={`Could not load trends: ${trends.error}`} />
+            ) : (trends.data?.data?.trends?.length ?? 0) === 0 ? (
               <EmptyState title="Not enough analyzed calls" hint="Trends need at least two calls sharing an intent." />
             ) : (
               <TableWrap>

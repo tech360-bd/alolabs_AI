@@ -91,6 +91,36 @@ export const ACTION_TRIGGERS: Array<{ label: string; triggers: string[] }> = [
 const POSITIVE_TRIGGERS = ['ধন্যবাদ', 'ভালো', 'চমৎকার', 'সন্তুষ্ট', 'খুশি', 'thank', 'great', 'good', 'excellent', 'perfect', 'happy', 'satisfied', 'appreciate']
 const NEGATIVE_TRIGGERS = ['খারাপ', 'সমস্যা', 'রাগ', 'বিরক্ত', 'অসন্তুষ্ট', 'bad', 'problem', 'angry', 'frustrated', 'disappointed', 'terrible', 'useless', 'unacceptable']
 
+/**
+ * Negated or derived forms that CONTAIN a positive stem.
+ *
+ * Bangla builds antonyms by prefixing the negative particle: সন্তুষ্ট
+ * (satisfied) → অসন্তুষ্ট (dissatisfied), খুশি (happy) → অখুশি. English has
+ * the same trap ("unsatisfied" contains "satisfied", and "not good" contains
+ * "good"). A plain `includes()` therefore counted complaints as praise — a
+ * genuine mislabel that would put a "positive" badge on an angry customer.
+ *
+ * Matching strips these false-positive surface forms before the positive
+ * lexicon runs. Only `includes`-style matching is affected; the negative
+ * lexicon is checked against the ORIGINAL text.
+ */
+const NEGATED_POSITIVE_PATTERNS: RegExp[] = [
+  /অসন্তুষ্ট/g,
+  /অখুশি/g,
+  /অসন্তোষ/g,
+  /অভালো/g,
+  /\bnot\s+(good|great|happy|satisfied|perfect|excellent)\b/g,
+  /\bunsatisfied\b/g,
+  /\bunhappy\b/g,
+  /\bdispleased\b/g,
+  /\bnot\s+recommend\b/g,
+]
+
+/** Remove negated positive forms so a complaint never matches the praise lexicon. */
+function stripNegatedPositives(normalized: string): string {
+  return NEGATED_POSITIVE_PATTERNS.reduce((text, pattern) => text.replace(pattern, ' '), normalized)
+}
+
 const COMPLIANCE_TRIGGERS: Array<{ label: string; triggers: string[] }> = [
   { label: 'Recording disclosure given', triggers: ['রেকর্ড', 'recording', 'recorded'] },
   { label: 'AI identity disclosed', triggers: ['এআই', 'কৃত্রিম বুদ্ধিমত্তা', 'ai assistant', 'virtual assistant', 'automated'] },
@@ -105,12 +135,36 @@ function normalizeForMatching(text: string): string {
     .replace(/\s+/g, ' ')
 }
 
-function evidenceFor(segments: TranscriptSegmentLike[], triggers: string[], max = 3): InsightEvidence[] {
+function evidenceFor(
+  segments: TranscriptSegmentLike[],
+  triggers: string[],
+  max = 3,
+  options: { stripNegated?: boolean; excludeSegments?: number[] } = {},
+): InsightEvidence[] {
   const out: InsightEvidence[] = []
+  const excluded = new Set(options.excludeSegments ?? [])
   for (let i = 0; i < segments.length && out.length < max; i++) {
-    const text = normalizeForMatching(segments[i].text ?? '')
+    if (excluded.has(i)) continue
+    const raw = normalizeForMatching(segments[i].text ?? '')
+    const text = options.stripNegated ? stripNegatedPositives(raw) : raw
     const hit = triggers.find((t) => text.includes(normalizeForMatching(t)))
     if (hit) out.push({ segmentIndex: i, quote: (segments[i].text ?? '').slice(0, 240) })
+  }
+  return out
+}
+
+/**
+ * One entry per segment. Two lexicons matching the same sentence is one piece
+ * of evidence, and showing the same quote twice inflates how strong a signal
+ * looks to the reader.
+ */
+function dedupeEvidence(evidence: InsightEvidence[]): InsightEvidence[] {
+  const seen = new Set<number>()
+  const out: InsightEvidence[] = []
+  for (const item of evidence) {
+    if (seen.has(item.segmentIndex)) continue
+    seen.add(item.segmentIndex)
+    out.push(item)
   }
   return out
 }
@@ -201,17 +255,24 @@ export function estimateSentiment(segments: TranscriptSegmentLike[]): {
   evidence: InsightEvidence[]
   disclaimer: string
 } {
-  const positive = evidenceFor(segments, POSITIVE_TRIGGERS)
-  // Objections are negative-tone evidence in their own right ("দাম অনেক বেশি"
-  // contains no negative word but is clearly a complaint signal).
+  // Negative evidence first: a segment that carries a complaint must never be
+  // counted as praise, so the negative segment indexes are excluded from the
+  // positive pass (and negated forms are stripped before matching).
   const objections = detectObjections(segments).flatMap((o) => o.evidence)
-  const negative = [...evidenceFor(segments, NEGATIVE_TRIGGERS), ...objections].slice(0, 4)
+  const negativeHits = dedupeEvidence([...evidenceFor(segments, NEGATIVE_TRIGGERS), ...objections])
+  const positive = evidenceFor(segments, POSITIVE_TRIGGERS, 3, {
+    stripNegated: true,
+    excludeSegments: negativeHits.map((e) => e.segmentIndex),
+  })
+  const negative = negativeHits.slice(0, 4)
   const disclaimer = 'Automated estimate of language tone in this transcript — not a measurement of the person’s emotional state.'
   if (positive.length === 0 && negative.length === 0) {
     return { label: 'neutral', confidence: 0, evidence: [], disclaimer }
   }
+  // "mixed" requires a genuinely positive signal in a DIFFERENT segment than
+  // the complaint. One angry sentence is negative, not mixed.
   if (positive.length > 0 && negative.length > 0) {
-    return { label: 'mixed', confidence: 0.6, evidence: [...positive, ...negative].slice(0, 4), disclaimer }
+    return { label: 'mixed', confidence: 0.6, evidence: dedupeEvidence([...positive, ...negative]).slice(0, 4), disclaimer }
   }
   if (negative.length > 0) {
     return { label: 'negative', confidence: hitsToConfidence(negative.length), evidence: negative, disclaimer }

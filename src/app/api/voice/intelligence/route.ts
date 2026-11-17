@@ -89,16 +89,31 @@ export async function POST(request: Request) {
     if (action !== 'analyze') throw new Error('Invalid request: action must be "analyze"')
 
     const callSessionId = requireString(body, 'callSessionId')
+
+    // A transcript in the request body is IGNORED on purpose: insights must be
+    // derived from the stored CallTranscript so a caller cannot post arbitrary
+    // text and have it recorded as evidence about a real call. Saying so
+    // explicitly beats silently analyzing something else.
+    const ignoredTranscript =
+      Array.isArray(body.transcript) && body.transcript.length > 0
+
     const result = await analyzeCall({ companyId: auth.companyId, callSessionId })
+    const hasEvidence = result.insights.some((i) => i.evidence.length > 0)
     return {
       data: {
         insights: result.insights,
         sentiment: result.sentiment,
         quality: result.quality,
+        analyzedSource: 'stored_transcript',
+        ...(ignoredTranscript
+          ? { ignoredRequestTranscript: 'A transcript was supplied in the request body and ignored. Insights are derived only from the stored transcript for this call.' }
+          : {}),
       },
-      notice: result.insights.some((i) => i.evidence.length > 0)
-        ? `${result.insights.length} insight(s) derived with quoted evidence.`
-        : 'No transcript evidence available — only structural checks were recorded.',
+      notice: ignoredTranscript
+        ? 'Request transcript ignored — analyzed the stored transcript instead, so evidence cannot be supplied by the caller.'
+        : hasEvidence
+          ? `${result.insights.length} insight(s) derived with quoted evidence.`
+          : 'No transcript evidence available — only structural checks were recorded.',
     }
   })
 }
