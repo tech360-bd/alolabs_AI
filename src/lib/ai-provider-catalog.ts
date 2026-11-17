@@ -25,6 +25,13 @@ export const AI_PROVIDER_PRESETS: readonly AIProviderPreset[] = [
   { kind: 'huggingface', label: 'Hugging Face Inference Providers', defaultBaseUrl: 'https://router.huggingface.co/v1', docsUrl: 'https://huggingface.co/docs/inference-providers/en/index', apiKeyRequired: true, local: false, documentationHosts: ['huggingface.co'] },
   { kind: 'github-models', label: 'GitHub Models', defaultBaseUrl: 'https://models.github.ai/inference', docsUrl: 'https://docs.github.com/en/github-models', apiKeyRequired: true, local: false, documentationHosts: ['github.com'] },
   { kind: 'cerebras', label: 'Cerebras', defaultBaseUrl: 'https://api.cerebras.ai/v1', docsUrl: 'https://inference-docs.cerebras.ai/', apiKeyRequired: true, local: false, documentationHosts: ['cerebras.ai'] },
+  // The router has auto-detected these two from SAMBANOVA_API_KEY /
+  // NVIDIA_API_KEY for a while (see ai-router/free-provider-specs.ts), but
+  // neither had a preset here — so readProviderBaseUrl() returned undefined and
+  // the Super Admin console could not select a provider the runtime already
+  // supported. Adding them closes that configuration gap.
+  { kind: 'sambanova', label: 'SambaNova Cloud', defaultBaseUrl: 'https://api.sambanova.ai/v1', docsUrl: 'https://docs.sambanova.ai/cloud/docs/get-started/overview', apiKeyRequired: true, local: false, documentationHosts: ['sambanova.ai'] },
+  { kind: 'nvidia', label: 'NVIDIA NIM', defaultBaseUrl: 'https://integrate.api.nvidia.com/v1', docsUrl: 'https://docs.api.nvidia.com/nim/reference/llm-apis', apiKeyRequired: true, local: false, documentationHosts: ['nvidia.com'] },
   { kind: 'mistral', label: 'Mistral', defaultBaseUrl: 'https://api.mistral.ai/v1', docsUrl: 'https://docs.mistral.ai/api/', apiKeyRequired: true, local: false, documentationHosts: ['mistral.ai'] },
   { kind: 'gemini', label: 'Google Gemini', defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', docsUrl: 'https://ai.google.dev/gemini-api/docs/openai', apiKeyRequired: true, local: false, documentationHosts: ['google.dev', 'googleapis.com'] },
   { kind: 'cloudflare-workers-ai', label: 'Cloudflare Workers AI', defaultBaseUrl: 'https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1', docsUrl: 'https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/', apiKeyRequired: true, local: false, documentationHosts: ['cloudflare.com'] },

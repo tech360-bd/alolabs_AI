@@ -32,6 +32,7 @@ import VoiceIntelligence from '@/components/voice/voice-intelligence';
 import VoiceSupervisor from '@/components/voice/voice-supervisor';
 import VoiceInbox from '@/components/voice/voice-inbox';
 import VoiceStudio from '@/components/voice/voice-studio';
+import VoiceBillingApi from '@/components/voice/voice-billing-api';
 
 afterEach(cleanup);
 
@@ -73,5 +74,12 @@ describe('voice contact-center workspaces render', () => {
     await waitFor(() => expect(screen.getAllByText(/Failed to fetch/i).length).toBeGreaterThan(0));
     // No fabricated contact rows when the request failed.
     expect(heading()).toBeInTheDocument();
+  });
+
+  it('renders the billing panel including the free-tier resource card', async () => {
+    render(<VoiceBillingApi />);
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(/Billing/i);
+    // The card is present even while the catalogue request is failing.
+    expect(screen.getByText(/zero marginal cost/i)).toBeInTheDocument();
   });
 });
