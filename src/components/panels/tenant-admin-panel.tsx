@@ -401,7 +401,7 @@ export default function TenantAdminPanel() {
   const handleRemoveUser = async (userId: string) => {
     if (!selectedCompany) return
     try {
-      await apiFetch(`/api/tenant-admin/users/${userId}?companyId=${selectedCompany}`, {
+      await apiFetch(`/api/tenant-admin/users?${new URLSearchParams({ userId, companyId: selectedCompany })}`, {
         method: 'DELETE',
       })
       loadTenantData()

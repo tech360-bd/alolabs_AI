@@ -65,21 +65,24 @@ export interface WSMessage {
 
 export interface RealTimeServerOptions {
   port: number;
+  host?: string;
   cors?: {
     origin: string | string[];
     methods?: string[];
     allowedHeaders?: string[];
     credentials?: boolean;
   };
-  auth?: {
-    /** JWT verification function. Return userId on success, null on failure. */
-    verifyToken: (token: string) => Promise<string | null>;
+  auth: {
+    /** A legacy verifier returning only a user ID grants a personal room, never a company room or operational privileges. */
+    verifyToken: (token: string) => Promise<{ userId: string; role: string; companyId?: string } | string | null>;
   };
+  /** Optional readiness signal for the trusted Redis subscriber (operator metrics only). */
+  streamReady?: () => boolean;
   /** Ping interval in ms (default 25 000). */
   pingInterval?: number;
   /** Ping timeout in ms (default 60 000). */
   pingTimeout?: number;
-  /** Socket.IO path (default '/realtime'). */
+  /** Socket.IO path (default '/socket.io'). */
   path?: string;
 }
 

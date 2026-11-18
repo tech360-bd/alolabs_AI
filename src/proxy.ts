@@ -5,6 +5,7 @@ import {
   isClientPagePath,
   isInternalPagePath,
 } from '@/lib/access/surfaces';
+import { isMetricsScrape } from '@/lib/access/metrics-scrape';
 import { matchesPublicApiRoute, type PublicApiRoute } from '@/lib/access/public-api-routes';
 import { verifyEdgeJwt, type EdgeJwtClaims } from '@/lib/access/edge-jwt';
 
@@ -101,48 +102,8 @@ function checkRateLimit(
   return { allowed: entry.count <= maxRequests, remaining };
 }
 
-// ─── Brute Force Protection (in-memory, per-IP, lazy cleanup) ────────────────
-
-const authAttempts = new Map<string, { count: number; lockedUntil: number }>();
-
-const BRUTE_FORCE_MAX_ATTEMPTS = 5;
-const BRUTE_FORCE_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
-
-function checkBruteForce(ip: string): {
-  allowed: boolean;
-  remainingAttempts: number;
-} {
-  const now = Date.now();
-  const entry = authAttempts.get(ip);
-
-  if (!entry || now > entry.lockedUntil) {
-    // No active lockout – reset / initialise
-    authAttempts.set(ip, { count: 0, lockedUntil: 0 });
-    return { allowed: true, remainingAttempts: BRUTE_FORCE_MAX_ATTEMPTS };
-  }
-
-  if (entry.count >= BRUTE_FORCE_MAX_ATTEMPTS && now < entry.lockedUntil) {
-    return { allowed: false, remainingAttempts: 0 };
-  }
-
-  return {
-    allowed: true,
-    remainingAttempts: BRUTE_FORCE_MAX_ATTEMPTS - entry.count,
-  };
-}
-
-function recordFailedAttempt(ip: string): void {
-  const now = Date.now();
-  const entry = authAttempts.get(ip) || { count: 0, lockedUntil: 0 };
-  entry.count++;
-  if (entry.count >= BRUTE_FORCE_MAX_ATTEMPTS) {
-    entry.lockedUntil = now + BRUTE_FORCE_LOCKOUT_MS;
-  }
-  authAttempts.set(ip, entry);
-}
-
 // ─── Lazy Cleanup (replaces setInterval – not supported in Edge Runtime) ─────
-// Every ~100 requests we sweep both Maps and evict expired entries to bound
+// Every ~100 requests we sweep the limiter and evict expired entries to bound
 // memory growth. This avoids setInterval which crashes at runtime in Edge.
 
 let cleanupCounter = 0;
@@ -159,9 +120,7 @@ function lazyCleanup(): void {
     if (now > entry.resetAt) rateLimiter.delete(key);
   }
 
-  for (const [key, entry] of authAttempts) {
-    if (now > entry.lockedUntil) authAttempts.delete(key);
-  }
+
 }
 
 // ─── Bot Protection (specific known bot user-agents only) ────────────────────
@@ -236,6 +195,8 @@ export async function proxy(request: NextRequest) {
   lazyCleanup();
 
   const { pathname, search } = request.nextUrl;
+  // Socket.IO handshakes and polling carry their own session authentication.
+  if (/^\/(?:queue\/)?socket\.io(?:\/|$)/.test(pathname)) return NextResponse.next();
   const ip = getClientIp(request);
   const method = request.method.toUpperCase();
   const isApi = pathname.startsWith('/api/');
@@ -261,12 +222,20 @@ export async function proxy(request: NextRequest) {
   // route-level auth helper. Old opaque tokens are temporarily passed through
   // to those helpers during the rolling migration, but are never stamped as
   // proxy-verified identities.
+  const scrape = isMetricsScrape(pathname, method, request.headers.get('authorization'));
   let hasV1Key = false;
   let edgeClaims: EdgeJwtClaims | null = null;
   if (isApi && !isPublicApiRoute(pathname, method)) {
-    const authHeader = request.headers.get('authorization');
+    // A provider redirect is a browser navigation and cannot set Authorization.
+    // Only this GET callback may reuse the mirrored cookie. The route still
+    // verifies the DB session, admin role and browser-bound account-link state.
+    if (method === 'GET' && /^\/api\/social\/oauth\/[a-z]+$/.test(pathname) && !forwardedHeaders.has('authorization')) {
+      const session = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+      if (session) forwardedHeaders.set('authorization', `Bearer ${session}`);
+    }
+    const authHeader = forwardedHeaders.get('authorization');
     hasV1Key = pathname.startsWith('/api/v1/') && Boolean(request.headers.get('x-api-key')?.trim());
-    if (!hasV1Key) {
+    if (!hasV1Key && !scrape) {
       if (!authHeader?.startsWith('Bearer ')) {
         return NextResponse.json(
           { error: 'Unauthorized', message: 'Missing or invalid Authorization header' },
@@ -306,7 +275,7 @@ export async function proxy(request: NextRequest) {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   // The dev preview embeds the app in the sandbox frame; every other
   // environment keeps the full framing lockdown.
-  response.headers.set('X-Frame-Options', process.env.NODE_ENV === 'development' ? 'SAMEORIGIN' : 'DENY');
+  if (process.env.NODE_ENV !== 'development') response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Strict-Transport-Security', 'max-age=31536000');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -340,8 +309,8 @@ export async function proxy(request: NextRequest) {
   // ── API audience separation ──────────────────────────────────────────────
   // Bearer JWT signatures were verified before the downstream request headers
   // were built. The route-level helper revalidates the session against Prisma.
-  if (isApi && !isPublicApiRoute(pathname, method) && !hasV1Key && pathname !== ACCESS_DENIED_ROUTE) {
-    const bearer = request.headers.get('authorization')!.slice('Bearer '.length).trim();
+  if (isApi && !isPublicApiRoute(pathname, method) && !hasV1Key && !scrape && pathname !== ACCESS_DENIED_ROUTE) {
+    const bearer = forwardedHeaders.get('authorization')!.slice('Bearer '.length).trim();
     const bearerAudience = edgeClaims?.audience ?? audienceForToken(bearer);
     if (!audienceMayCallApi(bearerAudience, pathname, method)) {
       const denied = NextResponse.rewrite(new URL(ACCESS_DENIED_ROUTE, request.url), {
@@ -376,7 +345,7 @@ export async function proxy(request: NextRequest) {
 
   // ── Rate limiting: /api/ai/chat — 60 req/min ────────────────────────────
   if (pathname === '/api/ai/chat' || pathname.startsWith('/api/ai/chat/')) {
-    const rateResult = checkRateLimit(ip, RATE_LIMIT_AI_CHAT_MAX, RATE_LIMIT_AI_CHAT_WINDOW_MS);
+    const rateResult = checkRateLimit(`ai_chat:${ip}`, RATE_LIMIT_AI_CHAT_MAX, RATE_LIMIT_AI_CHAT_WINDOW_MS);
     if (!rateResult.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded', message: '60 requests per minute allowed on /api/ai/chat' },
@@ -388,7 +357,7 @@ export async function proxy(request: NextRequest) {
 
   // ── Rate limiting: /api/enterprise/agents/run — 30 req/min ──────────────
   if (pathname === '/api/enterprise/agents/run' || pathname.startsWith('/api/enterprise/agents/run/')) {
-    const rateResult = checkRateLimit(ip, RATE_LIMIT_AGENT_RUN_MAX, RATE_LIMIT_AGENT_RUN_WINDOW_MS);
+    const rateResult = checkRateLimit(`agent_run:${ip}`, RATE_LIMIT_AGENT_RUN_MAX, RATE_LIMIT_AGENT_RUN_WINDOW_MS);
     if (!rateResult.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded', message: '30 requests per minute allowed on /api/enterprise/agents/run' },
@@ -398,9 +367,9 @@ export async function proxy(request: NextRequest) {
     response.headers.set('X-RateLimit-Remaining', String(rateResult.remaining));
   }
 
-  // ── Rate limiting for login endpoint — 10 req/min + brute force ────────
+  // ── Rate limiting for login endpoint — separate from general API traffic ────────
   if (pathname.startsWith('/api/auth/login')) {
-    const rateResult = checkRateLimit(ip, RATE_LIMIT_LOGIN_MAX, RATE_LIMIT_LOGIN_WINDOW_MS);
+    const rateResult = checkRateLimit(`login:${ip}`, RATE_LIMIT_LOGIN_MAX, RATE_LIMIT_LOGIN_WINDOW_MS);
     if (!rateResult.allowed) {
       return NextResponse.json(
         { error: 'Too many login attempts' },
@@ -408,18 +377,7 @@ export async function proxy(request: NextRequest) {
       );
     }
 
-    const bruteCheck = checkBruteForce(ip);
-    if (!bruteCheck.allowed) {
-      return NextResponse.json(
-        { error: 'Account temporarily locked. Try again later.' },
-        { status: 429, headers: { 'Retry-After': '900' } },
-      );
-    }
-
-    response.headers.set(
-      'X-RateLimit-Remaining',
-      String(Math.min(rateResult.remaining, bruteCheck.remainingAttempts)),
-    );
+    response.headers.set('X-RateLimit-Remaining', String(rateResult.remaining));
   }
 
   // ── Rate limits for public recovery/MFA endpoints ───────────────────────
@@ -443,7 +401,7 @@ export async function proxy(request: NextRequest) {
     !pathname.startsWith('/api/ai/chat') &&
     !pathname.startsWith('/api/enterprise/agents/run')
   ) {
-    const rateResult = checkRateLimit(ip, RATE_LIMIT_PUBLIC_MAX, RATE_LIMIT_PUBLIC_WINDOW_MS);
+    const rateResult = checkRateLimit(`public:${ip}`, RATE_LIMIT_PUBLIC_MAX, RATE_LIMIT_PUBLIC_WINDOW_MS);
     if (!rateResult.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded' },

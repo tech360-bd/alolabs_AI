@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDate as fmtDate } from '@/lib/display-format';
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -88,10 +89,6 @@ function trendIcon(change: number) {
   if (change > 0) return <TrendingUp className="h-4 w-4 text-emerald-600" />
   if (change < 0) return <TrendingDown className="h-4 w-4 text-red-500" />
   return <Minus className="h-4 w-4 text-slate-400" />
-}
-
-function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function diffColor(diff: number) {

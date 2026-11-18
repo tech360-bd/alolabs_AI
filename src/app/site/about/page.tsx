@@ -14,7 +14,7 @@ export const metadata: Metadata = {
       'A global AI & software technology company — vision, mission, engineering philosophy and responsible AI principles.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/site/about',
-    images: ['/brand/alo-mark.svg'],
+    images: ['/studio/icon-512.png'],
   },
 }
 

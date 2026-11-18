@@ -321,8 +321,8 @@ export const routeTask = vi.fn(async (task: string) => ({
   task,
 }));
 
-export const addEpisodic = vi.fn(async () => ({}));
-export const publish = vi.fn(async () => ({}));
+export const addEpisodic = vi.fn(async (_entry: { companyId: string }) => ({}));
+export const publish = vi.fn(async (_event: { type: string; correlationId?: string }) => ({}));
 
 export function resetAgentOsMocks() {
   fakeDb.reset();

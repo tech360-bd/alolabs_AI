@@ -1,0 +1,23 @@
+branch	remote commit	relation to base	integration decision
+arena/22288778-alolabs-ai	afef14da17ef32c5f2f2f912515137e05c48204d	ahead=0,behind=101	no commits ahead; no merge needed
+arena/356aaab3-alolabs-ai	b0bb10458d2f5112d2e23b88de8bebf9fef1552f	ahead=0,behind=110	no commits ahead; no merge needed
+arena/38000575-alolabs-ai	06fd64c7900c35eddd9404a7bfb889b6b3c438ed	ahead=0,behind=123	no commits ahead; no merge needed
+arena/5b0d234d-alolabs-ai	5b434c013f09aa7fe025f2b12c7b8753056f6a72	ahead=0,behind=118	no commits ahead; no merge needed
+arena/623884c3-alolabs-ai	d93e4b0ca2ca1c44b9a2b3de4a57888d4b4ee470	ahead=0,behind=127	no commits ahead; no merge needed
+arena/693a61d6-alolabs-ai	950bafc156f61b8b722cdc450c8d5bf27a1002a0	ahead=0,behind=114	no commits ahead; no merge needed
+arena/7247eb38-alolabs-ai	81065f70ea79c0be407a0b3286ddba83eb09079e	ahead=0,behind=93	no commits ahead; no merge needed
+arena/8834f770-alolabs-ai	7c7fa84e32a9bd3f415184e4f3e71849dc9f55b5	ahead=0,behind=112	no commits ahead; no merge needed
+arena/8cc412a3-alolabs-ai	d28d8cfd50dc57b794e188be669cc20a876800dc	ahead=1,behind=131	historical deployment document delta retained
+arena/a667309c-alolabs-ai	e4e994d9208d63dc3e19ac6c640501eb3fbf1f8d	ahead=0,behind=95	no commits ahead; no merge needed
+arena/af56beb2-alolabs-ai	cfdf96d9e7c98185be1bb35f226cb4dbb79126b4	ahead=0,behind=108	no commits ahead; no merge needed
+arena/b14f1dbf-alolabs-ai	58b6f2682969005111aeedccf791a25e50f246b1	ahead=0,behind=108	no commits ahead; no merge needed
+arena/bd79faf4-alolabs-ai	0dccb25ea425ce73ae156286d3546bdfad1b87f6	ahead=0,behind=106	no commits ahead; no merge needed
+arena/d1f6b0a3-alolabs-ai	4df5f5b0960139a8acfd447a2fba766945db47ad	ahead=0,behind=121	no commits ahead; no merge needed
+arena/e0ab3e36-alolabs-ai	6f297334271407a8a15da1dd6fec7c819187adfc	ahead=0,behind=125	no commits ahead; no merge needed
+arena/e5e6e47b-alolabs-ai	82e91a46dc7b7d3353bc32b4b946cb8251d2b0ec	ahead=0,behind=130	no commits ahead; no merge needed
+arena/ef1b5ed7-alolabs-ai	079bf6f14bbedfb94e61f4aaa0f4a84fd47275dd	ahead=0,behind=116	no commits ahead; no merge needed
+docs/private-ai-platform-phase1-audit	51c126311ce67efc55129b64b70dd0dc9cde8ca9	ahead=0,behind=55	no commits ahead; no merge needed
+feat/employee-profile-completeness	903bffd84da332d8718cd5d8f07148ad32c090f4	ahead=2,behind=78	equivalent type changes already present
+fix/mysql-schema-idempotencykey	8d6197620f7f9a818b4eb3ac6372623e702417e7	ahead=0,behind=43	no commits ahead; no merge needed
+fix/production-dependency-audit	87349b8dd4865880282c5ef08ae3088f5d79d09c	ahead=0,behind=142	no commits ahead; no merge needed
+main	4def42076c6e829cb5731f9f234be0e119fbff9c	in-HEAD	base

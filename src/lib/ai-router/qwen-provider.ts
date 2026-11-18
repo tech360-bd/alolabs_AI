@@ -3,6 +3,7 @@
  * ALO Labs AIOS — Cloud LLM provider using Qwen's OpenAI-compatible API.
  */
 
+import { mapChatFinishReason as mapFinishReason } from '@/lib/ai-router/finish-reason';
 import { extractToolCalls } from './tool-calls';
 import type {
   AIModel,
@@ -92,15 +93,6 @@ const QWEN_MODELS: AIModel[] = [
 // ─── Helpers ────────────────────────────────────────────────────────
 
 const DEFAULT_ENDPOINT = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-
-function mapFinishReason(reason: string | null): AIResponse['finishReason'] {
-  switch (reason) {
-    case 'stop': return 'stop';
-    case 'length': return 'length';
-    case 'tool_calls': return 'tool-calls';
-    default: return 'stop';
-  }
-}
 
 // ─── SSE Stream Parser ──────────────────────────────────────────────
 

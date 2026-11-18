@@ -1,6 +1,7 @@
 // ALO Labs AIOS — IMAP Email Reader (raw net module, no npm deps)
 
-import * as net from 'net';
+import { isIP, type Socket } from 'node:net';
+import { connect as connectTls } from 'node:tls';
 import * as crypto from 'crypto';
 import type {
   IMAPConfig,
@@ -31,7 +32,7 @@ interface IMAPCommandResult {
 }
 
 class IMAPConnection {
-  private socket: net.Socket | null = null;
+  private socket: Socket | null = null;
   private buffer = '';
   private connected = false;
   private readonly config: IMAPConfig;
@@ -52,7 +53,10 @@ class IMAPConnection {
 
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const socket = new net.Socket();
+      if (!this.config.tls) { reject(new Error('IMAP requires implicit TLS')); return; }
+      const { host, port } = this.config;
+      const socket = connectTls({ host, port, servername: isIP(host) ? undefined : host, rejectUnauthorized: true, minVersion: 'TLSv1.2' });
+      socket.setTimeout(30000, () => socket.destroy(new Error('IMAP socket timeout')));
       this.socket = socket;
 
       socket.on('error', (err) => {
@@ -60,7 +64,7 @@ class IMAPConnection {
         reject(new Error(`IMAP connection error: ${err.message}`));
       });
 
-      socket.connect(this.config.port, this.config.host, () => {
+      socket.once('secureConnect', () => {
         this.connected = true;
         // Wait for server greeting
         this.readResponse(null)
@@ -88,11 +92,14 @@ class IMAPConnection {
 
   private async readResponse(expectedTag: string | null, timeout: number = 30000): Promise<IMAPCommandResult> {
     return new Promise((resolve, reject) => {
+      let expired = false;
       const timer = setTimeout(() => {
+        expired = true;
         reject(new Error('IMAP response timeout'));
       }, timeout);
 
       const check = (): void => {
+        if (expired) return;
         const lines = this.buffer.split(CRLF);
         const untagged: IMAPUntaggedResponse[] = [];
         let lastCompleteIndex = -1;
@@ -138,7 +145,8 @@ class IMAPConnection {
           }
         }
 
-        if (lastCompleteIndex >= 0 || (expectedTag === null && lines.length > 0)) {
+        if (expectedTag === null && lines.length > 1 && /^\* OK\b/i.test(lines[0])) lastCompleteIndex = 0;
+        if (lastCompleteIndex >= 0) {
           this.buffer = lines.slice(lastCompleteIndex + 1).join(CRLF);
           clearTimeout(timer);
           resolve({
@@ -162,6 +170,7 @@ class IMAPConnection {
       throw new Error('IMAP not connected');
     }
 
+    if (/[\r\n\0]/.test(cmd)) throw new Error('Invalid IMAP command');
     const tag = this.nextTag();
     const fullCmd = `${tag} ${cmd}`;
     this.socket.write(fullCmd + CRLF, 'binary');
@@ -178,9 +187,6 @@ class IMAPConnection {
   }
 
   async authenticate(): Promise<void> {
-    if (this.config.tls) {
-      // With implicit TLS, connection is already secure
-    }
     await this.command(`LOGIN "${this.escapeString(this.config.auth.user)}" "${this.escapeString(this.config.auth.pass)}"`);
   }
 
@@ -319,11 +325,14 @@ class IMAPConnection {
 
     // Wait for continuation (+)
     await new Promise<void>((resolve, reject) => {
+      let expired = false;
       const timer = setTimeout(() => {
+        expired = true;
         reject(new Error('IDLE continuation timeout'));
       }, 10000);
 
       const check = (): void => {
+        if (expired) return;
         if (this.buffer.includes('+')) {
           this.buffer = this.buffer.replace(/\+.*?\r\n/, '');
           clearTimeout(timer);

@@ -21,7 +21,7 @@ export interface TriggerMatch {
   trigger: string;
 }
 
-export function parseTriggers(raw: WorkflowTriggerCandidate['triggers']): string[] {
+export function parseTriggers(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.filter((t): t is string => typeof t === 'string');
   if (typeof raw !== 'string' || raw.trim().length === 0) return [];
   try {

@@ -1,3 +1,4 @@
+import { actionErrorResponse as errorResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
@@ -17,12 +18,6 @@ const CreateCatalogItemSchema = z.object({
   icon: z.string().trim().min(1).max(80).default('Bot'),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0066CC'),
 })
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error'
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500
-  return NextResponse.json({ error: message, success: false }, { status })
-}
 
 export async function GET(req: NextRequest) {
   try {

@@ -1,3 +1,4 @@
+import { authFailure as authError } from '@/lib/api/route-errors';
 import { createHash, randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -17,12 +18,6 @@ const UpdateRoleSchema = z.object({
   userId: z.string().min(1),
   role: z.enum(['owner', 'admin', 'manager', 'operator', 'employee']),
 });
-
-function authError(error: unknown) {
-  if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  return null;
-}
 
 function resolveTarget(user: Awaited<ReturnType<typeof requireAuth>>, requested?: string | null) {
   return tenantTarget(user, requested ?? user.companyId ?? null);

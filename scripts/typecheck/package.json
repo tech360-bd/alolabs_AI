@@ -1,0 +1,6 @@
+{
+  "name": "@alolabs/build-typecheck",
+  "private": true,
+  "description": "Native build checker. Next config, editor tooling and ESLint retain their compatible JS compiler API at the root.",
+  "devDependencies": { "typescript": "7.0.2" }
+}

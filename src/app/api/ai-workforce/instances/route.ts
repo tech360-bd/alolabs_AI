@@ -1,3 +1,5 @@
+import { actionErrorResponse as errorResponse } from '@/lib/api/route-errors';
+import { isRecord } from '@/lib/is-record';
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
@@ -11,20 +13,10 @@ const CreateInstanceSchema = z.object({
   config: z.record(z.string(), z.unknown()).default({}),
 })
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function parseConfigTemplate(value: string): Record<string, unknown> {
   const parsed: unknown = JSON.parse(value)
   if (!isRecord(parsed)) throw new Error('Catalog config template must be a JSON object')
   return parsed
-}
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error'
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500
-  return NextResponse.json({ error: message, success: false }, { status })
 }
 
 export async function GET(req: NextRequest) {

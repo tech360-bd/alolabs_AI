@@ -1,6 +1,6 @@
 import { v1Handler, V1Error } from '@/lib/v1';
 import { db } from '@/lib/db';
-import { publicTaskResponse } from '@/lib/api/public-response';
+import { publicTaskResponse, publicTaskStatus as mapStatus } from '@/lib/api/public-response';
 import { randomUUID } from 'node:crypto';
 
 /**
@@ -44,14 +44,3 @@ export const GET = v1Handler(async ({ identity }, request) => {
     completedAt: task.completedAt?.toISOString(),
   });
 });
-
-function mapStatus(internal: string): 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' {
-  switch (internal) {
-    case 'pending': return 'pending';
-    case 'running': case 'in_progress': return 'running';
-    case 'completed': case 'succeeded': return 'completed';
-    case 'failed': case 'error': return 'failed';
-    case 'cancelled': case 'canceled': return 'cancelled';
-    default: return 'pending';
-  }
-}

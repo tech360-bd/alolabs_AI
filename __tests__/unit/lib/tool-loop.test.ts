@@ -124,7 +124,7 @@ describe('runToolLoop', () => {
   });
 
   it('stops after maxSteps and forces a final textual answer', async () => {
-    const chat = vi.fn(async () =>
+    const chat = vi.fn(async (_request: { tools?: unknown }) =>
       response({
         toolCalls: [{ id: 'c', type: 'function', function: { name: 'search_knowledge', arguments: '{}' } }],
       }),
@@ -146,7 +146,7 @@ describe('runToolLoop', () => {
     expect(executed).toHaveLength(2);
     // 2 loop turns + 1 forced final call
     expect(chat).toHaveBeenCalledTimes(3);
-    const finalRequest = chat.mock.calls[2][0] as { tools?: unknown };
+    const finalRequest = chat.mock.calls[2][0];
     expect(finalRequest.tools).toBeUndefined();
   });
 

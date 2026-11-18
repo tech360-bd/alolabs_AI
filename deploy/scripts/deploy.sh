@@ -3,7 +3,8 @@ set -Eeuo pipefail
 
 APP_DIR="${APP_DIR:-/opt}"
 BRANCH="${BRANCH:-main}"
-PM2_NAME="agentos-app"
+PM2_NAME="alolabs-agentos"
+NODE_EXECUTABLE="$(readlink -f "$(command -v node)")"
 PORT=3011
 REQUIRED_BUN_VERSION="1.3.4"
 SAFETY_SCRIPT_DIR="${SAFETY_SCRIPT_DIR:-${APP_DIR}/deploy/scripts}"
@@ -18,6 +19,7 @@ CURRENT_COMMIT="$(git rev-parse HEAD)"
 echo "Current production commit: ${CURRENT_COMMIT}"
 
 ENV_FILE="${APP_DIR}/.env.production"
+[[ -f "${ENV_FILE}" ]] || ENV_FILE="${APP_DIR}/.env.config"
 [[ -f "${ENV_FILE}" ]] || ENV_FILE="${APP_DIR}/.env"
 [[ -f "${ENV_FILE}" ]] || fail "production environment file not found"
 ENV_RELATIVE="$(realpath --relative-to="${APP_DIR}" "${ENV_FILE}")"
@@ -68,8 +70,7 @@ case "${DATABASE_URL}" in
     fail "production DATABASE_URL points at SQLite (${DATABASE_URL%%:*}...). \
 MySQL/MariaDB is mandatory for production. Set DATABASE_URL to \
 mysql://USER:PASSWORD@HOST:3306/DATABASE and generate the Prisma client from \
-prisma/schema.mysql.prisma. To move existing data use: \
-npm run db:migrate:mysql -- --dry-run  (then re-run without --dry-run)."
+prisma/schema.mysql.prisma. The SQLite inventory is preview-only. A reviewed data migration and verified backup are required."
     ;;
   mysql://*|mariadb://*)
     DB_SCHEMA="prisma/schema.mysql.prisma"
@@ -95,13 +96,15 @@ if [[ -d prisma/migrations ]] && find prisma/migrations -mindepth 2 -name migrat
   MIGRATIONS_PRESENT=true
 else
   MIGRATIONS_PRESENT=false
-  echo "No repository migration history; schema application is disabled."
+  echo "No Prisma-format migrations. prisma/migrations/mysql/*.sql are manual, reviewed SQL; none are applied by this deploy."
 fi
 run_as_owner bunx prisma validate --schema "${DB_SCHEMA}" || fail "Prisma schema validation failed"
 
 # A verified recovery backup is mandatory before any deployment can proceed.
-APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" bash "${SAFETY_SCRIPT_DIR}/backup.sh" | tee /tmp/alo-backup-result
-BACKUP_PATH="$(sed -n 's/^BACKUP_VERIFIED=//p' /tmp/alo-backup-result | tail -1)"
+BACKUP_RESULT="$(mktemp)"
+trap 'rm -f "${BACKUP_RESULT}"' EXIT
+APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" bash "${SAFETY_SCRIPT_DIR}/backup.sh" | tee "${BACKUP_RESULT}"
+BACKUP_PATH="$(sed -n 's/^BACKUP_VERIFIED=//p' "${BACKUP_RESULT}" | tail -1)"
 [[ -n "${BACKUP_PATH}" && -d "${BACKUP_PATH}" ]] || fail "backup was not verified"
 
 echo '[DATABASE SAFETY GATE]'
@@ -170,11 +173,11 @@ rollback_code() {
   ROLLBACK_PID="$(pm2 pid "${PM2_NAME}")"
   [[ "${ROLLBACK_PID}" =~ ^[0-9]+$ && "${ROLLBACK_PID}" -gt 0 ]]
   [[ "$(readlink -f "/proc/${ROLLBACK_PID}/cwd")" == "${APP_DIR}" ]]
-  [[ "$(readlink -f "/proc/${ROLLBACK_PID}/exe")" == "/usr/local/bin/bun" ]]
+  [[ "$(readlink -f "/proc/${ROLLBACK_PID}/exe")" == "${NODE_EXECUTABLE}" ]]
   ROLLBACK_DATABASE_URL="$(tr '\0' '\n' < "/proc/${ROLLBACK_PID}/environ" | sed -n 's/^DATABASE_URL=//p' | tail -1)"
   [[ "${ROLLBACK_DATABASE_URL}" == "${DATABASE_URL}" ]]
   ss -lntp | grep ":${PORT}" | grep -q "pid=${ROLLBACK_PID}"
-  if ! curl -fsS --max-time 15 "http://127.0.0.1:${PORT}/api/health" >/dev/null; then
+  if ! curl -fsS --max-time 15 "http://127.0.0.1:${PORT}/api/health/ready" >/dev/null; then
     echo "CRITICAL: rolled-back application failed its health check; database remains untouched." >&2
   fi
   echo "Application code rollback completed; production database was not changed by rollback." >&2
@@ -185,14 +188,14 @@ pm2 reload ecosystem.config.js --only "${PM2_NAME}" --update-env
 PID="$(pm2 pid "${PM2_NAME}")"
 [[ "${PID}" =~ ^[0-9]+$ && "${PID}" -gt 0 ]]
 [[ "$(readlink -f "/proc/${PID}/cwd")" == "${APP_DIR}" ]]
-[[ "$(readlink -f "/proc/${PID}/exe")" == "/usr/local/bin/bun" ]]
+[[ "$(readlink -f "/proc/${PID}/exe")" == "${NODE_EXECUTABLE}" ]]
 POST_DATABASE_URL="$(tr '\0' '\n' < "/proc/${PID}/environ" | sed -n 's/^DATABASE_URL=//p' | tail -1)"
 [[ -n "${POST_DATABASE_URL}" && "${POST_DATABASE_URL}" == "${DATABASE_URL}" ]]
 unset POST_DATABASE_URL
 PORT_RECORD="$(ss -lntp | grep ":${PORT}")"
 grep -q "pid=${PID}" <<<"${PORT_RECORD}"
-grep -Eq "(0\.0\.0\.0|\*):${PORT}" <<<"${PORT_RECORD}"
-curl -fsS --max-time 15 "http://127.0.0.1:${PORT}/api/health"
+grep -Eq "127\.0\.0\.1:${PORT}" <<<"${PORT_RECORD}"
+curl -fsS --max-time 15 "http://127.0.0.1:${PORT}/api/health/ready"
 run_as_owner bunx prisma db execute --schema "${DB_SCHEMA}" --stdin <<<'SELECT 1;' >/dev/null
 
 # Existing optional infrastructure is verified only when configured; no data is changed.

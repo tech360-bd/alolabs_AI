@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { db } from './db';
 import { hashSessionToken, sessionKey, legacySessionKey } from './session-token';
-import { removeSessionFromIndex, removeSessionIndexEntry, clearSessionIndex } from './session-index';
+import { removeSessionFromIndex, removeSessionIndexEntry, userSessionsKey } from './session-index';
 import { audienceForRole, audienceForToken, type Audience } from './access/surfaces';
 import { recordAccessViolation } from './access/audit';
 
@@ -109,6 +109,8 @@ export interface SessionCreateOptions {
 }
 
 export interface SessionVerifyOptions {
+  /** Passive verification must not prolong an idle browser session. */
+  touch?: boolean;
   /** Defaults to internal. Only client and shared-account handlers opt out. */
   audience?: Audience | 'any';
 }
@@ -277,7 +279,7 @@ async function verifyJwtSession(
     return null;
   }
 
-  if (now.getTime() - row.lastUsedAt.getTime() > SESSION_TOUCH_INTERVAL_MS) {
+  if (options.touch !== false && now.getTime() - row.lastUsedAt.getTime() > SESSION_TOUCH_INTERVAL_MS) {
     record.lastUsedAt = now.toISOString();
     await db.session.update({ where: { id: row.id }, data: { lastUsedAt: now } }).catch(() => undefined);
   }
@@ -356,7 +358,7 @@ async function verifyLegacySession(
   }
 
   if (!record.aud) record.aud = audience;
-  if (now.getTime() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_INTERVAL_MS) {
+  if (options.touch !== false && now.getTime() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_INTERVAL_MS) {
     record.lastUsedAt = now.toISOString();
     await db.settings.update({
       where: { key },
@@ -385,31 +387,13 @@ export async function verifySessionToken(
 }
 
 /** Revoke every database-backed and legacy session for a user. */
-export async function revokeUserSessions(userId: string): Promise<number> {
-  const dbResult = await db.session.deleteMany({ where: { userId } });
-  const legacyRows = await db.settings.findMany({
-    where: { key: { startsWith: 'session:' } },
-    select: { id: true, key: true, value: true },
-  });
-
-  let legacyRevoked = 0;
-  for (const row of legacyRows) {
-    if (row.key.startsWith('session:meta:')) continue;
-    try {
-      const record = JSON.parse(row.value) as { userId?: string };
-      if (record.userId === userId) {
-        await db.settings.delete({ where: { id: row.id } });
-        legacyRevoked += 1;
-      }
-    } catch {
-      // Skip malformed legacy entries; they cannot be tied safely to this user.
-    }
-  }
-  await db.settings.deleteMany({
-    where: { key: { startsWith: `session:meta:${userId}:` } },
-  }).catch(() => undefined);
-  await clearSessionIndex(userId).catch(() => undefined);
-  return dbResult.count + legacyRevoked;
+export async function revokeUserSessions(userId: string, client: Pick<typeof db, 'session' | 'settings'> = db): Promise<number> {
+  const jwt = await client.session.deleteMany({ where: { userId } });
+  const legacy = await client.settings.findMany({ where: { key: { startsWith: 'session:' } }, select: { id: true, key: true, value: true } });
+  const ids = legacy.filter(row => !row.key.startsWith('session:meta:') && parseSessionRecord(row.value)?.userId === userId).map(row => row.id);
+  const removed = ids.length ? await client.settings.deleteMany({ where: { id: { in: ids } } }) : { count: 0 };
+  await client.settings.deleteMany({ where: { OR: [{ key: { startsWith: `session:meta:${userId}:` } }, { key: userSessionsKey(userId) }] } });
+  return jwt.count + removed.count;
 }
 
 /** Remove expired JWT rows and expired legacy Settings rows. */
@@ -446,6 +430,10 @@ export async function purgeExpiredSessions(now: Date = new Date()): Promise<numb
   return dbResult.count + legacyPurged;
 }
 
+function ignoreConcurrentRemoval(error: unknown) {
+  if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'P2025') throw error;
+}
+
 /** Delete by token digest (JWT or legacy) and remove its legacy index entry. */
 export async function deleteSessionToken(token: string): Promise<void> {
   if (!token || typeof token !== 'string') return;
@@ -455,16 +443,17 @@ export async function deleteSessionToken(token: string): Promise<void> {
   const dbSession = await db.session.findUnique({
     where: { tokenHash },
     select: { id: true, userId: true },
-  }).catch(() => null);
+  });
   if (dbSession) {
     userId = dbSession.userId;
-    await db.session.delete({ where: { id: dbSession.id } }).catch(() => undefined);
+    await db.session.delete({ where: { id: dbSession.id } }).catch(ignoreConcurrentRemoval);
   }
 
   for (const key of [sessionKey(token), legacySessionKey(token)]) {
-    const row = await db.settings.findUnique({ where: { key } }).catch(() => null);
-    if (row && !userId) userId = parseSessionRecord(row.value)?.userId;
-    await db.settings.delete({ where: { key } }).catch(() => undefined);
+    const row = await db.settings.findUnique({ where: { key } });
+    if (!row) continue;
+    if (!userId) userId = parseSessionRecord(row.value)?.userId;
+    await db.settings.delete({ where: { key } }).catch(ignoreConcurrentRemoval);
   }
   if (userId) await removeSessionFromIndex(userId, token).catch(() => undefined);
 }

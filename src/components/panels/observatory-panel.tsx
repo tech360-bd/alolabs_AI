@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
@@ -489,6 +490,19 @@ export default function ObservatoryPanel() {
         prev.map((a) => (a.id === id ? { ...a, isSilenced: true } : a))
       )
     } catch { /* ignore */ }
+  }
+
+  const exportMetrics = async () => {
+    try {
+      const res = await apiFetch('/api/metrics/prometheus')
+      if (!res.ok) throw Error()
+      const url = URL.createObjectURL(await res.blob())
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'agentos-metrics.prom'
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch { toast.error('Metrics export unavailable') }
   }
 
   const handleCollectMetrics = async () => {
@@ -1031,7 +1045,7 @@ export default function ObservatoryPanel() {
           <Button
             variant="outline"
             className="rounded-lg border-[#E2E8F0] text-[#1E293B] hover:bg-[#F8FAFC]"
-            onClick={() => window.open('/api/metrics/prometheus', '_blank')}
+            onClick={exportMetrics}
           >
             <Download className="w-4 h-4 mr-2" />
             Export Prometheus

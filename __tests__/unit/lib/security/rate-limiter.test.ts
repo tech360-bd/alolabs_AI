@@ -1,16 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 
-// Mock Redis
-const mockRedisGet = vi.fn().mockResolvedValue(null);
-const mockRedisSet = vi.fn().mockResolvedValue(undefined);
-const mockRedisDel = vi.fn().mockResolvedValue(1);
-
-vi.mock('@/lib/redis', () => ({
-  redisGet: (...args: unknown[]) => mockRedisGet(...args),
-  redisSet: (...args: unknown[]) => mockRedisSet(...args),
-  redisDel: (...args: unknown[]) => mockRedisDel(...args),
-}));
-
+vi.mock('@/lib/redis', () => ({ evalLimitScript: vi.fn(async () => null), redisDel: vi.fn(async () => 0) }));
 import {
   checkLimit,
   checkEndpointLimit,
@@ -20,14 +10,7 @@ import {
 } from '@/lib/security/rate-limiter';
 
 describe('Rate Limiter', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockRedisGet.mockResolvedValue(null); // Force memory fallback
-  });
-
-  afterEach(() => {
-    vi.useFakeTimers?.restore?.();
-  });
+  afterEach(() => { vi.useRealTimers(); });
 
   // ─── checkLimit ─────────────────────────────────────────────────
 
@@ -172,7 +155,9 @@ describe('Rate Limiter', () => {
       status = await getLockoutStatus(key);
       expect(status.isLockedOut).toBe(false);
 
-      vi.useRealTimers();
+      expect(status.remainingAttempts).toBe(5);
+      await trackAttempt(key);
+      expect((await getLockoutStatus(key)).attempts).toBe(1);
     });
   });
 });

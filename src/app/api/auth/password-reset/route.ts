@@ -3,7 +3,11 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { hashPassword, revokeUserSessions } from '@/lib/auth';
 import { parseBody } from '@/lib/validators';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
+import { checkLimit } from '@/lib/security/rate-limiter';
+import { SMTPEmailService } from '@/lib/email/smtp';
+
+const digest = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
 
 const RESET_TOKEN_EXPIRY_MS = 900_000; // 15 minutes
 const resetRequestSchema = z.object({
@@ -24,77 +28,48 @@ export async function POST(request: NextRequest) {
     }
     const { email, token, newPassword } = parsed.data;
 
-    // Phase 1: request a reset. The response does not reveal whether the
-    // address is registered; production delivery is handled by the mailer.
-    if (!token && !newPassword) {
-      const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
-      if (!user) {
-        return NextResponse.json({ success: true, message: 'If the email exists, a reset link will be sent' });
+    const normalized = email.toLowerCase();
+    const key = `recovery:v2:${digest(normalized)}`;
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    if (!(await checkLimit(`recovery:ip:${ip}`, 20, 60_000)).allowed || !(await checkLimit(`recovery:${token ? 'apply' : 'request'}:${key}`, 5, 900_000)).allowed) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+    }
+    if (!token) {
+      const { SMTP_HOST: host, SMTP_USER: sender, SMTP_PASS: pass } = process.env;
+      const port = Number(process.env.SMTP_PORT || 587);
+      if (!host || !sender || !pass || !Number.isInteger(port) || port <= 0 || port > 65535) {
+        return NextResponse.json({ error: 'Password recovery is not configured. Contact your administrator.' }, { status: 503 });
       }
-
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      const resetValue = JSON.stringify({ userId: user.id, createdAt: Date.now() });
-      await db.settings.upsert({
-        where: { key: `password_reset:${resetToken}` },
-        update: { value: resetValue, updatedAt: new Date() },
-        create: { key: `password_reset:${resetToken}`, value: resetValue, type: 'json' },
-      });
-      await db.auditLog.create({
-        data: {
-          userId: user.id,
-          action: 'user.password_reset_requested',
-          resource: 'User',
-          details: JSON.stringify({ email: user.email }),
-        },
-      });
-
-      // Development-only convenience for testing the reset flow. Never return
-      // the reset credential from a production response.
-      if (process.env.NODE_ENV !== 'production') {
-        return NextResponse.json({ success: true, message: 'Reset token generated', data: { resetToken } });
+      const user = await db.user.findUnique({ where: { email: normalized }, select: { id: true, isActive: true, email: true } });
+      if (user?.isActive) {
+        const code = crypto.randomBytes(32).toString('hex'), value = digest(code);
+        await db.settings.upsert({ where: { key }, create: { key, value, type: 'string' }, update: { value, updatedAt: new Date() } });
+        const transport = new SMTPEmailService({ host, port, secure: port === 465, auth: { user: sender, pass } });
+        const sent = await transport.send({
+          id: '', from: process.env.SMTP_FROM || sender, to: [user.email], cc: [], bcc: [],
+          subject: 'ALO Labs password recovery code', text: `Enter this code in the ALO Labs password recovery form within 15 minutes:\n\n${code}\n\nIf you did not request this, ignore this message.`,
+          html: '', attachments: [], headers: {}, inReplyTo: null, references: [],
+        });
+        if (!sent.success) await db.settings.deleteMany({ where: { key, value } });
+        await db.auditLog.create({ data: { userId: user.id, action: sent.success ? 'user.password_reset_requested' : 'user.password_reset_delivery_failed', resource: 'User', details: '{}' } });
       }
-      return NextResponse.json({ success: true, message: 'If the email exists, a reset link will be sent' });
+      // The credential is delivered only to the account's mailbox, even in development.
+      return NextResponse.json({ success: true, message: 'Check your mailbox if this is an active account.' });
     }
-
-    // Phase 2: consume the single-use reset token.
-    const resetKey = `password_reset:${token}`;
-    const resetEntry = await db.settings.findUnique({ where: { key: resetKey } });
-    if (!resetEntry) {
-      return NextResponse.json({ success: false, error: 'INVALID_TOKEN', message: 'Invalid or expired reset token' }, { status: 400 });
-    }
-
-    let resetData: { userId: string; createdAt: number };
-    try {
-      resetData = JSON.parse(resetEntry.value) as { userId: string; createdAt: number };
-    } catch {
-      await db.settings.delete({ where: { key: resetKey } }).catch(() => undefined);
-      return NextResponse.json({ success: false, error: 'INVALID_TOKEN', message: 'Invalid or expired reset token' }, { status: 400 });
-    }
-    if (typeof resetData.userId !== 'string' || typeof resetData.createdAt !== 'number') {
-      await db.settings.delete({ where: { key: resetKey } }).catch(() => undefined);
-      return NextResponse.json({ success: false, error: 'INVALID_TOKEN', message: 'Invalid or expired reset token' }, { status: 400 });
-    }
-    if (Date.now() - resetData.createdAt >= RESET_TOKEN_EXPIRY_MS) {
-      await db.settings.delete({ where: { key: resetKey } });
-      return NextResponse.json({ success: false, error: 'TOKEN_EXPIRED', message: 'Reset token has expired' }, { status: 400 });
-    }
-
-    const user = await db.user.findUnique({ where: { id: resetData.userId } });
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'NOT_FOUND', message: 'User not found' }, { status: 404 });
-    }
-
+    const value = digest(token.toLowerCase());
+    const activeIntent = () => ({ key, value, updatedAt: { gt: new Date(Date.now() - RESET_TOKEN_EXPIRY_MS) } });
+    const invalid = () => NextResponse.json({ error: 'Invalid or expired recovery code.' }, { status: 400 });
+    if (!await db.settings.findFirst({ where: activeIntent(), select: { id: true } })) return invalid();
     const passwordHash = await hashPassword(newPassword!);
-    await db.user.update({ where: { id: user.id }, data: { passwordHash, updatedAt: new Date() } });
-    await db.settings.delete({ where: { key: resetKey } });
-    await revokeUserSessions(user.id);
-    await db.auditLog.create({
-      data: { userId: user.id, action: 'user.password_reset_completed', resource: 'User', details: '{}' },
+    const applied = await db.$transaction(async tx => {
+      if ((await tx.settings.deleteMany({ where: activeIntent() })).count !== 1) return false;
+      const user = await tx.user.update({ where: { email: normalized, isActive: true }, data: { passwordHash } });
+      await revokeUserSessions(user.id, tx);
+      await tx.auditLog.create({ data: { userId: user.id, action: 'user.password_reset_completed', resource: 'User', details: '{}' } });
+      return true;
     });
-
-    return NextResponse.json({ success: true, message: 'Password has been reset' });
-  } catch (error) {
-    console.error('Password reset error:', error);
-    return NextResponse.json({ success: false, error: 'INTERNAL_ERROR', message: 'Internal server error' }, { status: 500 });
+    return applied ? NextResponse.json({ success: true, message: 'Password changed. Sign in again.' }) : invalid();
+  } catch {
+    return NextResponse.json({ error: 'Password recovery is unavailable.' }, { status: 500 });
   }
 }

@@ -49,6 +49,9 @@ jobs:
       skip_paid: ${{ steps.paid.outputs.skip_paid }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -66,7 +69,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          ./node_modules/.bin/tsc --noEmit --pretty false 2>&1 | tee /tmp/typescript-errors.txt
+          bun run typecheck 2>&1 | tee /tmp/typescript-errors.txt
           status=${PIPESTATUS[0]}
           set -e
           if (( status != 0 )); then
@@ -129,7 +132,8 @@ jobs:
           node scripts/validate-workflow-security.mjs
       - name: Stage reviewed safety scripts
         run: |
-          mkdir -p production-safety-scripts
+          mkdir -p production-safety-scripts/lib
+          install -m 600 deploy/scripts/lib/portable-coreutils.sh production-safety-scripts/lib/portable-coreutils.sh
           install -m 700 deploy/scripts/deploy.sh production-safety-scripts/deploy.sh
           install -m 700 deploy/scripts/backup.sh production-safety-scripts/backup.sh
           install -m 700 deploy/scripts/database-safety-scan.sh production-safety-scripts/database-safety-scan.sh
@@ -147,27 +151,8 @@ jobs:
     environment: production
     # EXPLICIT APPROVAL GATE.
     #
-    # Previously this job ran on every push to main. The `production`
-    # environment has protection_rules: [] and deployment_branch_policy: null
-    # (verified via the REST API), so nothing stood between a merge and a
-    # production deploy — the moment Actions billing is fixed and the four
-    # PRODUCTION_* secrets exist, any push to main would deploy unattended.
-    #
-    # The GitHub-native control for this is a required reviewer on the
-    # environment, but per
-    # https://docs.github.com/en/rest/deployments/environments
-    # "If you are on a GitHub Free, GitHub Pro, or GitHub Team plan, other
-    # deployment protection rules, such as a wait timer or required reviewers,
-    # are only available for public repositories." This repository is PRIVATE,
-    # so that control may not be available on your plan.
-    #
-    # This condition is therefore plan-independent: a push to main still runs
-    # every quality and safety gate above, but the deploy itself only happens
-    # on a manual dispatch with confirm_production_deploy=true.
-    #
-    # TO RESTORE AUTO-DEPLOY (only if your plan supports required reviewers):
-    # add the reviewer rule per docs/DEPLOYMENT-RUNBOOK.md step 2, confirm it
-    # pauses the job, then delete the `if:` line below.
+    # A push may run quality checks, but only a manually confirmed dispatch can
+    # contact production. Repository/environment settings can change independently.
     if: github.event_name == 'workflow_dispatch' && inputs.confirm_production_deploy == true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

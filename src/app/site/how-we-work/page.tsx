@@ -14,7 +14,7 @@ export const metadata: Metadata = {
       'Five delivery stages from discovery to continuous improvement — the ALO Labs process, explained step by step.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/site/how-we-work',
-    images: ['/brand/alo-mark.svg'],
+    images: ['/studio/icon-512.png'],
   },
 }
 

@@ -1,6 +1,6 @@
+import { rethrowProviderError as rethrow } from '@/lib/api/v1-provider-error';
 import { v1Handler, v1Body, V1Error } from '@/lib/v1';
 import {
-  ProviderAdminError,
   ProviderUpdateSchema,
   deleteProviderConfig,
   listProviderConfigs,
@@ -14,11 +14,6 @@ import {
 
 function idFrom(request: { nextUrl: { pathname: string } }): string {
   return decodeURIComponent(request.nextUrl.pathname.split('/').pop()!);
-}
-
-function rethrow(err: unknown): never {
-  if (err instanceof ProviderAdminError) throw new V1Error(err.message, err.status, err.code);
-  throw err;
 }
 
 function requireSession(identity: { kind: string }): void {

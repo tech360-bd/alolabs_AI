@@ -1,5 +1,7 @@
 'use client'
 
+import { scoreBarColor, scoreColor } from '@/components/panels/crm-score';
+import { formatCurrency, formatOptionalShortDate as formatDate } from '@/lib/display-format';
 import { apiFetch } from '@/lib/api-client'
 import { useState, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -100,27 +102,6 @@ const activityColors: Record<string, string> = {
   meeting: 'text-purple-600 bg-purple-50',
   task: 'text-amber-600 bg-amber-50',
   note: 'text-slate-600 bg-slate-50',
-}
-
-function formatCurrency(val: number, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0 }).format(val)
-}
-
-function formatDate(d?: string) {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function scoreColor(score: number) {
-  if (score >= 70) return 'text-emerald-600'
-  if (score >= 40) return 'text-amber-600'
-  return 'text-red-500'
-}
-
-function scoreBarColor(score: number) {
-  if (score >= 70) return '[&>div]:bg-emerald-500'
-  if (score >= 40) return '[&>div]:bg-amber-500'
-  return '[&>div]:bg-red-400'
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────

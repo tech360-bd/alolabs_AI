@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDate as formatDate } from '@/lib/display-format';
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
@@ -94,14 +95,6 @@ const statusIcon = (status: string) => {
     case 'paused': return AlertCircle
     default: return Clock
   }
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────

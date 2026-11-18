@@ -88,6 +88,10 @@ export interface QueueItemData {
 }
 
 export interface ProcessOptions {
+  /** Best-effort monitor of committed changes; observer failure must not retry a job. */
+  onTransition?: (item: QueueItemData, queueName: string, result?: unknown) => void | Promise<void>;
+  /** If set, leave jobs outside these registered types untouched. Empty means none. */
+  jobTypes?: readonly string[];
   /** Identifies this worker in leases. Defaults to a per-process id. */
   workerId?: string;
   /** Lease duration; expired leases are reclaimable. Default 60s. */
@@ -98,10 +102,13 @@ export interface ProcessOptions {
   backoffMs?: (attempt: number) => number;
 }
 
+type Claim = { lockedBy: string | null; attempts: number };
+
 export interface FailOptions {
   backoffMs?: (attempt: number) => number;
   /** Mark failed immediately regardless of remaining attempts. */
   fatal?: boolean;
+  claim?: Claim;
 }
 
 // ─── Configuration ───────────────────────────────────────────────────────────
@@ -146,20 +153,19 @@ async function ensureQueue(queueName: string, maxRetries?: number): Promise<stri
  * Atomically claim a queued job for a worker. Returns false when another
  * worker won the race (or the job was cancelled in between).
  */
-async function claimJob(jobId: string, workerId: string, leaseMs: number): Promise<boolean> {
-  const now = new Date();
-  const claim = await db.queueItem.updateMany({
-    where: { id: jobId, status: 'queued' },
-    data: {
-      status: 'processing',
-      startedAt: now,
-      attempts: { increment: 1 },
-      lockedBy: workerId,
-      lockExpiresAt: new Date(now.getTime() + leaseMs),
-      heartbeatAt: now,
-    },
+async function claimJob(queueId: string, jobId: string, workerId: string, leaseMs: number, jobType?: string): Promise<boolean> {
+  // Serialize admissions per queue across processes (InnoDB row lock / SQLite
+  // writer lock). A CAS on the item alone cannot enforce a queue-wide limit.
+  return db.$transaction(async tx => {
+    const policy = await tx.jobQueue.update({ where: { id: queueId }, data: { updatedAt: new Date() }, select: { isActive: true, concurrency: true } });
+    if (!policy.isActive || await tx.queueItem.count({ where: { queueId, status: 'processing' } }) >= policy.concurrency) return false;
+    const now = new Date();
+    const claim = await tx.queueItem.updateMany({
+      where: { id: jobId, queueId, ...(jobType !== undefined && { jobType }), status: 'queued', OR: [{ scheduledAt: null }, { scheduledAt: { lte: now } }] },
+      data: { status: 'processing', startedAt: now, attempts: { increment: 1 }, lockedBy: workerId, lockExpiresAt: new Date(now.getTime() + leaseMs), heartbeatAt: now },
+    });
+    return claim.count === 1;
   });
-  return claim.count > 0;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -243,8 +249,8 @@ export async function dequeue(
     });
     if (!item) return null;
 
-    if (await claimJob(item.id, workerId, leaseMs)) {
-      const updated = await db.queueItem.findUnique({ where: { id: item.id } });
+    if (await claimJob(queue.id, item.id, workerId, leaseMs)) {
+      const updated = await db.queueItem.findFirst({ where: { id: item.id, status: 'processing', lockedBy: workerId } });
       return updated ? toQueueItemData(updated) : null;
     }
   }
@@ -252,10 +258,10 @@ export async function dequeue(
 }
 
 /** Extend the lease of a running job (no-op if the worker no longer holds it). */
-export async function heartbeat(jobId: string, workerId: string, leaseMs: number = DEFAULT_LEASE_MS): Promise<boolean> {
+export async function heartbeat(jobId: string, workerId: string, leaseMs: number = DEFAULT_LEASE_MS, attempts?: number): Promise<boolean> {
   const now = new Date();
   const res = await db.queueItem.updateMany({
-    where: { id: jobId, status: 'processing', lockedBy: workerId },
+    where: { id: jobId, status: 'processing', lockedBy: workerId, attempts },
     data: { heartbeatAt: now, lockExpiresAt: new Date(now.getTime() + leaseMs) },
   });
   return res.count > 0;
@@ -268,6 +274,7 @@ export async function heartbeat(jobId: string, workerId: string, leaseMs: number
 export async function completeJob(
   jobId: string,
   result?: Record<string, unknown> | unknown[] | string | number | boolean | null,
+  claim?: Claim,
 ): Promise<QueueItemData> {
   const updateData: Record<string, unknown> = {
     status: 'completed',
@@ -282,7 +289,7 @@ export async function completeJob(
   }
 
   const item = await db.queueItem.update({
-    where: { id: jobId },
+    where: { id: jobId, status: 'processing', ...claim },
     data: updateData,
   });
 
@@ -311,7 +318,7 @@ export async function failJob(
   const backoff = options.backoffMs ?? defaultBackoffMs;
 
   const item = await db.queueItem.update({
-    where: { id: jobId },
+    where: { id: jobId, status: 'processing', ...(options.claim ?? { attempts: existing.attempts }) },
     data: {
       status: isExhausted ? 'failed' : 'queued',
       error: error.slice(0, 4000),
@@ -350,7 +357,7 @@ export async function isJobCancelled(jobId: string): Promise<boolean> {
  * Return jobs whose worker lease expired to the queue (or to the dead-letter
  * state when attempts are exhausted). Call on worker start and periodically.
  */
-export async function reclaimExpiredLeases(queueName?: string): Promise<{ requeued: number; deadLettered: number }> {
+export async function reclaimExpiredLeases(queueName?: string, jobTypes?: readonly string[]): Promise<{ requeued: number; deadLettered: number }> {
   const now = new Date();
   const queueFilter = queueName
     ? { queue: { name: queueName } }
@@ -359,6 +366,7 @@ export async function reclaimExpiredLeases(queueName?: string): Promise<{ requeu
   const expired = await db.queueItem.findMany({
     where: {
       ...queueFilter,
+      ...(jobTypes && { jobType: { in: [...jobTypes] } }),
       status: 'processing',
       OR: [
         { lockExpiresAt: { lt: now } },
@@ -366,7 +374,7 @@ export async function reclaimExpiredLeases(queueName?: string): Promise<{ requeu
         { lockExpiresAt: null, startedAt: { lt: new Date(now.getTime() - 10 * 60_000) } },
       ],
     },
-    select: { id: true, attempts: true, maxAttempts: true, lockedBy: true },
+    select: { id: true, attempts: true, maxAttempts: true, lockedBy: true, lockExpiresAt: true, startedAt: true },
   });
 
   let requeued = 0;
@@ -374,7 +382,7 @@ export async function reclaimExpiredLeases(queueName?: string): Promise<{ requeu
   for (const item of expired) {
     const exhausted = item.attempts >= item.maxAttempts;
     const res = await db.queueItem.updateMany({
-      where: { id: item.id, status: 'processing' },
+      where: { id: item.id, status: 'processing', attempts: item.attempts, lockedBy: item.lockedBy, lockExpiresAt: item.lockExpiresAt, startedAt: item.startedAt },
       data: exhausted
         ? { status: 'failed', error: `worker lease expired (${item.lockedBy ?? 'unknown worker'}); attempts exhausted`, completedAt: now, lockedBy: null, lockExpiresAt: null }
         : { status: 'queued', error: `worker lease expired (${item.lockedBy ?? 'unknown worker'}); re-queued`, startedAt: null, lockedBy: null, lockExpiresAt: null, scheduledAt: now },
@@ -404,6 +412,11 @@ export async function processQueue(
   handler: JobHandler,
   options: ProcessOptions = {},
 ): Promise<JobResult[]> {
+  if (options.jobTypes?.length === 0) return [];
+  const report = async (item: QueueItemData, result?: unknown) => {
+    try { await options.onTransition?.(item, queueName, result); }
+    catch { console.warn('[Queue] transition notification failed'); }
+  };
   const queue = await db.jobQueue.findUnique({ where: { name: queueName } });
   if (!queue) throw new Error(`Queue '${queueName}' not found`);
   if (!queue.isActive) throw new Error(`Queue '${queueName}' is not active`);
@@ -417,6 +430,7 @@ export async function processQueue(
   const jobs = await db.queueItem.findMany({
     where: {
       queueId: queue.id,
+      ...(options.jobTypes && { jobType: { in: [...options.jobTypes] } }),
       status: 'queued',
       OR: [
         { scheduledAt: null },
@@ -433,25 +447,27 @@ export async function processQueue(
   await Promise.all(jobs.map(async (job) => {
     // Atomic compare-and-set prevents two workers/replicas (or overlapping
     // polls) from executing the same job concurrently.
-    if (!(await claimJob(job.id, workerId, leaseMs))) {
+    if (!(await claimJob(queue.id, job.id, workerId, leaseMs, options.jobTypes ? job.jobType : undefined))) {
       results.push({ id: job.id, status: 'skipped', error: 'Job already claimed by another worker' });
       return;
     }
-    const claimed = await db.queueItem.findUnique({ where: { id: job.id } });
+    const claimed = await db.queueItem.findFirst({ where: { id: job.id, status: 'processing', lockedBy: workerId } });
     if (!claimed) return;
 
+    const claim = { lockedBy: workerId, attempts: claimed.attempts };
     const timer = setInterval(() => {
-      void heartbeat(job.id, workerId, leaseMs).catch(() => undefined);
+      void heartbeat(job.id, workerId, leaseMs, claim.attempts).catch(() => undefined);
     }, heartbeatMs);
     if (typeof timer.unref === 'function') timer.unref();
 
     const ctx: JobContext = {
       workerId,
-      heartbeat: async () => { await heartbeat(job.id, workerId, leaseMs); },
+      heartbeat: async () => { await heartbeat(job.id, workerId, leaseMs, claim.attempts); },
       isCancelled: () => isJobCancelled(job.id),
     };
 
     try {
+      if (options.onTransition) await report(toQueueItemData(claimed));
       const result = await handler(toQueueItemData(claimed), ctx);
       // If the job was cancelled while running, keep the cancelled state.
       const current = await db.queueItem.findUnique({ where: { id: job.id }, select: { status: true } });
@@ -459,7 +475,8 @@ export async function processQueue(
         results.push({ id: job.id, status: 'cancelled' });
         return;
       }
-      const completed = await completeJob(job.id, result === undefined ? undefined : (result as Record<string, unknown>));
+      const completed = await completeJob(job.id, result === undefined ? undefined : (result as Record<string, unknown>), claim);
+      if (options.onTransition) await report(completed, result);
       results.push({
         id: completed.id,
         status: 'completed',
@@ -467,7 +484,12 @@ export async function processQueue(
       });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      const updated = await failJob(job.id, errorMsg, { backoffMs: options.backoffMs });
+      const updated = await failJob(job.id, errorMsg, { backoffMs: options.backoffMs, claim }).catch((e: unknown) => {
+        if ((e as { code?: string })?.code === 'P2025') return null; // Lease was reclaimed.
+        throw e;
+      });
+      if (!updated) { results.push({ id: job.id, status: 'skipped', error: 'Lease lost' }); return; }
+      if (options.onTransition) await report(updated);
       results.push({
         id: updated.id,
         status: updated.status,

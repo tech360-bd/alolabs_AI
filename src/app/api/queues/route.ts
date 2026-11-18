@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { mayOperateQueues } from '@/lib/access/queue';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
@@ -10,6 +12,7 @@ export async function GET(request: NextRequest) {
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!mayOperateQueues(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   try {
     const queues = await db.jobQueue.findMany({
       orderBy: { createdAt: 'desc' },
@@ -60,13 +63,15 @@ export async function POST(request: NextRequest) {
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!mayOperateQueues(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   try {
-    const body = await request.json();
-    const { name, description, concurrency, maxRetries, isActive } = body;
-
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json({ error: 'name is required' }, { status: 400 });
-    }
+    const parsed = z.object({
+      name: z.string().trim().min(1).max(120), description: z.string().max(1024).optional(),
+      concurrency: z.number().int().min(1).max(100).default(3), maxRetries: z.number().int().min(1).max(50).default(3),
+      isActive: z.boolean().default(true),
+    }).safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid queue configuration' }, { status: 400 });
+    const { name, description, concurrency, maxRetries, isActive } = parsed.data;
 
     const existing = await db.jobQueue.findUnique({ where: { name: name.trim() } });
     if (existing) {
@@ -77,14 +82,13 @@ export async function POST(request: NextRequest) {
       data: {
         name: name.trim(),
         description: description || null,
-        concurrency: typeof concurrency === 'number' ? concurrency : 3,
-        maxRetries: typeof maxRetries === 'number' ? maxRetries : 3,
-        isActive: typeof isActive === 'boolean' ? isActive : true,
+        concurrency, maxRetries, isActive,
       },
     });
 
     return NextResponse.json({ data: queue }, { status: 201 });
   } catch (error) {
+    if ((error as { code?: string })?.code === 'P2002') return NextResponse.json({ error: 'Queue name already exists' }, { status: 409 });
     console.error('POST /api/queues error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

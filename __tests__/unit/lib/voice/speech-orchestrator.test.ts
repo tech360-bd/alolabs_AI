@@ -22,8 +22,8 @@ import {
 
 describe('speech engines — honest availability', () => {
   it('built-in local engines are placeholders that refuse to fake output', async () => {
-    const tts = new PlaceholderTtsEngine()
-    const asr = new PlaceholderAsrEngine()
+    const tts: TtsEngine = new PlaceholderTtsEngine()
+    const asr: AsrEngine = new PlaceholderAsrEngine()
     expect(tts.info.available).toBe(false)
     expect(asr.info.available).toBe(false)
     await expect(tts.synthesize({ text: 'hello', language: 'bn-BD' })).rejects.toThrow(SpeechEngineUnavailableError)

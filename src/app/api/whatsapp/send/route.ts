@@ -1,77 +1,11 @@
+import { getWhatsAppClient } from '@/lib/whatsapp/config';
 // ALO Labs AIOS — WhatsApp Send API
 // Send text, image, document, and template messages via WhatsApp Business API
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifySessionToken } from '@/lib/auth';
-import { WhatsAppBusinessClient } from '@/lib/whatsapp/client';
-import type { WhatsAppConfig, WhatsAppTemplate } from '@/lib/whatsapp/types';
-
-// ─── Helper: Get WhatsApp client ──────────────────────────────────────────────
-
-async function getWhatsAppClient(phoneNumberId?: string): Promise<{
-  client: WhatsAppBusinessClient;
-  resolvedPhoneNumberId: string;
-} | null> {
-  const apiUrl = process.env.WHATSAPP_API_URL || 'https://graph.facebook.com';
-  const apiVersion = process.env.WHATSAPP_API_VERSION || 'v21.0';
-  let accessToken = process.env.WHATSAPP_ACCESS_TOKEN || '';
-  let resolvedPhoneNumberId = phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID || '';
-  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || '';
-
-  // Try to resolve from stored settings
-  if (!resolvedPhoneNumberId || !accessToken) {
-    try {
-      const numbersSetting = await db.settings.findUnique({
-        where: { key: 'whatsapp:numbers' },
-      });
-      if (numbersSetting) {
-        const numbers = JSON.parse(numbersSetting.value) as Array<{
-          phoneNumberId: string;
-          accessToken: string;
-          isDefault: boolean;
-        }>;
-        const target = resolvedPhoneNumberId
-          ? numbers.find((n) => n.phoneNumberId === resolvedPhoneNumberId)
-          : numbers.find((n) => n.isDefault) || numbers[0];
-
-        if (target) {
-          if (!resolvedPhoneNumberId) resolvedPhoneNumberId = target.phoneNumberId;
-          if (!accessToken) accessToken = target.accessToken;
-        }
-      }
-    } catch { /* ignore */ }
-  }
-
-  // Check social token settings
-  if (!accessToken) {
-    try {
-      const tokenSetting = await db.settings.findUnique({
-        where: { key: 'social:whatsapp:token' },
-      });
-      if (tokenSetting) {
-        const data = JSON.parse(tokenSetting.value) as { accessToken: string };
-        accessToken = data.accessToken;
-      }
-    } catch { /* ignore */ }
-  }
-
-  if (!resolvedPhoneNumberId || !accessToken) return null;
-
-  const config: WhatsAppConfig = {
-    apiUrl,
-    apiVersion,
-    phoneNumberId: resolvedPhoneNumberId,
-    accessToken,
-    verifyToken,
-    webhookUrl: '',
-  };
-
-  return {
-    client: new WhatsAppBusinessClient(config),
-    resolvedPhoneNumberId,
-  };
-}
+import type { WhatsAppTemplate } from '@/lib/whatsapp/types';
 
 // ─── POST: Send Message ────────────────────────────────────────────────────────
 

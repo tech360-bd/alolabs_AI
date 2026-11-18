@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDate as fmt } from '@/lib/display-format';
 import React, { useState, useEffect } from 'react'
 import { GitBranch, Activity, CheckCircle2, XCircle, PauseCircle, PlayCircle, Clock, TrendingUp } from 'lucide-react'
 import { fetchApi } from '@/lib/api-client'
@@ -25,10 +26,6 @@ const statusColors: Record<string, string> = {
 }
 const stepStatusColors: Record<string, string> = {
   completed: 'bg-emerald-500', running: 'bg-blue-500 animate-pulse', pending: 'bg-slate-300 dark:bg-slate-600', failed: 'bg-red-500',
-}
-
-function fmt(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export default function WorkflowOrchestration() {

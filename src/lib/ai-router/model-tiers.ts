@@ -15,6 +15,7 @@
  *   Tier 3 — high-speed classification and tagging (1–3B class)
  */
 
+import { envFlag } from '@/lib/ai-router/env-flag';
 import type { AICapability } from './types';
 import { isTrustedLocalInferenceEndpoint } from '../ai-provider-catalog';
 
@@ -143,14 +144,6 @@ export function gatewayModelCatalog(
       costPerMillionTokens: 0,
     };
   });
-}
-
-function envFlag(value: string | undefined): boolean | undefined {
-  if (value === undefined || value.trim() === '') return undefined;
-  const normalized = value.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
-  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
-  return undefined;
 }
 
 /** True when a local inference endpoint has been configured. */

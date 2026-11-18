@@ -3,17 +3,17 @@
 ## Authoritative topology
 
 - Repository and application root: `/opt`
-- PM2 application: `agentos-app`
-- Runtime: `/usr/local/bin/bun`
+- PM2 application: `alolabs-agentos`
+- Runtime: Node 22.13+ (Bun 1.3.4 is a host build dependency)
 - Entrypoint: `/opt/.next/standalone/server.js`
-- Listener: `0.0.0.0:3011`
-- Health endpoint: `http://127.0.0.1:3011/api/health`
+- Listener: `127.0.0.1:3011`
+- Health endpoint: `http://127.0.0.1:3011/api/health/ready`
 
 Production secrets remain in the server environment and GitHub production environment. They must never be copied into the repository or deployment logs.
 
 ## Deployment
 
-A push to `main` runs `.github/workflows/deploy.yml`. TypeScript, tests, lint, build, standalone-artifact checks, shell validation, and the database-command scan must all pass. GitHub then transfers the reviewed safety scripts to a run-specific temporary directory. The live deployment script verifies the current process and exact database connection, backs up the existing database, and only then fetches target code.
+A push to `main` runs `.github/workflows/deploy.yml`. TypeScript, tests, lint, build, standalone-artifact checks, shell validation, and the database-command scan must all pass. Only an explicitly approved manual dispatch then transfers the reviewed safety scripts to a run-specific temporary directory. The live deployment script verifies the current process and exact database connection, backs up the existing database, and only then fetches target code.
 
 ### Deployment bridge configuration
 
@@ -67,7 +67,7 @@ before relying on a repository-level value.
 it is unset, both workflows probe `/opt` and `/home/aloedu/alolabs_AI` for
 `deploy/scripts/backup.sh`.
 
-Pending production migrations block normal push deployments. A reviewed migration requires a manual workflow dispatch with `migrations_approved` explicitly enabled. Client generation does not authorize migration.
+Pushes never authorize production deployment. Reviewed operator SQL is not applied by Prisma automatically. A reviewed migration requires a manual workflow dispatch with `migrations_approved` explicitly enabled. Client generation does not authorize migration.
 
 ## Database recovery boundary
 
@@ -80,16 +80,26 @@ Verified backups are stored under `/opt/backups`. Each set includes commit metad
 ```bash
 cd /opt
 pm2 status
-pm2 describe agentos-app
-PID="$(pm2 pid agentos-app)"
+pm2 describe alolabs-agentos
+PID="$(pm2 pid alolabs-agentos)"
 readlink -f "/proc/${PID}/cwd"
 readlink -f "/proc/${PID}/exe"
 ss -lntp | grep ':3011'
-curl -fsS --max-time 15 http://127.0.0.1:3011/api/health
+curl -fsS --max-time 15 http://127.0.0.1:3011/api/health/ready
 ```
 
-Expected runtime results are `/opt`, `/usr/local/bin/bun`, and a healthy listener owned by the PM2 PID. Do not print the process environment because it contains secrets.
+Expected runtime results are `/opt`, Node 22.13+ (Bun 1.3.4 is a host build dependency), and a healthy listener owned by the PM2 PID. Do not print the process environment because it contains secrets.
 
 ## Server verification status
 
 Repository controls can be validated in CI, but the actual server, database, firewall, SSH daemon, Qdrant, MinIO, disk capacity, credentials, grants, and live health can only be verified through the configured GitHub production deployment bridge. Until that workflow succeeds against the actual server, production status is **BLOCKED / NOT VERIFIED**, not production-ready.
+
+### Credential recovery and shared mailboxes
+
+Configure a dedicated transactional `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` and `SMTP_FROM` for password recovery. Port 465 uses implicit TLS; other submission ports must support STARTTLS. Certificate verification is mandatory. Without a sender the endpoint returns 503. The sign-in form accepts the emailed 15-minute, single-use code; it is never returned by the API or sent in a URL. Changing a password revokes the user's persisted sessions. Do not enable public traffic until recovery has been tested with the deployment's actual mailbox.
+
+Global inbox, outbound mail and account configuration are operator resources (admin, platform super-admin or super-admin), not tenant mailboxes. IMAP requires verified implicit TLS. Legacy mailbox/social account JSON remains readable for compatibility; new saves encrypt the record with the field encryption key. Review/rotate previously stored credentials and protect old backups privately. A settings toggle is not access control.
+
+### Build and staging gates
+
+`npm run build` checks production routes and types, packages the app and both socket services, and scans the generated standalone distribution for local databases, dotenv files, private-key signatures and links outside the package. This is not a general-purpose secret detector. Run the MySQL verification workflow on the candidate SHA; it must build on a disposable **MySQL** schema and serve readiness with production policy enabled. A local SQLite-adapter build is for testing only, not a production release. Validate each reverse proxy with actual certificate and upstream paths on staging. Prefer one gateway; do not launch both Caddy and Nginx on the same public ports.

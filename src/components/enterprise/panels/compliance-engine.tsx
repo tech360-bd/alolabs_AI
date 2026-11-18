@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDateTime as fmt } from '@/lib/display-format';
 import React, { useState, useEffect, useMemo } from 'react'
 import { ShieldCheck, ClipboardCheck, FileText, Wrench, Eye, Award, AlertOctagon, Clock, CheckCircle2, BarChart3 } from 'lucide-react'
 import { fetchApi } from '@/lib/api-client'
@@ -30,11 +31,6 @@ const statusColors: Record<string, string> = {
 
 const actionIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   check_compliance: ClipboardCheck, generate_report: FileText, remediate: Wrench, certify: Award, monitor: Eye,
-}
-
-function fmt(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function ComplianceEngine() {

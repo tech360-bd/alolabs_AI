@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-function createMockRequest(url: string) {
-  return { url } as unknown as import('next/server').NextRequest;
-}
-
 vi.mock('next/server', () => ({
   NextResponse: {
     json: (data: unknown, init?: { status?: number }) => ({
@@ -38,8 +34,7 @@ describe('GET /api/models', () => {
 
   it('should return model list with defaults when DB is empty', async () => {
     mockModelRegistryFindMany.mockResolvedValue([]);
-    const request = createMockRequest('http://localhost/api/models');
-    const response = await GET(request);
+    const response = await GET();
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.data).toBeDefined();
@@ -68,8 +63,7 @@ describe('GET /api/models', () => {
         updatedAt: new Date(),
       },
     ]);
-    const request = createMockRequest('http://localhost/api/models');
-    const response = await GET(request);
+    const response = await GET();
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.data).toHaveLength(1);
@@ -81,8 +75,7 @@ describe('GET /api/models', () => {
     const { requireAuth } = await import('@/lib/api-auth');
     vi.mocked(requireAuth).mockRejectedValueOnce(new Error('Unauthorized'));
 
-    const request = createMockRequest('http://localhost/api/models');
-    const response = await GET(request);
+    const response = await GET();
     expect(response.status).toBe(401);
     const data = await response.json();
     expect(data.error).toBe('Unauthorized');
@@ -90,8 +83,7 @@ describe('GET /api/models', () => {
 
   it('should return 500 on database error', async () => {
     mockModelRegistryFindMany.mockRejectedValue(new Error('DB error'));
-    const request = createMockRequest('http://localhost/api/models');
-    const response = await GET(request);
+    const response = await GET();
     expect(response.status).toBe(500);
     const data = await response.json();
     expect(data.error).toBe('Internal server error');
@@ -99,8 +91,7 @@ describe('GET /api/models', () => {
 
   it('should have default models with correct structure', async () => {
     mockModelRegistryFindMany.mockResolvedValue([]);
-    const request = createMockRequest('http://localhost/api/models');
-    const response = await GET(request);
+    const response = await GET();
     const data = await response.json();
 
     for (const model of data.data) {

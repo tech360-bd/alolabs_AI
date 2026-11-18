@@ -25,38 +25,34 @@ export async function GET() {
         ready: false,
         reason: 'datasource_policy',
         provider: datasource.provider,
-        url: datasource.redactedUrl,
-        detail: datasource.reason,
-      },
-      { status: 503 },
-    );
-  }
-
-  if (typeof db.$queryRaw !== 'function') {
-    return NextResponse.json(
-      {
-        ready: false,
-        reason: 'database_unverified',
-        detail: 'Database client exposes no query interface; connection not verified',
       },
       { status: 503 },
     );
   }
 
   try {
+    if (typeof db.$queryRaw !== 'function') {
+      return NextResponse.json(
+        {
+          ready: false,
+          reason: 'database_unverified',
+          detail: 'Database client exposes no query interface; connection not verified',
+        },
+        { status: 503 },
+      );
+    }
     await db.$queryRaw`SELECT 1 as ok`;
     return NextResponse.json({
       ready: true,
       provider: datasource.provider,
       production_policy_enforced: datasource.enforced,
     });
-  } catch (err: unknown) {
+  } catch {
     return NextResponse.json(
       {
         ready: false,
         reason: 'database_unreachable',
         provider: datasource.provider,
-        detail: err instanceof Error ? err.message : String(err),
       },
       { status: 503 },
     );

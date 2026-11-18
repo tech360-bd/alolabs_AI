@@ -1,62 +1,21 @@
+import { sessionTtlHours } from '@/lib/session-ttl';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { compare } from 'bcrypt';
 import { db } from '@/lib/db';
 import { createSessionToken } from '@/lib/auth';
 import { z } from 'zod';
+import { checkLimit, getLockoutStatus, trackAttempt, resetAttempts } from '@/lib/security/rate-limiter';
 import { parseBody } from '@/lib/validators';
 
-// ─── In-memory brute-force rate limiter ────────────────────────────────
-
-interface RateLimitEntry {
-  timestamps: number[];
-}
-
-const loginRateLimits = new Map<string, RateLimitEntry>();
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const MAX_ATTEMPTS_PER_EMAIL = 5;
 const MAX_ATTEMPTS_PER_IP = 20;
-const REMEMBER_ME_TTL_HOURS = 30 * 24;
 const loginBodySchema = z.object({
   email: z.string({ error: 'Email and password are required' }).trim().email().max(255),
   password: z.string({ error: 'Email and password are required' }).min(1).max(128),
   rememberMe: z.boolean().optional().default(false),
 }).strict();
-
-function sessionTtlHours(rememberMe: boolean): number {
-  if (rememberMe) return REMEMBER_ME_TTL_HOURS;
-  const configured = Number(process.env.SESSION_TTL_HOURS ?? 24);
-  return Number.isFinite(configured) && configured > 0 ? configured : 24;
-}
-
-// Cleanup old entries every 60 seconds
-if (typeof globalThis !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of loginRateLimits.entries()) {
-      entry.timestamps = entry.timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-      if (entry.timestamps.length === 0) {
-        loginRateLimits.delete(key);
-      }
-    }
-  }, 60_000);
-}
-
-function checkLoginRateLimit(identifier: string, maxAttempts: number): boolean {
-  const now = Date.now();
-  let entry = loginRateLimits.get(identifier);
-  if (!entry) {
-    entry = { timestamps: [] };
-    loginRateLimits.set(identifier, entry);
-  }
-  // Prune stale timestamps
-  entry.timestamps = entry.timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  if (entry.timestamps.length >= maxAttempts) {
-    return false; // rate limited
-  }
-  entry.timestamps.push(now);
-  return true;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,7 +24,7 @@ export async function POST(request: NextRequest) {
       || 'unknown';
 
     // Check IP-based rate limit
-    if (!checkLoginRateLimit(`ip:${clientIp}`, MAX_ATTEMPTS_PER_IP)) {
+    if (!(await checkLimit(`login:ip:${clientIp}`, MAX_ATTEMPTS_PER_IP, RATE_LIMIT_WINDOW_MS)).allowed) {
       return NextResponse.json(
         { error: 'Too many login attempts. Please try again later.' },
         { status: 429 }
@@ -81,18 +40,21 @@ export async function POST(request: NextRequest) {
     const email = submittedEmail.toLowerCase();
 
     // Check email-based rate limit
-    if (!checkLoginRateLimit(`email:${email.toLowerCase()}`, MAX_ATTEMPTS_PER_EMAIL)) {
+    if (!(await checkLimit(`login:email:${crypto.createHash('sha256').update(email).digest('hex')}`, MAX_ATTEMPTS_PER_EMAIL, RATE_LIMIT_WINDOW_MS)).allowed) {
       return NextResponse.json(
         { error: 'Too many login attempts for this email. Please try again later.' },
         { status: 429 }
       );
     }
 
+    const attemptKey = `login:${crypto.createHash('sha256').update(email).update('\0').update(clientIp).digest('hex')}`;
+    if ((await getLockoutStatus(attemptKey)).isLockedOut) return NextResponse.json({ error: 'Too many failed login attempts' }, { status: 429, headers: { 'Retry-After': '900' } });
     const user = await db.user.findUnique({
       where: { email: email.toLowerCase() },
     });
 
     if (!user) {
+      await trackAttempt(attemptKey);
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
@@ -108,12 +70,14 @@ export async function POST(request: NextRequest) {
 
     const valid = await compare(password, user.passwordHash);
     if (!valid) {
+      await trackAttempt(attemptKey);
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
+    await resetAttempts(attemptKey);
     // If MFA is enabled, require verification before creating session
     if (user.otpEnabled) {
       // Generate tempToken and store it in Settings so MFA verify can look it up

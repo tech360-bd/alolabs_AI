@@ -1,0 +1,62 @@
+{
+  "tracked": 2129,
+  "paths": 2146,
+  "directories_excluding_root": 942,
+  "empty_on_disk_nonignored": [],
+  "bytes": 54141955,
+  "top": {
+    ".github": 10,
+    ".zscripts": 7,
+    "__tests__": 166,
+    "agent-ctx": 21,
+    "ai-skills": 204,
+    "audit": 47,
+    "audit-report": 5,
+    "demo-audio": 1,
+    "deploy": 32,
+    "docs": 138,
+    "download": 21,
+    "examples": 2,
+    "mini-services": 8,
+    "monitoring": 15,
+    "prisma": 15,
+    "public": 25,
+    "scripts": 81,
+    "server-config": 10,
+    "src": 1225,
+    "workflows": 18
+  },
+  "counts": {
+    "route": 504,
+    "directly exported methods": 824,
+    "page": 33,
+    "layout": 3,
+    "component tsx": 259,
+    "marker lines": 47,
+    "doc link candidates": 51
+  },
+  "issues": {
+    "zero_bytes": [
+      "mini-services/.gitkeep"
+    ]
+  },
+  "duplicates": {
+    "sets": 6,
+    "paths": 14
+  },
+  "env_names": 149,
+  "env_not_in_either": 18,
+  "schema_models": {
+    "prisma/schema.mysql.prisma": 250,
+    "prisma/schema.prisma": 250
+  },
+  "shell_parsed": 52,
+  "archives": {
+    "alolabs-agent-hub-2000-agents-production.tar.gz: different bytes": 243,
+    "alolabs-agent-hub-2000-agents-production.tar.gz: same bytes": 105,
+    "alolabs-agent-hub-2000-agents-production.tar.gz: archive-only path": 18,
+    "alolabs-aismh-full-project.zip: archive-only path": 10,
+    "alolabs-aismh-full-project.zip: different bytes": 377,
+    "alolabs-aismh-full-project.zip: same bytes": 225
+  }
+}

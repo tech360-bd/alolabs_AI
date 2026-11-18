@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     description: 'How ALO Labs handles personal information — clearly explained.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/site/privacy',
-    images: ['/brand/alo-mark.svg'],
+    images: ['/studio/icon-512.png'],
   },
 }
 

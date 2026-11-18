@@ -14,7 +14,7 @@ export const metadata: Metadata = {
       'What ALO Labs is building, honestly labelled — live, in development, or delivered through project engagement.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/site/projects',
-    images: ['/brand/alo-mark.svg'],
+    images: ['/studio/icon-512.png'],
   },
 }
 

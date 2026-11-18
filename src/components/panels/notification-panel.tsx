@@ -1,5 +1,6 @@
 'use client'
 
+import { useRealtimeEvent } from '@/lib/realtime/client'
 import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -129,6 +130,8 @@ export default function NotificationPanel() {
     setLoading(true)
     fetchNotifications()
   }, [fetchNotifications])
+
+  useRealtimeEvent('notification', fetchNotifications)
 
   const handleMarkRead = async (id: string) => {
     try {

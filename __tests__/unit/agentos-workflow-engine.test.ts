@@ -81,7 +81,7 @@ describe('runWorkflow', () => {
     expect(result.status).toBe('queued');
 
     const wfRun = fakeDb.rows('workflowRun').find((r) => r.id === result.workflowRunId);
-    expect(wfRun).toBeTruthy();
+    if (!wfRun) throw new Error('Expected workflow run');
     expect(wfRun.status).toBe('running');
 
     // The persisted plan substituted the workflow input
@@ -133,6 +133,7 @@ describe('runWorkflow', () => {
     await executeWorkflowRun(result.runId, result.workflowRunId);
 
     const detail = await getWorkflowRun(result.workflowRunId);
+    if (!detail?.run) throw new Error('Expected persisted run');
     expect(detail.workflowRun.status).toBe('completed');
     expect(detail.run.status).toBe('completed');
   });

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDate as formatDate } from '@/lib/display-format';
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
@@ -213,14 +214,6 @@ const languageColors: Record<string, string> = {
   Arabic: 'bg-teal-100 text-teal-700 border-teal-200',
   Spanish: 'bg-orange-100 text-orange-700 border-orange-200',
   French: 'bg-purple-100 text-purple-700 border-purple-200',
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 function renderStars(rating: number) {

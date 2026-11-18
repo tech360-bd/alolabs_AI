@@ -1,10 +1,10 @@
 // ALO Labs AIOS — SEO Management API
 // Create SEO audits, list audits and keywords, update SEO data
 
+import { authenticateBearerSession as authenticate } from '@/lib/api/bearer-session';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
-import { verifySessionToken } from '@/lib/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -120,22 +120,6 @@ async function listKeywords(limit: number, offset: number): Promise<ListResult<S
     try { keywords.push(JSON.parse(setting.value) as SeoKeyword); } catch { /* skip */ }
   }
   return { items: keywords.slice(offset, offset + limit), total: keywords.length };
-}
-
-// ─── Auth Helper ──────────────────────────────────────────────────────────────
-
-async function authenticate(request: NextRequest): Promise<{ userId: string } | NextResponse> {
-  const authHeader = await (await import('next/headers')).headers();
-  const authorization = authHeader.get('authorization');
-  if (!authorization?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const token = authorization.substring(7);
-  const session = await verifySessionToken(token);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  return session;
 }
 
 // ─── GET: List Audits and Keywords ─────────────────────────────────────────────

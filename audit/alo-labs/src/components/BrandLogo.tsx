@@ -14,7 +14,6 @@ export default function BrandLogo({ className = "", size = 42 }: BrandLogoProps)
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={`${className} transition-all duration-300`}
-      referrerPolicy="no-referrer"
     >
       {/* Outer Hexagon with rounded corners */}
       <path

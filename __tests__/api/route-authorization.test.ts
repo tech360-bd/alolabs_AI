@@ -158,7 +158,7 @@ describe('company-memory — tenant column is server controlled', () => {
     expect(body.error.code).toBe('tenant_mismatch');
     expect(mocks.companyMemory.create).not.toHaveBeenCalled();
     expect(mocks.securityEventCreate).toHaveBeenCalled();
-    const event = mocks.securityEventCreate.mock.calls.at(-1)[0].data;
+    const event = mocks.securityEventCreate.mock.calls.at(-1)?.[0].data;
     expect(event.type).toBe('tenant_isolation_violation');
     expect(event.severity).toBe('critical');
   });

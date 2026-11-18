@@ -1,5 +1,7 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { HomeExperience } from '@/components/site/home-experience'
+import { BRAND, publicSiteIcons } from '@/lib/brand/public'
+import './public-design.css'
 import './home.css'
 
 /**
@@ -14,7 +16,10 @@ import './home.css'
  * `/site` was effectively unreachable from the root domain.
  */
 
+export const viewport: Viewport = { themeColor: BRAND.blue }
+
 export const metadata: Metadata = {
+  icons: publicSiteIcons,
   title: 'ALO Labs — Global AI & Software Technology Company',
   description:
     'ALO Labs designs and builds software, AI-powered solutions and connected digital platforms that help businesses work smarter, scale confidently and create better experiences.',
@@ -27,7 +32,7 @@ export const metadata: Metadata = {
       'Software, AI-powered solutions and connected digital platforms — designed and built for businesses that take technology seriously.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/',
-    images: ['/brand/alo-mark.svg'],
+    images: ['/studio/icon-512.png'],
   },
 }
 

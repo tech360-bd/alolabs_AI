@@ -1,7 +1,7 @@
+import { rethrowProviderError as rethrow } from '@/lib/api/v1-provider-error';
 import { v1Handler, v1Body, V1Error } from '@/lib/v1';
 import { ensureRouterSynced } from '@/lib/ai-router';
 import {
-  ProviderAdminError,
   ProviderCreateSchema,
   createProviderConfig,
   listProviderConfigs,
@@ -14,11 +14,6 @@ import {
  *        Secrets are never returned; only `hasApiKey` and a key fingerprint.
  * POST → create a provider (admin). Keys are encrypted at rest.
  */
-
-function rethrow(err: unknown): never {
-  if (err instanceof ProviderAdminError) throw new V1Error(err.message, err.status, err.code);
-  throw err;
-}
 
 export const GET = v1Handler(async ({ identity }) => {
   const actor = { userId: identity.userId, role: identity.role === 'super_admin' ? identity.role : identity.companyRole ?? identity.role, companyId: identity.companyId };

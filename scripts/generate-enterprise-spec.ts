@@ -1,6 +1,6 @@
 /**
  * Enterprise Spec Generator
- * Generates the complete AI-EOS enterprise-spec.ts file with all 13 phases of data
+ * Generates the design-time constitution, departments and events; later-phase fields are compatibility-only.
  * Usage: npx tsx scripts/generate-enterprise-spec.ts
  */
 
@@ -1030,55 +1030,21 @@ export const DIVISIONS: DivisionSpec[] = [
   }
   sections.push('];\n');
 
-  // ── PART 4: PHASES 3-13 PLACEHOLDERS ──
+  // Legacy specification consumers expect these fields. Operational employees,
+  // skills, prompts and knowledge are sourced from their registries, not here.
   sections.push(`
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// PART 4: PHASES 3-13 — PLACEHOLDER ARRAYS (TODO: Expand in future iterations)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-// Phase 3: Department Full Specs — expanded detail for each department blueprint
-// TODO: Expand each department into a full spec with KPIs, capabilities, tools, events, risks, SOPs, and AI employee counts
+// Compatibility only: see the live workforce, skills, prompts and RAG registries.
 export const DEPARTMENT_FULL_SPECS: DepartmentFullSpec[] = [];
-
-// Phase 4: AI Employees — detailed specs for every AI agent in the enterprise
-// TODO: Generate AI employee specs for each department (est. 400+ employees across 100 departments)
 export const AI_EMPLOYEES: AIEmployeeSpec[] = [];
-
-// Phase 5: Standard Operating Procedures — step-by-step processes for all departments
-// TODO: Generate SOPs for each department (est. 200+ SOPs covering critical workflows)
 export const SOPS: SOPSpec[] = [];
-
-// Phase 6: Skills — enterprise skill registry for AI agent capabilities
-// TODO: Generate skill specs for the enterprise skill registry (est. 150+ skills)
 export const SKILLS: SkillSpec[] = [];
-
-// Phase 7: Prompt Templates — reusable prompt patterns for agent communication
-// TODO: Generate prompt templates for agent communication and operations (est. 100+ templates)
 export const PROMPTS: PromptSpec[] = [];
-
-// Phase 8: Knowledge Graph — nodes and edges for enterprise knowledge
-// TODO: Generate knowledge nodes and edges (est. 500+ nodes, 1000+ edges)
 export const KNOWLEDGE_NODES: KnowledgeNodeSpec[] = [];
 export const KNOWLEDGE_EDGES: KnowledgeEdgeSpec[] = [];
-
-// Phase 9: Collaboration Protocols — inter-agent cooperation rules
-// TODO: Generate collaboration protocol specs for cross-department and inter-agent cooperation
 export const COLLABORATION_PROTOCOLS: CollaborationProtocolSpec[] = [];
-
-// Phase 10: Self-Improvement Engine — autonomous learning and optimization configs
-// TODO: Generate self-improvement engine configuration specs
 export const SELF_IMPROVEMENT_CONFIGS: SelfImprovementEngineSpec[] = [];
-
-// Phase 11: Governance Framework — policy enforcement and governance structures
-// TODO: Generate governance framework specs including policy definitions and enforcement rules
 export const GOVERNANCE_FRAMEWORKS: GovernanceFrameworkSpec[] = [];
-
-// Phase 12: Dashboards — monitoring and reporting view configurations
-// TODO: Generate dashboard specs for all enterprise monitoring and reporting views
 export const DASHBOARDS: DashboardSpec[] = [];
-
-// Phase 13: Master Builder Agent — autonomous enterprise construction specs
-// TODO: Generate master builder agent specs for autonomous enterprise construction
 export const MASTER_BUILDER_AGENTS: MasterBuilderAgentSpec[] = [];
 `);
 

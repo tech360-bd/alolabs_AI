@@ -1,3 +1,4 @@
+import { mayOperateQueues } from '@/lib/access/queue';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -69,6 +70,7 @@ export async function GET(request: NextRequest) {
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!mayOperateQueues(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   try {
     const parsed = parseQuery(dlqQuerySchema, request.nextUrl.searchParams);
@@ -121,6 +123,7 @@ export async function POST(request: NextRequest) {
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!mayOperateQueues(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   try {
     const body = await request.json();
@@ -155,6 +158,7 @@ export async function DELETE(request: NextRequest) {
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!mayOperateQueues(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   try {
     const body = await request.json();

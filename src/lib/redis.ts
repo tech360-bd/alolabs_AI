@@ -10,14 +10,18 @@ export interface RedisConfig {
   host: string;
   port: number;
   password?: string;
+  username?: string;
+  tls?: boolean;
   db?: number;
   keyPrefix?: string;
   maxRetriesPerRequest?: number;
 }
 
-let client: Redis | null = null;
-let connected = false;
-let connectionError: string | null = null;
+// Instrumentation and route handlers can live in separate Next module graphs.
+// Share the actual connection across them, including during dev hot reload.
+type RedisState = { client: Redis | null; connected: boolean; connectionError: string | null; connecting?: Promise<unknown> };
+const runtime = globalThis as typeof globalThis & { __aloRedis?: RedisState };
+const pool: RedisState = runtime.__aloRedis ??= {client: null, connected: false, connectionError: null};
 
 // In-memory fallback stores
 const memoryCache = new Map<string, { value: string; expiresAt: number }>();
@@ -44,19 +48,21 @@ export async function connectRedis(config?: RedisConfig): Promise<{ success: boo
     const resolvedConfig = config || getDefaultConfig();
 
     if (!resolvedConfig) {
-      connectionError = 'Redis: No configuration provided. Set REDIS_URL or REDIS_HOST env var.';
-      connected = false;
-      return { success: false, error: connectionError };
+      pool.connectionError = 'Redis: No configuration provided. Set REDIS_URL or REDIS_HOST env var.';
+      pool.connected = false;
+      return { success: false, error: pool.connectionError };
     }
 
-    if (client) {
-      client.disconnect();
+    if (pool.client) {
+      pool.client.disconnect();
     }
 
-    client = new Redis({
+    pool.client = new Redis({
       host: resolvedConfig.host,
       port: resolvedConfig.port,
+      username: resolvedConfig.username,
       password: resolvedConfig.password,
+      ...(resolvedConfig.tls ? { tls: {} } : {}),
       db: resolvedConfig.db || 0,
       keyPrefix: resolvedConfig.keyPrefix || 'alohub:',
       maxRetriesPerRequest: resolvedConfig.maxRetriesPerRequest || 3,
@@ -65,26 +71,26 @@ export async function connectRedis(config?: RedisConfig): Promise<{ success: boo
       connectTimeout: 5000,
     });
 
-    client.on('error', (err) => {
+    pool.client.on('error', (err) => {
       console.error('[Redis] Error:', err.message);
-      connectionError = err.message;
-      connected = false;
+      pool.connectionError = err.message;
+      pool.connected = false;
     });
 
-    client.on('connect', () => {
-      connected = true;
-      connectionError = null;
+    pool.client.on('connect', () => {
+      pool.connected = true;
+      pool.connectionError = null;
     });
 
     // Wait for ready
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Redis connection timeout')), 5000);
-      client!.once('ready', () => { clearTimeout(timeout); resolve(); });
-      client!.once('error', () => { clearTimeout(timeout); reject(new Error(connectionError || 'Connection failed')); });
+      pool.client!.once('ready', () => { clearTimeout(timeout); resolve(); });
+      pool.client!.once('error', () => { clearTimeout(timeout); reject(new Error(pool.connectionError || 'Connection failed')); });
     });
 
     const latencyMs = Date.now() - startTime;
-    const info = await client.info('server');
+    const info = await pool.client.info('server');
     const versionMatch = info.match(/redis_version:([^\r\n]+)/);
     const version = versionMatch ? versionMatch[1] : 'unknown';
 
@@ -121,9 +127,10 @@ export async function connectRedis(config?: RedisConfig): Promise<{ success: boo
     return { success: true, latencyMs, version };
   } catch (err: unknown) {
     const error = err instanceof Error ? err.message : String(err);
-    connected = false;
-    connectionError = error;
-    client = null;
+    pool.connected = false;
+    pool.connectionError = error;
+    pool.client?.disconnect();
+    pool.client = null;
 
     try {
       const { db } = await import('./db');
@@ -139,27 +146,37 @@ export async function connectRedis(config?: RedisConfig): Promise<{ success: boo
 }
 
 export async function disconnectRedis(): Promise<void> {
-  if (client) {
-    client.disconnect();
-    client = null;
-    connected = false;
+  if (pool.client) {
+    pool.client.disconnect();
+    pool.client = null;
+    pool.connected = false;
   }
 }
 
 export function isRedisConnected(): boolean {
-  return connected;
+  return pool.connected;
+}
+
+/** NULL means no shared backend is available; callers must enforce a local limit. */
+export async function evalLimitScript(script: string, key: string, ...args: number[]): Promise<number[] | null> {
+  if (pool.client?.status !== 'ready') return null;
+  try {
+    return await pool.client.eval(script, 1, key, ...args) as number[];
+  } catch {
+    return null;
+  }
 }
 
 export function getRedisError(): string | null {
-  return connectionError;
+  return pool.connectionError;
 }
 
 // ─── Key-Value Operations ────────────────────────────────────────────────────
 
 export async function redisGet(key: string): Promise<string | null> {
-  if (connected && client) {
+  if (pool.connected && pool.client) {
     try {
-      return await client.get(key);
+      return await pool.client.get(key);
     } catch (err: unknown) {
       console.error('[Redis] GET error:', err instanceof Error ? err.message : err);
     }
@@ -175,12 +192,12 @@ export async function redisGet(key: string): Promise<string | null> {
 }
 
 export async function redisSet(key: string, value: string, ttlSeconds?: number): Promise<void> {
-  if (connected && client) {
+  if (pool.connected && pool.client) {
     try {
       if (ttlSeconds) {
-        await client.setex(key, ttlSeconds, value);
+        await pool.client.setex(key, ttlSeconds, value);
       } else {
-        await client.set(key, value);
+        await pool.client.set(key, value);
       }
       return;
     } catch (err: unknown) {
@@ -195,9 +212,9 @@ export async function redisSet(key: string, value: string, ttlSeconds?: number):
 }
 
 export async function redisDel(key: string | string[]): Promise<number> {
-  if (connected && client) {
+  if (pool.connected && pool.client) {
     try {
-      return await client.del(...(Array.isArray(key) ? key : [key]));
+      return await pool.client.del(...(Array.isArray(key) ? key : [key]));
     } catch (err: unknown) {
       console.error('[Redis] DEL error:', err instanceof Error ? err.message : err);
     }
@@ -211,9 +228,9 @@ export async function redisDel(key: string | string[]): Promise<number> {
 }
 
 export async function redisExists(key: string): Promise<boolean> {
-  if (connected && client) {
+  if (pool.connected && pool.client) {
     try {
-      return (await client.exists(key)) === 1;
+      return (await pool.client.exists(key)) === 1;
     } catch {
       // fallback
     }
@@ -228,9 +245,9 @@ export async function redisExists(key: string): Promise<boolean> {
 }
 
 export async function redisExpire(key: string, seconds: number): Promise<boolean> {
-  if (connected && client) {
+  if (pool.connected && pool.client) {
     try {
-      return (await client.expire(key, seconds)) === 1;
+      return (await pool.client.expire(key, seconds)) === 1;
     } catch {
       // fallback
     }
@@ -246,23 +263,23 @@ export async function redisExpire(key: string, seconds: number): Promise<boolean
 // ─── Hash Operations ─────────────────────────────────────────────────────────
 
 export async function redisHGet(key: string, field: string): Promise<string | null> {
-  if (connected && client) {
-    try { return await client.hget(key, field); } catch { /* fallback */ }
+  if (pool.connected && pool.client) {
+    try { return await pool.client.hget(key, field); } catch { /* fallback */ }
   }
   return memoryHashes.get(key)?.get(field) || null;
 }
 
 export async function redisHSet(key: string, field: string, value: string): Promise<void> {
-  if (connected && client) {
-    try { await client.hset(key, field, value); return; } catch { /* fallback */ }
+  if (pool.connected && pool.client) {
+    try { await pool.client.hset(key, field, value); return; } catch { /* fallback */ }
   }
   if (!memoryHashes.has(key)) memoryHashes.set(key, new Map());
   memoryHashes.get(key)!.set(field, value);
 }
 
 export async function redisHGetAll(key: string): Promise<Record<string, string>> {
-  if (connected && client) {
-    try { return await client.hgetall(key); } catch { /* fallback */ }
+  if (pool.connected && pool.client) {
+    try { return await pool.client.hgetall(key); } catch { /* fallback */ }
   }
   const hash = memoryHashes.get(key);
   if (!hash) return {};
@@ -270,8 +287,8 @@ export async function redisHGetAll(key: string): Promise<Record<string, string>>
 }
 
 export async function redisHDel(key: string, field: string): Promise<boolean> {
-  if (connected && client) {
-    try { return (await client.hdel(key, field)) === 1; } catch { /* fallback */ }
+  if (pool.connected && pool.client) {
+    try { return (await pool.client.hdel(key, field)) === 1; } catch { /* fallback */ }
   }
   return memoryHashes.get(key)?.delete(field) || false;
 }
@@ -279,8 +296,8 @@ export async function redisHDel(key: string, field: string): Promise<boolean> {
 // ─── Set Operations ──────────────────────────────────────────────────────────
 
 export async function redisSAdd(key: string, ...members: string[]): Promise<number> {
-  if (connected && client) {
-    try { return await client.sadd(key, ...members); } catch { /* fallback */ }
+  if (pool.connected && pool.client) {
+    try { return await pool.client.sadd(key, ...members); } catch { /* fallback */ }
   }
   if (!memorySets.has(key)) memorySets.set(key, new Set());
   const set = memorySets.get(key)!;
@@ -292,15 +309,15 @@ export async function redisSAdd(key: string, ...members: string[]): Promise<numb
 }
 
 export async function redisSMembers(key: string): Promise<string[]> {
-  if (connected && client) {
-    try { return await client.smembers(key); } catch { /* fallback */ }
+  if (pool.connected && pool.client) {
+    try { return await pool.client.smembers(key); } catch { /* fallback */ }
   }
   return Array.from(memorySets.get(key) || []);
 }
 
 export async function redisSRem(key: string, ...members: string[]): Promise<number> {
-  if (connected && client) {
-    try { return await client.srem(key, ...members); } catch { /* fallback */ }
+  if (pool.connected && pool.client) {
+    try { return await pool.client.srem(key, ...members); } catch { /* fallback */ }
   }
   const set = memorySets.get(key);
   if (!set) return 0;
@@ -312,8 +329,8 @@ export async function redisSRem(key: string, ...members: string[]): Promise<numb
 // ─── Counter Operations ──────────────────────────────────────────────────────
 
 export async function redisIncr(key: string): Promise<number> {
-  if (connected && client) {
-    try { return await client.incr(key); } catch { /* fallback */ }
+  if (pool.connected && pool.client) {
+    try { return await pool.client.incr(key); } catch { /* fallback */ }
   }
   const current = memoryCounters.get(key) || 0;
   const next = current + 1;
@@ -322,8 +339,8 @@ export async function redisIncr(key: string): Promise<number> {
 }
 
 export async function redisIncrBy(key: string, amount: number): Promise<number> {
-  if (connected && client) {
-    try { return await client.incrby(key, amount); } catch { /* fallback */ }
+  if (pool.connected && pool.client) {
+    try { return await pool.client.incrby(key, amount); } catch { /* fallback */ }
   }
   const current = memoryCounters.get(key) || 0;
   const next = current + amount;
@@ -338,9 +355,9 @@ export async function rateLimitCheck(key: string, limit: number, windowSeconds: 
   const now = Math.floor(Date.now() / 1000);
   const windowKey = `${rlKey}:${now - (now % windowSeconds)}`;
 
-  if (connected && client) {
+  if (pool.connected && pool.client) {
     try {
-      const pipeline = client.pipeline();
+      const pipeline = pool.client.pipeline();
       pipeline.incr(windowKey);
       pipeline.expire(windowKey, windowSeconds + 1);
       pipeline.ttl(windowKey);
@@ -372,16 +389,20 @@ export async function rateLimitCheck(key: string, limit: number, windowSeconds: 
 // ─── Pub/Sub ─────────────────────────────────────────────────────────────────
 
 export async function redisPublish(channel: string, message: string): Promise<number> {
-  if (connected && client) {
-    try { return await client.publish(channel, message); } catch { /* ignore */ }
+  if (!pool.client && process.env.REDIS_URL) {
+    pool.connecting ??= connectRedis().finally(() => { pool.connecting = undefined; });
+    await pool.connecting;
+  }
+  if (pool.connected && pool.client) {
+    try { return await pool.client.publish(channel, message); } catch { /* ignore */ }
   }
   // In-memory fallback: no-op (no subscribers in memory)
   return 0;
 }
 
 export function redisSubscribe(channel: string, callback: (message: string) => void): () => void {
-  if (connected && client) {
-    const sub = client.duplicate();
+  if (pool.connected && pool.client) {
+    const sub = pool.client.duplicate();
     sub.subscribe(channel).catch(() => {});
     sub.on('message', (ch: string, msg: string) => {
       if (ch === channel) callback(msg);
@@ -405,12 +426,12 @@ export async function getRedisStats(): Promise<{
   uptimeSeconds?: string;
   databases?: Record<string, { keys: string; expires: string }>;
 }> {
-  if (!connected || !client) {
+  if (!pool.connected || !pool.client) {
     return { connected: false };
   }
 
   try {
-    const info = await client.info();
+    const info = await pool.client.info();
     const parse = (section: string) => {
       const match = info.match(new RegExp(`#${section}(?:\\r\\n|\\n)([\\s\\S]*?)(?:\\r\\n|\\n)(?=#|$)`));
       if (!match) return {};
@@ -452,13 +473,13 @@ export async function getRedisStats(): Promise<{
 }
 
 export async function pingRedis(): Promise<{ success: boolean; latencyMs: number; error?: string }> {
-  if (!connected || !client) {
+  if (!pool.connected || !pool.client) {
     return { success: false, latencyMs: 0, error: 'Not connected' };
   }
 
   const startTime = Date.now();
   try {
-    await client.ping();
+    await pool.client.ping();
     const latencyMs = Date.now() - startTime;
 
     try {
@@ -483,7 +504,9 @@ function getDefaultConfig(): RedisConfig | null {
       return {
         host: url.hostname || 'localhost',
         port: parseInt(url.port || '6379', 10),
-        password: url.password || undefined,
+        username: decodeURIComponent(url.username) || undefined,
+        password: decodeURIComponent(url.password) || undefined,
+        tls: url.protocol === 'rediss:',
         db: url.pathname ? parseInt(url.pathname.slice(1), 10) : 0,
       };
     } catch {

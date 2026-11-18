@@ -1,12 +1,9 @@
+import { isRecord } from '@/lib/is-record';
 import { db } from '@/lib/db'
 import { agentCompanyScope } from '@/lib/agent-access'
 import type { Prisma } from '@prisma/client'
 
 export type OptimizationType = 'prompt' | 'workflow' | 'planning' | 'skill_selection' | 'tool_selection'
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function parseConfig(json: string): Record<string, unknown> {
   const parsed: unknown = JSON.parse(json)

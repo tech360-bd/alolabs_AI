@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.check.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "types": ["node", "react", "react-dom", "vitest/globals"],
+    "tsBuildInfoFile": ".next/cache/native-tests.tsbuildinfo"
+  },
+  "include": ["next-env.d.ts", "src/types/**/*.d.ts", "__tests__/**/*.ts", "__tests__/**/*.tsx", "src/__tests__/**/*.ts", "src/__tests__/**/*.tsx"],
+  "exclude": ["**/node_modules", "src/types/urlpattern.d.ts"]
+}

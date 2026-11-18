@@ -8,7 +8,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { BRAND, BRAND_FONTS, COMPANY } from '@/lib/brand/tokens'
+import { BRAND, BRAND_FONTS, COMPANY } from '@/lib/brand/public'
 import { ArrowRight, Building2, Globe, Mail, MapPin, MessageSquare, Phone } from 'lucide-react'
 import { CtaBand, ContactForm, FaqList, PageHero, Section, type FaqItem } from '@/components/site/chrome'
 
@@ -107,7 +107,7 @@ export function ContactPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-6">
             <div className="flex items-center gap-2">
               <Building2 className="size-4" style={{ color: BRAND.orange }} />
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orange }}>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orangeInk }}>
                 HQ
               </p>
             </div>
@@ -128,7 +128,7 @@ export function ContactPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-6">
             <div className="flex items-center gap-2">
               <MapPin className="size-4" style={{ color: BRAND.orange }} />
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orange }}>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orangeInk }}>
                 Delivery
               </p>
             </div>
@@ -143,7 +143,7 @@ export function ContactPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-6">
             <div className="flex items-center gap-2">
               <Globe className="size-4" style={{ color: BRAND.orange }} />
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orange }}>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orangeInk }}>
                 Online
               </p>
             </div>

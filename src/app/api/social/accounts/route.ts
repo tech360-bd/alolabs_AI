@@ -1,3 +1,4 @@
+import { readSocialCredential, storeSocialCredential, canManageSocial } from '@/lib/social/credentials';
 // ALO Labs AIOS — Social Accounts Management API
 // List, connect, and disconnect social media accounts
 
@@ -48,7 +49,7 @@ function parseAccountSetting(key: string, value: string): ConnectedAccount | nul
   if (!SOCIAL_PLATFORMS.includes(platform)) return null;
 
   try {
-    const data = JSON.parse(value);
+    const data = JSON.parse(readSocialCredential(value));
     return {
       platform,
       isActive: true,
@@ -79,6 +80,7 @@ export async function GET() {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (!canManageSocial(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     // Fetch all settings that match social token pattern
     const allSettings = await db.settings.findMany({
@@ -126,6 +128,7 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (!canManageSocial(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json();
     const { platform, accessToken, refreshToken, expiresIn, platformUserId, platformUsername, metadata } = body as {
@@ -145,7 +148,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!accessToken) {
+    if (typeof accessToken !== 'string' || !accessToken.trim()) {
       return NextResponse.json({ error: 'accessToken is required' }, { status: 400 });
     }
 
@@ -160,17 +163,18 @@ export async function POST(request: NextRequest) {
       connectedAt: new Date().toISOString(),
     };
 
+    const value = storeSocialCredential(tokenPayload);
     await db.settings.upsert({
       where: { key },
       update: {
-        value: JSON.stringify(tokenPayload),
-        type: 'json',
+        value,
+        type: 'encrypted',
         updatedAt: new Date(),
       },
       create: {
         key,
-        value: JSON.stringify(tokenPayload),
-        type: 'json',
+        value,
+        type: 'encrypted',
       },
     });
 
@@ -216,6 +220,7 @@ export async function DELETE(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (!canManageSocial(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const platform = searchParams.get('platform') as SocialPlatform | null;

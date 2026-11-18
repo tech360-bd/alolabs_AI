@@ -1,3 +1,4 @@
+import { messageErrorResponse as errorResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCompanyAdmin } from '@/lib/api-auth';
 import { db } from '@/lib/db';
@@ -7,12 +8,6 @@ const SOP_SAMPLE_SIZE = 5;
 
 function parseJson(value: string): unknown {
   try { return JSON.parse(value); } catch { return null; }
-}
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error';
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500;
-  return NextResponse.json({ error: message }, { status });
 }
 
 export async function GET(request: NextRequest) {

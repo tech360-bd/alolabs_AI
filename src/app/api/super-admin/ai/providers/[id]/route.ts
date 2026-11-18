@@ -1,16 +1,10 @@
+import { providerErrorResponse as errorResponse } from '@/lib/api/provider-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireRole } from '@/lib/api-auth';
-import { ProviderAdminError, ProviderUpdateSchema, deleteProviderConfig, updateProviderConfig } from '@/lib/ai-router/provider-admin';
+import { ProviderUpdateSchema, deleteProviderConfig, updateProviderConfig } from '@/lib/ai-router/provider-admin';
 
 export const dynamic = 'force-dynamic';
-
-function errorResponse(error: unknown) {
-  if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  if (error instanceof ProviderAdminError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
-  return null;
-}
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

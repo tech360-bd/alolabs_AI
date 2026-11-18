@@ -30,13 +30,13 @@ function normalize(raw: string | undefined): string {
  * True when billed / external-API steps are allowed to run.
  * Only an explicit opt-in enables them.
  */
-export function paidServicesEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+export function paidServicesEnabled(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
   if (normalize(env.CI_RUN_PAID_OVERRIDE) === 'true') return true;
   return RUN_PAID_VALUES.has(normalize(env.SKIP_PAID_SERVICES));
 }
 
 /** True when paid / external-API steps must be skipped. */
-export function paidServicesSkipped(env: NodeJS.ProcessEnv = process.env): boolean {
+export function paidServicesSkipped(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
   return !paidServicesEnabled(env);
 }
 

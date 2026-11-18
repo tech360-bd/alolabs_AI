@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDate as formatDate } from '@/lib/display-format';
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
@@ -100,14 +101,6 @@ function scoreColor(score: number): string {
   if (score >= 90) return 'text-emerald-500'
   if (score >= 70) return 'text-amber-500'
   return 'text-red-500'
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 function formatTime(dateStr: string): string {

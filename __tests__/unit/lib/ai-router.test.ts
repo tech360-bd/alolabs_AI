@@ -33,9 +33,9 @@ describe('DeepSeek Provider', () => {
     const provider = new DeepSeekProvider({ apiKey: 'test-key' });
     const models = await provider.listModels();
     const chat = models.find((m: any) => m.id === 'deepseek-chat');
-    expect(chat.contextLength).toBe(64_000);
+    expect(chat?.contextLength).toBe(64_000);
     const coder = models.find((m: any) => m.id === 'deepseek-coder');
-    expect(coder.contextLength).toBe(128_000);
+    expect(coder?.contextLength).toBe(128_000);
   });
 });
 
@@ -70,7 +70,7 @@ describe('Qwen Provider', () => {
     const provider = new QwenProvider({ apiKey: 'test-key' });
     const models = await provider.listModels();
     const turbo = models.find((m: any) => m.id === 'qwen-turbo');
-    expect(turbo.contextLength).toBe(1_300_000);
+    expect(turbo?.contextLength).toBe(1_300_000);
   });
 
   it('should throw on initialize without API key', async () => {
@@ -195,11 +195,11 @@ describe('AI Router policy-bound failover', () => {
         id: 'local-model', name: 'Local', provider: 'ollama' as const, family: 'custom' as const,
         parameters: {}, contextLength: 8192, capabilities: ['chat' as const],
       }];
-      readonly complete = vi.fn(async () => {
+      readonly complete = vi.fn(async (_request: import('@/lib/ai-router/types').AIRequest) => {
         throw new AIRouterError('temporary provider failure', 'ollama', 503, true);
       });
       async initialize() { this._initialized = true; }
-      async chatCompletion(request: import('@/lib/ai-router/types').AIRequest) { return this.complete(request) as never; }
+      async chatCompletion(request: import('@/lib/ai-router/types').AIRequest) { return this.complete(request); }
       async *streamChatCompletion() { return; }
       async healthCheck() {
         return { provider: this.name, isHealthy: true, latencyMs: 0, errorRate: 0, lastCheck: new Date(), consecutiveFailures: 0, circuitOpen: false };
@@ -255,7 +255,7 @@ describe('AI Router policy-bound failover', () => {
       readonly name = 'ollama' as const;
       supportedModels = [mkModel('allowed-model', this.name)];
       async initialize() { this._initialized = true; }
-      async chatCompletion() { throw new AIRouterError('temporary provider failure', this.name, 503, true); }
+      async chatCompletion(): Promise<never> { throw new AIRouterError('temporary provider failure', this.name, 503, true); }
       async *streamChatCompletion() { return; }
       async healthCheck() { return { provider: this.name, isHealthy: true, latencyMs: 0, errorRate: 0, lastCheck: new Date(), consecutiveFailures: 0, circuitOpen: false }; }
       async listModels() { return this.supportedModels; }

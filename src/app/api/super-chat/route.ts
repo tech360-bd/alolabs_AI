@@ -1,3 +1,4 @@
+import { authFailure as authError } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -21,12 +22,6 @@ const MessageSchema = z.object({
   targetCompany: z.string().trim().max(191).optional().nullable(),
   broadcast: z.boolean().default(false),
 }).strict();
-
-function authError(error: unknown) {
-  if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  return null;
-}
 
 async function resolveCompany(actorCompanyId: string | undefined, target: string | null | undefined) {
   if (target) {

@@ -86,8 +86,13 @@ describe('brand — typography', () => {
 
   it('loads both faces in the root layout', () => {
     const layout = readFileSync(join(root, 'src/app/layout.tsx'), 'utf8')
-    expect(layout).toContain('family=Inter')
-    expect(layout).toContain('family=Poppins')
+    expect(layout).toContain('"./globals.css"')
+    const css = readFileSync(join(root, 'src/app/globals.css'), 'utf8')
+    for (const font of ['inter-latin', 'poppins-600-latin']) {
+      const path = `/studio/fonts/${font}.woff2`
+      expect(css).toContain(`url('${path}')`)
+      expect(readFileSync(join(root, 'public', path)).subarray(0, 4).toString()).toBe('wOF2')
+    }
     expect(layout).toContain('/brand/alo-icon.svg')
   })
 

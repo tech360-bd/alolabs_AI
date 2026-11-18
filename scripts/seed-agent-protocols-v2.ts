@@ -664,8 +664,7 @@ async function main() {
               productivityRules: JSON.stringify(productivityRules),
             },
           });
-        }),
-        { timeout: 120000 }
+        })
       );
 
       updatedCount += batch.length;

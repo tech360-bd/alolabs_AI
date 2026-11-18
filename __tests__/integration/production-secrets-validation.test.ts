@@ -35,7 +35,7 @@ const VALID = {
 
 /** Runs the validator with no inherited PRODUCTION_* values. */
 function run(overrides: Record<string, string | undefined> = {}) {
-  const env: Record<string, string> = { PATH: process.env.PATH ?? '/usr/bin:/bin' };
+  const env: NodeJS.ProcessEnv = { NODE_ENV: 'test', PATH: process.env.PATH ?? '/usr/bin:/bin' };
   for (const [key, value] of Object.entries(overrides)) {
     if (value !== undefined) env[key] = value;
   }

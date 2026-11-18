@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDateTime as formatTime } from '@/lib/display-format';
 import React, { useState, useEffect, useMemo } from 'react'
 import { BarChart3, ClipboardCheck, Star, Trophy, ArrowUpDown, FileText, Clock, CheckCircle2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api-client'
@@ -33,11 +34,6 @@ const statusBadge: Record<string, string> = {
 
 const actionIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   evaluate: ClipboardCheck, score: Star, rank: Trophy, compare: ArrowUpDown, report: FileText,
-}
-
-function formatTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function EvaluationEngine() {

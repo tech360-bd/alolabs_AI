@@ -8,9 +8,10 @@
  * repairs, and delivers — shown live via the run event stream (SSE).
  */
 
+import { StatusIcon } from '@/components/enterprise/run-status-icon';
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Zap, Loader2, CheckCircle2, XCircle, Clock, FileText, ArrowRight,
+  Zap, Loader2, Clock, ArrowRight,
   Sparkles, Search, GraduationCap, Megaphone, BarChart3, Globe,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -202,12 +203,4 @@ export default function AgentOSCommandPanel() {
       </Card>
     </div>
   )
-}
-
-function StatusIcon({ status }: { status: string }) {
-  if (status === 'completed') return <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-  if (status === 'failed') return <XCircle className="h-4 w-4 shrink-0 text-red-500" />
-  if (status === 'running' || status === 'planning') return <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-500" />
-  if (status === 'waiting_approval') return <FileText className="h-4 w-4 shrink-0 text-amber-500" />
-  return <Clock className="h-4 w-4 shrink-0 text-slate-400" />
 }

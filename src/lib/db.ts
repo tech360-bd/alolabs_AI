@@ -118,13 +118,10 @@ function createPrismaClient(): PrismaClient {
   })
 }
 
+// Instrumentation, handlers and server components may be distinct module
+// graphs in the same process. They must still share one connection pool.
 function resolveClient(): PrismaClient {
-  const cached = globalForPrisma.prisma
-  if (cached) return cached
-
-  const client = createPrismaClient()
-  if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = client
-  return client
+  return globalForPrisma.prisma ??= createPrismaClient()
 }
 
 /**

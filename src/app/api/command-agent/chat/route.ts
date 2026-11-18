@@ -1,3 +1,4 @@
+import { authFailure } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -34,12 +35,6 @@ const BodySchema = z.object({
   targetCompany: z.string().trim().max(191).optional().nullable(),
   skillSlugs: z.array(z.string().trim().min(1).max(160)).max(5).optional(),
 }).strict();
-
-function authFailure(error: unknown): NextResponse | null {
-  if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  return null;
-}
 
 type CompanyRow = { id: string; name: string; slug: string; status: string };
 

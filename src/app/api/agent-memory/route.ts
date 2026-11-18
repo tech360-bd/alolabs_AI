@@ -1,3 +1,4 @@
+import { actionErrorResponse as errorResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
@@ -27,12 +28,6 @@ const UpdateSchema = z.object({
   promotedAt: z.string().datetime().nullable().optional(),
 })
 const UpdateRequestSchema = UpdateSchema.extend({ id: z.string().min(1) })
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error'
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500
-  return NextResponse.json({ error: message, success: false }, { status })
-}
 
 export async function GET(request: NextRequest) {
   try {

@@ -1,3 +1,4 @@
+import { isRecord } from '@/lib/is-record';
 import { createHash } from 'node:crypto'
 import { db } from './db'
 import type { Prisma } from '@prisma/client'
@@ -33,10 +34,6 @@ class QdrantRequestError extends Error {
 let config: QdrantConfig | null = null
 let connected = false
 let connectionError: string | null = null
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined

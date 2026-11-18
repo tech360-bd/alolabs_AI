@@ -1,5 +1,8 @@
 # ALO Labs AI Social Media Hub — Complete Setup & Run Guide
 
+> **Historical guide — not the deployment runbook.** Database and process instructions below describe an earlier distribution. Use the [current project guide](README.md) instead. Do not unpack archived databases, reset a production schema or substitute PostgreSQL/SQLite for the production MySQL datasource.
+
+
 ---
 
 ## WHAT IS THIS PROJECT?

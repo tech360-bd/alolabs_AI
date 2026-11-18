@@ -12,8 +12,7 @@ name: MySQL production datasource verification
 #   - real connect + read/write/transaction/JSON/utf8mb4 behaviour
 #     (__tests__/integration/mysql-compatibility.test.ts)
 #
-# Path-filtered and concurrency-limited on purpose: this repository is private,
-# so runner minutes are billed, and a MySQL container adds startup time.
+# Path-filtered and concurrency-limited: a real database and build take runner time.
 
 on:
   push:
@@ -101,6 +100,9 @@ jobs:
             if (!u.pathname.slice(1)) throw new Error("no database in URL");
             console.log("test database:", u.hostname+":"+u.port+u.pathname);'
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -142,25 +144,34 @@ jobs:
           [[ "${charset}" == 'utf8mb4' ]] \
             || { echo "expected utf8mb4, got ${charset}"; exit 1; }
 
-      - name: MySQL compatibility suite (real database)
-        run: bunx vitest run __tests__/integration/mysql-compatibility.test.ts
+      - name: MySQL compatibility suite (real database; no skipped probes)
         env:
           NODE_ENV: test
+        run: |
+          set -euo pipefail
+          bunx vitest run __tests__/integration/mysql-compatibility.test.ts --reporter=json --outputFile=/tmp/mysql-results.json
+          node -e 'const r=require("/tmp/mysql-results.json"); if (!r.success || !r.numPassedTests || r.numPendingTests || r.numTodoTests) process.exit(1); console.log("Passed MySQL probes:",r.numPassedTests)'
 
       - name: Datasource policy unit tests
         run: bunx vitest run __tests__/unit/lib/production-database.test.ts
         env:
           NODE_ENV: test
 
-      - name: Fail if the MySQL suite silently skipped
-        # A skipped suite would otherwise look green. If MYSQL_TEST_URL somehow
-        # did not reach vitest, that is a failure, not a pass.
+      - name: Prove full schema and production standalone startup on the disposable service
+        # No deployment secrets; this job must never provision a remote database.
+        env:
+          SKIP_PAID_SERVICES: 'true'
+          FREE_ONLY_MODE: 'true'
+          NEXT_TELEMETRY_DISABLED: '1'
         run: |
           set -euo pipefail
-          bunx vitest run __tests__/integration/mysql-compatibility.test.ts --reporter=json \
-            --outputFile=/tmp/mysql-results.json >/dev/null 2>&1 || true
-          skipped="$(node -e 'const r=require("/tmp/mysql-results.json");console.log(r.numPendingTests+r.numTodoTests)')"
-          passed="$(node -e 'const r=require("/tmp/mysql-results.json");console.log(r.numPassedTests)')"
-          echo "passed=${passed} skipped=${skipped}"
-          [[ "${skipped}" -eq 0 && "${passed}" -gt 0 ]] \
-            || { echo "MySQL suite did not actually run (passed=${passed} skipped=${skipped})"; exit 1; }
+          node -e 'const u=new URL(process.env.DATABASE_URL); if (u.protocol!=="mysql:" || u.hostname!=="127.0.0.1" || u.port!=="3306" || u.pathname!=="/alolabs_test") process.exit(1)'
+          bunx prisma db push --schema=prisma/schema.mysql.prisma --skip-generate
+          export JWT_SECRET="$(openssl rand -hex 32)" APP_SECRET="$(openssl rand -hex 32)" ENCRYPTION_KEY="$(openssl rand -hex 32)"
+          bun run build
+          NODE_ENV=production HOSTNAME=127.0.0.1 PORT=3011 node .next/standalone/server.js >/tmp/standalone-mysql.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          curl --fail --retry 15 --retry-delay 1 --retry-connrefused --max-time 5 http://127.0.0.1:3011/api/health/ready > /tmp/standalone-ready.json
+          node -e 'const r=require("/tmp/standalone-ready.json"); if (!r.ready || r.provider!=="mysql" || !r.production_policy_enforced) process.exit(1)'
+          curl --fail --silent --output /dev/null http://127.0.0.1:3011/login

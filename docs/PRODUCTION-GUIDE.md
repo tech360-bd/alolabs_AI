@@ -1,5 +1,8 @@
 # ALO Labs AIOS — Production Deployment Guide
 
+> **Historical guide — not the deployment runbook.** Database and process instructions below describe an earlier distribution. Use the [current project guide](PRODUCTION_MYSQL.md) instead. Do not unpack archived databases, reset a production schema or substitute PostgreSQL/SQLite for the production MySQL datasource.
+
+
 > **Version:** 0.2.0  
 > **Last Updated:** 2025  
 > **Audience:** DevOps engineers and system administrators

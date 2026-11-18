@@ -1,3 +1,4 @@
+import { parseJsonRecord as parseRecord } from '@/lib/json-values';
 import type { PrismaClient } from '@prisma/client';
 import { db } from '@/lib/db';
 import type {
@@ -14,16 +15,6 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
   const result: T[][] = [];
   for (let i = 0; i < items.length; i += size) result.push(items.slice(i, i + size));
   return result;
-}
-
-function parseRecord(value: string | null | undefined): Record<string, unknown> {
-  if (!value) return {};
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
 }
 
 export function createPrismaAIEmployeeStore(client: PrismaClient = db): AIEmployeeStore {

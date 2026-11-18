@@ -22,7 +22,7 @@ Thumbs.db
 desktop.ini
 
 # Dependencies (installed during build)
-node_modules
+**/node_modules
 
 # Build output (built inside container)
 .next
@@ -73,11 +73,22 @@ data/
 *.sql.gz
 *.dump
 
-# Mini services (run separately)
-mini-services/
+# Mini-services are built with the same workspace lock and generated Prisma client.
 
 # Misc
 .agent-ctx
 worklog.md
 scripts/seed-*.ts
 examples/
+# Keep historical distributions, operator artifacts and local state out of images.
+audit/
+audit-report/
+download/
+.arena-tmp/
+.arena/
+.git*
+.env.config
+storage/
+uploads/
+*.db-wal
+*.db-shm

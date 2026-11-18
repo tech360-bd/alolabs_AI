@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     description: 'The terms that govern working with ALO Labs.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/site/terms',
-    images: ['/brand/alo-mark.svg'],
+    images: ['/studio/icon-512.png'],
   },
 }
 

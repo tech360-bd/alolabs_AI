@@ -12,7 +12,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { BRAND } from '@/lib/brand/tokens'
+import { BRAND } from '@/lib/brand/public'
 import { ArrowRight, Layers3, PhoneCall, Code2, ShieldCheck } from 'lucide-react'
 import { CtaBand, PageHero, Pill, Section } from '@/components/site/chrome'
 
@@ -125,7 +125,7 @@ export function ProjectsPage() {
         narrow
       >
         <div className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-6">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl" style={{ background: 'rgba(232,80,26,0.10)', color: BRAND.orange }}>
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl" style={{ background: 'rgba(255,106,0,0.10)', color: BRAND.orange }}>
             <ShieldCheck size={20} />
           </span>
           <div>
@@ -135,7 +135,7 @@ export function ProjectsPage() {
             <p className="mt-1.5 text-[12.5px] leading-relaxed" style={{ color: BRAND.gray }}>
               Ask us directly. Where a client has given permission, we are glad to share relevant experience and connect you with references during the conversation.
             </p>
-            <Link href="/site/contact" className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: BRAND.orange }}>
+            <Link href="/site/contact" className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: BRAND.orangeInk }}>
               Talk to us <ArrowRight className="size-3.5" />
             </Link>
           </div>

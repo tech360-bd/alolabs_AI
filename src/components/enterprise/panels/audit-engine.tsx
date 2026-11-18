@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDateTime as fmt } from '@/lib/display-format';
 import React, { useState, useEffect, useMemo } from 'react'
 import { FileSearch, Search, Route, CheckCircle2, AlertTriangle, Clock, FileText, Target, BarChart3 } from 'lucide-react'
 import { fetchApi } from '@/lib/api-client'
@@ -30,11 +31,6 @@ const statusColors: Record<string, string> = {
 
 const actionIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   audit: FileSearch, trace: Route, verify: CheckCircle2, report: FileText, investigate: Search,
-}
-
-function fmt(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function AuditEngine() {

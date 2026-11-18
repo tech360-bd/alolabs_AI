@@ -1,0 +1,119 @@
+{
+  "date_utc": "2026-11-18",
+  "branch": "arena/df553320-alolabs-ai",
+  "base_commit": "4def42076c6e829cb5731f9f234be0e119fbff9c",
+  "candidate": "uncommitted working tree; files.tsv identifies the physical source snapshot",
+  "before_report_sha256": "42d56720c37d063d5d0d55e021e45a3d9d5fd3f0a0528ea293d8c0ab988cda60",
+  "source_inventory_sha256": "65a7a253192386c56ab3d81491378372519673ad76774bcb2de9baeb0193f47c",
+  "evidence_note": "Counts below summarize executed checks, not synthetic runner output. The expensive runs used disposable data earlier on the same day. Inventories, static validators, branches, lint and online package audits were refreshed at close. No raw private logs or fixture data are included.",
+  "clean_local_candidate": {
+    "node": "22.22.3",
+    "npm": "10.9.8",
+    "bun": "1.3.4",
+    "native_typescript": "7.0.2",
+    "next": "16.4.6",
+    "fresh_npm_ci_packages": 790,
+    "generated_client": "dev SQLite adapter",
+    "typecheck": "passed (routes, runtime, scripts, services, examples)",
+    "typecheck_tests": "passed (separate Node/test project)",
+    "tests": {
+      "files_reported": 184,
+      "total": 2051,
+      "passed": 2036,
+      "failed": 0,
+      "skipped": 15,
+      "todo": 0,
+      "skipped_suite": "__tests__/integration/mysql-compatibility.test.ts"
+    },
+    "lint_at_close": {
+      "files": 1457,
+      "errors": 0,
+      "warnings": 0
+    },
+    "clean_build": {
+      "static_outputs": 367,
+      "compile_seconds": 37.9,
+      "standalone_size_du_mib": 253,
+      "files_scanned": 8507,
+      "required_entry_points": "passed",
+      "note": "Final build ran from absent .next. Seven secret-fixture canaries and a production SQLite refusal were checked on the previous clean build, not on a deployed MySQL artifact."
+    }
+  },
+  "disposable_runtime_checks": {
+    "integrated_http_socket": {
+      "passed": 71,
+      "total": 71,
+      "transport": "Next dev, queue and realtime services; Redis + SQLite fixture; passwords/sessions used by five fixture accounts"
+    },
+    "file_acl": {
+      "passed": 11,
+      "total": 11
+    },
+    "smtp_recovery": {
+      "passed": 9,
+      "total": 9,
+      "transport": "verified STARTTLS, local QA mailbox, real SQLite"
+    },
+    "concurrent_reset": "one successful change, one stale/replay refusal; verified winning password and session revocation",
+    "redis_login_budget": "public readiness did not spend password budget; failed login incremented; success cleared",
+    "browser": [
+      "operator login, settings discard and save, OAuth start cookie",
+      "client login to portal",
+      "public gallery, nine destination links, responsive layout 320\u20131440 px, live 3D desktop and mobile fallback"
+    ],
+    "tls_proxy": "local CA; Caddy and adapted Nginx config checks and local HTTPS requests, not public ACME"
+  },
+  "data_and_operations": {
+    "sqlite_schema_models": 250,
+    "mysql_schema_models": 250,
+    "referenced_delegates": 214,
+    "sqlite_fixture_fk_violations": 0,
+    "integrity_relations_checked": 190,
+    "integrity_findings": 0,
+    "operator_sql": {
+      "forward": 8,
+      "rollback": 5,
+      "prisma_format_migrations": 0
+    },
+    "workforce": {
+      "departments": 100,
+      "profiles": 2000,
+      "identities": 2000,
+      "with_tools": 1644,
+      "empty_tool_allowlist": 356,
+      "active": 0,
+      "deterministic_checks_passed": 14,
+      "real_inference_calls": 0
+    },
+    "compose": {
+      "base_services": 11,
+      "prod_overrides": 8
+    },
+    "github_workflows": 9,
+    "pinned_action_references": 37,
+    "route_auth": {
+      "checked_non_public_handlers": 804,
+      "public_entries": 19,
+      "documented_exceptions": 1
+    },
+    "business_workflow_definitions": 17,
+    "skills": {
+      "sources": 20,
+      "total": 838,
+      "advisory": 642,
+      "quarantined": 196
+    },
+    "link_catalogue": {
+      "resources": 53,
+      "evidence_paths_found": 178,
+      "missing_evidence_paths": 0,
+      "gap_verdicts": 16
+    }
+  },
+  "review_at_close": {
+    "remote_heads": 22,
+    "open_pull_requests": 0,
+    "branch_heads_changed_since_before": false
+  },
+  "production_release": "not approved: no candidate-SHA CI, real production-mode MySQL artifact startup, staging, external account/mail delivery or off-host recovery evidence for this candidate"
+}

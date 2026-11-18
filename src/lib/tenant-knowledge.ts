@@ -1,3 +1,5 @@
+import { isRecord } from '@/lib/is-record';
+
 /**
  * Fail-closed visibility check for shared KnowledgeNode records.
  *
@@ -5,10 +7,6 @@
  * boundary for unassigned nodes. Department nodes inherit tenant visibility
  * only when their department was independently verified as tenant-owned.
  */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 export function isKnowledgeVisibleToCompany(
   metadataJson: string,
   companyId: string,

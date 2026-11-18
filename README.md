@@ -328,58 +328,60 @@ bun run build
 bun run start
 ```
 
-The `build` script: `next build` in standalone mode, copies `.next/static` and `public/` into standalone output.
-The `start` script: `NODE_ENV=production bun .next/standalone/server.js` with logs piped to `server.log`.
+`npm run build` (also callable through Bun) generates Next route types, checks the
+entire configured app **and both socket services**, compiles and prerenders Next,
+then packages the standalone server, Prisma client, public assets and socket
+bundles. The build fails if **any** step fails. `npm start` runs the Node
+standalone server on port 3011; logs go to stdout/stderr for the supervisor.
 
-### PM2 Process Management
+### PM2 process management
+
+Configure a provisioned MySQL/MariaDB database, an appropriate generated client,
+HTTPS origin and independent secrets first. See [production setup](docs/PRODUCTION_MYSQL.md).
+From the repository root:
 
 ```bash
-npm install -g pm2
-pm2 start bun --name agentos -- start
+bash deploy/scripts/validate-env.sh --production
+pm2 start ecosystem.config.js --only alolabs-agentos
 pm2 save
-pm2 startup
-# Follow the output — it prints a sudo command to enable the startup service
+pm2 logs alolabs-agentos
 ```
 
-Useful PM2 commands: `pm2 logs agentos`, `pm2 monit`, `pm2 restart agentos`, `pm2 stop agentos`, `pm2 status`
+PM2 binds the app to loopback behind the host proxy. Containers bind internally to
+`0.0.0.0`. Do not start PM2, Compose and the alternative systemd app unit on the
+same port. Bun 1.3.4 is required by the automated host build/deploy scripts;
+the PM2 app interpreter is Node (22.13+).
 
----
+## Docker deployment
 
-## Docker Deployment
+Use Docker Compose 2.24.4+ and a container-reachable, **already provisioned**
+MySQL/MariaDB database. Set `COMPOSE_DATABASE_URL=mysql://…`; the local
+development `DATABASE_URL=file:…` must never be reused here. Use URL-encoded
+credentials in connection strings. Both base and production run the MySQL
+Prisma client. No application startup, deploy or restore script should create a
+replacement database. Review the SQL in `prisma/migrations/mysql` with the DBA;
+these are not Prisma-format migrations. Never run a schema push on production.
 
-```bash
-docker compose config --quiet                   # Validate the configuration
-docker compose up --build -d                    # Start all services
-docker compose --profile tools up --build -d    # + Adminer DB GUI and MariaDB
-docker compose logs -f                          # View logs
-docker compose down                             # Stop all services
-docker compose down -v                          # Stop and remove volumes (destroys data)
-```
-
-Production overrides:
+Configure `JWT_SECRET`, `APP_SECRET`, `ENCRYPTION_KEY`, `S3_ACCESS_KEY`,
+`S3_SECRET_KEY`, `GRAFANA_ADMIN_PASSWORD` and the dedicated `METRICS_SCRAPE_TOKEN`
+(e.g. `openssl rand -hex 32`). The production override additionally requires
+`DOMAIN`, `REDIS_PASSWORD` and `GRAFANA_ADMIN_USER`; set `CSRF_SECRET`,
+`NEXT_PUBLIC_APP_URL` and `ALLOWED_ORIGINS` for the public HTTPS origin. Keep
+all real values outside Git. `docker compose config --quiet` checks the model
+without displaying interpolated secrets.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Optional: add --profile sockets before `up` for realtime and queue sockets.
+# --profile tools adds a loopback DB GUI and MariaDB, not a migrated schema.
 ```
 
-The production stack requires these variables to be set (compose refuses to
-start without them): `DOMAIN`, `REDIS_PASSWORD`, `S3_ACCESS_KEY`,
-`S3_SECRET_KEY`, `ENCRYPTION_KEY`, `APP_SECRET`, `CSRF_SECRET`, `JWT_SECRET`,
-`API_GATEWAY_SECRET`, `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`. Copy
-`.env.example` to `.env` and fill them in.
-
-**Initialising the database schema.** The app container deliberately does *not*
-run migrations at startup — the runner image has no Prisma CLI (it is a
-devDependency) and an implicit `db push` on boot is how databases get silently
-reset. Apply the schema explicitly, once, against the mounted volume:
-
-```bash
-docker compose run --rm --entrypoint npx app prisma db push --schema=prisma/schema.prisma
-```
-
-For an air-gapped host, use the engine-less path instead (see
-`SETUP_GUIDE.md`): `DATABASE_URL=file:./data/agenthub.db npx tsx scripts/sqlite-push.ts`.
+The authenticated exporter is `GET /api/metrics/prometheus`; the scrape token
+must not be reused as an app/session secret. Prefer the in-stack scraper. The
+separate `monitoring/` stack requires a host-network-reachable app on 3011,
+`ALERT_WEBHOOK_URL` for an Alertmanager-compatible receiver and the same scrape
+token; do not run both monitoring stacks on the same host ports.
 
 ### Container Overview
 
@@ -388,7 +390,7 @@ service published on a public interface.
 
 | Container | Image | Port | Purpose |
 |---|---|---|---|
-| **app** | built from `Dockerfile` (`node:20-slim`) | `3011` (localhost) | Main AgentOS application (Next.js standalone, multi-stage build) |
+| **app** | built from `Dockerfile` (`node:22-bookworm-slim`) | `3011` (localhost) | Main AgentOS application (Next.js standalone, multi-stage build) |
 | **redis** | `redis:7-alpine` | `6379` (localhost) | Caching, rate limiting, session storage. 128 MB max, LRU, AOF persistence |
 | **qdrant** | `qdrant/qdrant:v1.12.4` | `6333`, `6334` (localhost) | Vector DB for RAG embeddings. gRPC on 6334 |
 | **minio** | `minio/minio` | `9000`, `9001` (localhost) | S3-compatible object storage. Console on 9001 |
@@ -626,7 +628,7 @@ ALO Labs AgentOS is a full-stack enterprise AI Agent Operating System built on t
 | AI models returning errors | Missing API keys | Set `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, etc. in `.env` |
 | Mini-service won't start | Missing deps | `cd mini-services/<service> && bun install` |
 | PM2 keeps restarting | Crash loop | `pm2 logs agentos --lines 100`. Usually missing `.env` or invalid secrets |
-| File uploads failing | Storage not writable | `mkdir -p storage && chmod 755 storage/`. Check `STORAGE_PATH` |
+| File uploads failing | Storage not writable | `mkdir -p storage && chmod 755 storage/`. Check `STORAGE_LOCAL_PATH` |
 
 ---
 
@@ -634,9 +636,10 @@ ALO Labs AgentOS is a full-stack enterprise AI Agent Operating System built on t
 
 | Script | Command | Description |
 |---|---|---|
-| `bun run dev` | `next dev -p 3000 2>&1 \| tee dev.log` | Development server with hot reload |
-| `bun run build` | `next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/` | Production standalone build |
-| `bun run start` | `NODE_ENV=production bun .next/standalone/server.js 2>&1 \| tee server.log` | Start production server |
+| `bun run dev` | Next development server, port 3011 | Foreground, no implicit schema changes |
+| `bun run typecheck` | Generate route types and use the locked native checker | Includes socket services and dependency declarations |
+| `bun run build` | Typecheck, compile, prerender, package app and socket services | See `package.json` for the exact chain |
+| `bun run start` | Node standalone server | MySQL/MariaDB and production secrets required |
 | `bun run lint` | `eslint .` | Lint all files |
 | `bun run test` | `vitest run` | Run tests once |
 | `bun run test:watch` | `vitest` | Tests in watch mode |
@@ -645,7 +648,6 @@ ALO Labs AgentOS is a full-stack enterprise AI Agent Operating System built on t
 | `bun run db:push` | `prisma db push` | Push schema to database |
 | `bun run db:generate` | `prisma generate` | Generate Prisma client |
 | `bun run db:migrate` | `prisma migrate dev` | Run migrations in dev |
-| `bun run db:reset` | `prisma migrate reset` | Reset database (destructive) |
 
 ---
 

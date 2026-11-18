@@ -1,3 +1,5 @@
+import { getPlatformToken } from '@/lib/social/platform-token';
+import { canManageSocial } from '@/lib/social/credentials';
 // ALO Labs AIOS — Social Analytics API
 // Fetch analytics for connected social platforms with date range filtering
 
@@ -13,31 +15,6 @@ interface AnalyticsResponse {
   period: { start: string; end: string };
   data: Record<string, unknown>;
   fetchedAt: string;
-}
-
-// ─── Helper: Get stored token data ─────────────────────────────────────────────
-
-async function getPlatformToken(platform: SocialPlatform): Promise<{
-  accessToken: string;
-  refreshToken?: string;
-  metadata?: Record<string, unknown>;
-} | null> {
-  const setting = await db.settings.findUnique({
-    where: { key: `social:${platform}:token` },
-  });
-
-  if (!setting) return null;
-
-  try {
-    const data = JSON.parse(setting.value);
-    return {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken || undefined,
-      metadata: data.metadata || undefined,
-    };
-  } catch {
-    return null;
-  }
 }
 
 // ─── Platform-specific analytics fetchers ──────────────────────────────────────
@@ -198,6 +175,7 @@ export async function GET(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (!canManageSocial(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const platform = searchParams.get('platform') as SocialPlatform | null;

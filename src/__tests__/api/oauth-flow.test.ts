@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /**
@@ -42,36 +43,6 @@ vi.mock('@/lib/auth', () => ({
   hashPassword: vi.fn(async () => 'hashed-password'),
 }));
 
-// Minimal next/server mock: json() + redirect() with an isolated cookie jar
-// per response, so we can assert httpOnly cookie setting on redirects.
-vi.mock('next/server', () => {
-  const makeCookies = () => {
-    const jar: Record<string, string> = {};
-    return Object.assign(jar, {
-      set: (name: string, value: string) => {
-        jar[name] = value;
-      },
-    });
-  };
-  return {
-    NextResponse: {
-      json: (data: unknown, init?: { status?: number }) => ({
-        kind: 'json',
-        status: init?.status ?? 200,
-        body: data,
-        cookies: makeCookies(),
-      }),
-      redirect: (url: string | URL) => ({
-        kind: 'redirect',
-        status: 302,
-        url: String(url),
-        headers: { location: String(url) },
-        cookies: makeCookies(),
-      }),
-    },
-  };
-});
-
 import { GET, POST } from '@/app/api/auth/oauth/[provider]/route';
 import {
   sanitizeOAuthNextPath,
@@ -111,7 +82,7 @@ function routeContext(provider: string) {
 }
 
 function mockFetchForTokenExchange() {
-  const fetchMock = vi.fn(async (input: unknown) => {
+  const fetchMock = vi.fn(async (input: unknown, _init?: RequestInit) => {
     const url = String(input);
     if (url.includes('/access_token')) {
       return {
@@ -252,10 +223,11 @@ describe('GET /api/auth/oauth/[provider] — initiation', () => {
       { url: routeUrl('/api/auth/oauth/github', 'next=%2Fagents%2F12') } as any,
       routeContext('github')
     );
-    expect(res.kind).toBe('json');
+    const resData = await res.json();
+    expect(res.headers.get('content-type')).toContain('application/json');
     expect(res.status).toBe(200);
-    expect(res.body.authorizationUrl).toContain('https://github.com/login/oauth/authorize');
-    expect(res.body.authorizationUrl).toContain(
+    expect(resData.authorizationUrl).toContain('https://github.com/login/oauth/authorize');
+    expect(resData.authorizationUrl).toContain(
       `redirect_uri=${encodeURIComponent('http://localhost:3000/api/auth/oauth/github')}`
     );
   });
@@ -263,7 +235,8 @@ describe('GET /api/auth/oauth/[provider] — initiation', () => {
   it('never emits a relative redirect_uri (the original defect)', async () => {
     armHappyPathDb();
     const res = await GET({ url: routeUrl('/api/auth/oauth/github') } as any, routeContext('github'));
-    const authUrl = new URL(res.body.authorizationUrl);
+    const resData = await res.json();
+    const authUrl = new URL(resData.authorizationUrl);
     const redirectUri = authUrl.searchParams.get('redirect_uri') || '';
     expect(redirectUri.startsWith('/')).toBe(false);
     expect(new URL(redirectUri).protocol).toBe('http:');
@@ -275,7 +248,8 @@ describe('GET /api/auth/oauth/[provider] — initiation', () => {
       { url: routeUrl('/api/auth/oauth/github', 'next=%2Fagents%2F12') } as any,
       routeContext('github')
     );
-    const stateKey = `oauth_state:${res.body.state}`;
+    const resData = await res.json();
+    const stateKey = `oauth_state:${resData.state}`;
     expect(storedStates[stateKey]).toBeDefined();
     expect(JSON.parse(storedStates[stateKey].value)).toEqual({
       provider: 'github',
@@ -308,16 +282,17 @@ describe('GET /api/auth/oauth/[provider] — browser callback', () => {
       { url: routeUrl('/api/auth/oauth/github', 'next=%2Fagents%2F12') } as any,
       routeContext('github')
     );
-    const state = res.body.state;
+    const resData = await res.json();
+    const state = resData.state;
 
     const callback = await GET(
       { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${state}`) } as any,
       routeContext('github')
     );
 
-    expect(callback.kind).toBe('redirect');
-    expect(callback.url).toBe('http://localhost:3000/agents/12');
-    expect(callback.cookies['session-token']).toBe('session-token-abc123');
+    expect(callback.status).toBe(307);
+    expect(callback.headers.get('location')).toBe('http://localhost:3000/agents/12');
+    expect(callback.cookies.get('session-token')).toMatchObject({ value: 'session-token-abc123', httpOnly: true });
     expect(db.user.update).toHaveBeenCalled();
   });
 
@@ -325,12 +300,13 @@ describe('GET /api/auth/oauth/[provider] — browser callback', () => {
     armHappyPathDb();
     const fetchMock = mockFetchForTokenExchange();
     const res = await GET({ url: routeUrl('/api/auth/oauth/github') } as any, routeContext('github'));
+    const resData = await res.json();
     await GET(
-      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${res.body.state}`) } as any,
+      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${resData.state}`) } as any,
       routeContext('github')
     );
     const tokenCall = fetchMock.mock.calls.find((c) => String(c[0]).includes('/access_token'))!;
-    const body = String(tokenCall[1].body) as string;
+    const body = String(tokenCall[1]?.body);
     const redirectUri = new URLSearchParams(body).get('redirect_uri') || '';
     expect(redirectUri.startsWith('/')).toBe(false);
     expect(redirectUri).toBe('http://localhost:3000/api/auth/oauth/github');
@@ -340,11 +316,12 @@ describe('GET /api/auth/oauth/[provider] — browser callback', () => {
     armHappyPathDb();
     mockFetchForTokenExchange();
     const res = await GET({ url: routeUrl('/api/auth/oauth/github') } as any, routeContext('github'));
+    const resData = await res.json();
     const callback = await GET(
-      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${res.body.state}`) } as any,
+      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${resData.state}`) } as any,
       routeContext('github')
     );
-    expect(callback.url).toBe('http://localhost:3000/dashboard');
+    expect(callback.headers.get('location')).toBe('http://localhost:3000/dashboard');
   });
 
   it('open-redirect via next is neutralized at callback time', async () => {
@@ -354,32 +331,34 @@ describe('GET /api/auth/oauth/[provider] — browser callback', () => {
       { url: routeUrl('/api/auth/oauth/github', 'next=%2F%2Fevil.com') } as any,
       routeContext('github')
     );
+    const resData = await res.json();
     const callback = await GET(
-      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${res.body.state}`) } as any,
+      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${resData.state}`) } as any,
       routeContext('github')
     );
-    expect(callback.url).toBe('http://localhost:3000/dashboard');
-    expect(callback.url).not.toContain('evil.com');
+    expect(callback.headers.get('location')).toBe('http://localhost:3000/dashboard');
+    expect(callback.headers.get('location')).not.toContain('evil.com');
   });
 
   it('consumes state single-use: a replayed state redirects to /login?error', async () => {
     armHappyPathDb();
     mockFetchForTokenExchange();
     const res = await GET({ url: routeUrl('/api/auth/oauth/github') } as any, routeContext('github'));
+    const resData = await res.json();
     const first = await GET(
-      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${res.body.state}`) } as any,
+      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${resData.state}`) } as any,
       routeContext('github')
     );
-    expect(first.kind).toBe('redirect');
-    expect(first.cookies['session-token']).toBeDefined();
+    expect(first.status).toBe(307);
+    expect(first.cookies.get('session-token')?.value).toBeDefined();
 
     const replay = await GET(
-      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${res.body.state}`) } as any,
+      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${resData.state}`) } as any,
       routeContext('github')
     );
-    expect(replay.kind).toBe('redirect');
-    expect(replay.url).toContain('/login?error=oauth_failed');
-    expect(replay.cookies['session-token']).toBeUndefined();
+    expect(replay.status).toBe(307);
+    expect(replay.headers.get('location')).toContain('/login?error=oauth_failed');
+    expect(replay.cookies.get('session-token')?.value).toBeUndefined();
   });
 
   it('rejects a foreign state value', async () => {
@@ -391,7 +370,7 @@ describe('GET /api/auth/oauth/[provider] — browser callback', () => {
       { url: routeUrl('/api/auth/oauth/github', 'code=auth-code&state=unknown') } as any,
       routeContext('github')
     );
-    expect(callback.url).toContain('/login?error=oauth_failed');
+    expect(callback.headers.get('location')).toContain('/login?error=oauth_failed');
   });
 
   it('rejects an expired state (>10 minutes old)', async () => {
@@ -403,7 +382,7 @@ describe('GET /api/auth/oauth/[provider] — browser callback', () => {
       { url: routeUrl('/api/auth/oauth/github', 'code=auth-code&state=stale') } as any,
       routeContext('github')
     );
-    expect(callback.url).toContain('/login?error=oauth_failed');
+    expect(callback.headers.get('location')).toContain('/login?error=oauth_failed');
   });
 
   it('accepts LEGACY plain-provider state rows (backward compatibility)', async () => {
@@ -414,9 +393,9 @@ describe('GET /api/auth/oauth/[provider] — browser callback', () => {
       { url: routeUrl('/api/auth/oauth/github', 'code=auth-code&state=legacy') } as any,
       routeContext('github')
     );
-    expect(callback.kind).toBe('redirect');
-    expect(callback.url).toBe('http://localhost:3000/dashboard');
-    expect(callback.cookies['session-token']).toBe('session-token-abc123');
+    expect(callback.status).toBe(307);
+    expect(callback.headers.get('location')).toBe('http://localhost:3000/dashboard');
+    expect(callback.cookies.get('session-token')).toMatchObject({ value: 'session-token-abc123', httpOnly: true });
   });
 
   it('redirects to /login?error when the provider token exchange fails', async () => {
@@ -425,12 +404,13 @@ describe('GET /api/auth/oauth/[provider] — browser callback', () => {
       throw new Error('network down');
     }) as unknown as typeof fetch;
     const res = await GET({ url: routeUrl('/api/auth/oauth/github') } as any, routeContext('github'));
+    const resData = await res.json();
     const callback = await GET(
-      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${res.body.state}`) } as any,
+      { url: routeUrl('/api/auth/oauth/github', `code=auth-code&state=${resData.state}`) } as any,
       routeContext('github')
     );
-    expect(callback.url).toContain('/login?error=oauth_failed&provider=github');
-    expect(callback.cookies['session-token']).toBeUndefined();
+    expect(callback.headers.get('location')).toContain('/login?error=oauth_failed&provider=github');
+    expect(callback.cookies.get('session-token')?.value).toBeUndefined();
   });
 });
 
@@ -446,17 +426,19 @@ describe('POST /api/auth/oauth/[provider] — JSON callback', () => {
       { url: routeUrl('/api/auth/oauth/github', 'next=%2Fagents%2F12') } as any,
       routeContext('github')
     );
+    const resData = await res.json();
     const post = await POST(
       {
         url: routeUrl('/api/auth/oauth/github'),
-        json: async () => ({ code: 'auth-code', state: res.body.state }),
+        json: async () => ({ code: 'auth-code', state: resData.state }),
       } as any,
       routeContext('github')
     );
+    const postData = await post.json();
     expect(post.status).toBe(200);
-    expect(post.body.user.email).toBe('dev@example.com');
-    expect(post.body.token).toBe('session-token-abc123');
-    expect(post.body.redirectTo).toBe('/agents/12');
+    expect(postData.user.email).toBe('dev@example.com');
+    expect(postData.token).toBe('session-token-abc123');
+    expect(postData.redirectTo).toBe('/agents/12');
   });
 
   it('returns 400 when code or state is missing', async () => {
@@ -475,8 +457,9 @@ describe('POST /api/auth/oauth/[provider] — JSON callback', () => {
       } as any,
       routeContext('github')
     );
+    const postData = await post.json();
     expect(post.status).toBe(400);
-    expect(post.body.error).toMatch(/Invalid or expired OAuth state/);
+    expect(postData.error).toMatch(/Invalid or expired OAuth state/);
   });
 
   it('maps provider-side failures to 502', async () => {
@@ -485,10 +468,11 @@ describe('POST /api/auth/oauth/[provider] — JSON callback', () => {
       throw new Error('Failed to reach OAuth provider token endpoint: network down');
     }) as unknown as typeof fetch;
     const res = await GET({ url: routeUrl('/api/auth/oauth/github') } as any, routeContext('github'));
+    const resData = await res.json();
     const post = await POST(
       {
         url: routeUrl('/api/auth/oauth/github'),
-        json: async () => ({ code: 'auth-code', state: res.body.state }),
+        json: async () => ({ code: 'auth-code', state: resData.state }),
       } as any,
       routeContext('github')
     );

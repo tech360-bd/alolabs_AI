@@ -1,3 +1,5 @@
+import { redactedErrorResponse as errorResponse } from '@/lib/api/route-errors';
+import { canManageCompanySettings as canManage } from '@/lib/access/company-settings';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireCompanyAuth } from '@/lib/api-auth';
@@ -13,16 +15,6 @@ const SaveSchema = z.object({
   secret: z.string().min(1).max(8000).optional(),
   settings: z.record(z.string(), z.unknown()).optional(),
 }).strict();
-
-function canManage(user: { role: string; companyRole?: string }) {
-  return user.role === 'super_admin' || ['owner', 'admin'].includes(user.companyRole ?? '');
-}
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error';
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500;
-  return NextResponse.json({ error: status === 500 ? 'Internal server error' : message }, { status });
-}
 
 export async function GET() {
   try {

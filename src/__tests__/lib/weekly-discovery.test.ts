@@ -9,7 +9,7 @@ afterEach(() => {
 
 describe('weekly open-source AI discovery', () => {
   it('reports that nothing could be queried when no credential is configured', async () => {
-    const report = await buildWeeklyDiscoveryReport({ env: {} as NodeJS.ProcessEnv });
+    const report = await buildWeeklyDiscoveryReport({ env: { NODE_ENV: 'test' } });
     expect(report.providers).toEqual([]);
     expect(report.newModels).toEqual([]);
     expect(report.limitations[0]).toContain('No free provider credentials');
@@ -20,7 +20,7 @@ describe('weekly open-source AI discovery', () => {
   it('reports a provider as unreachable instead of guessing its catalogue', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
     const report = await buildWeeklyDiscoveryReport({
-      env: { GEMINI_API_KEY: 'k' } as NodeJS.ProcessEnv,
+      env: { NODE_ENV: 'test',  GEMINI_API_KEY: 'k' },
       timeoutMs: 50,
     });
     expect(report.providers).toHaveLength(1);
@@ -32,7 +32,7 @@ describe('weekly open-source AI discovery', () => {
   it('treats an HTTP error as unreachable, not as an empty catalogue', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 503 })));
     const report = await buildWeeklyDiscoveryReport({
-      env: { CEREBRAS_API_KEY: 'k' } as NodeJS.ProcessEnv,
+      env: { NODE_ENV: 'test',  CEREBRAS_API_KEY: 'k' },
       timeoutMs: 50,
     });
     expect(report.providers[0].status).toBe('unreachable');
@@ -50,7 +50,7 @@ describe('weekly open-source AI discovery', () => {
       ),
     );
     const report = await buildWeeklyDiscoveryReport({
-      env: { GEMINI_API_KEY: 'k' } as NodeJS.ProcessEnv,
+      env: { NODE_ENV: 'test',  GEMINI_API_KEY: 'k' },
       timeoutMs: 50,
     });
     const newModel = report.newModels.find((model) => model.modelId === 'gemini-9.9-experimental');
@@ -73,7 +73,7 @@ describe('weekly open-source AI discovery', () => {
       ),
     );
     const report = await buildWeeklyDiscoveryReport({
-      env: { CEREBRAS_API_KEY: 'k' } as NodeJS.ProcessEnv,
+      env: { NODE_ENV: 'test',  CEREBRAS_API_KEY: 'k' },
       timeoutMs: 50,
     });
     const configured = FREE_PROVIDER_CATALOGUES.cerebras.map((model) => model.id);
@@ -93,7 +93,7 @@ describe('weekly open-source AI discovery', () => {
       ),
     );
     const report = await buildWeeklyDiscoveryReport({
-      env: { GEMINI_API_KEY: 'k' } as NodeJS.ProcessEnv,
+      env: { NODE_ENV: 'test',  GEMINI_API_KEY: 'k' },
       timeoutMs: 50,
     });
     expect(report.providers[0].models[0].freeStatus).toBe('quota_based');
@@ -101,14 +101,14 @@ describe('weekly open-source AI discovery', () => {
   });
 
   it('lists permissive open-weight catalogue entries from real catalogue data', async () => {
-    const report = await buildWeeklyDiscoveryReport({ env: {} as NodeJS.ProcessEnv });
+    const report = await buildWeeklyDiscoveryReport({ env: { NODE_ENV: 'test' } });
     expect(report.catalogueSize).toBeGreaterThan(0);
     expect(report.permissiveOpenWeight.length).toBeGreaterThan(0);
     expect(report.permissiveOpenWeight.every((model) => model.license.length > 0)).toBe(true);
   });
 
   it('declares its limitations explicitly', async () => {
-    const report = await buildWeeklyDiscoveryReport({ env: {} as NodeJS.ProcessEnv });
+    const report = await buildWeeklyDiscoveryReport({ env: { NODE_ENV: 'test' } });
     expect(report.limitations.length).toBeGreaterThanOrEqual(2);
     expect(report.limitations.join(' ')).toContain('only');
   });

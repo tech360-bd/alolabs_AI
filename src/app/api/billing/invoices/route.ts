@@ -1,3 +1,4 @@
+import { generateInvoiceNumber } from '@/lib/billing/invoice-number';
 import { z } from 'zod';
 import { jsonResponse, secureRoute } from '@/lib/api/secure-route';
 import { NextRequest, NextResponse } from 'next/server';
@@ -7,25 +8,6 @@ import { requireAuth } from '@/lib/api-auth';
 /** Invoice listing is now authenticated and tenant-scoped; the `companyId`
  *  query filter was removed because the tenant comes from the principal. */
 const invoiceListQuery = z.object({ status: z.string().max(40).optional() });
-
-async function generateInvoiceNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `INV-${year}-`;
-
-  const lastInvoice = await db.invoice.findFirst({
-    where: { invoiceNumber: { startsWith: prefix } },
-    orderBy: { invoiceNumber: 'desc' },
-    select: { invoiceNumber: true },
-  });
-
-  let nextNum = 1;
-  if (lastInvoice) {
-    const parts = lastInvoice.invoiceNumber.split('-');
-    nextNum = parseInt(parts[parts.length - 1], 10) + 1;
-  }
-
-  return `${prefix}${String(nextNum).padStart(4, '0')}`;
-}
 
 export const GET = secureRoute(
   { resource: 'billing.invoices', action: 'read', query: invoiceListQuery, rateLimit: { limit: 300, windowMs: 60_000 } },

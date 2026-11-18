@@ -3,6 +3,7 @@
  * ALO Labs AIOS — Common interface for all AI providers.
  */
 
+import { sleep } from '@/lib/sleep';
 import type {
   AIProvider,
   AIModel,
@@ -50,10 +51,6 @@ function estimateMessagesTokens(messages: AIMessage[]): number {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function jitteredDelay(attempt: number): number {
   const base = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);

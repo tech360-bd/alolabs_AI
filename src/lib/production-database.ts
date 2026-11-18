@@ -64,12 +64,14 @@ export function redactDatabaseUrl(url: string): string {
   try {
     const parsed = new URL(url);
     if (parsed.password) parsed.password = '****';
-    if (parsed.username) parsed.username = parsed.username;
+    // Driver parameters can include TLS passphrases. Never log query strings.
+    parsed.search = '';
+    parsed.hash = '';
     return parsed.toString();
   } catch {
     // Not a URL (e.g. `file:./db/custom.db`) — strip anything that looks like
     // credentials rather than risk echoing them.
-    return url.replace(/:([^:@/]+)@/, ':****@');
+    return '[invalid datasource URL]';
   }
 }
 

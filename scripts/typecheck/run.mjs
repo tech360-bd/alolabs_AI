@@ -1,0 +1,12 @@
+import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+const require = createRequire(import.meta.url);
+const manifest = require.resolve('typescript/package.json');
+const compiler = require(manifest);
+if (compiler.version !== '7.0.2') throw new Error('Install the root workspace lock before typechecking.');
+const args = process.argv.slice(2);
+const config = args[0] === '--tests' ? (args.shift(), 'tsconfig.tests.json') : 'tsconfig.check.json';
+const result = spawnSync(process.execPath, [resolve(dirname(manifest), compiler.bin.tsc), '-p', config, '--noEmit', '--checkers', '1', '--singleThreaded', ...args], { stdio: 'inherit' });
+if (result.error) throw result.error;
+process.exitCode = result.status ?? 1;

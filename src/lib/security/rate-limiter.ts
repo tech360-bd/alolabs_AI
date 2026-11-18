@@ -4,7 +4,7 @@
  * limits, configurable per-endpoint, Redis-backed with in-memory fallback.
  */
 
-import { redisGet, redisSet, redisIncr, redisDel } from '@/lib/redis';
+import { evalLimitScript, redisDel } from '@/lib/redis';
 
 // ─── Configuration ──────────────────────────────────────────────────
 
@@ -51,286 +51,84 @@ const endpointConfigs = new Map<string, EndpointConfig>([
   ['/api/super-admin', { maxRequests: 30, windowMs: 60_000 }],
 ]);
 
-// ─── In-memory fallback storage ─────────────────────────────────────
+// One Redis operation must both admit AND record a request. GET + SET loses
+// counts when two server instances handle requests concurrently. Keep at most
+// `limit` timestamps per key, expiring the list after its real window.
+const SLIDING = `
+  local key, now, window, limit = KEYS[1], tonumber(ARGV[1]), tonumber(ARGV[2]), tonumber(ARGV[3])
+  local head = redis.call('LINDEX', key, 0)
+  while head and tonumber(head) <= now-window do
+    redis.call('LPOP', key)
+    head = redis.call('LINDEX', key, 0)
+  end
+  local count = redis.call('LLEN', key)
+  if count >= limit then return {0, 0, tonumber(head)+window} end
+  redis.call('RPUSH', key, now)
+  redis.call('PEXPIRE', key, window)
+  return {1, limit-count-1, tonumber(head or now)+window}`;
 
-interface MemorySlidingWindow {
-  timestamps: number[];
+// Five *failed* credentials start a fixed lockout. Reads and attempts during
+// lockout do not extend it; sub-threshold buckets also expire.
+const FAILURE = `
+  local n = tonumber(redis.call('GET', KEYS[1]) or '0')
+  if ARGV[1]=='1' and n<tonumber(ARGV[2]) then
+    n = redis.call('INCR', KEYS[1]); redis.call('PEXPIRE', KEYS[1],ARGV[3])
+  end
+  return {n, redis.call('PTTL', KEYS[1])}`;
+
+type Window = { timestamps: number[]; expires: number };
+type Attempts = { count: number; expires: number };
+const windows = new Map<string, Window>();
+const failures = new Map<string, Attempts>();
+let nextSweep = 0;
+function sweep(now: number) {
+  if (now < nextSweep) return;
+  nextSweep = now + 30_000;
+  for (const [k, v] of windows) if (v.expires <= now) windows.delete(k);
+  for (const [k, v] of failures) if (v.expires <= now) failures.delete(k);
 }
 
-const memoryWindows = new Map<string, MemorySlidingWindow>();
-const memoryLockouts = new Map<string, { attempts: number; lockoutUntil: number | null }>();
-
-// Cleanup expired entries every 30 seconds
-if (typeof globalThis !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now();
-
-    // Clean sliding windows
-    for (const [key, window] of memoryWindows.entries()) {
-      const cutoff = now - DEFAULT_WINDOW_MS;
-      window.timestamps = window.timestamps.filter((t) => t > cutoff);
-      if (window.timestamps.length === 0) {
-        memoryWindows.delete(key);
-      }
-    }
-
-    // Clean expired lockouts
-    for (const [key, lockout] of memoryLockouts.entries()) {
-      if (lockout.lockoutUntil && now > lockout.lockoutUntil) {
-        memoryLockouts.delete(key);
-      }
-    }
-  }, 30_000);
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────
-
-function getWindowKey(key: string, windowMs: number): string {
-  const windowSizeSec = Math.ceil(windowMs / 1000);
-  return `${KEY_PREFIX}${key}:${Math.floor(Date.now() / (windowSizeSec * 1000))}`;
-}
-
-// ─── Sliding Window Rate Limit ──────────────────────────────────────
-
-/**
- * Check rate limit using sliding window algorithm.
- *
- * @param key - Unique identifier (IP address, userId, or combination)
- * @param maxRequests - Maximum requests allowed in the window
- * @param windowMs - Time window in milliseconds
- * @returns Rate limit result with allowed, remaining, and resetAt
- */
-export async function checkLimit(
-  key: string,
-  maxRequests: number = DEFAULT_MAX_REQUESTS,
-  windowMs: number = DEFAULT_WINDOW_MS,
-): Promise<RateLimitResult> {
+export async function checkLimit(key: string, limit = DEFAULT_MAX_REQUESTS, windowMs = DEFAULT_WINDOW_MS): Promise<RateLimitResult> {
   const now = Date.now();
-
-  // Try Redis first
-  const redisKey = `${KEY_PREFIX}sliding:${key}`;
-  const stored = await redisGet(redisKey);
-
-  if (stored) {
-    try {
-      const data = JSON.parse(stored) as { timestamps: number[] };
-      // Filter to current window
-      const cutoff = now - windowMs;
-      const recentTimestamps = data.timestamps.filter((t) => t > cutoff);
-
-      if (recentTimestamps.length >= maxRequests) {
-        const oldestInWindow = recentTimestamps[0];
-        const resetAt = oldestInWindow + windowMs;
-        return {
-          allowed: false,
-          remaining: 0,
-          resetAt,
-          limit: maxRequests,
-        };
-      }
-
-      // Add current request
-      recentTimestamps.push(now);
-      await redisSet(
-        redisKey,
-        JSON.stringify({ timestamps: recentTimestamps }),
-        Math.ceil(windowMs / 1000) + 1,
-      );
-
-      return {
-        allowed: true,
-        remaining: maxRequests - recentTimestamps.length,
-        resetAt: now + windowMs,
-        limit: maxRequests,
-      };
-    } catch {
-      // Fall through to memory fallback
-    }
-  }
-
-  // Memory fallback — sliding window
-  const memKey = `${KEY_PREFIX}${key}`;
-  let window = memoryWindows.get(memKey);
-
-  if (!window) {
-    window = { timestamps: [] };
-    memoryWindows.set(memKey, window);
-  }
-
-  const cutoff = now - windowMs;
-  window.timestamps = window.timestamps.filter((t) => t > cutoff);
-
-  if (window.timestamps.length >= maxRequests) {
-    const oldestInWindow = window.timestamps[0];
-    const resetAt = oldestInWindow + windowMs;
-    return {
-      allowed: false,
-      remaining: 0,
-      resetAt,
-      limit: maxRequests,
-    };
-  }
-
-  window.timestamps.push(now);
-
-  return {
-    allowed: true,
-    remaining: maxRequests - window.timestamps.length,
-    resetAt: now + windowMs,
-    limit: maxRequests,
-  };
+  const shared = await evalLimitScript(SLIDING, `${KEY_PREFIX}window:v2:${key}`, now, windowMs, limit);
+  if (shared) return { allowed: shared[0] === 1, remaining: shared[1], resetAt: shared[2], limit };
+  sweep(now);
+  const timestamps = (windows.get(key)?.timestamps ?? []).filter(t => t > now - windowMs);
+  const allowed = timestamps.length < limit;
+  if (allowed) timestamps.push(now);
+  windows.set(key, { timestamps, expires: timestamps[timestamps.length-1] + windowMs });
+  return { allowed, remaining: Math.max(0, limit - timestamps.length), resetAt: timestamps[0] + windowMs, limit };
 }
 
-// ─── Endpoint-aware limit check ─────────────────────────────────────
-
-/**
- * Check rate limit for a specific endpoint, using endpoint-specific config
- * if defined, otherwise using defaults.
- */
-export async function checkEndpointLimit(
-  endpoint: string,
-  identifier: string,
-): Promise<RateLimitResult> {
+export function checkEndpointLimit(endpoint: string, identifier: string): Promise<RateLimitResult> {
   const config = endpointConfigs.get(endpoint);
-  return checkLimit(
-    `${endpoint}:${identifier}`,
-    config?.maxRequests ?? DEFAULT_MAX_REQUESTS,
-    config?.windowMs ?? DEFAULT_WINDOW_MS,
-  );
+  return checkLimit(`${endpoint}:${identifier}`, config?.maxRequests, config?.windowMs);
 }
 
-// ─── Brute Force Tracking ───────────────────────────────────────────
+const failureKey = (key: string) => `${KEY_PREFIX}failure:v2:${key}`;
+async function failureState(key: string, increment: boolean): Promise<Attempts> {
+  const now = Date.now(), storageKey = failureKey(key);
+  const shared = await evalLimitScript(FAILURE, storageKey, Number(increment), DEFAULT_LOCKOUT_THRESHOLD, DEFAULT_LOCKOUT_WINDOW_MS);
+  if (shared) return { count: shared[0], expires: now + Math.max(0, shared[1]) };
+  sweep(now);
+  let state = failures.get(storageKey);
+  if (!state || state.expires <= now) state = { count: 0, expires: 0 };
+  if (increment && state.count < DEFAULT_LOCKOUT_THRESHOLD) {
+    state = { count: state.count + 1, expires: now + DEFAULT_LOCKOUT_WINDOW_MS };
+    failures.set(storageKey, state);
+  }
+  return state;
+}
 
-/**
- * Track a failed attempt for brute force protection.
- * Increments the attempt counter and potentially locks out the key.
- */
 export async function trackAttempt(key: string): Promise<void> {
-  const now = Date.now();
-  const lockoutKey = `${KEY_PREFIX}lockout:${key}`;
-
-  // Try Redis
-  const stored = await redisGet(lockoutKey);
-  let attempts = 0;
-  let lockoutUntil: number | null = null;
-
-  if (stored) {
-    try {
-      const data = JSON.parse(stored) as { attempts: number; lockoutUntil: number | null };
-      attempts = data.attempts;
-      lockoutUntil = data.lockoutUntil;
-
-      // If already locked out, don't increment
-      if (lockoutUntil && now < lockoutUntil) {
-        return;
-      }
-    } catch {
-      // Fall through to memory
-    }
-  }
-
-  // Memory fallback: check existing attempts when Redis is unavailable
-  if (!stored) {
-    const memEntry = memoryLockouts.get(lockoutKey);
-    if (memEntry) {
-      attempts = memEntry.attempts;
-      lockoutUntil = memEntry.lockoutUntil;
-
-      // If already locked out in memory, don't increment
-      if (lockoutUntil && now < lockoutUntil) {
-        return;
-      }
-    }
-  }
-
-  attempts++;
-
-  if (attempts >= DEFAULT_LOCKOUT_THRESHOLD) {
-    lockoutUntil = now + DEFAULT_LOCKOUT_WINDOW_MS;
-  }
-
-  await redisSet(
-    lockoutKey,
-    JSON.stringify({ attempts, lockoutUntil }),
-    Math.ceil(DEFAULT_LOCKOUT_WINDOW_MS / 1000) + 1,
-  );
-
-  // Memory fallback
-  const memEntry = memoryLockouts.get(lockoutKey) ?? { attempts: 0, lockoutUntil: null };
-  memEntry.attempts = attempts;
-  if (attempts >= DEFAULT_LOCKOUT_THRESHOLD) {
-    memEntry.lockoutUntil = now + DEFAULT_LOCKOUT_WINDOW_MS;
-  }
-  memoryLockouts.set(lockoutKey, memEntry);
+  await failureState(key, true);
 }
-
-/**
- * Reset failed attempts for a key (e.g., after successful login).
- */
 export async function resetAttempts(key: string): Promise<void> {
-  const lockoutKey = `${KEY_PREFIX}lockout:${key}`;
-  await redisDel(lockoutKey);
-  memoryLockouts.delete(lockoutKey);
+  await redisDel(failureKey(key));
+  failures.delete(failureKey(key));
 }
-
-// ─── Lockout Status ─────────────────────────────────────────────────
-
-/**
- * Check if a key (IP/user) is currently locked out.
- */
 export async function getLockoutStatus(key: string): Promise<LockoutStatus> {
-  const now = Date.now();
-  const lockoutKey = `${KEY_PREFIX}lockout:${key}`;
-
-  // Try Redis
-  const stored = await redisGet(lockoutKey);
-  if (stored) {
-    try {
-      const data = JSON.parse(stored) as { attempts: number; lockoutUntil: number | null };
-      if (data.lockoutUntil && now < data.lockoutUntil) {
-        return {
-          isLockedOut: true,
-          attempts: data.attempts,
-          lockoutUntil: data.lockoutUntil,
-          remainingAttempts: 0,
-        };
-      }
-
-      return {
-        isLockedOut: false,
-        attempts: data.attempts,
-        lockoutUntil: null,
-        remainingAttempts: DEFAULT_LOCKOUT_THRESHOLD - data.attempts,
-      };
-    } catch {
-      // Fall through
-    }
-  }
-
-  // Memory fallback
-  const memEntry = memoryLockouts.get(lockoutKey);
-  if (memEntry) {
-    if (memEntry.lockoutUntil && now < memEntry.lockoutUntil) {
-      return {
-        isLockedOut: true,
-        attempts: memEntry.attempts,
-        lockoutUntil: memEntry.lockoutUntil,
-        remainingAttempts: 0,
-      };
-    }
-
-    return {
-      isLockedOut: false,
-      attempts: memEntry.attempts,
-      lockoutUntil: null,
-      remainingAttempts: DEFAULT_LOCKOUT_THRESHOLD - memEntry.attempts,
-    };
-  }
-
-  return {
-    isLockedOut: false,
-    attempts: 0,
-    lockoutUntil: null,
-    remainingAttempts: DEFAULT_LOCKOUT_THRESHOLD,
-  };
+  const { count, expires } = await failureState(key, false);
+  const isLockedOut = count >= DEFAULT_LOCKOUT_THRESHOLD;
+  return { isLockedOut, attempts: count, lockoutUntil: isLockedOut ? expires : null, remainingAttempts: Math.max(0, DEFAULT_LOCKOUT_THRESHOLD - count) };
 }

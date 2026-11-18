@@ -1,0 +1,78 @@
+{
+  "scope": "git-listed tracked + nonignored new working-tree files; includes before/, excludes 02-after.md, tools/ and after/ of this audit",
+  "tracked": 2129,
+  "paths": 2178,
+  "files_present": 2175,
+  "bytes": 52764527,
+  "directories_excluding_root": 945,
+  "empty_on_disk_nonignored": [],
+  "top": {
+    ".github": 10,
+    ".zscripts": 6,
+    "__tests__": 170,
+    "agent-ctx": 21,
+    "ai-skills": 204,
+    "audit": 47,
+    "audit-report": 5,
+    "demo-audio": 1,
+    "deploy": 32,
+    "docs": 150,
+    "download": 21,
+    "examples": 2,
+    "mini-services": 6,
+    "monitoring": 15,
+    "prisma": 15,
+    "public": 25,
+    "scripts": 87,
+    "server-config": 10,
+    "src": 1233,
+    "workflows": 18
+  },
+  "counts": {
+    "route": 504,
+    "directly exported methods": 825,
+    "page": 33,
+    "layout": 3,
+    "component tsx": 259,
+    "marker lines": 35,
+    "doc link candidates": 51,
+    "app reference candidates": 0
+  },
+  "issues": {
+    "missing": [
+      ".zscripts/dev.pid",
+      "mini-services/queue-service/bun.lock",
+      "mini-services/realtime-service/bun.lock"
+    ],
+    "symlinks_not_read": [],
+    "zero_bytes": [
+      "mini-services/.gitkeep"
+    ],
+    "non_strict_json": [],
+    "shell_parse": []
+  },
+  "duplicates": {
+    "sets": 6,
+    "paths": 14
+  },
+  "env_names": 151,
+  "env_not_in_either": 1,
+  "schema_models": {
+    "prisma/schema.mysql.prisma": 250,
+    "prisma/schema.prisma": 250
+  },
+  "shell_parsed": 52,
+  "archives": {
+    "alolabs-agent-hub-2000-agents-production.tar.gz: different bytes": 254,
+    "alolabs-agent-hub-2000-agents-production.tar.gz: same bytes": 92,
+    "alolabs-agent-hub-2000-agents-production.tar.gz: archive-only path": 20,
+    "alolabs-aismh-full-project.zip: archive-only path": 10,
+    "alolabs-aismh-full-project.zip: different bytes": 416,
+    "alolabs-aismh-full-project.zip: same bytes": 184
+  },
+  "changes_from_before": {
+    "modified": 164,
+    "removed": 3,
+    "added": 32
+  }
+}

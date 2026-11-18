@@ -1,3 +1,4 @@
+import { redactedErrorResponse as errorResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireCompanyAuth } from '@/lib/api-auth';
@@ -14,12 +15,6 @@ const CreateSchema = z.object({
 
 function isManager(user: { role: string; companyRole?: string }) {
   return user.role === 'super_admin' || ['owner', 'admin', 'manager'].includes(user.companyRole ?? '');
-}
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error';
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500;
-  return NextResponse.json({ error: status === 500 ? 'Internal server error' : message }, { status });
 }
 
 export async function GET(request: NextRequest) {

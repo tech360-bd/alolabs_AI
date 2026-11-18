@@ -99,6 +99,8 @@ import { POST } from '@/app/api/auth/login/route';
 import { GET } from '@/app/api/auth/me/route';
 import { POST as LOGOUT_POST } from '@/app/api/auth/logout/route';
 import { compare } from 'bcrypt';
+// Select bcrypt's Promise overload (not its callback overload).
+const compareAsync: (data: string, encrypted: string) => Promise<boolean> = compare;
 
 describe('Auth API', () => {
   beforeEach(() => {
@@ -156,7 +158,7 @@ describe('Auth API', () => {
         isActive: true,
         passwordHash: 'hashed',
       });
-      vi.mocked(compare).mockResolvedValue(false);
+      vi.mocked(compareAsync).mockResolvedValue(false);
       const request = new MockNextRequest('/api/auth/login', {
         email: 'test@alo.com',
         password: 'wrong',
@@ -175,7 +177,7 @@ describe('Auth API', () => {
         passwordHash: 'hashed',
         otpEnabled: false,
       });
-      vi.mocked(compare).mockResolvedValue(true);
+      vi.mocked(compareAsync).mockResolvedValue(true);
       mockUserUpdate.mockResolvedValue({});
       mockAuditLogCreate.mockResolvedValue({});
 
@@ -200,7 +202,7 @@ describe('Auth API', () => {
         passwordHash: 'hashed',
         otpEnabled: true,
       });
-      vi.mocked(compare).mockResolvedValue(true);
+      vi.mocked(compareAsync).mockResolvedValue(true);
 
       const request = new MockNextRequest('/api/auth/login', {
         email: 'mfa@alo.com',

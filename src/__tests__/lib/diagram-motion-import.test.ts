@@ -346,7 +346,7 @@ describe('icons — the primitive and the set', () => {
   })
 
   it('every icon used by the showcase resolves, and the figure passes the taste gate', () => {
-    const used = ICON_SHOWCASE.nodes.map((n) => n.icon).filter((x): x is string => Boolean(x))
+    const used = (ICON_SHOWCASE.nodes ?? []).map((n) => n.icon).filter((x): x is string => Boolean(x))
     expect(used.length).toBeGreaterThanOrEqual(4)
     for (const name of used) expect(hasIcon(name)).toBe(true)
     const scene = renderDiagram(ICON_SHOWCASE)

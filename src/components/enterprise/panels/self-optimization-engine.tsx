@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDateTime as formatTime } from '@/lib/display-format';
 import React, { useState, useEffect, useMemo } from 'react'
 import { TrendingUp, BarChart2, Rocket, CheckCircle2, Upload, Clock, Percent, Zap } from 'lucide-react'
 import { fetchApi } from '@/lib/api-client'
@@ -33,11 +34,6 @@ const statusBadge: Record<string, string> = {
 
 const actionIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   analyze: BarChart2, benchmark: TrendingUp, optimize: Rocket, validate: CheckCircle2, deploy: Upload,
-}
-
-function formatTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function SelfOptimizationEngine() {

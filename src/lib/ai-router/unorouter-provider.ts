@@ -20,6 +20,7 @@
  * "all providers busy" error and recover automatically.
  */
 
+import { mapRouterFinishReason as mapFinishReason } from '@/lib/ai-router/finish-reason';
 import { extractToolCalls } from './tool-calls';
 import type {
   AIModel,
@@ -108,22 +109,6 @@ function parseCapabilities(model: UnoRouterModel): AICapability[] {
   if (model.capabilities?.includes('json_schema') || id.includes('json')) caps.push('json-mode');
   if (id.includes('coder') || id.includes('code')) caps.push('code-generation');
   return caps;
-}
-
-function mapFinishReason(reason: string | null): AIResponse['finishReason'] {
-  switch (reason) {
-    case 'stop':
-      return 'stop';
-    case 'length':
-    case 'max_tokens':
-      return 'length';
-    case 'tool_calls':
-      return 'tool-calls';
-    case 'content_filter':
-      return 'content-filter';
-    default:
-      return 'stop';
-  }
 }
 
 async function* parseSSEStream(response: Response): AsyncGenerator<UnoRouterChatResponse> {

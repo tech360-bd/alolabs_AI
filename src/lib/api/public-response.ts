@@ -179,3 +179,14 @@ export function containsLeakyFields(value: unknown, depth = 0): string[] {
   }
   return found;
 }
+
+export function publicTaskStatus(internal: string): 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' {
+  switch (internal) {
+    case 'pending': return 'pending';
+    case 'running': case 'in_progress': return 'running';
+    case 'completed': case 'succeeded': return 'completed';
+    case 'failed': case 'error': return 'failed';
+    case 'cancelled': case 'canceled': return 'cancelled';
+    default: return 'pending';
+  }
+}

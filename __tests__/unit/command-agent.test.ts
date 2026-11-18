@@ -73,11 +73,11 @@ describe('Free AI catalogue', () => {
   });
 
   it('reports env configuration as booleans only (never key values)', () => {
-    const configured = configuredFromEnvironment({ GROQ_API_KEY: 'secret-value' } as NodeJS.ProcessEnv);
+    const configured = configuredFromEnvironment({ NODE_ENV: 'test',  GROQ_API_KEY: 'secret-value' });
     expect(configured.groq).toBe(true);
     expect(configured.cerebras).toBe(false);
     expect(JSON.stringify(configured)).not.toContain('secret-value');
-    expect(configuredFromEnvironment({ OLLAMA_URL: 'http://localhost:11434' } as NodeJS.ProcessEnv).ollama).toBe(true);
+    expect(configuredFromEnvironment({ NODE_ENV: 'test',  OLLAMA_URL: 'http://localhost:11434' }).ollama).toBe(true);
   });
 });
 

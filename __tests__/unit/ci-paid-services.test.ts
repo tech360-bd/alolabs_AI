@@ -67,8 +67,8 @@ describe('SKIP_PAID_SERVICES resolver', () => {
 
   describe.each(CASES)('$name', ({ env, skip }) => {
     it('TypeScript helper resolves as expected', () => {
-      expect(paidServicesSkipped(env as NodeJS.ProcessEnv)).toBe(skip);
-      expect(paidServicesEnabled(env as NodeJS.ProcessEnv)).toBe(!skip);
+      expect(paidServicesSkipped(env)).toBe(skip);
+      expect(paidServicesEnabled(env)).toBe(!skip);
     });
 
     it('shell resolver agrees with the TypeScript helper', () => {
@@ -79,13 +79,13 @@ describe('SKIP_PAID_SERVICES resolver', () => {
   describe('workflow_dispatch override', () => {
     it('CI_RUN_PAID_OVERRIDE=true forces paid on, even when skipping is set', () => {
       const env = { SKIP_PAID_SERVICES: 'true', CI_RUN_PAID_OVERRIDE: 'true' };
-      expect(paidServicesEnabled(env as NodeJS.ProcessEnv)).toBe(true);
+      expect(paidServicesEnabled(env)).toBe(true);
       expect(shellVerdict(env)).toBe('false');
     });
 
     it('a non-true override is ignored and does not enable paid steps', () => {
       const env = { SKIP_PAID_SERVICES: 'true', CI_RUN_PAID_OVERRIDE: 'false' };
-      expect(paidServicesEnabled(env as NodeJS.ProcessEnv)).toBe(false);
+      expect(paidServicesEnabled(env)).toBe(false);
       expect(shellVerdict(env)).toBe('true');
     });
   });

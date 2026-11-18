@@ -1,0 +1,67 @@
+{
+  "date_utc": "2026-11-18",
+  "graphs": {
+    "root": "package-lock.json / bun.lock (workspace)",
+    "nested": "audit/alo-labs/package-lock.json (separate reference app)"
+  },
+  "morning_before_withdrawal": {
+    "root_npm_prod": 0,
+    "root_npm_full_high_package_records": 19,
+    "root_bun_prod": 0,
+    "root_bun_full_high_advisories": 1,
+    "nested_npm_prod_high_package_records": 4,
+    "nested_npm_full_high_package_records": 4
+  },
+  "registry_at_close": "https://registry.npmjs.org/",
+  "npm_at_close": {
+    "root": {
+      "prod": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    "nested": {
+      "prod": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    }
+  },
+  "bun_1_3_4_root_at_close": {
+    "prod": 0,
+    "full": 0
+  },
+  "upstream_record": {
+    "ghsa_id": "GHSA-fc5q-39xc-vjpf",
+    "html_url": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+    "summary": "Withdrawn Advisory: picomatch vulnerable to ReDoS through single-branch repeated extglobs",
+    "published_at": "2026-10-19T18:32:12Z",
+    "updated_at": "2026-11-18T15:38:58Z",
+    "withdrawn_at": "2026-11-18T15:38:56Z"
+  },
+  "note": "Registry results changed without a lockfile change between the morning audit and the closing checks. Meta-vulnerability records and unique advisories are not comparable counts."
+}

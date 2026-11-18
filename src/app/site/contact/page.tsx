@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     description: 'Start a project with ALO Labs — replies within one business day.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/site/contact',
-    images: ['/brand/alo-mark.svg'],
+    images: ['/studio/icon-512.png'],
   },
 }
 

@@ -1,9 +1,12 @@
+import { completeJob, dequeue, failJob, type QueueItemData } from '../../src/lib/job-queue'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import { PrismaClient } from '@prisma/client'
+import { mayOperateQueues } from '../../src/lib/access/queue'
+import { guardLiveSession } from '../../src/lib/realtime/session-guard'
+import { db } from '../../src/lib/db'
 import { handshakeToken, verifyInternalSessionToken, type SessionDb } from '../shared/internal-auth'
-
-const db = new PrismaClient()
+import { pollRegisteredJobs } from './registered-handlers'
+export { registerHandler } from './registered-handlers'
 
 // Browsers allowed to open a socket. Same-origin deployments go through the
 // gateway and need no entry; set QUEUE_CORS_ORIGIN for anything else.
@@ -14,7 +17,8 @@ const CORS_ORIGIN = (process.env.QUEUE_CORS_ORIGIN ?? '')
 
 const httpServer = createServer()
 const io = new Server(httpServer, {
-  path: '/',
+  path: '/queue/socket.io',
+  serveClient: false,
   cors: {
     origin: CORS_ORIGIN.length ? CORS_ORIGIN : false,
     methods: ['GET', 'POST'],
@@ -23,7 +27,7 @@ const io = new Server(httpServer, {
   pingInterval: 25000,
 })
 
-const PORT = 3004
+const PORT = Number(process.env.QUEUE_PORT || 3004)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,7 +112,7 @@ async function getQueueItems(queueId: string, limit = 50) {
   })
 }
 
-function formatItem(item: any) {
+function formatItem(item: QueueItemData) {
   return {
     id: item.id,
     queueId: item.queueId,
@@ -169,7 +173,7 @@ io.use(async (socket, next) => {
     return next()
   }
   const identity = await verifyInternalSessionToken(db as unknown as SessionDb, token)
-  if (!identity) return next(new Error('Authentication required'))
+  if (!identity || !mayOperateQueues(identity.role)) return next(new Error('Authentication required'))
   socket.data.userId = identity.userId
   socket.data.role = identity.role
   next()
@@ -178,6 +182,12 @@ io.use(async (socket, next) => {
 // ─── Socket.IO Connection ─────────────────────────────────────────────────────
 
 io.on('connection', (socket) => {
+  const token = handshakeToken(socket.handshake)
+  guardLiveSession(socket, async () => {
+    if (socket.data.role === 'service') return isServiceToken(token)
+    const identity = await verifyInternalSessionToken(db as unknown as SessionDb, token, false)
+    return !!identity && identity.userId === socket.data.userId && identity.role === socket.data.role
+  })
   console.log(`[Queue Service] Client connected: ${socket.id}`)
 
   // Send current status on connect
@@ -250,39 +260,11 @@ io.on('connection', (socket) => {
         return
       }
 
-      // Check concurrency
-      const processingCount = await db.queueItem.count({
-        where: { queueId: queueRecord.id, status: 'processing' },
-      })
-
-      if (processingCount >= queueRecord.concurrency) {
-        socket.emit('job:error', {
-          event: 'job:dequeue',
-          error: `Queue "${queue}" is at max concurrency (${processingCount}/${queueRecord.concurrency})`,
-        })
+      const updated = await dequeue(queue, { workerId: `socket-${socket.id}` })
+      if (!updated) {
+        socket.emit('job:error', { event: 'job:dequeue', error: 'No item or queue slot available' })
         return
       }
-
-      // Find highest priority queued item
-      const now = new Date()
-      const item = await db.queueItem.findFirst({
-        where: {
-          queueId: queueRecord.id,
-          status: 'queued',
-          OR: [{ scheduledAt: null }, { scheduledAt: { lte: now } }],
-        },
-        orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
-      })
-
-      if (!item) {
-        socket.emit('job:error', { event: 'job:dequeue', error: `No items available in "${queue}"` })
-        return
-      }
-
-      const updated = await db.queueItem.update({
-        where: { id: item.id },
-        data: { status: 'processing', startedAt: new Date(), attempts: item.attempts + 1 },
-      })
 
       const formatted = formatItem(updated)
 
@@ -292,7 +274,7 @@ io.on('connection', (socket) => {
       // Broadcast updated status
       await broadcastQueueUpdate(queueRecord.id)
 
-      console.log(`[Queue Service] Job dequeued: ${item.id} → processing in "${queue}"`)
+      console.log(`[Queue Service] Job dequeued: ${updated.id} → processing in "${queue}"`)
     } catch (err) {
       console.error('[Queue Service] job:dequeue error:', err)
       socket.emit('job:error', { event: 'job:dequeue', error: 'Failed to dequeue job' })
@@ -318,39 +300,9 @@ io.on('connection', (socket) => {
         return
       }
 
-      let newStatus: string
-      let updateData: any = { completedAt: new Date() }
-
-      if (error) {
-        // Handle failure with retry logic
-        if (item.attempts < item.maxAttempts) {
-          newStatus = 'queued'
-          updateData = {
-            status: 'queued',
-            attempts: item.attempts,
-            error: error,
-            startedAt: null,
-          }
-        } else {
-          newStatus = 'failed'
-          updateData = {
-            status: 'failed',
-            error: error || 'Max attempts reached',
-            completedAt: new Date(),
-          }
-        }
-      } else {
-        newStatus = 'completed'
-        updateData = {
-          status: 'completed',
-          completedAt: new Date(),
-        }
-      }
-
-      const updated = await db.queueItem.update({
-        where: { id: itemId },
-        data: updateData,
-      })
+      const claim = { lockedBy: `socket-${socket.id}`, attempts: item.attempts }
+      const updated = error ? await failJob(itemId, error, { claim }) : await completeJob(itemId, result, claim)
+      const newStatus = updated.status
 
       const formatted = formatItem(updated)
 
@@ -391,7 +343,7 @@ io.on('connection', (socket) => {
       }
 
       const updated = await db.queueItem.update({
-        where: { id: itemId },
+        where: { id: itemId, status: item.status },
         data: { status: 'cancelled', completedAt: new Date() },
       })
 
@@ -492,117 +444,25 @@ async function getAggregateStats() {
   }
 }
 
-// ─── Background Worker ────────────────────────────────────────────────────────
-// Jobs are dequeued and dispatched to registered handlers by jobType.
-// The worker marks items as processing and awaits the handler result.
-
-const jobHandlers: Record<string, (payload: Record<string, unknown>) => Promise<Record<string, unknown>>> = {}
-
-export function registerHandler(jobType: string, handler: (payload: Record<string, unknown>) => Promise<Record<string, unknown>>) {
-  jobHandlers[jobType] = handler
-}
-
-async function backgroundWorker() {
-  console.log('[Queue Service] Background worker started (processes every 5s)')
-
-  const tick = async () => {
-    try {
-      const queues = await db.jobQueue.findMany({
-        where: { isActive: true },
-        orderBy: { createdAt: 'asc' },
-      })
-
-      for (const queue of queues) {
-        const processingCount = await db.queueItem.count({
-          where: { queueId: queue.id, status: 'processing' },
-        })
-        if (processingCount >= queue.concurrency) continue
-
-        const now = new Date()
-        const item = await db.queueItem.findFirst({
-          where: {
-            queueId: queue.id,
-            status: 'queued',
-            OR: [{ scheduledAt: null }, { scheduledAt: { lte: now } }],
-          },
-          orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
-        })
-
-        if (!item) continue
-
-        const processing = await db.queueItem.update({
-          where: { id: item.id },
-          data: { status: 'processing', startedAt: new Date(), attempts: item.attempts + 1 },
-        })
-
-        const queueName = queue.name
-        console.log(`[Worker] Processing job ${item.id} (${item.jobType}) from "${queueName}"`)
-
-        io.emit('job:assigned', { item: formatItem(processing), queue: queueName })
-        await broadcastQueueUpdate(queue.id)
-
-        // Dispatch to registered handler or complete with no-handler result
-        try {
-          const payload = item.payload ? JSON.parse(item.payload as string) : {}
-          const handler = jobHandlers[item.jobType]
-
-          if (handler) {
-            const result = await handler(payload)
-            const completed = await db.queueItem.update({
-              where: { id: item.id },
-              data: { status: 'completed', completedAt: new Date() },
-            })
-            io.emit('job:completed', { item: formatItem(completed), result })
-            console.log(`[Worker] Job ${item.id} → completed`)
-          } else {
-            // No handler registered — mark as completed with acknowledgement
-            const completed = await db.queueItem.update({
-              where: { id: item.id },
-              data: { status: 'completed', completedAt: new Date() },
-            })
-            io.emit('job:completed', {
-              item: formatItem(completed),
-              result: { acknowledged: true, jobType: item.jobType, note: 'No dedicated handler registered' },
-            })
-            console.log(`[Worker] Job ${item.id} → completed (no handler, auto-acknowledged)`)
-          }
-        } catch (handlerErr) {
-          const errMsg = handlerErr instanceof Error ? handlerErr.message : 'Handler error'
-          const fresh = await db.queueItem.findUnique({ where: { id: item.id } })
-          if (fresh && fresh.attempts < fresh.maxAttempts) {
-            await db.queueItem.update({
-              where: { id: item.id },
-              data: { status: 'queued', startedAt: null, error: errMsg },
-            })
-            console.log(`[Worker] Job ${item.id} → requeued (${errMsg})`)
-          } else {
-            const failed = await db.queueItem.update({
-              where: { id: item.id },
-              data: { status: 'failed', completedAt: new Date(), error: errMsg },
-            })
-            io.emit('job:completed', { item: formatItem(failed), error: errMsg })
-            console.log(`[Worker] Job ${item.id} → failed (${errMsg})`)
-          }
-        }
-
-        await broadcastQueueUpdate(queue.id)
-        break
-      }
-    } catch (err) {
-      console.error('[Worker] Tick error:', err)
-    }
-  }
-
-  setInterval(tick, 5000)
-}
-
+// Monitor by default. An in-process extension can opt in to its own job types;
+// core queues are owned by the app and unregistered jobs are never acknowledged.
 // ─── Start Server ─────────────────────────────────────────────────────────────
 
-httpServer.listen(PORT, async () => {
+httpServer.listen(PORT, process.env.SOCKET_BIND_HOST || '127.0.0.1', async () => {
   console.log(`[Queue Service] Socket.IO server running on port ${PORT}`)
   await db.$connect()
   console.log('[Queue Service] Database connected')
-  backgroundWorker()
+  const timer = setInterval(() => {
+    if (io.engine.clientsCount) void broadcastQueueStatus().catch(() => console.error('[Queue] status query failed'))
+    void pollRegisteredJobs(async (item, queue, result) => {
+      if (!io.sockets.sockets.size) return
+      if (item.status === 'processing') io.emit('job:assigned', { item: formatItem(item), queue })
+      if (item.status === 'completed') io.emit('job:completed', { item: formatItem(item), result })
+      if (item.status === 'failed') io.emit('job:completed', { item: formatItem(item), error: item.error })
+      await broadcastQueueUpdate(item.queueId)
+    }).catch(() => console.error('[Queue] extension worker failed'))
+  }, 5000)
+  timer.unref()
 })
 
 // Graceful shutdown

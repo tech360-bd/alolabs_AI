@@ -38,7 +38,8 @@
  * Usage: node scripts/validate-route-auth.mjs
  * Exit:  0 when all invariants hold, 1 with a list of violations otherwise.
  */
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { walk } from './shared/walk.mjs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -84,14 +85,6 @@ if (!proxySrc.includes('matchesPublicApiRoute(PUBLIC_API_ROUTES, pathname, metho
 }
 
 // ─── 2. Enumerate API route files and the methods they export ────────────────
-
-function* walk(dir) {
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) yield* walk(full);
-    else yield full;
-  }
-}
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 

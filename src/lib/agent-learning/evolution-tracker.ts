@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { EVOLUTION_LEVELS } from './index';
+import { EVOLUTION_LEVELS, KNOWLEDGE_CATEGORIES } from './catalog';
 
 interface EvolutionUpdateResult {
   newLevel?: number;
@@ -104,8 +104,7 @@ export class EvolutionTracker {
     const coveredDomains = categories
       .filter(c => c._count >= 3)
       .map(c => c.category);
-    const allDomains = ['domain', 'pattern', 'correction', 'strategy', 'tool_usage', 'communication'];
-    const missingDomains = allDomains.filter(d => !coveredDomains.includes(d));
+    const missingDomains = KNOWLEDGE_CATEGORIES.filter(d => !coveredDomains.includes(d));
 
     // 8. Determine strengths and weaknesses
     const strengthAreas = categories

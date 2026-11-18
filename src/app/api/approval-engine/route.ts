@@ -1,3 +1,5 @@
+import { actionErrorResponse as errorResponse } from '@/lib/api/route-errors';
+import { isRecord } from '@/lib/is-record';
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
@@ -16,16 +18,6 @@ const SubmitSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
   cost: z.number().finite().nonnegative().optional(),
 })
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error'
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500
-  return NextResponse.json({ error: message, success: false }, { status })
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function parseRequestJson(value: string): Record<string, unknown> {
   try {

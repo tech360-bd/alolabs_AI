@@ -1,21 +1,9 @@
+import { pick, pickN, randInt } from './shared/sample';
 import { PrismaClient } from '@prisma/client'
 
 const db = new PrismaClient()
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
-
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
-
-function pickN<T>(arr: T[], n: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, Math.min(n, arr.length))
-}
-
-function randInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
 
 function randFloat(min: number, max: number, decimals = 2): number {
   return parseFloat((Math.random() * (max - min) + min).toFixed(decimals))

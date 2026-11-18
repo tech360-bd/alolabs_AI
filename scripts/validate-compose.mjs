@@ -21,7 +21,8 @@
  * Usage: node scripts/validate-compose.mjs
  * Exit:  0 when all invariants hold, 1 with a list of violations otherwise.
  */
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { walk } from './shared/walk.mjs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -132,16 +133,13 @@ if (!/\{\$APP_UPSTREAM:app:3011\}/.test(caddyfile)) {
   fail('Caddyfile: reverse_proxy must use {$APP_UPSTREAM:app:3011}');
 }
 
-// ─── 4. no stale localhost upstream in Caddyfile ───────────────────────────
-for (const m of caddyfile.matchAll(/reverse_proxy\s+(localhost:\d+)/g)) {
-  if (!caddyfile.includes('reverse_proxy localhost:{query.XTransformPort}')) continue;
-  // The :81 dev block intentionally proxies to a caller-supplied port; any
-  // other literal localhost upstream is the bug this validator exists for.
-  if (!m[1].includes('{query.XTransformPort}')) {
-    fail(`Caddyfile: "${m[1]}" is unreachable from the caddy container — use {$APP_UPSTREAM:app:3011}`);
-  }
+// No caller-controlled upstream or host-loopback upstream in the container.
+if (/reverse_proxy\s+(?:localhost|127\.0\.0\.1|[^\s]*\{query\.)/.test(caddyfile)) fail('Caddyfile: unsafe/unreachable reverse proxy target');
+for (const [name, text] of [['base', baseText], ['production', prodText]]) {
+  if (!/DATABASE_URL: ["']?\$\{COMPOSE_DATABASE_URL:\?/.test(text) || /DATABASE_URL: ["']?file:/.test(text)) fail(`${name}: require a dedicated container MySQL DSN`);
 }
-
+if (!/^RUN npm run db:generate:mysql$/m.test(dockerfile)) fail('Production Docker image must generate the MySQL Prisma client');
+if (!promConfig.includes("metrics_path: '/api/metrics/prometheus'") || !promConfig.includes('credentials_file:')) fail('Configure authenticated Prometheus text export');
 // ─── 4b. the prod override must not reintroduce a custom entrypoint ─────────
 // It previously ran `bunx prisma db push && exec bun server.js`. The image is
 // node:20-slim with no bun, and `prisma` is a devDependency absent from the
@@ -161,8 +159,8 @@ for (const m of caddyfile.matchAll(/reverse_proxy\s+(localhost:\d+)/g)) {
 if (/^FROM node:\d+-alpine/m.test(dockerfile)) {
   fail('Dockerfile: node:*-alpine (musl) cannot run the "debian-openssl-3.0.x" Prisma engine — use node:20-slim');
 }
-if (!/^FROM node:20-slim AS runner/m.test(dockerfile)) {
-  fail('Dockerfile: runner stage must be node:20-slim');
+if (!/^FROM node:22-bookworm-slim AS runner/m.test(dockerfile)) {
+  fail('Dockerfile: runner stage must be node:22-bookworm-slim');
 }
 
 // ─── 4d. bare-metal deploy surfaces must honour the same port ──────────────
@@ -200,14 +198,6 @@ for (const [rel, patterns] of optionalSurfaces) {
 // separately below. Comment lines are skipped so explanatory prose that quotes
 // the old broken value does not trip the gate, and tests are excluded because
 // they must be able to name the stale value in order to assert it is rejected.
-function* walk(dir) {
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) yield* walk(full);
-    else yield full;
-  }
-}
-
 const isTestFile = (p) => /[./__](test|spec)\.(ts|tsx)$/.test(p) || p.includes(`${sep}__tests__${sep}`);
 
 // Generated skill/marketing content is DATA, not application code: it is

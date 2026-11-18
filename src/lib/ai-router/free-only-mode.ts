@@ -30,19 +30,12 @@
  * to existing per-company policy) — enabling it is a deliberate operator act.
  */
 
+import { envFlag } from '@/lib/ai-router/env-flag';
 export interface FreeOnlyEnv {
   FREE_ONLY_MODE?: string;
   /** Legacy alias accepted for operators who already set LOCAL_ONLY. */
   LOCAL_ONLY?: string;
   [key: string]: string | undefined;
-}
-
-function envFlag(value: string | undefined): boolean | undefined {
-  if (value === undefined || value.trim() === '') return undefined;
-  const normalized = value.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
-  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
-  return undefined;
 }
 
 /**

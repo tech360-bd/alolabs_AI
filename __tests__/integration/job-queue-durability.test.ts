@@ -36,6 +36,16 @@ describe('durable job queue (real SQLite database)', () => {
     await q.completeJob(job.id, { ok: true });
   });
 
+  it('admits only one item to a concurrency-one queue across simultaneous consumers', async () => {
+    const name = 'bounded-concurrency';
+    await real.db.jobQueue.create({ data: { name, concurrency: 1 } });
+    for (let i = 0; i < 3; i++) await q.enqueue(name, 'test', {});
+    const claims = await Promise.all(Array.from({ length: 5 }, (_, i) => q.dequeue(name, { workerId: `test-${i}` })));
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    await q.completeJob(claims.find(Boolean)!.id);
+    expect((await q.dequeue(name))?.attempts).toBe(1);
+  });
+
   it('stores handler results without overwriting the payload', async () => {
     const job = await q.enqueue(QUEUE, 'result', { input: 'keep-me' });
     const results = await q.processQueue(QUEUE, async () => ({ answer: 42 }), { workerId: 'w-result' });

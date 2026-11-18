@@ -1,13 +1,10 @@
+import { isRecord } from '@/lib/is-record';
 import { db } from '@/lib/db'
 import { agentCompanyScope } from '@/lib/agent-access'
 import type { Prisma } from '@prisma/client'
 import { chunkText, generateEmbeddings } from '@/lib/rag-engine'
 import { executeCompanyAIChat, type CompanyAIActor } from '@/lib/multi-tenant-ai/service'
 import { createCollection, isQdrantConnected, upsertPoints } from '@/lib/qdrant'
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function readEvaluationSourceId(details: string): string | undefined {
   try {

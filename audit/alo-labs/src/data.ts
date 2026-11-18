@@ -215,6 +215,7 @@ export interface MemoryNode {
 }
 
 export interface AuditLog {
+  companyId?: string;
   id: string;
   timestamp: string;
   actor: string;
@@ -229,7 +230,7 @@ export interface WorkflowPipeline {
   name: string;
   trigger: string;
   steps: string[];
-  status: "Idle" | "Running" | "Success" | "Paused";
+  status: "Idle" | "Running" | "Success" | "Paused" | "Failed" | "Error" | "Finished";
   performanceIndex: string;
   lastExecutedAt?: string;
   priority?: "Low" | "Medium" | "High";

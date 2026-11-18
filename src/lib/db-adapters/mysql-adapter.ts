@@ -4,6 +4,7 @@
  * Uses dynamic import with graceful fallback when mysql2 is not installed.
  */
 
+import { sleep } from '@/lib/sleep';
 import type {
   DatabaseType,
   DatabaseConfig,
@@ -44,10 +45,6 @@ interface MySQLPoolConnectionLike {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function buildConnectionConfig(config: DatabaseConfig): Record<string, unknown> {
   if (config.url) {

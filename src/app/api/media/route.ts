@@ -1,3 +1,4 @@
+import { redactedErrorResponse as errorResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireCompanyAuth } from '@/lib/api-auth';
@@ -34,12 +35,6 @@ async function getCompanyMediaFiles(companyId: string): Promise<MediaFile[]> {
     const file = readFile(record.value);
     return file?.companyId === companyId ? [file] : [];
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-}
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error';
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500;
-  return NextResponse.json({ error: status === 500 ? 'Internal server error' : message }, { status });
 }
 
 // GET: List only media owned by the authenticated company.

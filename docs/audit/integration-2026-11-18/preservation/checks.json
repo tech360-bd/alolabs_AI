@@ -1,0 +1,100 @@
+{
+  "review_utc": "2026-11-18",
+  "branch": "arena/df553320-alolabs-ai",
+  "reviewed_tree": "uncommitted working tree after the preservation pass; not a release SHA",
+  "prior_index_sha256": "65a7a253192386c56ab3d81491378372519673ad76774bcb2de9baeb0193f47c",
+  "since_prior_index": {
+    "present_before": 2175,
+    "present_now_from_before": 2175,
+    "changed": 151,
+    "identical": 2024,
+    "added_excluding_audit_material": 36,
+    "change_manifest_sha256": "63c701f89d764ec24febeaee426b1b9192ebd60c32430732e8379d9a150188c7",
+    "extractions_sha256": "96750b97521576a87615b70ae627d3ddee1f3ab6b459a92991e4540236d5cd38"
+  },
+  "surface_check": {
+    "base": "4def42076c6e829cb5731f9f234be0e119fbff9c",
+    "priorFilesChecked": 2175,
+    "missingFiles": [],
+    "baseDeletedPaths": [
+      ".zscripts/dev.pid",
+      "mini-services/queue-service/bun.lock",
+      "mini-services/realtime-service/bun.lock"
+    ],
+    "changedBaseCodeFilesCompared": 263,
+    "explicitExportNamesCompared": 674,
+    "publicClassMethodsCompared": 86,
+    "missingNames": [],
+    "missingMethods": [],
+    "apiRouteFiles": 504,
+    "explicitlyNamedApiMethods": 825,
+    "missingRouteMethods": [],
+    "originalCloneGroups": 53,
+    "originalCloneDefinitions": 169,
+    "canonicalTargetsForThoseGroups": 51,
+    "mappedRowsIncludingAdjacentHelpers": 176,
+    "missingBindings": [],
+    "cloneFiles": 1284,
+    "remainingCandidateGroups": []
+  },
+  "verification": {
+    "full_vitest": {
+      "exit": 0,
+      "environment": "disposable SQLite, one worker, paid traffic disabled",
+      "files": 190,
+      "cases": 2068,
+      "passed": 2053,
+      "failed": 0,
+      "skipped": 15,
+      "skip_files": [
+        "mysql-compatibility.test.ts"
+      ]
+    },
+    "compiler": "Root product, mini-service, operator/example config via npm run build → npm run typecheck; npm run typecheck:tests separately. Both exit 0. Native TypeScript 7.0.2; no skipLibCheck.",
+    "eslint": {
+      "files": 1493,
+      "errors": 0,
+      "warnings": 0,
+      "exit": 0
+    },
+    "clean_build": {
+      "exit": 0,
+      "static_outputs": 367,
+      "package_files_checked": 8522,
+      "bundled_services": [
+        "queue-service.cjs",
+        "realtime-service.cjs"
+      ],
+      "production_mysql_runtime_tested": false
+    },
+    "auth_validator": {
+      "exit": 0,
+      "route_files": 504,
+      "nonpublic_handlers": 804,
+      "allowlist_entries": 19,
+      "documented_exceptions": 1
+    },
+    "compose_validator": {
+      "exit": 0,
+      "services": 11,
+      "production_overrides": 8
+    },
+    "bundled_queue_smoke": "Nonproduction, isolated SQLite, loopback Socket.IO service-token client. Registered example.double via the CJS entrypoint; queued, assigned, completed frames for the same ID; durable input {n:4}, result {doubled:8}, one attempt. Child stopped.",
+    "legacy_skills_differential": {
+      "kind": "simulated DB sink and fixed time/entropy; not a database insert test",
+      "entrypoints": [
+        "scripts/seed-skills.js",
+        "scripts/seed-skills.ts"
+      ],
+      "versions": [
+        "handoff",
+        "reviewed"
+      ],
+      "batches_each": 20,
+      "generated_skills_each": 2000,
+      "sql_batches_sha256_each": "6f65ef880b44a0babcda9bf341693845c9ad4c17e7c14fe4c564bf6e5be98241"
+    },
+    "prior_audit": "after/SHA256SUMS (15 files) verified; 01-before.md SHA256 unchanged",
+    "whitespace": "git diff --check passed"
+  }
+}
