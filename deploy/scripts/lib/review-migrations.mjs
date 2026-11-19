@@ -28,6 +28,6 @@ async function check() {
     if (!files.size || ![...files.values()].every(buf=>compatible(buf.toString('utf8')))) throw Error('Pending SQL needs separate operator review');
   } finally { await db.end(); }
 }
-if (process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] === '-' || (process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href)) {
   check().catch(()=>{console.error('Pending migration compatibility not established; automated migration refused');process.exitCode=1;});
 }

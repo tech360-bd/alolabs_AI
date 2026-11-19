@@ -184,7 +184,7 @@ apply_pending=false
 if find prisma/migrations -mindepth 2 -name migration.sql -print -quit | grep -q .; then
   if ! run_as_owner bunx prisma migrate status --schema "$DB_SCHEMA"; then
     [[ "${MIGRATIONS_APPROVED:-false}" == true ]] || fail "pending migration not approved"
-    node "$SAFETY_SCRIPT_DIR/lib/review-migrations.mjs" || fail "schema change not proven rollback compatible"
+    run_as_owner node --input-type=module - < "$SAFETY_SCRIPT_DIR/lib/review-migrations.mjs" || fail "schema change not proven rollback compatible"
     apply_pending=true
   fi
 fi
@@ -213,7 +213,7 @@ for name in uploads storage data public/uploads; do
 done
 ln -sT "$ENV_FILE" "$RELEASE/.env.config"
 if [[ "$apply_pending" == true ]]; then
-  node "$SAFETY_SCRIPT_DIR/lib/review-migrations.mjs" || fail "recheck failed"
+  run_as_owner node --input-type=module - < "$SAFETY_SCRIPT_DIR/lib/review-migrations.mjs" || fail "recheck failed"
   run_as_owner bunx prisma migrate deploy --schema "$DB_SCHEMA" || fail "migration failed; inspect database separately"
   run_as_owner bunx prisma migrate status --schema "$DB_SCHEMA" || fail "migration history not healthy"
 fi

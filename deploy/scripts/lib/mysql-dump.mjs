@@ -6,6 +6,8 @@ export function dumpOptions(raw) {
   const u = new URL(raw);
   const db = decodeURIComponent(u.pathname.slice(1));
   if (!['mysql:', 'mariadb:'].includes(u.protocol) || !u.hostname || !u.username || !db || db.startsWith('-') || u.hash) throw Error('Invalid database configuration');
+  // Never silently ignore TLS, socket or other connection policy settings.
+  if ([...u.searchParams.keys()].some(k => !['connection_limit','pool_timeout','connect_timeout'].includes(k))) throw Error('Unsupported dump URL parameter');
   function quote(value) {
     if (/[\x00-\x1f\x7f]/u.test(value)) throw Error('Unsupported control character');
     return '"' + value.replace(/[\\"]/g, '\\$&') + '"';

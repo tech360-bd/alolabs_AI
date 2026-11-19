@@ -189,6 +189,15 @@ jobs:
           node-version: '22'
       - run: npm ci --no-audit
       - run: npm run db:generate:client-engine
+      - name: Isolated reliability regressions
+        run: |
+          node --test tests/reliability/*.test.mjs
+          python3 tests/reliability/snapshots.py
+          bash tests/reliability/revision.sh
+          bash tests/reliability/release.sh
+          bash tests/reliability/host-key.sh
+          npm ci --prefix tests/reliability
+          PATH="$PWD/tests/reliability/node_modules/.bin:$PATH" bash tests/reliability/pm2.sh
       - run: npm ci --prefix tests/browser
       - working-directory: tests/browser
         run: npx playwright install --with-deps chromium
