@@ -13,7 +13,9 @@
 # active database with SQLite's online backup API (or a transactional
 # mysqldump) and writes a NEW snapshot directory.
 # ============================================================
+set +x
 set -euo pipefail
+umask 077
 
 SCRIPT_DIR="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=lib/portable-coreutils.sh
@@ -157,17 +159,10 @@ PYSQL
     ;;
   mysql://*|mariadb://*)
     command -v mysqldump >/dev/null || { echo "ERROR: mysqldump is unavailable" >&2; exit 1; }
-    node -e '
-      const u=new URL(process.env.DATABASE_URL);
-      for (const [k,v] of Object.entries({host:u.hostname,port:u.port||"3306",user:decodeURIComponent(u.username),pass:decodeURIComponent(u.password),name:u.pathname.slice(1)}))
-        process.stdout.write(`${k}=${JSON.stringify(v)}\n`)' > "${dest}/db.env"
-    # shellcheck disable=SC1090
-    source "${dest}/db.env"
-    MYSQL_PWD="${pass}" mysqldump --single-transaction --routines --triggers \
-      -h "${host}" -P "${port}" -u "${user}" "${name}" | gzip -9 > "${dest}/database.sql.gz"
+    node "${SCRIPT_DIR}/lib/mysql-dump.mjs" options | node "${SCRIPT_DIR}/lib/mysql-dump.mjs" | gzip -9 > "${dest}/database.sql.gz"
     gzip -t "${dest}/database.sql.gz"
     [[ -s "${dest}/database.sql.gz" ]] || { echo "ERROR: database dump is empty" >&2; exit 1; }
-    rm -f "${dest}/db.env"
+    gzip -cd "${dest}/database.sql.gz" | wc -c | grep -Eq '[1-9]' || { echo "ERROR: empty database dump" >&2; exit 1; }
     ;;
   *) echo "ERROR: unsupported production database provider" >&2; exit 1 ;;
 esac

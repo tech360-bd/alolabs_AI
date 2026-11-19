@@ -133,6 +133,7 @@ jobs:
       - name: Stage reviewed safety scripts
         run: |
           mkdir -p production-safety-scripts/lib
+          install -m 600 deploy/scripts/lib/mysql-dump.mjs production-safety-scripts/lib/mysql-dump.mjs
           install -m 600 deploy/scripts/lib/portable-coreutils.sh production-safety-scripts/lib/portable-coreutils.sh
           install -m 700 deploy/scripts/deploy.sh production-safety-scripts/deploy.sh
           install -m 700 deploy/scripts/backup.sh production-safety-scripts/backup.sh
