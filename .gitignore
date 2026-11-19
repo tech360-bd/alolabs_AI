@@ -105,3 +105,10 @@ docs/discovery/*.json
 .tts-venv/
 uploads/
 __pycache__/
+
+# Packaging and local process state
+.zscripts/*.pid
+
+# Private runtime snapshots and staged recoveries
+/db/backups/
+/db/restore-staging/

@@ -1,6 +1,6 @@
 [Unit]
 Description=ALO Labs Agent Hub — Next.js Application Server
-Documentation=https://github.com/alolabs/agent-hub
+Documentation=https://github.com/tech360-bd/alolabs_AI
 After=network-online.target mariadb.service redis.service
 Wants=network-online.target
 
@@ -24,8 +24,8 @@ Environment=HOSTNAME=127.0.0.1
 Environment=NODE_ENV=production
 Environment=NEXT_TELEMETRY_DISABLED=1
 
-# Run via Bun (installed at /root/.bun/bin/bun or /usr/local/bin/bun)
-ExecStart=/usr/local/bin/bun .next/standalone/server.js
+# Confirm the system Node path with command -v node on the target host.
+ExecStart=/usr/bin/env node .next/standalone/server.js
 Restart=on-failure
 RestartSec=10
 TimeoutStartSec=60

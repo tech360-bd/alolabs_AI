@@ -111,7 +111,7 @@ function modelConfigOf(runtimeProfile: string | null): RuntimeModelConfig {
   }
 }
 
-async function auditPreconditions(): Promise<{ checks: Check[]; rows: EmployeeRow[]; counts: Record<string, number>; tenantId: string | null }> {
+async function auditPreconditions(): Promise<{ checks: Check[]; rows: EmployeeRow[]; counts: Record<string, number | string[]>; tenantId: string | null }> {
   const company = await db.company.findFirst({
     where: { OR: [{ slug: TENANT_SLUG }, { id: TENANT_SLUG }] },
     select: { id: true, slug: true },
@@ -177,7 +177,6 @@ async function auditPreconditions(): Promise<{ checks: Check[]; rows: EmployeeRo
      * an empty allowlist BY DESIGN — that is least privilege, not a defect.
      */
     rolesWithoutTools: [...new Set(rows.filter((row) => !row.allowedTools || row.allowedTools.trim() === '[]').map((row) => row.role))].sort(),
-    roleKeyWithoutTools: 0,
     withIdentity: rows.filter((row) => Boolean(row.employeeKey)).length,
     activeIdentities: rows.filter((row) => row.employeeStatus === 'active').length,
     provisionedIdentities: rows.filter((row) => row.employeeStatus === 'provisioned').length,
@@ -278,6 +277,7 @@ class ProbeProvider extends BaseAIProvider {
       id: `probe_${randomUUID()}`,
       model: request.model || 'probe-model',
       content: 'probe-ok',
+      latencyMs: 0, // deterministic, no network
       usage: { promptTokens: 3, completionTokens: 1, totalTokens: 4 },
       finishReason: 'stop',
     };
@@ -285,7 +285,7 @@ class ProbeProvider extends BaseAIProvider {
 
   async *streamChatCompletion(): AsyncGenerator<AIStreamChunk> {
     this.calls += 1;
-    yield { content: 'probe-ok', done: true } as AIStreamChunk;
+    yield { id: `probe_${randomUUID()}`, model: this.supportedModels[0].id, content: 'probe-ok', finishReason: 'stop' };
   }
 
   async healthCheck(): Promise<AIProviderHealth> {
@@ -330,8 +330,8 @@ async function runExecutionProbes(): Promise<{ checks: Check[]; details: Record<
     const router = new AIRouter();
     const primary = new ProbeProvider('probe-primary' as AIProvider, 'fail');
     const fallback = new ProbeProvider('probe-fallback' as AIProvider, 'ok');
-    router.registerProvider(primary, { isLocal: false });
-    router.registerProvider(fallback, { isLocal: false });
+    router.registerProvider(primary, { isLocal: true });
+    router.registerProvider(fallback, { isLocal: true });
     let outcome = 'none';
     let fallbackCalls = 0;
     try {
@@ -342,7 +342,7 @@ async function runExecutionProbes(): Promise<{ checks: Check[]; details: Record<
         {
           allowFailover: true,
           allowVerifiedFree: true,
-          // Both probes are declared free-eligible for this test.
+          // Both probes execute locally and must respect local/free-only policy.
           allowedProviderNames: [primary.name, fallback.name],
         },
       );
@@ -351,7 +351,7 @@ async function runExecutionProbes(): Promise<{ checks: Check[]; details: Record<
     } catch (error) {
       outcome = error instanceof Error ? error.message : String(error);
     }
-    const failedOver = outcome === 'probe-ok' && fallbackCalls === 1;
+    const failedOver = outcome === 'probe-ok' && primary.calls === 1 && fallbackCalls === 1;
     checks.push({
       id: 'execution.failover_executes_once',
       pass: failedOver,

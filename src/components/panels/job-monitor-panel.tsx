@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDateTime24 as formatDate } from '@/lib/display-format';
 import { apiFetch } from '@/lib/api-client'
 import { useCallback, useEffect, useState } from 'react'
 import {
@@ -563,21 +564,6 @@ function InfoPill({
 }
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso)
-    return d.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-  } catch {
-    return iso
-  }
-}
 
 function computeAvgDuration(jobs: Job[]): string {
   const withDuration = jobs.filter(

@@ -1,3 +1,4 @@
+import { clientIp, hashKey } from '@/lib/api/key-helpers';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import crypto from 'crypto';
@@ -13,21 +14,9 @@ import { requireAuth, canManageCompany, type AuthenticatedUser } from '@/lib/api
  * resource enumeration.
  */
 
-function hashKey(key: string): string {
-  return crypto.createHash('sha256').update(key).digest('hex');
-}
-
 function generatePlainKey(): string {
   const random = crypto.randomBytes(32).toString('hex').slice(0, 32);
   return `ako-${random}`;
-}
-
-function clientIp(request: NextRequest): string {
-  return (
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown'
-  );
 }
 
 async function audit(userId: string, action: string, details: Record<string, unknown>, ip: string) {

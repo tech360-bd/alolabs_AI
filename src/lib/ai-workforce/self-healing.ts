@@ -1,20 +1,13 @@
+import { taskPriority } from '@/lib/ai-workforce/task-priority';
+import { isRecord } from '@/lib/is-record';
 import { db } from '@/lib/db'
 import { executeAgentPipeline } from './execution-engine'
 import type { Prisma } from '@prisma/client'
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function parseExecutionInput(value: string): Record<string, unknown> {
   const parsed: unknown = JSON.parse(value)
   if (!isRecord(parsed)) throw new Error('Execution input is not a JSON object')
   return parsed
-}
-
-function taskPriority(value: string): 'critical' | 'high' | 'normal' | 'low' {
-  if (value === 'critical' || value === 'high' || value === 'low') return value
-  return 'normal'
 }
 
 async function recordUnsupportedRecovery(input: {

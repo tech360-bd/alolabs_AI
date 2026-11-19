@@ -27,7 +27,7 @@ beforeEach(() => fakeDb.reset());
 describe('AI employee runtime policy', () => {
   it('blocks suspended and retired identities before model routing', async () => {
     seedCompanyAndAgent('suspended');
-    await expect(executeCompanyAIChat(actor, request, options)).rejects.toMatchObject<Partial<CompanyAIError>>({
+    await expect(executeCompanyAIChat(actor, request, options)).rejects.toMatchObject({
       status: 403,
       code: 'AI_EMPLOYEE_INACTIVE',
     });

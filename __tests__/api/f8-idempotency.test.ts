@@ -42,7 +42,7 @@ describe('F8: Idempotency request hashing', () => {
     expect(keyA.startsWith('order-12')).toBe(true);
     expect(keyB.startsWith('order-12')).toBe(true);
     // But they are not equal:
-    expect(keyA === keyB).toBe(false);
+    expect(keyA).not.toBe(keyB);
   });
 
   it('produces a different hash when only the priority differs', () => {

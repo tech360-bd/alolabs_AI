@@ -1,26 +1,8 @@
+import { generateInvoiceNumber } from '@/lib/billing/invoice-number';
 import { jsonResponse, secureRoute } from '@/lib/api/secure-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-auth';
-
-async function generateInvoiceNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `INV-${year}-`;
-
-  const lastInvoice = await db.invoice.findFirst({
-    where: { invoiceNumber: { startsWith: prefix } },
-    orderBy: { invoiceNumber: 'desc' },
-    select: { invoiceNumber: true },
-  });
-
-  let nextNum = 1;
-  if (lastInvoice) {
-    const parts = lastInvoice.invoiceNumber.split('-');
-    nextNum = parseInt(parts[parts.length - 1], 10) + 1;
-  }
-
-  return `${prefix}${String(nextNum).padStart(4, '0')}`;
-}
 
 export const GET = secureRoute(
   { resource: 'billing.subscriptions', action: 'read', rateLimit: { limit: 300, windowMs: 60_000 } },

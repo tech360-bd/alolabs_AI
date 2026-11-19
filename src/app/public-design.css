@@ -1,71 +1,77 @@
-/**
- * ALO Labs — public design tokens.
- *
- * CSS variables derived 1:1 from the official brand palette in
- * src/lib/brand/tokens.ts (BRAND + GRADIENTS). Surfaces, glass treatments and
- * gradient accents used by the public homepage read from here so a brand
- * change stays a one-file edit on the token source.
- *
- * Imported from src/app/layout.tsx immediately after globals.css, following
- * the same import pattern as src/app/home.css.
- */
-
-:root {
-  /* ── Core palette (BRAND) ──────────────────────────────────────────────── */
-  --alo-orange: #e8501a;
-  --alo-orange-light: #ff8a2b;
-  --alo-sunshine: #ffb347;
-  --alo-orange-amber: #ffb347;
-  --alo-blue: #0066cc;
-  --alo-blue-alt: #0d47a1;
-  --alo-blue-deep: #001c6b;
-  --alo-blue-light: #0077ff;
-  --alo-white: #ffffff;
-  --alo-ink: #1e293b;
-  --alo-gray: #64748b;
-  --alo-gray-soft: #94a3b8;
-  --alo-gray-line: #e2e8f0;
-  --alo-canvas: #f8fafc;
-  --alo-navy: #0a1b3d;
-  --alo-tint: #e8effb;
-  --alo-tint-line: #d7e2f6;
-  --alo-tint-soft: #f4f7fc;
-
-  /* ── Official gradients (GRADIENTS) ────────────────────────────────────── */
-  --alo-gradient-orange: linear-gradient(90deg, #e8501a 0%, #ffb347 100%);
-  --alo-gradient-blue: linear-gradient(90deg, #0066cc 0%, #0077ff 100%);
-  --alo-gradient-ribbon: linear-gradient(135deg, #0077ff 0%, #001c6b 100%);
-
-  /* ── Deep-navy surfaces (derived tints of BRAND.navy / BRAND.blueDeep) ── */
-  --alo-navy-raised: #10264e;
-  --alo-navy-line: rgba(125, 169, 247, 0.16);
-  --alo-navy-text: #dce7f8;
-  --alo-navy-muted: #8fa5c9;
-
-  /* ── Glass treatments on dark surfaces ─────────────────────────────────── */
-  --alo-glass-bg: rgba(255, 255, 255, 0.055);
-  --alo-glass-bg-strong: rgba(255, 255, 255, 0.09);
-  --alo-glass-border: rgba(125, 169, 247, 0.22);
-  --alo-glass-highlight: rgba(0, 119, 255, 0.14);
-
-  /* ── Glass / card treatments on light surfaces ─────────────────────────── */
-  --alo-card-border: var(--alo-tint-line);
-  --alo-card-shadow: 0 24px 60px rgba(0, 28, 107, 0.08), 0 4px 14px rgba(0, 28, 107, 0.05);
-
-  /* ── Statuses (truthful labels; no invented metrics) ───────────────────── */
-  --alo-status-live: #0e8a5f;
-  --alo-status-live-bg: #e5f6ef;
-  --alo-status-dev: var(--alo-orange);
-  --alo-status-dev-bg: #fff1e6;
-  --alo-status-internal: var(--alo-gray);
-  --alo-status-internal-bg: #eef2f7;
-
-  /* ── Motion ────────────────────────────────────────────────────────────── */
-  --alo-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+/* Scoped public website styles. Brand colour values are bound by publicBrandStyle
+   on / and /site; they do not change the authenticated app or document themes. */
+@font-face {
+  font-family: 'Studio Inter';
+  src: url('/studio/fonts/inter-latin.woff2') format('woff2');
+  font-style: normal; font-weight: 100 900; font-display: swap;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --alo-ease: linear;
-  }
+@font-face {
+  font-family: 'Studio Poppins';
+  src: url('/studio/fonts/poppins-600-latin.woff2') format('woff2');
+  font-style: normal; font-weight: 600; font-display: swap;
+}
+.public-site {
+  --alo-line: #d8e1eb;
+  --alo-paper: #f6f8fb;
+  --alo-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --primary: var(--alo-orange); --primary-foreground: var(--alo-ink);
+  --background: #fff; --foreground: var(--alo-ink); --border: var(--alo-line);
+  --ring: var(--alo-blue); --card: #fff; --input: var(--alo-line);
+  --accent: #edf3fa; --accent-foreground: var(--alo-blue);
+  font-family: var(--alo-body); color: var(--alo-ink); color-scheme: light;
+  background: #fff;
+}
+.public-site :is(a, button, summary):focus-visible { outline: 3px solid #2082eb; outline-offset: 4px; }
+.public-site :where(section, div, details, main, article)[id] { scroll-margin-top: 90px; }
+.studio-shell { width: min(1296px, 89.5%); margin-inline: auto; }
+.studio-header {
+  position: sticky; top: 0; z-index: 30; background: rgba(255,255,255,.97);
+  border-bottom: 1px solid var(--alo-line); color: var(--alo-ink);
+}
+.studio-nav-row { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.studio-identity { display: inline-flex; align-items: center; gap: 10px; width: fit-content; text-decoration: none; }
+.studio-identity img { width: 34px; height: auto; }
+.studio-identity > span { display: flex; flex-direction: column; gap: 5px; }
+.studio-identity strong { font: 710 23px/.96 var(--alo-body); letter-spacing: -.055em; }
+.studio-identity small { font: 600 8px/1.2 var(--alo-mono); letter-spacing: .16em; }
+.studio-nav { display: flex; align-items: center; gap: clamp(18px,2.2vw,38px); }
+.studio-nav a, .studio-dropdown > button { display: inline-flex; align-items: center; gap: 6px; font: 530 14px/1.3 var(--alo-body); color: #4b5564; text-decoration: none; min-height: 44px; }
+.studio-nav a[aria-current='page'] { color: var(--alo-blue); font-weight: 680; }
+.studio-nav > a[aria-current='page']::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--alo-orange); margin-right: 1px; }
+.studio-nav :is(a,button):hover { color: var(--alo-blue); }
+.studio-dropdown { position: relative; }
+.studio-dropdown > button { cursor: pointer; }
+.studio-submenu, .studio-mobile { border: 1px solid var(--alo-line); background: white; box-shadow: 0 14px 40px #142d5020; }
+.studio-submenu { position: absolute; left: -15px; top: 100%; padding: 5px; width: 160px; border-radius: 10px; }
+.studio-submenu a, .studio-mobile a { display: flex; min-height: 42px; align-items: center; padding: 5px 12px; border-radius: 6px; }
+.studio-submenu a:hover, .studio-mobile a:hover { background: #eff5fc; }
+.studio-nav-end { display: flex; align-items: center; gap: 8px; }
+.studio-login {
+  display: inline-flex; align-items: center; justify-content: center; gap: 17px;
+  min-height: 40px; padding: 0 17px; border: 1px solid #04327a; border-radius: 7px;
+  background: var(--alo-blue); color: white; font: 590 13px/1 var(--alo-body);
+  box-shadow: inset 0 1px 0 #ffffff24; text-decoration: none;
+}
+.studio-login:hover { background: #072e6d; }
+.studio-menu-toggle, .studio-mobile { display: none; }
+.studio-skip { position: absolute; z-index: 1; left: 12px; top: -100px; background: white; color: var(--alo-blue); padding: 9px 18px; }
+.studio-skip:focus { top: 12px; }
+.studio-page-hero {
+  background-image: linear-gradient(104deg,#f7faff 20%,transparent 85%),linear-gradient(#163b7510 1px,transparent 1px),linear-gradient(90deg,#163b7510 1px,transparent 1px),linear-gradient(115deg,#f9fbfe,#e8f1fc);
+  background-size: auto,48px 48px,48px 48px,auto;
+}
+@media (max-width: 850px) {
+  .studio-nav { display: none; }
+  .studio-nav-row { min-height: 65px; gap: 10px; }
+  .studio-menu-toggle { display: grid; place-items: center; width: 42px; height: 44px; cursor: pointer; color: var(--alo-ink); }
+  .studio-mobile { position: absolute; display: grid; grid-template-columns: 1fr 1fr; inset: 100% 0 auto; padding: 12px 5.25%; border-top: 0; gap: 2px 12px; }
+  .studio-mobile a { min-height: 44px; font-size: 14px; }
+  .studio-mobile a[aria-current='page'] { color: var(--alo-blue); background: #f0f5fb; }
+}
+@media (max-width: 420px) {
+  .studio-identity img { width: 29px; }
+  .studio-identity { gap: 7px; }
+  .studio-identity strong { font-size: 21px; }
+  .studio-identity small { font-size: 7px; }
+  .studio-login { font-size: 12px; gap: 8px; padding: 0 11px; }
 }

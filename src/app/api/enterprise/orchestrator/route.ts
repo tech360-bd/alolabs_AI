@@ -6,6 +6,7 @@
  * GET    /   — Get orchestrator stats + recent activity
  */
 
+import { messageErrorResponse as errorResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCompanyAuth } from '@/lib/api-auth';
 import { getOrchestrator } from '@/lib/orchestrator';
@@ -16,12 +17,6 @@ const ExecuteSchema = z.object({
   conversationId: z.string().min(1).optional(),
   preferredAgentId: z.string().min(1).optional(),
 });
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error';
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500;
-  return NextResponse.json({ error: message }, { status });
-}
 
 // ─── POST: Execute a task through the unified orchestrator ─────────
 export async function POST(request: NextRequest) {

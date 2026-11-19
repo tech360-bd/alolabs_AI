@@ -9,9 +9,9 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Badge, BrandRule } from '@/components/brand/alo-logo'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { BRAND, BRAND_FONTS, COMPANY, HEADLINE_STATS, USAGE_RULES } from '@/lib/brand/tokens'
+import { BRAND, BRAND_FONTS, COMPANY, HEADLINE_STATS, USAGE_RULES } from '@/lib/brand/public'
 import {
   ArrowRight, Compass, Handshake, Lightbulb, Scale, Search, ShieldCheck, Sparkles, Users, Zap,
 } from 'lucide-react'
@@ -160,7 +160,7 @@ export function AboutPage() {
         <div className="grid gap-5 md:grid-cols-2">
           {QUALITY_SECURITY.map((item) => (
             <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-7">
-              <span className="flex size-11 items-center justify-center rounded-xl" style={{ background: 'rgba(232,80,26,0.10)', color: BRAND.orange }}>
+              <span className="flex size-11 items-center justify-center rounded-xl" style={{ background: 'rgba(255,106,0,0.10)', color: BRAND.orange }}>
                 <ShieldCheck className="size-5" />
               </span>
               <h3 className="mt-4 text-[16px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
@@ -183,13 +183,13 @@ export function AboutPage() {
         narrow
       >
         <div className="flex flex-wrap items-center gap-6 rounded-2xl border border-slate-200 bg-white p-6">
-          <Badge size={104} />
+          <Image unoptimized src="/studio/alo-symbol.webp" alt="ALO Labs symbol" width={75} height={86} />
           <div className="max-w-[520px]">
             <p className="text-[15px] font-semibold" style={{ color: BRAND.blue, fontFamily: BRAND_FONTS.secondary.stack }}>
               {COMPANY.legalName} · {COMPANY.product}
             </p>
             <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
-              {COMPANY.promise} The badge is the mark we sign our work with — from the letterhead to the approval gate.
+              {COMPANY.promise}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {USAGE_RULES.map((rule) => (
@@ -202,7 +202,6 @@ export function AboutPage() {
               ))}
             </div>
           </div>
-          <BrandRule width={140} className="hidden xl:block" />
         </div>
       </Section>
 

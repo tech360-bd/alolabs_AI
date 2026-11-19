@@ -1,5 +1,8 @@
 'use client'
 
+import { formatTimeAgo } from '@/lib/display-format';
+import { useAppStore } from '@/store/app'
+import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
@@ -138,17 +141,6 @@ const itemStatusIcon = (status: string) => {
   }
 }
 
-function formatTimeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const seconds = Math.floor(diff / 1000)
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
-
 // ─── Processing Animation Component ──────────────────────────────────────────
 
 function ProcessingAnimation({ item }: { item: QueueItem }) {
@@ -213,6 +205,7 @@ function StatsCard({ stats }: { stats: QueueStats | null }) {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function QueuePanel() {
+  const token = useAppStore(s => s.token)
   const [queues, setQueues] = useState<Queue[]>([])
   const [stats, setStats] = useState<QueueStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -242,14 +235,10 @@ export default function QueuePanel() {
   // ─── Socket.IO Connection ──────────────────────────────────────────────
   useEffect(() => {
     // The queue service only admits internal sessions; present ours.
-    let sessionToken = ''
-    try {
-      sessionToken = localStorage.getItem('alo_token') || localStorage.getItem('token') || ''
-    } catch {
-      sessionToken = ''
-    }
-    const socketInstance = io('/?XTransformPort=3004', {
-      auth: { token: sessionToken },
+    if (!token) return
+    const socketInstance = io({
+      path: '/queue/socket.io',
+      auth: { token },
       transports: ['websocket', 'polling'],
       forceNew: true,
       reconnection: true,
@@ -296,31 +285,13 @@ export default function QueuePanel() {
       setQueueItemsMap((prev) => ({ ...prev, [data.queue.id]: data.items }))
     })
 
-    // Real-time job events
-    socketInstance.on('job:queued', () => {
-      // Queue update event will handle the data refresh
-    })
-
-    socketInstance.on('job:assigned', (data: { item: QueueItem; queue: string }) => {
-      // A job started processing - could show a toast
-    })
-
-    socketInstance.on('job:completed', (data: { item: QueueItem }) => {
-      // Job completed - UI refreshes via queue:update event
-    })
-
-    socketInstance.on('job:cancelled', (data: { item: QueueItem }) => {
-      // Job cancelled - UI refreshes via queue:update event
-    })
-
-    socketInstance.on('job:error', (data: { event: string; error: string }) => {
-      // Job error - UI refreshes via queue:update event
-    })
+    socketInstance.on('job:error', (data: {error: string}) => toast.error(data.error))
 
     return () => {
       socketInstance.disconnect()
+      socketRef.current = null
     }
-  }, [])
+  }, [token])
 
   // ─── Load queues from REST API as fallback ─────────────────────────────
   const loadQueues = useCallback(() => {

@@ -168,8 +168,8 @@ describe('omnichannel', () => {
 
 describe('speech engine configuration', () => {
   it('is unconfigured by default — no silent fake engine', () => {
-    expect(resolveHttpTtsConfig({} as NodeJS.ProcessEnv)).toBeNull()
-    expect(resolveHttpTtsConfig({ VOICE_TTS_PROVIDER: 'openai' } as NodeJS.ProcessEnv)).toBeNull()
+    expect(resolveHttpTtsConfig({ NODE_ENV: 'test' })).toBeNull()
+    expect(resolveHttpTtsConfig({ NODE_ENV: 'test',  VOICE_TTS_PROVIDER: 'openai' })).toBeNull()
   })
 
   it('marks loopback and private hosts as local inference', () => {

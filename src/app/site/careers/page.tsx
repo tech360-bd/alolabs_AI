@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     description: 'Join ALO Labs — real openings only, across engineering, AI, solutions and design.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/site/careers',
-    images: ['/brand/alo-mark.svg'],
+    images: ['/studio/icon-512.png'],
   },
 }
 

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "react", "react-dom"],
+    "tsBuildInfoFile": ".next/cache/native-check.tsbuildinfo"
+  },
+  "include": ["next-env.d.ts", "*.ts", "src/**/*.ts", "src/**/*.tsx", "mini-services/**/*.ts", "scripts/**/*.ts", "examples/**/*.ts", "examples/**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["**/node_modules", "src/__tests__", "src/types/urlpattern.d.ts"]
+}

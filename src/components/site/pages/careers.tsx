@@ -8,7 +8,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { BRAND, BRAND_FONTS, COMPANY } from '@/lib/brand/tokens'
+import { BRAND, BRAND_FONTS, COMPANY } from '@/lib/brand/public'
 import { ArrowRight, HeartHandshake, Laptop, Rocket, Sparkles } from 'lucide-react'
 import { CtaBand, CheckList, PageHero, Pill, Section } from '@/components/site/chrome'
 

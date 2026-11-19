@@ -7,8 +7,9 @@
  * the Live Run View for the selected run.
  */
 
+import { StatusIcon } from '@/components/enterprise/run-status-icon';
 import React, { useCallback, useEffect, useState } from 'react'
-import { Loader2, CheckCircle2, XCircle, Clock, ArrowRight, FileText } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -37,14 +38,6 @@ const STATUS_STYLE: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   return <Badge className={STATUS_STYLE[status] ?? STATUS_STYLE.queued}>{status.replace(/_/g, ' ')}</Badge>
-}
-
-function StatusIcon({ status }: { status: string }) {
-  if (status === 'completed') return <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-  if (status === 'failed') return <XCircle className="h-4 w-4 shrink-0 text-red-500" />
-  if (status === 'running' || status === 'planning') return <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-500" />
-  if (status === 'waiting_approval') return <FileText className="h-4 w-4 shrink-0 text-amber-500" />
-  return <Clock className="h-4 w-4 shrink-0 text-slate-400" />
 }
 
 const FILTERS = ['all', 'running', 'planning', 'queued', 'waiting_approval', 'completed', 'failed', 'cancelled']

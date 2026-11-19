@@ -3,7 +3,7 @@
 ##
 ## Target topology (Ubuntu + PM2). This is NOT the docker-compose Caddyfile in
 ## the repository root — that one proxies to the `app` service over the compose
-## network and is for local development:
+## network and uses container service names:
 ##
 ##     internet ──► Caddy :443/:80 (TLS) ──► 127.0.0.1:3011 (Next.js under PM2)
 ##
@@ -50,40 +50,27 @@ www.alolabs.net {
 	handle /api/* {
 		header Cache-Control "no-store, no-cache, must-revalidate"
 		reverse_proxy {$APP_UPSTREAM:127.0.0.1:3011} {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Forwarded-Host {host}
 			header_up X-Real-IP {remote_host}
 		}
 	}
 
 	# Socket.IO / WebSocket upgrade. Caddy forwards Upgrade/Connection on its
-	# own; they are spelled out so the intent survives a later config rewrite.
+	# own; a separate socket gateway is not required.
+	handle /queue/socket.io/* {
+		reverse_proxy 127.0.0.1:3004
+	}
 	handle /socket.io/* {
-		reverse_proxy {$APP_UPSTREAM:127.0.0.1:3011} {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Forwarded-Host {host}
-			header_up X-Real-IP {remote_host}
-			header_up Upgrade {>Upgrade}
-			header_up Connection {>Connection}
-		}
+		reverse_proxy 127.0.0.1:3005
 	}
 
 	handle {
 		reverse_proxy {$APP_UPSTREAM:127.0.0.1:3011} {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Forwarded-Host {host}
 			header_up X-Real-IP {remote_host}
 		}
 	}
 
 	log {
-		output file /var/log/caddy/alolabs.net.access.log {
+		output file {$CADDY_ACCESS_LOG:/var/log/caddy/alolabs.net.access.log} {
 			roll_size 100MiB
 			roll_keep 10
 		}

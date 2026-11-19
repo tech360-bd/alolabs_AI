@@ -42,7 +42,8 @@ describe('every runtime-supported free provider is configurable in the console',
    * console could not select it even though `.env.example` advertised the key.
    */
   it('resolves a preset and default base URL for every env-driven free provider', () => {
-    const env = {
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: 'test',
       GEMINI_API_KEY: 'k',
       CEREBRAS_API_KEY: 'k',
       CLOUDFLARE_API_TOKEN: 'k',

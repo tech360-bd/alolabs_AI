@@ -1,3 +1,4 @@
+import { redactedErrorResponse as errorResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireCompanyAuth } from '@/lib/api-auth';
@@ -53,12 +54,6 @@ async function getCompanyFileCounts(companyId: string): Promise<Record<string, n
     }
   }
   return counts;
-}
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error';
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500;
-  return NextResponse.json({ error: status === 500 ? 'Internal server error' : message }, { status });
 }
 
 export async function GET() {

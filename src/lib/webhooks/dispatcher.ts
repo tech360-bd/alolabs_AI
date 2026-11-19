@@ -3,6 +3,7 @@
  * See module docstring in the spec (Decision 6).
  */
 
+import { sleep as delay } from '@/lib/sleep';
 import { createHmac, randomUUID } from 'node:crypto';
 import { db } from '@/lib/db';
 import { checkSsrf, checkRedirectSsrf } from './ssrf-guard';
@@ -138,10 +139,6 @@ export async function dispatchWebhook(event: WebhookEvent): Promise<DispatchResu
     results.push(await dispatchToWebhook(w.id, event));
   }
   return results;
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function logDelivery(

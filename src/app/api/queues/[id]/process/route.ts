@@ -1,3 +1,4 @@
+import { mayOperateQueues } from '@/lib/access/queue';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { processQueue } from '@/lib/job-queue';
@@ -19,6 +20,7 @@ export async function POST(
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!mayOperateQueues(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   try {
     const { id } = await params;

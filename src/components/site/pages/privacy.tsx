@@ -11,7 +11,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { BRAND, COMPANY } from '@/lib/brand/tokens'
+import { BRAND, COMPANY } from '@/lib/brand/public'
 import { PageHero, Section } from '@/components/site/chrome'
 
 interface Clause {

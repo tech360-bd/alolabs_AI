@@ -1,3 +1,5 @@
+import { completeJob, failJob } from '@/lib/job-queue';
+import { mayOperateQueues } from '@/lib/access/queue';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
@@ -13,6 +15,7 @@ export async function PATCH(
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!mayOperateQueues(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   try {
     const { id, itemId } = await params;
     const body = await request.json();
@@ -41,74 +44,16 @@ export async function PATCH(
       );
     }
 
-    // Handle failure with retry logic
-    if (status === 'failed') {
-      if (item.attempts < item.maxAttempts - 1) {
-        // Re-queue: increment attempts, set back to queued
-        const requeued = await db.queueItem.update({
-          where: { id: item.id },
-          data: {
-            attempts: item.attempts + 1,
-            status: 'queued',
-            error: error || null,
-            startedAt: null,
-          },
+    const claim = { lockedBy: `api-${session.userId}`, attempts: item.attempts };
+    const updated = status === 'completed' ? await completeJob(item.id, undefined, claim)
+      : status === 'failed' ? await failJob(item.id, typeof error === 'string' ? error : 'Job failed', { claim })
+      : await db.queueItem.update({
+          where: { id: item.id, queueId: id, status: 'processing', ...claim },
+          data: { status: 'cancelled', completedAt: new Date(), lockedBy: null, lockExpiresAt: null, error: typeof error === 'string' ? error : null },
         });
-
-        return NextResponse.json({
-          data: {
-            id: requeued.id,
-            status: requeued.status,
-            attempts: requeued.attempts,
-            maxAttempts: requeued.maxAttempts,
-            message: `Re-queued. Attempt ${requeued.attempts + 1} of ${requeued.maxAttempts}`,
-          },
-        });
-      }
-
-      // Max attempts reached — mark as permanently failed
-      const failed = await db.queueItem.update({
-        where: { id: item.id },
-        data: {
-          status: 'failed',
-          attempts: item.attempts + 1,
-          error: error || 'Max attempts reached',
-          completedAt: new Date(),
-        },
-      });
-
-      return NextResponse.json({
-        data: {
-          id: failed.id,
-          status: failed.status,
-          attempts: failed.attempts,
-          maxAttempts: failed.maxAttempts,
-          error: failed.error,
-          completedAt: failed.completedAt?.toISOString() ?? null,
-          message: 'Item permanently failed — max attempts reached',
-        },
-      });
-    }
-
-    // Handle completion or cancellation
-    const updated = await db.queueItem.update({
-      where: { id: item.id },
-      data: {
-        status,
-        completedAt: new Date(),
-        error: status === 'cancelled' ? error || null : item.error,
-      },
-    });
-
-    return NextResponse.json({
-      data: {
-        id: updated.id,
-        status: updated.status,
-        completedAt: updated.completedAt?.toISOString() ?? null,
-        error: updated.error,
-      },
-    });
+    return NextResponse.json({ data: updated });
   } catch (error) {
+    if ((error as { code?: string })?.code === 'P2025') return NextResponse.json({ error: 'Claim no longer owned by this worker' }, { status: 409 });
     console.error('PATCH /api/queues/[id]/items/[itemId] error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

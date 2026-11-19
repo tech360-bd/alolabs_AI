@@ -4,6 +4,7 @@
  * Reads configuration from POSTGRES_* environment variables or a provided config.
  */
 
+import { sleep } from '@/lib/sleep';
 import type {
   DatabaseConfig,
   DatabaseHealth,
@@ -39,10 +40,6 @@ interface PgPoolClientLike {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /**
  * Build a connection string from individual environment variables.

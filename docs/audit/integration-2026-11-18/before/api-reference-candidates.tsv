@@ -1,0 +1,10 @@
+source	line	request path pattern
+src/components/panels/link-coverage-panel.tsx	253	/api/super-admin/link-coverageDYNAMIC
+src/components/panels/super-admin-panel.tsx	704	/api/backups/DYNAMIC/restore
+src/components/panels/super-admin-panel.tsx	782	/api/social/accounts/DYNAMIC
+src/components/panels/super-admin-panel.tsx	900	/api/workers/DYNAMIC/restart
+src/components/panels/tenant-admin-panel.tsx	404	/api/tenant-admin/users/DYNAMIC
+src/components/panels/token-budget-panel.tsx	119	/api/token-budgetDYNAMIC
+src/components/panels/token-budget-panel.tsx	120	/api/token-usageDYNAMIC
+src/components/panels/usage-panel.tsx	91	/api/usageDYNAMIC
+src/components/portal/portal-primitives.tsx	104	/api/portalDYNAMIC

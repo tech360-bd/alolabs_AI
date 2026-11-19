@@ -1,3 +1,4 @@
+import { authFailure as authError } from '@/lib/api/route-errors';
 import { isInternalRole } from '@/lib/access/surfaces';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -14,12 +15,6 @@ const CreateCompanySchema = z.object({
   domain: z.string().trim().max(253).optional().nullable(),
   ownerUserId: z.string().min(1).optional(),
 });
-
-function authError(error: unknown) {
-  if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  return null;
-}
 
 export async function GET() {
   try {

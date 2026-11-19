@@ -11,6 +11,7 @@
  * 6. Global Emergency Stop & Administrative Governance Controls
  */
 
+import { parseJsonOr as safeParseJSON } from '@/lib/json-values';
 import { db } from '@/lib/db';
 
 // ── Types & Interfaces ────────────────────────────────────────────────────────
@@ -99,15 +100,6 @@ const PROTECTED_MODIFICATION_TARGETS = new Set([
   'evolution_limits',
   'emergency_stop',
 ]);
-
-function safeParseJSON<T = unknown>(jsonStr: string | null | undefined, fallback: T): T {
-  if (!jsonStr) return fallback;
-  try {
-    return JSON.parse(jsonStr) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 // ── 1. QUALIFICATION ENGINE ───────────────────────────────────────────────────
 

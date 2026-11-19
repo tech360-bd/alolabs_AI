@@ -12,7 +12,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { BRAND } from '@/lib/brand/tokens'
+import { BRAND } from '@/lib/brand/public'
 import {
   ArrowRight, Bot, Building2, Cloud, Code2, Globe, Layers3, MessageSquare,
   Smartphone, Workflow,
@@ -239,7 +239,7 @@ function SolutionBlock({ solution, index }: { solution: Solution; index: number 
         <div className="flex items-center gap-3">
           <span
             className="flex size-11 items-center justify-center rounded-xl"
-            style={{ background: even ? 'rgba(232,80,26,0.10)' : BRAND.tint, color: even ? BRAND.orange : BRAND.blue }}
+            style={{ background: even ? 'rgba(255,106,0,0.10)' : BRAND.tint, color: even ? BRAND.orange : BRAND.blue }}
           >
             <Icon size={20} />
           </span>
@@ -254,7 +254,7 @@ function SolutionBlock({ solution, index }: { solution: Solution; index: number 
           <Pill tone={solution.availability === 'Existing service' ? 'blue' : 'orange'}>{solution.availability}</Pill>
         </div>
         <div className="mt-6">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orange }}>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orangeInk }}>
             The business problem
           </p>
           <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.gray }}>
@@ -262,7 +262,7 @@ function SolutionBlock({ solution, index }: { solution: Solution; index: number 
           </p>
         </div>
         <div className="mt-6">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orange }}>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orangeInk }}>
             Expected business value
           </p>
           <p className="mt-2 text-[13px] leading-relaxed" style={{ color: BRAND.ink }}>

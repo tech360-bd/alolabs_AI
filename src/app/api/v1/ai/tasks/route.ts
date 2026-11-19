@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { z } from 'zod';
 import { createHash, randomUUID } from 'node:crypto';
 import { requireEntitlement, incrementUsage } from '@/lib/api/entitlements';
-import { publicTaskResponse } from '@/lib/api/public-response';
+import { publicTaskResponse, publicTaskStatus as mapTaskStatus } from '@/lib/api/public-response';
 import { createRun } from '@/lib/runs';
 
 /**
@@ -226,14 +226,3 @@ export const GET = v1Handler(async ({ identity }, request) => {
     has_more: tasks.length === limit,
   };
 });
-
-function mapTaskStatus(internal: string): 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' {
-  switch (internal) {
-    case 'pending': return 'pending';
-    case 'running': case 'in_progress': return 'running';
-    case 'completed': case 'succeeded': return 'completed';
-    case 'failed': case 'error': return 'failed';
-    case 'cancelled': case 'canceled': return 'cancelled';
-    default: return 'pending';
-  }
-}

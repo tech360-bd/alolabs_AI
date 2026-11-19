@@ -1,3 +1,4 @@
+import { readMailAccount } from '@/lib/email/account-credentials';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { SMTPEmailService } from '@/lib/email/smtp';
@@ -104,7 +105,7 @@ async function notifyHouse(enquiry: Enquiry): Promise<boolean> {
         isActive?: boolean;
       };
       try {
-        account = JSON.parse(setting.value);
+        account = JSON.parse(readMailAccount(setting.value));
       } catch {
         continue;
       }

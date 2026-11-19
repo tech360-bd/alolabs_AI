@@ -1,23 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock @/lib/db
-vi.mock('@/lib/db', () => ({
-  db: {
-    jobQueue: {
-      findUnique: vi.fn().mockResolvedValue(null),
-      create: vi.fn(),
-    },
-    queueItem: {
-      create: vi.fn(),
-      findFirst: vi.fn().mockResolvedValue(null),
-      findMany: vi.fn().mockResolvedValue([]),
-      findUnique: vi.fn().mockResolvedValue(null),
-      update: vi.fn(),
-      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      groupBy: vi.fn().mockResolvedValue([]),
-    },
+// The test programs these fake delegates, not a real Prisma client.
+const mockedDb = vi.hoisted(() => ({
+  jobQueue: {
+    update: vi.fn().mockResolvedValue({ isActive: true, concurrency: 1 }),
+    findUnique: vi.fn().mockResolvedValue(null),
+    create: vi.fn(),
+  },
+  queueItem: {
+    count: vi.fn().mockResolvedValue(0),
+    create: vi.fn(),
+    findFirst: vi.fn().mockResolvedValue(null),
+    findMany: vi.fn().mockResolvedValue([]),
+    findUnique: vi.fn().mockResolvedValue(null),
+    update: vi.fn(),
+    updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    groupBy: vi.fn().mockResolvedValue([]),
   },
 }));
+vi.mock('@/lib/db', () => ({ db: {
+  ...mockedDb,
+  $transaction: (fn: (tx: typeof mockedDb) => Promise<unknown>) => fn(mockedDb),
+} }));
+
 
 import {
   enqueue,
@@ -28,9 +33,6 @@ import {
   retryDeadLetterJob,
   getQueueStats,
 } from '@/lib/job-queue';
-import { db } from '@/lib/db';
-
-const mockedDb = vi.mocked(db);
 
 function makeQueueItem(overrides: Record<string, unknown> = {}) {
   return {
@@ -155,7 +157,7 @@ describe('Job Queue', () => {
     it('should return the next queued item and mark as processing', async () => {
       mockedDb.jobQueue.findUnique.mockResolvedValue({ id: 'queue-1' });
       const item = makeQueueItem({ id: 'item-99' });
-      mockedDb.queueItem.findFirst.mockResolvedValue(item);
+      mockedDb.queueItem.findFirst.mockResolvedValueOnce(item).mockResolvedValue({ ...item, status: 'processing', attempts: 1 });
       mockedDb.queueItem.updateMany.mockResolvedValue({ count: 1 });
       mockedDb.queueItem.findUnique.mockResolvedValue({ ...item, status: 'processing', startedAt: new Date(), attempts: 1 });
 
@@ -164,7 +166,7 @@ describe('Job Queue', () => {
       expect(result!.id).toBe('item-99');
       expect(mockedDb.queueItem.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'item-99', status: 'queued' },
+          where: expect.objectContaining({ id: 'item-99', queueId: 'queue-1', status: 'queued' }),
           data: expect.objectContaining({ status: 'processing' }),
         }),
       );
@@ -195,7 +197,7 @@ describe('Job Queue', () => {
       expect(result.id).toBe('item-1');
       expect(mockedDb.queueItem.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'item-1' },
+          where: { id: 'item-1', status: 'processing' },
           data: expect.objectContaining({ status: 'completed' }),
         }),
       );

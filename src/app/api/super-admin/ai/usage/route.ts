@@ -1,3 +1,4 @@
+import { authFailure as authError } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireRole } from '@/lib/api-auth';
@@ -13,12 +14,6 @@ const QuerySchema = z.object({
   to: z.string().datetime().optional(),
   limit: z.coerce.number().int().min(1).max(5000).default(1000),
 });
-
-function authError(error: unknown) {
-  if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  return null;
-}
 
 export async function GET(request: NextRequest) {
   try {

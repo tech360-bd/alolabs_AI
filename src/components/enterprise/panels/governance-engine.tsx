@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDateTime as fmt } from '@/lib/display-format';
 import React, { useState, useEffect, useMemo } from 'react'
 import { Landmark, Shield, Scale, AlertTriangle, Clock, CheckCircle2, Gavel, Eye, ArrowUpCircle, Ban, FileCheck } from 'lucide-react'
 import { fetchApi } from '@/lib/api-client'
@@ -30,11 +31,6 @@ const statusColors: Record<string, string> = {
 
 const actionIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   enforce_policy: Gavel, review_decision: Eye, escalate: ArrowUpCircle, override: Ban, audit: FileCheck,
-}
-
-function fmt(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function GovernanceEngine() {

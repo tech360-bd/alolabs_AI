@@ -14,7 +14,7 @@ export const metadata: Metadata = {
       'How ALO Labs delivers: clear scopes, engineered deliverables, engagement models and working standards for every client.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/site/services',
-    images: ['/brand/alo-mark.svg'],
+    images: ['/studio/icon-512.png'],
   },
 }
 

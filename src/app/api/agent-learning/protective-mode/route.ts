@@ -1,3 +1,5 @@
+import { messageErrorResponse as errorResponse } from '@/lib/api/route-errors';
+import { parseJsonStringList as parseStringArray } from '@/lib/json-values';
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireRole } from '@/lib/api-auth'
@@ -31,15 +33,6 @@ const UpdateSchema = z.object({
   dataRetentionDays: z.number().int().min(1).max(3650).optional(),
 }).strict()
 
-function parseStringArray(value: string | null | undefined): string[] {
-  try {
-    const parsed: unknown = JSON.parse(value || '[]')
-    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : []
-  } catch {
-    return []
-  }
-}
-
 function serializeMode(mode: Record<string, unknown> | null, agent: { id: string; agentId: string; name: string; departmentName: string }) {
   return {
     agentId: agent.id,
@@ -49,12 +42,6 @@ function serializeMode(mode: Record<string, unknown> | null, agent: { id: string
     blockedPatterns: parseStringArray(typeof mode?.blockedPatterns === 'string' ? mode.blockedPatterns : undefined),
     allowedDomains: parseStringArray(typeof mode?.allowedDomains === 'string' ? mode.allowedDomains : undefined),
   }
-}
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error'
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500
-  return NextResponse.json({ error: message }, { status })
 }
 
 export async function GET(req: NextRequest) {

@@ -1,5 +1,6 @@
+import { authenticateMailSession as authenticate } from '@/lib/email/account-access';
+import { canManageMail } from '@/lib/email/account-credentials';
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/auth';
 import { db } from '@/lib/db';
 import * as crypto from 'crypto';
 
@@ -21,13 +22,6 @@ interface StoredEmailTemplate {
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 const TEMPLATE_PREFIX = 'email:template:';
-
-async function authenticate(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return null;
-  return verifySessionToken(token);
-}
 
 function templateKey(id: string): string {
   return `${TEMPLATE_PREFIX}${id}`;
@@ -87,6 +81,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await authenticate(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!canManageMail(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
@@ -117,6 +112,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await authenticate(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!canManageMail(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json();
     const { name, subject, html, text, category = 'custom' } = body;
@@ -177,6 +173,7 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await authenticate(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!canManageMail(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json();
     const { id, ...updates } = body;
@@ -233,6 +230,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await authenticate(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!canManageMail(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

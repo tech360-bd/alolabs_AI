@@ -5,9 +5,9 @@ Mandatory production target for ALO Labs AgentOS:
 | Concern | Value |
 | --- | --- |
 | OS | Ubuntu 22.04 LTS (or the existing compatible Ubuntu host) |
-| Runtime | Node.js 22+ (Bun is **not** required in production) |
+| Runtime | Node.js 22.13+ for PM2; Bun 1.3.4 is used by the deployment script for installation/build |
 | App output | Next.js standalone (`output: "standalone"` in `next.config.ts`) |
-| Process manager | PM2, process name `agentos-app` |
+| Process manager | PM2, process name `alolabs-agentos` |
 | Port | `3011`, bound to loopback only |
 | Reverse proxy / TLS | Caddy, `https://www.alolabs.net` → `127.0.0.1:3011` |
 | Database | **MySQL / MariaDB only** |
@@ -107,31 +107,7 @@ only applies migrations when `MIGRATIONS_APPROVED=true` is passed explicitly.
 
 ## Moving existing SQLite data
 
-`scripts/migrate-sqlite-to-mysql.ts` is repeatable and non-destructive.
-
-```bash
-# 1. Preview. Reads the source, writes nothing.
-npx tsx scripts/migrate-sqlite-to-mysql.ts db/custom.db "$DATABASE_URL" --dry-run
-
-# 2. Migrate into an EMPTY database.
-npx tsx scripts/migrate-sqlite-to-mysql.ts db/custom.db "$DATABASE_URL"
-```
-
-Guarantees:
-
-- The source SQLite file is opened **read-only** (`{ readonly: true }`) and is
-  never modified.
-- It **refuses to run against a non-empty target** unless `--allow-overwrite`
-  is passed, and reports the target's table and row counts first. Production is
-  never overwritten by an unattended run.
-- Foreign-key dependencies are handled by suspending enforcement for the load
-  (`SET FOREIGN_KEY_CHECKS = 0`) and re-enabling it afterwards — safer than
-  deriving a table order from a possibly partially-migrated schema.
-- Batched, parameter-bound inserts; booleans, timestamps and JSON are converted.
-- Per-table source and destination row counts, plus a summary of
-  successful / skipped / errored tables. Errors are reported, not skipped
-  silently.
-- No hardcoded default connection URL: it must be supplied explicitly.
+The legacy importer is **preview-only**. Run `npm run db:migrate:mysql -- /explicit/source.sqlite --dry-run` for a read-only source row-count inventory. It does not connect to MySQL. `--apply` and `--allow-overwrite` are refused. A real transfer needs a separately reviewed transactional importer, tested mapping, pre/post integrity checks, a verified backup and a rehearsed rollback; do not use an old archived script to write a production database.
 
 ---
 
@@ -143,11 +119,11 @@ git fetch --all --prune
 git checkout <reviewed-commit>
 
 set -a; source .env.production; set +a
-npm ci --omit=dev            # or: bun install --frozen-lockfile
+npm ci --include=dev            # or: bun install --frozen-lockfile
 npm run db:generate:mysql
 npm run build                # Next.js standalone output
 
-pm2 reload agentos-app --update-env
+pm2 reload alolabs-agentos --update-env
 ```
 
 `deploy/scripts/deploy.sh` automates this and additionally:
@@ -171,8 +147,8 @@ rollback:
 ```bash
 cd /opt
 git checkout <previous-good-commit>
-npm ci --omit=dev && npm run db:generate:mysql && npm run build
-pm2 reload agentos-app --update-env
+npm ci --include=dev && npm run db:generate:mysql && npm run build
+pm2 reload alolabs-agentos --update-env
 curl -fsS http://127.0.0.1:3011/api/health/ready
 ```
 

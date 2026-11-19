@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCompactNumber as formatNumber, formatTimeAgo as timeAgo } from '@/lib/display-format';
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import {
@@ -58,23 +59,6 @@ interface WorkflowStats {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const seconds = Math.floor(diff / 1000)
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
-
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return String(n)
-}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 

@@ -1,3 +1,4 @@
+import { parseJsonArray as safeParseJSON } from '@/lib/json-values';
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-auth'
 import { db } from '@/lib/db'
@@ -33,15 +34,6 @@ function buildWhere(
   }
 
   return conditions.length > 0 ? { AND: conditions } : {}
-}
-
-function safeParseJSON(jsonStr: string): unknown[] {
-  try {
-    const parsed = JSON.parse(jsonStr)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
 }
 
 export async function GET(request: NextRequest) {

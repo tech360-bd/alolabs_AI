@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDate as fmtDate } from '@/lib/display-format';
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import { Search, Star, Download, Plus, Tag, Package, Bot, Workflow, User } from 'lucide-react'
@@ -139,10 +140,6 @@ function PricingBadge({ pricing, priceMonthly }: { pricing: string; priceMonthly
 function fmtNum(n: number) {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return String(n)
-}
-
-function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 /* ────────────── Detail Dialog ────────────── */

@@ -9,6 +9,7 @@
  * Usage: bun run scripts/seed-enterprise-v3.ts
  */
 
+import { pick, pickN, randInt } from './shared/sample';
 import { CONSTITUTION, DEPARTMENTS, DIVISIONS, EVENTS, CHAPTERS } from '../src/lib/enterprise-spec'
 import { db } from '../src/lib/db'
 
@@ -21,19 +22,6 @@ function elapsed(): string {
   const sec = Math.floor(ms / 1000)
   const min = Math.floor(sec / 60)
   return min > 0 ? `${min}m ${sec % 60}s` : `${sec}s`
-}
-
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
-
-function pickN<T>(arr: T[], n: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, Math.min(n, arr.length))
-}
-
-function randInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
 function padNum(n: number, width: number = 3): string {

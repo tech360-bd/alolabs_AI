@@ -1,12 +1,7 @@
 import { db } from '@/lib/db'
-import { readJson, requireString, optionalString, withCompany, parseJsonColumn } from '@/lib/voice/api-helpers'
+import { readJson, requireString, optionalString, optionalNumber, withCompany, parseJsonColumn } from '@/lib/voice/api-helpers'
 
 export const dynamic = 'force-dynamic'
-
-function optionalNumber(body: Record<string, unknown>, field: string): number | undefined {
-  const v = body[field]
-  return typeof v === 'number' && Number.isFinite(v) ? v : undefined
-}
 
 /**
  * AI voice agent CRUD (Module B). Configuration only — actual conversation

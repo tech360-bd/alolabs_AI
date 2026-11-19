@@ -26,6 +26,7 @@
  *   npx tsx scripts/activate-workforce.ts --company <company-id>
  */
 
+import { argValue } from './shared/args';
 import { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
 import { ensureRouterSynced } from '@/lib/ai-router';
@@ -53,11 +54,6 @@ interface DepartmentVerdict {
   failing: number;
   readinessScore: number;
   blockers: string[];
-}
-
-function argValue(flag: string, fallback: string): string {
-  const index = process.argv.indexOf(flag);
-  return index >= 0 && process.argv[index + 1] ? process.argv[index + 1] : fallback;
 }
 
 function safeJson<T>(value: string | null | undefined, fallback: T): T {

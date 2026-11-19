@@ -1,4 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
+
+beforeAll(() => vi.stubEnv('ENCRYPTION_KEY', 'ephemeral-email-unit-test-key-12345'));
+afterAll(() => vi.unstubAllEnvs());
 
 // ─── Mock NextRequest ──────────────────────────────────────────────
 
@@ -51,7 +54,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/auth', () => ({
-  verifySessionToken: vi.fn().mockResolvedValue({ userId: 'user-1' }),
+  verifySessionToken: vi.fn().mockResolvedValue({ userId: 'user-1', role: 'admin' }),
 }));
 
 vi.mock('@/lib/email/smtp', () => ({

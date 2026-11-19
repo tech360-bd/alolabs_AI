@@ -1,3 +1,5 @@
+import { notFoundOrActionError as errorResponse } from '@/lib/api/route-errors';
+import { isRecord } from '@/lib/is-record';
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireCompanyAuth } from '@/lib/api-auth'
@@ -14,10 +16,6 @@ const AgentChatSchema = z.object({
   conversationId: z.string().min(1).optional(),
 })
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function parseRunMetadata(value: string | null): Record<string, unknown> {
   if (!value) return {}
   try {
@@ -26,15 +24,6 @@ function parseRunMetadata(value: string | null): Record<string, unknown> {
   } catch {
     return {}
   }
-}
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error'
-  const status = message === 'Unauthorized' ? 401
-    : message === 'Forbidden' ? 403
-      : message.includes('not found') ? 404
-        : 500
-  return NextResponse.json({ success: false, error: message }, { status })
 }
 
 export async function POST(request: NextRequest) {

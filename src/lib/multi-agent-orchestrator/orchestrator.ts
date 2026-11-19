@@ -4,6 +4,7 @@
  * Supports sequential, parallel, conditional, delegation, aggregation, voting, consensus, review.
  */
 
+import { isRecord } from '@/lib/is-record';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { executeAgentPipeline } from '@/lib/ai-workforce/execution-engine';
@@ -133,10 +134,6 @@ function numericMetadata(metadata: Record<string, unknown> | undefined, key: str
 function stringMetadata(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
   const value = metadata?.[key];
   return typeof value === 'string' ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 class OrchestrationApprovalRequiredError extends Error {

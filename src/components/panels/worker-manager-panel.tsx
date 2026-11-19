@@ -4,16 +4,12 @@ import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Cpu,
-  Play,
-  Square,
-  RotateCcw,
   Activity,
   MemoryStick,
   Loader2,
   Settings,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -33,14 +29,12 @@ import { toast } from 'sonner'
 interface Worker {
   id: string
   name: string
-  type: string
+  host: string
   status: string
-  currentJob: string | null
-  completedCount: number
-  uptime: number
-  memory: number
-  createdAt: string
-  updatedAt: string
+  activeJobs: number
+  totalProcessed: number
+  memoryUsageMb: number
+  lastHeartbeatAt: string | null
 }
 
 interface PoolConfig {
@@ -49,43 +43,33 @@ interface PoolConfig {
   autoScale: boolean
 }
 
-const typeColors: Record<string, string> = {
-  cpu: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  gpu: 'bg-orange-100 text-orange-700 border-orange-200',
-  io: 'bg-purple-100 text-purple-700 border-purple-200',
-}
 
 const statusConfig: Record<string, { color: string; dotColor: string; label: string }> = {
   running: { color: 'text-emerald-600', dotColor: 'bg-emerald-500', label: 'Running' },
   stopped: { color: 'text-[#64748B]', dotColor: 'bg-[#CBD5E1]', label: 'Stopped' },
   restarting: { color: 'text-amber-600', dotColor: 'bg-amber-500', label: 'Restarting' },
   idle: { color: 'text-[#0066CC]', dotColor: 'bg-[#0066CC]', label: 'Idle' },
+  busy: { color: 'text-emerald-600', dotColor: 'bg-emerald-500', label: 'Busy' },
+  draining: { color: 'text-amber-600', dotColor: 'bg-amber-500', label: 'Draining' },
+  offline: { color: 'text-gray-600', dotColor: 'bg-gray-500', label: 'Offline' },
   error: { color: 'text-red-600', dotColor: 'bg-red-500', label: 'Error' },
 }
 
-function formatUptime(seconds: number) {
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  return `${h}h ${m}m`
-}
 
 export default function WorkerManagerPanel() {
   const [workers, setWorkers] = useState<Worker[]>([])
   const [pool, setPool] = useState<PoolConfig>({ minWorkers: 2, maxWorkers: 8, autoScale: true })
   const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [savingPool, setSavingPool] = useState(false)
 
   const fetchWorkers = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/workers')
+      const res = await apiFetch('/api/workers/action')
       if (res.ok) {
         const json = await res.json()
         setWorkers(json.data || [])
         if (json.pool) setPool(json.pool)
-      }
+      } else { throw Error() }
     } catch {
       toast.error('Error', { description: 'Failed to load workers' })
     } finally {
@@ -94,27 +78,6 @@ export default function WorkerManagerPanel() {
   }, [toast])
 
   useEffect(() => { fetchWorkers() }, [fetchWorkers])
-
-  const handleAction = async (workerId: string, action: 'start' | 'stop' | 'restart') => {
-    setActionLoading(`${workerId}-${action}`)
-    try {
-      const res = await apiFetch('/api/workers/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, workerId }),
-      })
-      if (res.ok) {
-        toast.success('Success', { description: `Worker ${action}d successfully` })
-        fetchWorkers()
-      } else {
-        toast.error('Error', { description: `Failed to ${action} worker` })
-      }
-    } catch {
-      toast.error('Error', { description: `Failed to ${action} worker` })
-    } finally {
-      setActionLoading(null)
-    }
-  }
 
   const handleSavePool = async () => {
     setSavingPool(true)
@@ -125,8 +88,8 @@ export default function WorkerManagerPanel() {
         body: JSON.stringify({ action: 'update_pool', config: pool }),
       })
       if (res.ok) {
-        toast.success('Success', { description: 'Pool configuration saved'  })
-      }
+        toast.success('Success', { description: 'Pool preference saved' })
+      } else { throw Error() }
     } catch {
       toast.error('Error', { description: 'Failed to save pool config' })
     } finally {
@@ -134,9 +97,9 @@ export default function WorkerManagerPanel() {
     }
   }
 
-  const runningCount = workers.filter((w) => w.status === 'running' || w.status === 'idle').length
-  const totalMemory = workers.reduce((sum, w) => sum + (w.memory || 0), 0)
-  const totalCompleted = workers.reduce((sum, w) => sum + (w.completedCount || 0), 0)
+  const runningCount = workers.filter((w) => w.status === 'busy' || w.status === 'idle').length
+  const totalMemory = workers.reduce((sum, w) => sum + (w.memoryUsageMb || 0), 0)
+  const totalCompleted = workers.reduce((sum, w) => sum + (w.totalProcessed || 0), 0)
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -148,7 +111,7 @@ export default function WorkerManagerPanel() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1E293B]">Worker Manager</h2>
-            <p className="text-xs text-[#94A3B8]">Monitor and manage worker processes</p>
+            <p className="text-xs text-[#94A3B8]">Registered worker telemetry. Start, stop and restart processes using the host supervisor.</p>
           </div>
         </div>
       </div>
@@ -187,7 +150,7 @@ export default function WorkerManagerPanel() {
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-sm text-[#1E293B]">Auto Scale</Label>
-              <p className="text-xs text-[#94A3B8]">Automatically adjust worker count based on load</p>
+              <p className="text-xs text-[#94A3B8]">Save a desired scaling policy; this does not launch or stop host processes.</p>
             </div>
             <Switch
               checked={pool.autoScale}
@@ -248,7 +211,7 @@ export default function WorkerManagerPanel() {
             <div className="text-center py-12">
               <Cpu className="h-10 w-10 text-[#CBD5E1] mx-auto mb-3" />
               <p className="text-sm text-[#94A3B8]">No workers configured</p>
-              <p className="text-xs text-[#CBD5E1] mt-1">Workers will be seeded on first setup</p>
+              <p className="text-xs text-[#CBD5E1] mt-1">Only registered workers appear here.</p>
             </div>
           ) : (
             <div className="max-h-96 overflow-y-auto">
@@ -256,26 +219,22 @@ export default function WorkerManagerPanel() {
                 <TableHeader>
                   <TableRow className="border-[#E2E8F0]">
                     <TableHead className="text-xs text-[#64748B]">Name</TableHead>
-                    <TableHead className="text-xs text-[#64748B]">Type</TableHead>
+                    <TableHead className="text-xs text-[#64748B]">Host</TableHead>
                     <TableHead className="text-xs text-[#64748B]">Status</TableHead>
-                    <TableHead className="text-xs text-[#64748B]">Current Job</TableHead>
+                    <TableHead className="text-xs text-[#64748B]">Active Jobs</TableHead>
                     <TableHead className="text-xs text-[#64748B]">Completed</TableHead>
-                    <TableHead className="text-xs text-[#64748B]">Uptime</TableHead>
+                    <TableHead className="text-xs text-[#64748B]">Last heartbeat</TableHead>
                     <TableHead className="text-xs text-[#64748B]">Memory</TableHead>
-                    <TableHead className="text-xs text-[#64748B] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {workers.map((w) => {
                     const sc = statusConfig[w.status] || statusConfig.stopped
-                    const isActioning = actionLoading?.startsWith(w.id)
                     return (
                       <TableRow key={w.id} className="border-[#E2E8F0]">
                         <TableCell className="text-xs font-medium text-[#1E293B]">{w.name}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`text-[10px] capitalize ${typeColors[w.type] || 'border-[#E2E8F0] text-[#64748B]'}`}>
-                            {w.type}
-                          </Badge>
+                          {w.host}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
@@ -284,46 +243,12 @@ export default function WorkerManagerPanel() {
                           </div>
                         </TableCell>
                         <TableCell className="text-xs text-[#64748B] max-w-[120px] truncate">
-                          {w.currentJob || '—'}
+                          {w.activeJobs}
                         </TableCell>
-                        <TableCell className="text-xs text-[#1E293B]">{(w.completedCount || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-xs text-[#64748B]">{formatUptime(w.uptime || 0)}</TableCell>
-                        <TableCell className="text-xs text-[#64748B]">{(w.memory || 0).toFixed(0)} MB</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {w.status !== 'running' && w.status !== 'idle' && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleAction(w.id, 'start')}
-                                disabled={isActioning}
-                                className="h-7 w-7 p-0 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50"
-                              >
-                                {isActioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
-                              </Button>
-                            )}
-                            {(w.status === 'running' || w.status === 'idle') && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleAction(w.id, 'stop')}
-                                disabled={isActioning}
-                                className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                              >
-                                {isActioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3" />}
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleAction(w.id, 'restart')}
-                              disabled={isActioning}
-                              className="h-7 w-7 p-0 text-amber-500 hover:text-amber-600 hover:bg-amber-50"
-                            >
-                              {isActioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-                            </Button>
-                          </div>
-                        </TableCell>
+                        <TableCell className="text-xs text-[#1E293B]">{(w.totalProcessed || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-xs text-[#64748B]">{w.lastHeartbeatAt ? new Date(w.lastHeartbeatAt).toLocaleString() : '—'}</TableCell>
+                        <TableCell className="text-xs text-[#64748B]">{(w.memoryUsageMb || 0).toFixed(0)} MB</TableCell>
+
                       </TableRow>
                     )
                   })}

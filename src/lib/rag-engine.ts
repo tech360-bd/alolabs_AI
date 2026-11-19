@@ -4,6 +4,7 @@
  * Integrates with Qdrant for vector storage and z-ai-web-dev-sdk for embeddings.
  */
 
+import { isRecord } from '@/lib/is-record';
 import { db } from './db';
 import type { Prisma } from '@prisma/client';
 import { executeCompanyAIEmbeddings, type CompanyAIActor } from './multi-tenant-ai/service';
@@ -116,10 +117,6 @@ export function chunkText(
 }
 
 // ─── Embedding Generation ─────────────────────────────────────────────────────
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /** Generate a tenant-authorized vector through the central policy router. */
 export async function generateEmbedding(text: string, actor: CompanyAIActor): Promise<number[]> {

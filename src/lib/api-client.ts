@@ -94,7 +94,6 @@ function redirectAfterUnauthorized(path: string, token: string | null, redirectT
     if (token) headers.set('Authorization', `Bearer ${token}`);
     void fetch('/api/auth/logout', { method: 'POST', headers, keepalive: true }).catch(() => undefined);
     // A full navigation forces the server-side session gate to re-check auth.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign(redirectTo);
   }
 }

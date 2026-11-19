@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ─── Mock NextRequest ──────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/auth', () => ({
-  verifySessionToken: vi.fn().mockResolvedValue({ userId: 'user-1' }),
+  verifySessionToken: vi.fn().mockResolvedValue({ userId: 'user-1', role: 'admin' }),
 }));
 
 // The social route calls (await import('next/headers')).headers()
@@ -73,6 +73,9 @@ vi.mock('next/headers', () => ({
 
 import { GET, POST, DELETE } from '@/app/api/social/accounts/route';
 
+beforeEach(() => vi.stubEnv('ENCRYPTION_KEY', 'test-only-account-encryption-key-123456'));
+afterEach(() => vi.unstubAllEnvs());
+
 describe('GET /api/social/accounts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -80,8 +83,7 @@ describe('GET /api/social/accounts', () => {
   });
 
   it('should return 401 when no auth header', async () => {
-    const req = new MockNextRequest('http://localhost/api/social/accounts', {}, {});
-    const response = await GET(req as any);
+    const response = await GET();
     expect(response.status).toBe(401);
   });
 
@@ -98,12 +100,7 @@ describe('GET /api/social/accounts', () => {
       },
     ]);
 
-    const req = new MockNextRequest(
-      'http://localhost/api/social/accounts',
-      {},
-      { authorization: 'Bearer valid-token' },
-    );
-    const response = await GET(req as any);
+    const response = await GET();
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.total).toBe(1);
@@ -114,12 +111,7 @@ describe('GET /api/social/accounts', () => {
     __testAuthHeader = 'Bearer valid-token';
     mockSettingsFindMany.mockResolvedValue([]);
 
-    const req = new MockNextRequest(
-      'http://localhost/api/social/accounts',
-      {},
-      { authorization: 'Bearer valid-token' },
-    );
-    const response = await GET(req as any);
+    const response = await GET();
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.total).toBe(0);
@@ -182,6 +174,9 @@ describe('POST /api/social/accounts (connect)', () => {
     const data = await response.json();
     expect(data.success).toBe(true);
     expect(data.platform).toBe('twitter');
+    const saved = mockSettingsUpsert.mock.calls[0][0].create.value;
+    expect(saved).toMatch(/^v1:/);
+    expect(saved).not.toContain('tw-access-token');
   });
 });
 
@@ -199,7 +194,6 @@ describe('POST /api/social/publish', () => {
       { authorization: 'Bearer valid-token' },
     );
     const response = await PUBLISH_POST(req as any);
-    // Response should be some status
-    expect(typeof response.status).toBe('number');
+    expect(response.status).toBe(401);
   });
 });

@@ -78,12 +78,4 @@ export function optionalNumber(body: Record<string, unknown>, field: string): nu
 }
 
 /** Parse JSON columns defensively (they are stored as strings). */
-export function parseJsonColumn<T>(raw: string | null | undefined, fallback: T): T {
-  if (!raw) return fallback
-  try {
-    const parsed = JSON.parse(raw)
-    return parsed ?? fallback
-  } catch {
-    return fallback
-  }
-}
+export { parseNonNullJsonOr as parseJsonColumn } from '@/lib/json-values'

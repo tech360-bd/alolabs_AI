@@ -25,6 +25,7 @@
  * is testable without a telephony provider.
  */
 
+import { parseNonNullJsonOr as parseJson } from '@/lib/json-values';
 import { db } from '@/lib/db'
 import {
   applyNodeAction,
@@ -77,15 +78,6 @@ export interface InboundContext {
   /** IVR node the caller is currently on (returned by a previous plan). */
   currentNodeId?: string | null
   at?: Date
-}
-
-function parseJson<T>(raw: string | null | undefined, fallback: T): T {
-  if (!raw) return fallback
-  try {
-    return (JSON.parse(raw) as T) ?? fallback
-  } catch {
-    return fallback
-  }
 }
 
 /** Read the tenant's number row, scoped to the tenant. */

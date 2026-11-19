@@ -167,8 +167,7 @@ describe('GET /api/media/folders', () => {
     mockSettingsFindMany.mockResolvedValueOnce([]); // folders
     mockSettingsFindMany.mockResolvedValueOnce([]); // file counts
 
-    const req = new MockNextRequest('http://localhost/api/media/folders');
-    const response = await FOLDERS_GET(req as any);
+    const response = await FOLDERS_GET();
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.data)).toBe(true);

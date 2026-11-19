@@ -1345,7 +1345,7 @@ export default function App() {
       : `${activeCompany.name} Admin (Sarah)`;
 
     // Also store in audit log state
-    const newAudit: AuditLog & { companyId?: string } = {
+    const newAudit: AuditLog = {
       id: "aud_" + Math.random().toString(36).substring(2, 7),
       timestamp: new Date().toISOString(),
       actor: actorName,
@@ -1367,7 +1367,7 @@ export default function App() {
 
       setWorkflows((prevWorkflows) => {
         let changed = false;
-        const updated = prevWorkflows.map((wf) => {
+        const updated = prevWorkflows.map((wf): WorkflowPipeline => {
           if (wf.status === "Running" && Math.random() < 0.6) {
             changed = true;
             addLog(`Workflow [${wf.name}] completed background run with 100% telemetry success!`, "success");

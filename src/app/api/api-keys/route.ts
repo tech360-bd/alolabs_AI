@@ -1,3 +1,4 @@
+import { clientIp } from '@/lib/api/key-helpers';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import crypto from 'crypto';
@@ -30,14 +31,6 @@ async function audit(userId: string, action: string, details: Record<string, unk
   } catch {
     /* best-effort */
   }
-}
-
-function clientIp(request: NextRequest): string {
-  return (
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown'
-  );
 }
 
 function keyProjection(k: {

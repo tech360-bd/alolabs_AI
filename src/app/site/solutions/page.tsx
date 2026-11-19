@@ -14,7 +14,7 @@ export const metadata: Metadata = {
       'Nine ways ALO Labs solves real business problems — each with the problem, our approach, key capabilities and expected value.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/site/solutions',
-    images: ['/brand/alo-mark.svg'],
+    images: ['/studio/icon-512.png'],
   },
 }
 

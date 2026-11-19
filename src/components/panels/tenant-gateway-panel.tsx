@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDateTime24 as formatTimestamp } from '@/lib/display-format';
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState } from 'react'
 import {
@@ -431,19 +432,4 @@ function getUsageBarColor(usagePct: number): string {
   if (usagePct >= 75) return 'bg-amber-500'
   if (usagePct >= 50) return 'bg-[#E8501A]'
   return 'bg-[#0066CC]'
-}
-
-function formatTimestamp(iso: string): string {
-  try {
-    const d = new Date(iso)
-    return d.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-  } catch {
-    return iso
-  }
 }

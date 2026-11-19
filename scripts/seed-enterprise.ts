@@ -333,7 +333,7 @@ async function main() {
       const created = await db.marketplaceListing.create({
         data: {
           ...listing,
-          itemId: `seed-${listing.type}-${listing.slug || listing.title.toLowerCase().replace(/\s+/g, '-')}`,
+          itemId: `seed-${listing.type}-${listing.title.toLowerCase().replace(/\s+/g, '-')}`,
         },
       })
       createdListings.push({ id: created.id, type: listing.type, title: listing.title })

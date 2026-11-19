@@ -1,7 +1,7 @@
+import { hashKey } from '@/lib/api/key-helpers';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { agentCompanyScope } from '@/lib/agent-access';
-import crypto from 'crypto';
 import { executeCompanyAIChat } from '@/lib/multi-tenant-ai/service';
 import type { ModelRoutingProfile } from '@/lib/multi-tenant-ai/policy';
 
@@ -287,10 +287,6 @@ function validateOutputSchema(output: string, expectJson: boolean): ValidationRe
       warning: 'Output was expected to be valid JSON but failed to parse',
     };
   }
-}
-
-function hashKey(key: string): string {
-  return crypto.createHash('sha256').update(key).digest('hex');
 }
 
 // ── IPv4 CIDR matching ───────────────────────────────────────────────

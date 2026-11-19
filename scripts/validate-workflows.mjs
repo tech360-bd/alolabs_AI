@@ -24,22 +24,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
-// js-yaml is not a direct dependency of this package; it is installed because
-// eslint depends on @eslint/eslintrc, which depends on js-yaml. Resolving it
-// through require keeps that contract explicit, and failing loudly here is
-// better than a confusing "Cannot find package" deep in the lint run.
-let yaml;
-try {
-  yaml = createRequire(import.meta.url)('js-yaml');
-} catch {
-  console.error(
-    'scripts/validate-workflows.mjs: could not resolve `js-yaml`.\n' +
-      'It is expected to be present via eslint -> @eslint/eslintrc -> js-yaml.\n' +
-      'Run the dependency install step first (`bun install --frozen-lockfile`),\n' +
-      'or add js-yaml as an explicit devDependency.',
-  );
-  process.exit(1);
-}
+const yaml = createRequire(import.meta.url)('js-yaml');
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const workflowsDir = path.join(root, '.github/workflows');
@@ -159,6 +144,10 @@ for (const file of files) {
 
     for (const [i, step] of (job?.steps ?? []).entries()) {
       const sat = `${at}.steps[${i}]${step?.name ? ` "${step.name}"` : ''}`;
+      const previousIds = new Set(job.steps.slice(0, i).map(s => s.id).filter(Boolean));
+      for (const ref of JSON.stringify(step).matchAll(/\bsteps\.([\w-]+)\.outputs\./g)) {
+        if (!previousIds.has(ref[1])) problems.push(`${sat}: output references missing or later step ${ref[1]}`);
+      }
       if (step?.uses) {
         const [name, ref] = String(step.uses).split('@');
         if (!SHA.test(ref ?? '')) {

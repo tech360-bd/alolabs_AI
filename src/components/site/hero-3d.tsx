@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * The Intelligent Network — the interactive 3D hero scene.
+ * The Intelligent Network — the on-demand interactive studio exhibit.
  *
  * A WebGL scene built with React Three Fiber + three.js: an emissive
  * brand-blue core, twelve floating satellite nodes (each maps to a homepage
@@ -23,8 +23,8 @@
 import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Mark } from '@/components/brand/alo-logo'
-import { BRAND } from '@/lib/brand/tokens'
+import Image from 'next/image'
+import { BRAND } from '@/lib/brand/public'
 
 // ─── Section anchors ─────────────────────────────────────────────────────────
 
@@ -34,8 +34,7 @@ const SECTIONS = [
   { id: 'solutions', label: 'Solutions' },
   { id: 'process', label: 'How we work' },
   { id: 'work', label: 'Selected work' },
-  { id: 'technology', label: 'Technology' },
-  { id: 'why', label: 'Why ALO Labs' },
+  { id: 'why', label: 'Start a project' },
 ] as const
 
 const NODE_COUNT = 12
@@ -323,10 +322,10 @@ function Constellation({
 
 function supportsWebGL(): boolean {
   try {
-    const canvas = document.createElement('canvas')
-    return Boolean(
-      canvas.getContext('webgl2') ?? canvas.getContext('webgl'),
-    )
+    // The installed three.js renderer requires WebGL 2, not just WebGL 1.
+    const context = document.createElement('canvas').getContext('webgl2')
+    context?.getExtension('WEBGL_lose_context')?.loseContext()
+    return Boolean(context)
   } catch {
     return false
   }
@@ -348,7 +347,7 @@ function StaticFallback({ reason }: { reason: 'no-webgl' | 'small-viewport' }) {
         ))}
         <circle cx="240" cy="240" r="58" fill="rgba(0,119,255,0.14)" />
       </svg>
-      <div className="hero3d-fallback-mark"><Mark size={72} /></div>
+      <div className="hero3d-fallback-mark"><Image unoptimized src="/studio/alo-symbol.webp" width={45} height={52} alt="" /></div>
       <p className="hero3d-fallback-note">
         {reason === 'no-webgl'
           ? 'Interactive scene needs WebGL — showing the ALO mark instead.'

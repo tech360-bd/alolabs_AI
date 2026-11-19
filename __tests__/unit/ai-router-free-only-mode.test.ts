@@ -105,7 +105,7 @@ const fullyAuthorized = {
   allowPaid: true,
   allowVerifiedFree: true,
   allowedProviderNames: [PAID_NAME, FREE_NAME, BACKUP_FREE_NAME],
-} as const
+}
 
 let savedFreeOnly: string | undefined
 

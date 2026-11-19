@@ -1,3 +1,4 @@
+import { parseJsonOr as safeParseJSON } from '@/lib/json-values';
 import { db } from '@/lib/db'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -38,15 +39,6 @@ const DEFAULT_CONFIG: EvolutionConfig = {
   phase1MaxDescendants: 5,
   phase2MaxLoopAgents: 1,
   requireHumanApproval: false,
-}
-
-function safeParseJSON<T = unknown>(jsonStr: string | null | undefined, fallback: T): T {
-  if (!jsonStr) return fallback
-  try {
-    return JSON.parse(jsonStr) as T
-  } catch {
-    return fallback
-  }
 }
 
 function generateAgentId(): string {

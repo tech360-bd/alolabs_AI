@@ -8,7 +8,9 @@
  */
 
 import Link from 'next/link'
-import { MarketingSite } from '@/components/site/marketing-site'
+import { HomeExperience } from '@/components/site/home-experience'
+import '@/app/public-design.css'
+import '@/app/home.css'
 import { Button } from '@/components/ui/button'
 import { BRAND } from '@/lib/brand/tokens'
 import { ExternalLink } from 'lucide-react'
@@ -26,7 +28,7 @@ export default function PublicSitePanel() {
           </Link>
         </Button>
       </div>
-      <MarketingSite />
+      <HomeExperience />
     </div>
   )
 }

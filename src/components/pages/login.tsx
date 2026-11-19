@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 // InputOTP replaced with simple input (input-otp component was unused elsewhere)
-import { Loader2, Eye, EyeOff, AlertCircle, Shield, ArrowLeft, Mail } from 'lucide-react'
+import { Loader2, Eye, EyeOff, AlertCircle, Shield, ArrowLeft } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { AloLogo } from '@/components/alo-logo'
 
@@ -47,9 +47,14 @@ export default function LoginPage() {
     const isClient = audienceForToken(token) === 'client'
     const home = isClient ? '/portal' : '/dashboard'
     const requested = new URLSearchParams(window.location.search).get('next')
-    const sameOrigin = Boolean(requested && requested.startsWith('/') && !requested.startsWith('//'))
-    const ownSurface = sameOrigin && isClientPagePath(requested as string) === isClient
-    window.location.assign(ownSurface ? (requested as string) : home)
+    let destination = home
+    if (requested?.startsWith('/')) {
+      try {
+        const url = new URL(requested, window.location.origin)
+        if (url.origin === window.location.origin && isClientPagePath(url.pathname) === isClient) destination = url.pathname + url.search + url.hash
+      } catch { /* Invalid return target: use the role's home. */ }
+    }
+    window.location.assign(destination)
   }, [])
 
   // ── Form State ───────────────────────────────────────────────────────────
@@ -61,6 +66,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [mode, setMode] = useState<AuthMode>('login')
   const [resetSent, setResetSent] = useState(false)
+  const [resetCode, setResetCode] = useState('')
+  const [newPassword, setNewPassword] = useState('')
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
 
   // ── UI State ─────────────────────────────────────────────────────────────
@@ -184,17 +191,21 @@ export default function LoginPage() {
         const res = await apiFetch('/api/auth/password-reset', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify(resetSent ? { email, token: resetCode.trim(), newPassword } : { email }),
         })
-        if (!res.ok) throw new Error('Reset request failed.')
-        setResetSent(true)
+        const reply = await res.json()
+        if (!res.ok) throw new Error(reply.error || 'Reset request failed.')
+        if (resetSent) {
+          setResetSent(false); setResetCode(''); setNewPassword(''); setPassword(''); setMode('login')
+          toast({ title: 'Password changed', description: 'Sign in with your new password.' })
+        } else setResetSent(true)
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Reset failed.')
       } finally {
         setLoading(false)
       }
     },
-    [email]
+    [email, resetSent, resetCode, newPassword, toast]
   )
 
   // ── Submit Handler (Login) ───────────────────────────────────────────────
@@ -620,23 +631,21 @@ export default function LoginPage() {
               <div className="mb-6">
                 <h2 className="text-lg font-semibold text-[#1E293B]">Reset your password</h2>
                 <p className="text-sm text-[#64748B] mt-1">
-                  Enter your email and we'll send you a reset link
+                  Request a recovery code for your account email.
                 </p>
               </div>
 
               {resetSent ? (
-                <div className="text-center py-8">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-[#0066CC]/10 flex items-center justify-center mb-4">
-                    <Mail className="h-6 w-6 text-[#0066CC]" />
-                  </div>
-                  <p className="text-sm text-[#64748B]">
-                    If an account exists for <span className="font-medium text-[#1E293B]">{email}</span>,
-                    a reset link has been sent. Check your inbox.
-                  </p>
-                  <button type="button" className="mt-6 text-sm font-medium text-[#0066CC] hover:text-[#002A8F] transition-colors" onClick={() => { setMode('login'); setResetSent(false); setError(null) }}>
-                    Back to sign in
-                  </button>
-                </div>
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <p className="text-sm text-slate-600">Check your mailbox for a 15-minute recovery code. If it doesn't arrive, contact your administrator.</p>
+                  {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+                  <Label htmlFor="recovery-code">Recovery code</Label>
+                  <Input id="recovery-code" autoComplete="one-time-code" value={resetCode} onChange={e => setResetCode(e.target.value)} required maxLength={64}/>
+                  <Label htmlFor="recovery-password">New password</Label>
+                  <Input id="recovery-password" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={newPassword} onChange={e => setNewPassword(e.target.value)}/>
+                  <Button type="submit" disabled={loading}>Change password</Button>
+                  <Button type="button" variant="outline" onClick={() => { setMode('login'); setResetCode(''); setNewPassword(''); setResetSent(false); setError(null) }}>Back to sign in</Button>
+                </form>
               ) : (
                 <>
                   {error && (
@@ -651,7 +660,7 @@ export default function LoginPage() {
                       <Input id="forgot-email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-10 border-[#E2E8F0] focus:border-[#0066CC] focus:ring-[#0066CC]/20 text-[#1E293B] placeholder:text-[#94A3B8]" disabled={loading} />
                     </div>
                     <Button type="submit" className="w-full h-10 bg-[#0066CC] hover:bg-[#002A8F] text-white font-medium rounded-lg transition-colors" disabled={loading}>
-                      {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : 'Send reset link'}
+                      {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>) : 'Send recovery code'}
                     </Button>
                   </form>
                   <p className="mt-6 text-center text-sm text-[#64748B]">

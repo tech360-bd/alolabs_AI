@@ -26,13 +26,12 @@ services:
       PORT: "3011"
       HOSTNAME: 0.0.0.0
       NEXT_TELEMETRY_DISABLED: "1"
-      DATABASE_URL: "file:/app/data/agenthub.db"
+      DATABASE_URL: "${COMPOSE_DATABASE_URL:?Set a provisioned MySQL/MariaDB DSN}"
       REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
-      ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
-      APP_SECRET: "${APP_SECRET}"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:?Set ENCRYPTION_KEY}"
+      APP_SECRET: "${APP_SECRET:?Set APP_SECRET}"
       CSRF_SECRET: "${CSRF_SECRET}"
-      JWT_SECRET: "${JWT_SECRET}"
-      API_GATEWAY_SECRET: "${API_GATEWAY_SECRET}"
+      JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET}"
       NEXT_PUBLIC_APP_URL: "${NEXT_PUBLIC_APP_URL}"
       ALLOWED_ORIGINS: "${ALLOWED_ORIGINS}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
@@ -42,16 +41,8 @@ services:
       SMTP_USER: "${SMTP_USER:-}"
       SMTP_PASS: "${SMTP_PASS:-}"
       SMTP_FROM: "${SMTP_FROM:-}"
-    # No custom entrypoint: the image's CMD ["node","server.js"] is correct.
-    #
-    # The previous override ran `bunx prisma db push && exec bun server.js`.
-    # That could never work — the image is node:20-slim with no bun installed,
-    # and `prisma` is a devDependency that is not present in the runner stage.
-    #
-    # Schema initialisation is a deliberate, separate operator step instead:
-    #   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-    #     run --rm --entrypoint npx app prisma db push --schema=prisma/schema.prisma
-    # (or run scripts/sqlite-push.ts against the mounted ./data volume).
+    # No entrypoint overrides, automatic schema pushes or DB resets. Point this
+    # service at a separately provisioned database; see docs/PRODUCTION_MYSQL.md.
     deploy:
       resources:
         limits:
@@ -63,11 +54,15 @@ services:
     networks:
       - alolabs-net
 
+  realtime-service:
+    environment:
+      REDIS_URL: "redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD}@redis:6379"
+
   # ── Redis (production overrides) ──────────────────────────
   redis:
     restart: always
     # Not published in production: only the app may reach it, over alolabs-net.
-    ports: []
+    ports: !reset []
     command: >
       redis-server
       --bind 0.0.0.0
@@ -96,7 +91,7 @@ services:
   # ── Qdrant (production overrides) ─────────────────────────
   qdrant:
     restart: always
-    ports: []
+    ports: !reset []
     deploy:
       resources:
         limits:
@@ -109,7 +104,7 @@ services:
   # ── MinIO (production overrides) ──────────────────────────
   minio:
     restart: always
-    ports: []
+    ports: !reset []
     environment:
       MINIO_ROOT_USER: "${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set for production}"
       MINIO_ROOT_PASSWORD: "${S3_SECRET_KEY:?S3_SECRET_KEY must be set for production}"

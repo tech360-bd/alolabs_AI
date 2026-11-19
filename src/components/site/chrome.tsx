@@ -11,142 +11,20 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { AloLabsLogo, Mark, BrandRule } from '@/components/brand/alo-logo'
+import { SiteIdentity } from './site-header'
+export { SiteHeader } from './site-header'
+export { SITE_NAV, SITE_RESOURCE_NAV, type NavItem } from './navigation'
 import { apiFetch } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
-import { BRAND, BRAND_FONTS, COMPANY, GRADIENTS, HEADLINE_STATS } from '@/lib/brand/tokens'
+import { BRAND, BRAND_FONTS, COMPANY, GRADIENTS, HEADLINE_STATS } from '@/lib/brand/public'
 import {
   ArrowRight,
   Check,
   ChevronDown,
   Mail,
   MapPin,
-  Menu,
-  MessageSquare,
   Phone,
-  X,
 } from 'lucide-react'
-
-// ─── Navigation ──────────────────────────────────────────────────────────────
-
-export interface NavItem {
-  href: string
-  label: string
-  hint?: string
-}
-
-// Public navigation lists client-facing pages only. Internal reference pages
-// (platform architecture, diagrams, press kit, brand book, design system, case
-// material) are part of the internal surface and are not linked from here.
-export const SITE_NAV: NavItem[] = [
-  { href: '/site/solutions', label: 'Solutions', hint: 'What we solve' },
-  { href: '/site/services', label: 'Services', hint: 'How we deliver' },
-  { href: '/site/how-we-work', label: 'How we work', hint: 'Our process' },
-  { href: '/site/about', label: 'About', hint: 'The company' },
-  { href: '/site/careers', label: 'Careers', hint: 'Join the team' },
-  { href: '/site/contact', label: 'Contact', hint: 'Talk to us' },
-]
-
-export const SITE_RESOURCE_NAV: NavItem[] = [
-  { href: '/site/projects', label: 'Projects', hint: 'What we are building' },
-  { href: '/portal', label: 'Client portal', hint: 'Projects, deliverables, billing' },
-  { href: '/site/privacy', label: 'Privacy Policy', hint: 'How we handle data' },
-  { href: '/site/terms', label: 'Terms of Service', hint: 'Working with us' },
-]
-
-// ─── Header ──────────────────────────────────────────────────────────────────
-
-export function SiteHeader({ active }: { active?: string }) {
-  const [open, setOpen] = React.useState(false)
-  const pathname = usePathname()
-  const current = active ?? pathname
-  return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-6 px-6 py-3.5">
-        <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-          <AloLabsLogo size={34} tagline={false} title="ALO Labs" />
-        </Link>
-        <nav className="hidden items-center gap-1 lg:flex">
-          {SITE_NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
-                current === item.href
-                  ? 'text-slate-900'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-          <div className="group relative">
-            <button className="flex items-center gap-1 rounded-md px-3 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">
-              Resources <ChevronDown className="size-3.5" />
-            </button>
-            <div className="invisible absolute right-0 top-full z-50 w-[280px] translate-y-1 rounded-xl border border-slate-200 bg-white p-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
-              {SITE_RESOURCE_NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="block rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50"
-                >
-                  <span className="block text-[13px] font-semibold" style={{ color: BRAND.ink }}>
-                    {item.label}
-                  </span>
-                  {item.hint ? (
-                    <span className="mt-0.5 block text-[11px]" style={{ color: BRAND.graySoft }}>
-                      {item.hint}
-                    </span>
-                  ) : null}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </nav>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="hidden gap-1.5 sm:flex" asChild>
-            <Link href="/login">
-              Client Login
-            </Link>
-          </Button>
-          <Button size="sm" className="gap-1.5" style={{ background: BRAND.orange }} asChild>
-            <Link href="/site/contact">
-              Start a Project <ArrowRight className="size-3.5" />
-            </Link>
-          </Button>
-          <button
-            className="rounded-md border border-slate-200 p-2 lg:hidden"
-            aria-label={open ? 'Close menu' : 'Open menu'}
-            onClick={() => setOpen((v) => !v)}
-          >
-            {open ? <X className="size-4" /> : <Menu className="size-4" />}
-          </button>
-        </div>
-      </div>
-      {open ? (
-        <nav className="border-t border-slate-200 bg-white px-6 py-4 lg:hidden">
-          <div className="grid gap-1">
-            {[...SITE_NAV, ...SITE_RESOURCE_NAV].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className="rounded-md px-3 py-2.5 text-[14px] font-medium text-slate-700 hover:bg-slate-100"
-              >
-                {item.label}
-                {item.hint ? (
-                  <span className="ml-2 text-[11px] font-normal text-slate-400">{item.hint}</span>
-                ) : null}
-              </Link>
-            ))}
-          </div>
-        </nav>
-      ) : null}
-    </header>
-  )
-}
 
 // ─── Section vocabulary ──────────────────────────────────────────────────────
 
@@ -173,7 +51,7 @@ export function Section({
   return (
     <section id={id} className="scroll-mt-20 border-b border-slate-200" style={{ background: bg }}>
       <div className={`mx-auto px-6 py-16 lg:py-20 ${narrow ? 'max-w-[880px]' : 'max-w-[1200px]'}`}>
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: BRAND.orange }}>
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: ground === 'navy' ? BRAND.orange : BRAND.orangeInk }}>
           {eyebrow}
         </p>
         <h2
@@ -207,7 +85,7 @@ export function PageHero({
   crumbs?: { href: string; label: string }[]
 }) {
   return (
-    <section className="relative overflow-hidden border-b border-slate-200" style={{ background: BRAND.canvas }}>
+    <section className="studio-page-hero relative overflow-hidden border-b border-slate-200">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
         style={{ background: GRADIENTS.orange.css }}
@@ -216,7 +94,7 @@ export function PageHero({
       <div className="mx-auto max-w-[1200px] px-6 py-14 lg:py-18">
         {crumbs?.length ? (
           <nav className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: BRAND.graySoft }}>
-            <Link href="/site" className="hover:text-slate-700">
+            <Link href="/" className="hover:text-slate-700">
               Home
             </Link>
             {crumbs.map((c) => (
@@ -229,7 +107,7 @@ export function PageHero({
             ))}
           </nav>
         ) : null}
-        <p className="mt-3 font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: BRAND.orange }}>
+        <p className="mt-3 font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: BRAND.orangeInk }}>
           {eyebrow}
         </p>
         <h1
@@ -279,7 +157,7 @@ export function StatCard({
 export function Pill({ children, tone = 'blue' }: { children: React.ReactNode; tone?: 'blue' | 'orange' | 'plain' }) {
   const style =
     tone === 'orange'
-      ? { background: 'rgba(232,80,26,0.10)', color: BRAND.orange }
+      ? { background: 'rgba(255,106,0,0.10)', color: BRAND.orangeInk }
       : tone === 'blue'
         ? { background: BRAND.tint, color: BRAND.blue }
         : { background: '#FFFFFF', color: BRAND.gray, border: `1px solid ${BRAND.grayLine}` }
@@ -432,7 +310,7 @@ export function CtaBand({
 
 // ─── Footer ──────────────────────────────────────────────────────────────────
 
-const FOOTER_COLUMNS: { title: string; items: NavItem[] }[] = [
+const FOOTER_COLUMNS: { title: string; items: { href: string; label: string }[] }[] = [
   {
     title: 'Solutions',
     items: [
@@ -453,7 +331,7 @@ const FOOTER_COLUMNS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Company',
     items: [
-      { href: '/site/about', label: 'About ALO Labs' },
+      { href: '/site/about', label: 'About' },
       { href: '/site/careers', label: 'Careers' },
       { href: '/site/contact', label: 'Contact' },
       { href: '/site/contact#offices', label: 'Offices' },
@@ -474,8 +352,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-[1200px] px-6 py-12">
         <div className="grid gap-10 lg:grid-cols-[1.2fr_2fr]">
           <div>
-            <AloLabsLogo size={40} tagline theme="dark" />
-            <BrandRule width={150} className="mt-4 opacity-90" />
+            <div className="text-white"><SiteIdentity /></div>
             <p className="mt-3 max-w-[380px] text-[12px] leading-relaxed text-white/70">{COMPANY.promise}</p>
             <div className="mt-5 space-y-1.5">
               <a href={COMPANY.phoneHref} className="flex items-center gap-2 text-[12px] text-white/80 hover:text-white">

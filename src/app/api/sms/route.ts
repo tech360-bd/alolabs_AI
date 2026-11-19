@@ -4,10 +4,10 @@
 // Rate Limiting Note: In production, integrate a rate limiter (e.g., upstash/ratelimit)
 // to prevent abuse. Suggested limits: 10 sends/min per user, 1000/day per tenant.
 
+import { authenticateBearerSession as authenticate } from '@/lib/api/bearer-session';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
-import { verifySessionToken } from '@/lib/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,22 +100,6 @@ async function listMessages(filters: {
   const total = messages.length;
   const paginated = messages.slice(filters.offset, filters.offset + filters.limit);
   return { messages: paginated, total };
-}
-
-// ─── Auth Helper ──────────────────────────────────────────────────────────────
-
-async function authenticate(request: NextRequest): Promise<{ userId: string } | NextResponse> {
-  const authHeader = await (await import('next/headers')).headers();
-  const authorization = authHeader.get('authorization');
-  if (!authorization?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const token = authorization.substring(7);
-  const session = await verifySessionToken(token);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  return session;
 }
 
 // ─── GET: List SMS Messages ───────────────────────────────────────────────────

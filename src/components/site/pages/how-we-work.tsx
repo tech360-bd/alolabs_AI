@@ -9,7 +9,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { BRAND } from '@/lib/brand/tokens'
+import { BRAND } from '@/lib/brand/public'
 import { ArrowRight, Compass, FileCheck2, LifeBuoy, PenTool, Rocket } from 'lucide-react'
 import { CtaBand, FaqList, PageHero, Section, type FaqItem } from '@/components/site/chrome'
 
@@ -106,7 +106,7 @@ export function HowWeWorkPage() {
                   <div className="flex items-center gap-3">
                     <span
                       className="flex size-11 items-center justify-center rounded-xl"
-                      style={{ background: 'rgba(232,80,26,0.10)', color: BRAND.orange }}
+                      style={{ background: 'rgba(255,106,0,0.10)', color: BRAND.orange }}
                     >
                       <Icon size={20} />
                     </span>
@@ -119,7 +119,7 @@ export function HowWeWorkPage() {
                 </div>
                 <div>
                   <p className="text-[13.5px] leading-relaxed" style={{ color: BRAND.gray }}>{stage.body}</p>
-                  <p className="mt-5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orange }}>
+                  <p className="mt-5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: BRAND.orangeInk }}>
                     What you see
                   </p>
                   <ul className="mt-2.5 grid gap-1.5">

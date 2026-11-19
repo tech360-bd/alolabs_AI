@@ -73,9 +73,8 @@ describe('ai-research service registration', () => {
       status: 'completed',
       result: {
         summary: 'Synthesized answer ready.',
-        answer: 'Short synthesis with inline references.',
         citations: [
-          { title: 'Example Source', url: 'https://example.com/src', snippet: 'Relevant excerpt.' },
+          { label: 'Example Source', ref: 'https://example.com/src' },
         ],
         output: { runId: 'run_hidden', model: 'gpt-x' },
       },
@@ -84,8 +83,8 @@ describe('ai-research service registration', () => {
       completedAt: '2026-11-14T00:02:00Z',
     });
     expect(res.service).toBe('ai-research');
-    expect(res.result.citations).toHaveLength(1);
-    expect(res.result.citations[0].url).toBe('https://example.com/src');
+    expect(res.result?.citations).toHaveLength(1);
+    expect(res.result?.citations?.[0].ref).toBe('https://example.com/src');
     expect(containsLeakyFields(res)).toEqual([]);
     expect(JSON.stringify(res)).not.toMatch(/run_hidden|gpt-x/);
   });

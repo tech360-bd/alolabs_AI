@@ -23,7 +23,7 @@ describe('telephony registry', () => {
   })
 
   it('real providers are honest: not connected and failing loudly', async () => {
-    const a = resolveTelephonyAdapter('asterisk') as NotConnectedAdapter
+    const a = resolveTelephonyAdapter('asterisk')
     expect(a.info.capabilities.outboundPstn).toBe(false)
     await expect(a.health()).resolves.toMatchObject({ reachable: false })
     await expect(a.placeCall({ callSessionId: 'x', from: '1', to: '2' })).rejects.toThrow(TelephonyUnsupportedError)
@@ -54,6 +54,7 @@ describe('sandbox adapter (simulated telephony)', () => {
   it('tracks lifecycle events and hangup', async () => {
     const adapter = new SandboxTelephonyAdapter()
     const { providerCallId } = await adapter.placeCall({ callSessionId: 'c9', from: 'a', to: 'b' })
+    if (!providerCallId) throw new Error('Expected sandbox call id');
     await adapter.hold(providerCallId, true)
     await adapter.transfer(providerCallId, 'queue-2')
     await adapter.record(providerCallId, true)

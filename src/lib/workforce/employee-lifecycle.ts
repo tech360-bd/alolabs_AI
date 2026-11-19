@@ -1,3 +1,4 @@
+import { parseJsonRecord as parseRecord } from '@/lib/json-values';
 import { createHash } from 'node:crypto';
 import { db } from '@/lib/db';
 import { safeAuditDetails } from '@/lib/audit-events';
@@ -210,14 +211,4 @@ async function verifyExecutionEvidence(input: { companyId: string; agentDbId: st
   }
 
   return { executionId: execution.id, completedAt: execution.completedAt };
-}
-
-function parseRecord(value: string | null | undefined): Record<string, unknown> {
-  if (!value) return {};
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
 }

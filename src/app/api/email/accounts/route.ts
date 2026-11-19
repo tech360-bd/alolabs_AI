@@ -1,5 +1,6 @@
+import { authenticateMailSession as authenticate } from '@/lib/email/account-access';
+import { canManageMail, readMailAccount, storeMailAccount } from '@/lib/email/account-credentials';
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/auth';
 import { db } from '@/lib/db';
 import * as crypto from 'crypto';
 
@@ -29,13 +30,6 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
-async function authenticate(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return null;
-  return verifySessionToken(token);
-}
-
 async function getAllAccounts(): Promise<EmailAccountConfig[]> {
   const settings = await db.settings.findMany({
     where: { key: { startsWith: 'email:account:' } },
@@ -45,7 +39,7 @@ async function getAllAccounts(): Promise<EmailAccountConfig[]> {
   const accounts: EmailAccountConfig[] = [];
   for (const s of settings) {
     try {
-      const parsed = JSON.parse(s.value) as EmailAccountConfig;
+      const parsed = JSON.parse(readMailAccount(s.value)) as EmailAccountConfig;
       accounts.push(parsed);
     } catch {
       // Skip malformed entries
@@ -60,6 +54,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await authenticate(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!canManageMail(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const accounts = await getAllAccounts();
 
@@ -82,6 +77,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await authenticate(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!canManageMail(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json();
     const { label, email, provider, imap, smtp, auth, isActive } = body;
@@ -127,8 +123,8 @@ export async function POST(request: NextRequest) {
 
     await db.settings.upsert({
       where: { key: settingKey(id) },
-      update: { value: JSON.stringify(account), updatedAt: new Date() },
-      create: { key: settingKey(id), value: JSON.stringify(account), type: 'json' },
+      update: { value: storeMailAccount(account), updatedAt: new Date() },
+      create: { key: settingKey(id), value: storeMailAccount(account), type: 'json' },
     });
 
     // Return without password
@@ -146,6 +142,7 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await authenticate(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!canManageMail(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json();
     const { id, ...updates } = body;
@@ -159,7 +156,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
-    const account = JSON.parse(existing.value) as EmailAccountConfig;
+    const account = JSON.parse(readMailAccount(existing.value)) as EmailAccountConfig;
 
     // Merge updates
     if (updates.label !== undefined) account.label = updates.label;
@@ -179,7 +176,7 @@ export async function PUT(request: NextRequest) {
 
     await db.settings.update({
       where: { key: settingKey(id) },
-      data: { value: JSON.stringify(account), updatedAt: new Date() },
+      data: { value: storeMailAccount(account), updatedAt: new Date() },
     });
 
     const safe = { ...account, auth: { user: account.auth.user, pass: '••••••••' } };
@@ -196,6 +193,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await authenticate(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!canManageMail(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

@@ -1,0 +1,541 @@
+path	url	role	exported methods
+src/app/api/access-denied/route.ts	/api/access-denied	route	GET,POST,PUT,PATCH,DELETE
+src/app/api/admin/providers/quota/route.ts	/api/admin/providers/quota	route	GET,POST
+src/app/api/agent-capabilities/route.ts	/api/agent-capabilities	route	GET
+src/app/api/agent-company-access/route.ts	/api/agent-company-access	route	
+src/app/api/agent-factory/build/route.ts	/api/agent-factory/build	route	GET,POST
+src/app/api/agent-intelligence/agent-detail/route.ts	/api/agent-intelligence/agent-detail	route	GET
+src/app/api/agent-intelligence/agents/route.ts	/api/agent-intelligence/agents	route	GET
+src/app/api/agent-intelligence/chat/route.ts	/api/agent-intelligence/chat	route	POST
+src/app/api/agent-intelligence/departments/route.ts	/api/agent-intelligence/departments	route	GET
+src/app/api/agent-learning/dashboard/route.ts	/api/agent-learning/dashboard	route	GET
+src/app/api/agent-learning/evolution/route.ts	/api/agent-learning/evolution	route	GET,PUT
+src/app/api/agent-learning/knowledge/route.ts	/api/agent-learning/knowledge	route	GET,PUT,DELETE
+src/app/api/agent-learning/protective-mode/route.ts	/api/agent-learning/protective-mode	route	GET,PUT
+src/app/api/agent-learning/trigger-learning/route.ts	/api/agent-learning/trigger-learning	route	POST,PUT
+src/app/api/agent-memory/route.ts	/api/agent-memory	route	GET,POST,PUT,DELETE
+src/app/api/agent-performance/route.ts	/api/agent-performance	route	
+src/app/api/agent-permissions/route.ts	/api/agent-permissions	route	
+src/app/api/agent-runs/[taskId]/route.ts	/api/agent-runs/[taskId]	route	GET
+src/app/api/agent-runtime/execute/route.ts	/api/agent-runtime/execute	route	POST,DELETE
+src/app/api/agent-runtime/health/route.ts	/api/agent-runtime/health	route	GET
+src/app/api/agent-runtime/status/route.ts	/api/agent-runtime/status	route	GET
+src/app/api/agent-stability/health/route.ts	/api/agent-stability/health	route	GET
+src/app/api/agent-status-history/route.ts	/api/agent-status-history	route	
+src/app/api/agent-usage-summaries/route.ts	/api/agent-usage-summaries	route	
+src/app/api/agent-versions/route.ts	/api/agent-versions	route	
+src/app/api/agents/[id]/route.ts	/api/agents/[id]	route	DELETE,PUT
+src/app/api/agents/registry/route.ts	/api/agents/registry	route	GET
+src/app/api/agents/route.ts	/api/agents	route	GET
+src/app/api/ai/batch/route.ts	/api/ai/batch	route	POST
+src/app/api/ai/chat/route.ts	/api/ai/chat	route	POST
+src/app/api/ai/embeddings/route.ts	/api/ai/embeddings	route	POST
+src/app/api/ai/models/route.ts	/api/ai/models	route	GET
+src/app/api/ai/parallel/route.ts	/api/ai/parallel	route	POST
+src/app/api/ai/providers/route.ts	/api/ai/providers	route	GET
+src/app/api/ai/route/route.ts	/api/ai/route	route	POST
+src/app/api/ai/stream/route.ts	/api/ai/stream	route	POST
+src/app/api/ai-security/events/route.ts	/api/ai-security/events	route	GET,POST
+src/app/api/ai-security/rules/route.ts	/api/ai-security/rules	route	GET,POST
+src/app/api/ai-security/stats/route.ts	/api/ai-security/stats	route	GET
+src/app/api/ai-workforce/alerts/route.ts	/api/ai-workforce/alerts	route	GET,POST,PUT
+src/app/api/ai-workforce/catalog/route.ts	/api/ai-workforce/catalog	route	GET,POST
+src/app/api/ai-workforce/communications/route.ts	/api/ai-workforce/communications	route	GET,POST
+src/app/api/ai-workforce/execute/route.ts	/api/ai-workforce/execute	route	GET,POST
+src/app/api/ai-workforce/executions/[id]/route.ts	/api/ai-workforce/executions/[id]	route	GET,POST
+src/app/api/ai-workforce/instances/[id]/health/route.ts	/api/ai-workforce/instances/[id]/health	route	GET,POST
+src/app/api/ai-workforce/instances/route.ts	/api/ai-workforce/instances	route	GET,POST
+src/app/api/ai-workforce/metrics/route.ts	/api/ai-workforce/metrics	route	GET,POST
+src/app/api/ai-workforce/optimizations/route.ts	/api/ai-workforce/optimizations	route	GET,POST
+src/app/api/ai-workforce/oversight/route.ts	/api/ai-workforce/oversight	route	GET,POST,PUT
+src/app/api/ai-workforce/recovery/route.ts	/api/ai-workforce/recovery	route	GET,POST
+src/app/api/alerts/route.ts	/api/alerts	route	GET,POST,PATCH
+src/app/api/analytics/route.ts	/api/analytics	route	GET
+src/app/api/api-keys/[id]/route.ts	/api/api-keys/[id]	route	PATCH,GET
+src/app/api/api-keys/route.ts	/api/api-keys	route	GET,POST
+src/app/api/api-management/route.ts	/api/api-management	route	GET,POST
+src/app/api/approval-engine/route.ts	/api/approval-engine	route	POST,GET
+src/app/api/approvals/route.ts	/api/approvals	route	GET,PUT,POST
+src/app/api/artifacts/[id]/download/route.ts	/api/artifacts/[id]/download	route	GET
+src/app/api/artifacts/[id]/route.ts	/api/artifacts/[id]	route	GET,POST,DELETE
+src/app/api/artifacts/route.ts	/api/artifacts	route	GET,POST
+src/app/api/audit-logs/route.ts	/api/audit-logs	route	GET
+src/app/api/auth/login/route.ts	/api/auth/login	route	POST
+src/app/api/auth/logout/route.ts	/api/auth/logout	route	POST
+src/app/api/auth/me/route.ts	/api/auth/me	route	GET
+src/app/api/auth/mfa/disable/route.ts	/api/auth/mfa/disable	route	POST
+src/app/api/auth/mfa/resend/route.ts	/api/auth/mfa/resend	route	POST
+src/app/api/auth/mfa/setup/route.ts	/api/auth/mfa/setup	route	POST
+src/app/api/auth/mfa/verify/route.ts	/api/auth/mfa/verify	route	POST
+src/app/api/auth/oauth/[provider]/route.ts	/api/auth/oauth/[provider]	route	GET,POST
+src/app/api/auth/oauth/providers/route.ts	/api/auth/oauth/providers	route	GET,POST,DELETE
+src/app/api/auth/password-change/route.ts	/api/auth/password-change	route	POST
+src/app/api/auth/password-reset/route.ts	/api/auth/password-reset	route	POST
+src/app/api/auth/register/route.ts	/api/auth/register	route	POST
+src/app/api/auth/sessions/cleanup/route.ts	/api/auth/sessions/cleanup	route	POST
+src/app/api/auth/sessions/route.ts	/api/auth/sessions	route	GET,POST,DELETE
+src/app/api/auth/sso/route.ts	/api/auth/sso	route	GET,POST
+src/app/api/automation/execute/route.ts	/api/automation/execute	route	POST
+src/app/api/automation/logs/route.ts	/api/automation/logs	route	GET
+src/app/api/automation/triggers/[id]/route.ts	/api/automation/triggers/[id]	route	GET,PUT,DELETE
+src/app/api/automation/triggers/[id]/toggle/route.ts	/api/automation/triggers/[id]/toggle	route	POST
+src/app/api/automation/triggers/route.ts	/api/automation/triggers	route	GET,POST
+src/app/api/automation-suggestions/route.ts	/api/automation-suggestions	route	
+src/app/api/avatar-voice/avatars/route.ts	/api/avatar-voice/avatars	route	GET
+src/app/api/avatar-voice/generate-avatar/route.ts	/api/avatar-voice/generate-avatar	route	POST
+src/app/api/avatar-voice/generate-voice/route.ts	/api/avatar-voice/generate-voice	route	POST
+src/app/api/backups/create/route.ts	/api/backups/create	route	POST
+src/app/api/backups/restore/route.ts	/api/backups/restore	route	POST
+src/app/api/backups/route.ts	/api/backups	route	GET,POST
+src/app/api/billing/invoices/route.ts	/api/billing/invoices	route	GET,POST
+src/app/api/billing/payments/route.ts	/api/billing/payments	route	GET,POST
+src/app/api/billing/plans/route.ts	/api/billing/plans	route	GET,POST
+src/app/api/billing/subscriptions/[id]/route.ts	/api/billing/subscriptions/[id]	route	GET,PATCH
+src/app/api/billing/subscriptions/route.ts	/api/billing/subscriptions	route	GET,POST
+src/app/api/brands/route.ts	/api/brands	route	GET,POST,PUT,DELETE
+src/app/api/capability/request/route.ts	/api/capability/request	route	POST
+src/app/api/capability/requests/route.ts	/api/capability/requests	route	GET
+src/app/api/command-agent/catalog/route.ts	/api/command-agent/catalog	route	GET
+src/app/api/command-agent/chat/route.ts	/api/command-agent/chat	route	POST,DELETE
+src/app/api/commands/route.ts	/api/commands	route	GET,POST,PUT,DELETE
+src/app/api/companies/[id]/route.ts	/api/companies/[id]	route	PUT,DELETE
+src/app/api/companies/route.ts	/api/companies	route	GET,POST
+src/app/api/company/agents/allowed/route.ts	/api/company/agents/allowed	route	GET
+src/app/api/company/command/route.ts	/api/company/command	route	POST
+src/app/api/company/integrations/route.ts	/api/company/integrations	route	GET,POST,DELETE
+src/app/api/company/invitations/accept/route.ts	/api/company/invitations/accept	route	POST
+src/app/api/company/knowledge/route.ts	/api/company/knowledge	route	GET,POST,DELETE
+src/app/api/company/members/route.ts	/api/company/members	route	GET,POST,PATCH,DELETE
+src/app/api/company/settings/route.ts	/api/company/settings	route	GET,PUT
+src/app/api/company/skills/allowed/route.ts	/api/company/skills/allowed	route	GET
+src/app/api/company/tasks/route.ts	/api/company/tasks	route	GET
+src/app/api/company/usage/route.ts	/api/company/usage	route	GET
+src/app/api/company/workflows/allowed/route.ts	/api/company/workflows/allowed	route	GET
+src/app/api/company-access/route.ts	/api/company-access	route	GET,PATCH,POST,DELETE
+src/app/api/company-memory/route.ts	/api/company-memory	route	
+src/app/api/company-usage-summaries/route.ts	/api/company-usage-summaries	route	
+src/app/api/cost-estimate/route.ts	/api/cost-estimate	route	GET,POST
+src/app/api/cost-estimates/[id]/route.ts	/api/cost-estimates/[id]	route	GET,POST
+src/app/api/crm/activities/route.ts	/api/crm/activities	route	
+src/app/api/crm/contacts/[id]/route.ts	/api/crm/contacts/[id]	route	GET,PUT,DELETE
+src/app/api/crm/contacts/route.ts	/api/crm/contacts	route	
+src/app/api/crm/deals/[id]/route.ts	/api/crm/deals/[id]	route	GET,PUT,DELETE
+src/app/api/crm/deals/route.ts	/api/crm/deals	route	
+src/app/api/crm/lead-score/route.ts	/api/crm/lead-score	route	
+src/app/api/crm/notes/route.ts	/api/crm/notes	route	
+src/app/api/crm/pipelines/route.ts	/api/crm/pipelines	route	GET,POST,PUT,DELETE
+src/app/api/crm-connections/route.ts	/api/crm-connections	route	GET,POST
+src/app/api/cron/route.ts	/api/cron	route	GET,POST
+src/app/api/dashboard/cost/route.ts	/api/dashboard/cost	route	GET
+src/app/api/dashboard/security/route.ts	/api/dashboard/security	route	GET
+src/app/api/dashboard/stats/route.ts	/api/dashboard/stats	route	GET
+src/app/api/dashboard/super-admin/route.ts	/api/dashboard/super-admin	route	GET
+src/app/api/dashboard/usage/route.ts	/api/dashboard/usage	route	GET
+src/app/api/db/backup/route.ts	/api/db/backup	route	GET,POST
+src/app/api/db/migrate/route.ts	/api/db/migrate	route	POST
+src/app/api/db/restore/route.ts	/api/db/restore	route	POST
+src/app/api/department-memory/route.ts	/api/department-memory	route	
+src/app/api/departments/[id]/route.ts	/api/departments/[id]	route	DELETE,PUT
+src/app/api/departments/route.ts	/api/departments	route	GET,POST
+src/app/api/deploy/route.ts	/api/deploy	route	GET,POST
+src/app/api/disaster-recovery/route.ts	/api/disaster-recovery	route	GET,POST
+src/app/api/documents/route.ts	/api/documents	route	GET,POST
+src/app/api/education-hub/route.ts	/api/education-hub	route	GET,POST
+src/app/api/email/accounts/route.ts	/api/email/accounts	route	GET,POST,PUT,DELETE
+src/app/api/email/inbox/route.ts	/api/email/inbox	route	GET
+src/app/api/email/reply/route.ts	/api/email/reply	route	POST
+src/app/api/email/send/route.ts	/api/email/send	route	POST
+src/app/api/email/sync/route.ts	/api/email/sync	route	POST
+src/app/api/email/templates/route.ts	/api/email/templates	route	GET,POST,PUT,DELETE
+src/app/api/email/track/open/[token]/route.ts	/api/email/track/open/[token]	route	GET
+src/app/api/emergency/action/route.ts	/api/emergency/action	route	POST
+src/app/api/emergency/route.ts	/api/emergency	route	GET,POST
+src/app/api/enterprise/activity/route.ts	/api/enterprise/activity	route	GET
+src/app/api/enterprise/agent-chat/route.ts	/api/enterprise/agent-chat	route	POST
+src/app/api/enterprise/agent-factory/[id]/route.ts	/api/enterprise/agent-factory/[id]	route	GET,DELETE
+src/app/api/enterprise/agent-factory/create/route.ts	/api/enterprise/agent-factory/create	route	POST
+src/app/api/enterprise/agents/[agentId]/detail/route.ts	/api/enterprise/agents/[agentId]/detail	route	GET
+src/app/api/enterprise/agents/adaptive/route.ts	/api/enterprise/agents/adaptive	route	POST
+src/app/api/enterprise/agents/route.ts	/api/enterprise/agents	route	GET
+src/app/api/enterprise/agents/run/route.ts	/api/enterprise/agents/run	route	POST
+src/app/api/enterprise/collaborations/route.ts	/api/enterprise/collaborations	route	GET
+src/app/api/enterprise/constitution/route.ts	/api/enterprise/constitution	route	GET,POST
+src/app/api/enterprise/conversations/route.ts	/api/enterprise/conversations	route	GET,DELETE
+src/app/api/enterprise/data-lake/route.ts	/api/enterprise/data-lake	route	GET
+src/app/api/enterprise/dcc/route.ts	/api/enterprise/dcc	route	GET
+src/app/api/enterprise/department-ai/route.ts	/api/enterprise/department-ai	route	GET,POST
+src/app/api/enterprise/departments/route.ts	/api/enterprise/departments	route	GET
+src/app/api/enterprise/engines/route.ts	/api/enterprise/engines	route	GET
+src/app/api/enterprise/events/route.ts	/api/enterprise/events	route	GET
+src/app/api/enterprise/integrations/route.ts	/api/enterprise/integrations	route	GET
+src/app/api/enterprise/knowledge/route.ts	/api/enterprise/knowledge	route	GET
+src/app/api/enterprise/mobile-apps/route.ts	/api/enterprise/mobile-apps	route	GET
+src/app/api/enterprise/orchestrator/route.ts	/api/enterprise/orchestrator	route	POST,GET
+src/app/api/enterprise/orchestrator/run/route.ts	/api/enterprise/orchestrator/run	route	POST
+src/app/api/enterprise/orchestrator/status/route.ts	/api/enterprise/orchestrator/status	route	GET
+src/app/api/enterprise/overview/route.ts	/api/enterprise/overview	route	GET
+src/app/api/enterprise/prompts/route.ts	/api/enterprise/prompts	route	GET
+src/app/api/enterprise/rbac/route.ts	/api/enterprise/rbac	route	GET,POST
+src/app/api/enterprise/roadmap/route.ts	/api/enterprise/roadmap	route	GET
+src/app/api/enterprise/rules/route.ts	/api/enterprise/rules	route	GET
+src/app/api/enterprise/skills/route.ts	/api/enterprise/skills	route	GET
+src/app/api/enterprise/sops/route.ts	/api/enterprise/sops	route	GET
+src/app/api/enterprise/stats/route.ts	/api/enterprise/stats	route	GET
+src/app/api/enterprise/workflows/route.ts	/api/enterprise/workflows	route	GET
+src/app/api/enterprise/workforce-evolution/route.ts	/api/enterprise/workforce-evolution	route	GET,POST
+src/app/api/evaluations/route.ts	/api/evaluations	route	GET,POST
+src/app/api/feature-flags/route.ts	/api/feature-flags	route	
+src/app/api/feedback/route.ts	/api/feedback	route	GET,POST
+src/app/api/free-resources/route.ts	/api/free-resources	route	GET
+src/app/api/funnels/route.ts	/api/funnels	route	GET,POST,PUT,DELETE
+src/app/api/gateway/sign/route.ts	/api/gateway/sign	route	POST
+src/app/api/gateway/verify/route.ts	/api/gateway/verify	route	POST
+src/app/api/gpu-monitor/route.ts	/api/gpu-monitor	route	GET
+src/app/api/health/deep/route.ts	/api/health/deep	route	GET
+src/app/api/health/live/route.ts	/api/health/live	route	GET
+src/app/api/health/ping/route.ts	/api/health/ping	route	GET
+src/app/api/health/ready/route.ts	/api/health/ready	route	GET
+src/app/api/health/route.ts	/api/health	route	GET
+src/app/api/image-studio/generate/route.ts	/api/image-studio/generate	route	POST
+src/app/api/incidents/[id]/route.ts	/api/incidents/[id]	route	GET,PUT,DELETE
+src/app/api/incidents/route.ts	/api/incidents	route	GET,POST,PUT,DELETE
+src/app/api/infra/connect/route.ts	/api/infra/connect	route	POST
+src/app/api/infra/minio/objects/route.ts	/api/infra/minio/objects	route	GET,POST
+src/app/api/infra/ping/route.ts	/api/infra/ping	route	POST
+src/app/api/infra/postgres/query/route.ts	/api/infra/postgres/query	route	POST
+src/app/api/infra/redis/keys/route.ts	/api/infra/redis/keys	route	GET,POST,DELETE
+src/app/api/infra/status/route.ts	/api/infra/status	route	GET
+src/app/api/integrations/route.ts	/api/integrations	route	GET,POST,PUT,DELETE
+src/app/api/internal/client-executions/[id]/route.ts	/api/internal/client-executions/[id]	route	GET,POST
+src/app/api/internal/client-invoices/[id]/payments/route.ts	/api/internal/client-invoices/[id]/payments	route	POST
+src/app/api/internal/client-invoices/route.ts	/api/internal/client-invoices	route	GET,POST
+src/app/api/internal/client-projects/[id]/deliverables/route.ts	/api/internal/client-projects/[id]/deliverables	route	POST
+src/app/api/internal/client-projects/[id]/executions/route.ts	/api/internal/client-projects/[id]/executions	route	GET,POST
+src/app/api/internal/client-projects/[id]/messages/route.ts	/api/internal/client-projects/[id]/messages	route	POST
+src/app/api/internal/client-projects/[id]/milestones/route.ts	/api/internal/client-projects/[id]/milestones	route	POST,PATCH
+src/app/api/internal/client-projects/[id]/quotations/route.ts	/api/internal/client-projects/[id]/quotations	route	POST
+src/app/api/internal/client-projects/[id]/route.ts	/api/internal/client-projects/[id]	route	GET,PATCH
+src/app/api/internal/client-projects/route.ts	/api/internal/client-projects	route	GET
+src/app/api/internal/client-tickets/[id]/route.ts	/api/internal/client-tickets/[id]	route	GET,POST
+src/app/api/internal/client-tickets/route.ts	/api/internal/client-tickets	route	GET
+src/app/api/internal/clients/[companyId]/route.ts	/api/internal/clients/[companyId]	route	GET,PATCH
+src/app/api/internal/clients/route.ts	/api/internal/clients	route	GET,POST
+src/app/api/internal/security/access-violations/route.ts	/api/internal/security/access-violations	route	GET
+src/app/api/internal/service-offerings/route.ts	/api/internal/service-offerings	route	GET,PATCH
+src/app/api/interview-hub/route.ts	/api/interview-hub	route	GET,POST
+src/app/api/jobs/[id]/route.ts	/api/jobs/[id]	route	GET,PATCH
+src/app/api/jobs/route.ts	/api/jobs	route	GET
+src/app/api/jobs/stats/route.ts	/api/jobs/stats	route	GET
+src/app/api/llm/models/route.ts	/api/llm/models	route	GET,POST
+src/app/api/llm/route/route.ts	/api/llm/route	route	POST
+src/app/api/llm/stream/route.ts	/api/llm/stream	route	POST
+src/app/api/logs/route.ts	/api/logs	route	POST,DELETE
+src/app/api/marketing-kit/[slug]/route.ts	/api/marketing-kit/[slug]	route	GET
+src/app/api/marketing-kit/route.ts	/api/marketing-kit	route	GET,POST
+src/app/api/marketplace/[id]/install/route.ts	/api/marketplace/[id]/install	route	POST
+src/app/api/marketplace/[id]/reviews/route.ts	/api/marketplace/[id]/reviews	route	GET,POST
+src/app/api/marketplace/[id]/route.ts	/api/marketplace/[id]	route	GET,PATCH,DELETE
+src/app/api/marketplace/installs/route.ts	/api/marketplace/installs	route	GET,POST
+src/app/api/marketplace/route.ts	/api/marketplace	route	GET,POST
+src/app/api/marketplace/templates/route.ts	/api/marketplace/templates	route	GET,POST
+src/app/api/mcp-servers/route.ts	/api/mcp-servers	route	GET,POST,PUT,DELETE
+src/app/api/media/ai-tag/route.ts	/api/media/ai-tag	route	POST
+src/app/api/media/folders/route.ts	/api/media/folders	route	GET,POST,PUT,DELETE
+src/app/api/media/generate/route.ts	/api/media/generate	route	POST,GET
+src/app/api/media/jobs/[id]/route.ts	/api/media/jobs/[id]	route	GET
+src/app/api/media/route.ts	/api/media	route	GET,DELETE,PUT
+src/app/api/media/upload/route.ts	/api/media/upload	route	POST
+src/app/api/meetings/route.ts	/api/meetings	route	GET,POST
+src/app/api/memory/[id]/route.ts	/api/memory/[id]	route	GET,DELETE
+src/app/api/memory/route.ts	/api/memory	route	GET,POST,DELETE
+src/app/api/metrics/collect/route.ts	/api/metrics/collect	route	POST
+src/app/api/metrics/prometheus/route.ts	/api/metrics/prometheus	route	GET
+src/app/api/metrics/route.ts	/api/metrics	route	GET,POST,PUT,DELETE
+src/app/api/model-assignments/route.ts	/api/model-assignments	route	
+src/app/api/model-health/route.ts	/api/model-health	route	
+src/app/api/model-hub/route.ts	/api/model-hub	route	GET
+src/app/api/models/route.ts	/api/models	route	GET,POST
+src/app/api/music-studio/generate/route.ts	/api/music-studio/generate	route	POST,GET
+src/app/api/music-studio/tracks/route.ts	/api/music-studio/tracks	route	GET
+src/app/api/notifications/read/route.ts	/api/notifications/read	route	POST
+src/app/api/notifications/route.ts	/api/notifications	route	GET,POST,PUT,DELETE
+src/app/api/observability/dashboard/route.ts	/api/observability/dashboard	route	GET
+src/app/api/open-source-models/route.ts	/api/open-source-models	route	GET
+src/app/api/outputs/[taskId]/route.ts	/api/outputs/[taskId]	route	GET
+src/app/api/outputs/route.ts	/api/outputs	route	GET
+src/app/api/payment-guard/report/route.ts	/api/payment-guard/report	route	GET
+src/app/api/payment-guard/route.ts	/api/payment-guard	route	GET,POST
+src/app/api/portal/account/route.ts	/api/portal/account	route	GET
+src/app/api/portal/billing/route.ts	/api/portal/billing	route	GET
+src/app/api/portal/dashboard/route.ts	/api/portal/dashboard	route	GET
+src/app/api/portal/deliverables/[id]/approve/route.ts	/api/portal/deliverables/[id]/approve	route	POST
+src/app/api/portal/deliverables/[id]/download/route.ts	/api/portal/deliverables/[id]/download	route	GET
+src/app/api/portal/deliverables/[id]/revision/route.ts	/api/portal/deliverables/[id]/revision	route	POST
+src/app/api/portal/deliverables/route.ts	/api/portal/deliverables	route	GET
+src/app/api/portal/documents/[id]/download/route.ts	/api/portal/documents/[id]/download	route	GET
+src/app/api/portal/invoices/[id]/route.ts	/api/portal/invoices/[id]	route	GET
+src/app/api/portal/notifications/route.ts	/api/portal/notifications	route	GET,POST
+src/app/api/portal/projects/[id]/documents/route.ts	/api/portal/projects/[id]/documents	route	GET,POST
+src/app/api/portal/projects/[id]/messages/route.ts	/api/portal/projects/[id]/messages	route	GET,POST
+src/app/api/portal/projects/[id]/route.ts	/api/portal/projects/[id]	route	GET
+src/app/api/portal/projects/[id]/withdraw/route.ts	/api/portal/projects/[id]/withdraw	route	POST
+src/app/api/portal/projects/route.ts	/api/portal/projects	route	GET,POST
+src/app/api/portal/quotations/[id]/respond/route.ts	/api/portal/quotations/[id]/respond	route	POST
+src/app/api/portal/services/[slug]/route.ts	/api/portal/services/[slug]	route	GET
+src/app/api/portal/services/route.ts	/api/portal/services	route	GET
+src/app/api/portal/tickets/[id]/route.ts	/api/portal/tickets/[id]	route	GET,POST
+src/app/api/portal/tickets/route.ts	/api/portal/tickets	route	GET,POST
+src/app/api/productivity/report/route.ts	/api/productivity/report	route	GET
+src/app/api/productivity/route.ts	/api/productivity	route	GET,POST
+src/app/api/projects/[id]/route.ts	/api/projects/[id]	route	GET,PATCH,DELETE
+src/app/api/projects/[id]/runs/route.ts	/api/projects/[id]/runs	route	GET,POST
+src/app/api/projects/route.ts	/api/projects	route	GET,POST,PATCH
+src/app/api/prompts/[id]/route.ts	/api/prompts/[id]	route	PUT
+src/app/api/prompts/route.ts	/api/prompts	route	GET,POST,PUT,DELETE
+src/app/api/protection/evaluate/route.ts	/api/protection/evaluate	route	POST
+src/app/api/protection/logs/route.ts	/api/protection/logs	route	GET
+src/app/api/protection/report/route.ts	/api/protection/report	route	GET
+src/app/api/protection/route.ts	/api/protection	route	GET,POST
+src/app/api/public/contact/route.ts	/api/public/contact	route	POST
+src/app/api/quality/route.ts	/api/quality	route	GET,POST,PUT,DELETE
+src/app/api/queues/[id]/items/[itemId]/route.ts	/api/queues/[id]/items/[itemId]	route	PATCH
+src/app/api/queues/[id]/items/route.ts	/api/queues/[id]/items	route	GET,POST,PATCH
+src/app/api/queues/[id]/process/route.ts	/api/queues/[id]/process	route	POST
+src/app/api/queues/dead-letter/route.ts	/api/queues/dead-letter	route	GET,POST,DELETE
+src/app/api/queues/route.ts	/api/queues	route	GET,POST
+src/app/api/rag/chunks/[id]/route.ts	/api/rag/chunks/[id]	route	GET,DELETE
+src/app/api/rag/collections/route.ts	/api/rag/collections	route	GET,POST
+src/app/api/rag/documents/[id]/route.ts	/api/rag/documents/[id]	route	GET,DELETE
+src/app/api/rag/documents/route.ts	/api/rag/documents	route	GET,POST
+src/app/api/rag/engine-stats/route.ts	/api/rag/engine-stats	route	GET
+src/app/api/rag/feedback/route.ts	/api/rag/feedback	route	
+src/app/api/rag/ingest/route.ts	/api/rag/ingest	route	POST
+src/app/api/rag/logs/route.ts	/api/rag/logs	route	GET
+src/app/api/rag/query/route.ts	/api/rag/query	route	POST
+src/app/api/rag/search/route.ts	/api/rag/search	route	POST
+src/app/api/research-hub/route.ts	/api/research-hub	route	GET,POST
+src/app/api/roles/route.ts	/api/roles	route	GET,POST,PUT,DELETE
+src/app/api/route.ts	/api	route	GET
+src/app/api/runs/[id]/events/route.ts	/api/runs/[id]/events	route	GET
+src/app/api/runs/[id]/route.ts	/api/runs/[id]	route	GET,DELETE
+src/app/api/runs/route.ts	/api/runs	route	POST,GET
+src/app/api/security/secrets/route.ts	/api/security/secrets	route	GET,POST,DELETE
+src/app/api/security/session/route.ts	/api/security/session	route	GET,DELETE,POST
+src/app/api/security-events/route.ts	/api/security-events	route	GET,POST,PUT,DELETE
+src/app/api/self-improvement/report/route.ts	/api/self-improvement/report	route	GET
+src/app/api/self-improvement/route.ts	/api/self-improvement	route	GET,POST
+src/app/api/seo/challenges/route.ts	/api/seo/challenges	route	GET,POST,PUT
+src/app/api/seo/route.ts	/api/seo	route	GET,POST,PUT
+src/app/api/settings/route.ts	/api/settings	route	GET,PUT
+src/app/api/sister-companies/route.ts	/api/sister-companies	route	GET
+src/app/api/skill-factory/build/route.ts	/api/skill-factory/build	route	POST
+src/app/api/skill-permissions/route.ts	/api/skill-permissions	route	
+src/app/api/skill-runs/[taskId]/route.ts	/api/skill-runs/[taskId]	route	GET
+src/app/api/skill-validation-logs/route.ts	/api/skill-validation-logs	route	
+src/app/api/skill-versions/route.ts	/api/skill-versions	route	
+src/app/api/skills/[id]/route.ts	/api/skills/[id]	route	PUT,DELETE
+src/app/api/skills/registry/route.ts	/api/skills/registry	route	GET
+src/app/api/skills/route.ts	/api/skills	route	GET,POST
+src/app/api/sms/campaigns/route.ts	/api/sms/campaigns	route	POST,GET
+src/app/api/sms/route.ts	/api/sms	route	GET,POST
+src/app/api/social/accounts/route.ts	/api/social/accounts	route	GET,POST,DELETE
+src/app/api/social/analytics/route.ts	/api/social/analytics	route	GET
+src/app/api/social/oauth/[provider]/route.ts	/api/social/oauth/[provider]	route	POST,GET
+src/app/api/social/publish/route.ts	/api/social/publish	route	POST,GET
+src/app/api/social/webhooks/[platform]/route.ts	/api/social/webhooks/[platform]	route	GET,POST
+src/app/api/sop-updates/route.ts	/api/sop-updates	route	
+src/app/api/stats/route.ts	/api/stats	route	GET
+src/app/api/storage/files/[id]/route.ts	/api/storage/files/[id]	route	GET
+src/app/api/storage/files/route.ts	/api/storage/files	route	GET,POST,DELETE
+src/app/api/super-admin/ai/company-config/route.ts	/api/super-admin/ai/company-config	route	GET,PUT
+src/app/api/super-admin/ai/free-only/route.ts	/api/super-admin/ai/free-only	route	GET,POST
+src/app/api/super-admin/ai/model-center/route.ts	/api/super-admin/ai/model-center	route	GET
+src/app/api/super-admin/ai/model-permissions/route.ts	/api/super-admin/ai/model-permissions	route	GET,POST
+src/app/api/super-admin/ai/provider-quotas/route.ts	/api/super-admin/ai/provider-quotas	route	GET,POST
+src/app/api/super-admin/ai/provider-verifications/route.ts	/api/super-admin/ai/provider-verifications	route	GET,POST
+src/app/api/super-admin/ai/providers/[id]/route.ts	/api/super-admin/ai/providers/[id]	route	PATCH,DELETE
+src/app/api/super-admin/ai/providers/[id]/test/route.ts	/api/super-admin/ai/providers/[id]/test	route	POST
+src/app/api/super-admin/ai/providers/route.ts	/api/super-admin/ai/providers	route	GET,POST
+src/app/api/super-admin/ai/routing-policies/route.ts	/api/super-admin/ai/routing-policies	route	GET,PUT
+src/app/api/super-admin/ai/usage/route.ts	/api/super-admin/ai/usage	route	GET
+src/app/api/super-admin/link-coverage/route.ts	/api/super-admin/link-coverage	route	GET
+src/app/api/super-admin/route.ts	/api/super-admin	route	GET,POST
+src/app/api/super-chat/route.ts	/api/super-chat	route	POST,DELETE
+src/app/api/sync/route.ts	/api/sync	route	GET,POST
+src/app/api/system-health/route.ts	/api/system-health	route	GET
+src/app/api/task-errors/route.ts	/api/task-errors	route	
+src/app/api/task-steps/[taskId]/route.ts	/api/task-steps/[taskId]	route	GET
+src/app/api/tasks/[id]/route.ts	/api/tasks/[id]	route	DELETE,PUT
+src/app/api/tasks/route.ts	/api/tasks	route	GET
+src/app/api/tenant-admin/config/route.ts	/api/tenant-admin/config	route	GET,POST,PUT,DELETE
+src/app/api/tenant-admin/quotas/route.ts	/api/tenant-admin/quotas	route	GET
+src/app/api/tenant-admin/users/route.ts	/api/tenant-admin/users	route	GET,POST,DELETE
+src/app/api/tenant-gateway/distribution/route.ts	/api/tenant-gateway/distribution	route	GET
+src/app/api/tenant-gateway/logs/route.ts	/api/tenant-gateway/logs	route	GET
+src/app/api/tenant-gateway/route.ts	/api/tenant-gateway	route	POST
+src/app/api/tickets/[id]/route.ts	/api/tickets/[id]	route	GET,PUT,DELETE
+src/app/api/tickets/route.ts	/api/tickets	route	GET,POST
+src/app/api/token-budget/route.ts	/api/token-budget	route	GET,POST,PUT,DELETE
+src/app/api/token-usage/route.ts	/api/token-usage	route	GET,POST,PUT
+src/app/api/tool-approvals/route.ts	/api/tool-approvals	route	
+src/app/api/tool-runs/route.ts	/api/tool-runs	route	
+src/app/api/tools/route.ts	/api/tools	route	GET,POST,DELETE
+src/app/api/training/evaluations/route.ts	/api/training/evaluations	route	GET,POST
+src/app/api/training/route.ts	/api/training	route	GET,POST
+src/app/api/training/sources/route.ts	/api/training/sources	route	GET,POST
+src/app/api/universities/[id]/route.ts	/api/universities/[id]	route	GET,PUT
+src/app/api/universities/accommodation/route.ts	/api/universities/accommodation	route	GET
+src/app/api/universities/courses/route.ts	/api/universities/courses	route	GET
+src/app/api/universities/route.ts	/api/universities	route	GET
+src/app/api/universities/scholarships/route.ts	/api/universities/scholarships	route	GET
+src/app/api/universities/stats/route.ts	/api/universities/stats	route	GET
+src/app/api/uploads/[id]/route.ts	/api/uploads/[id]	route	DELETE
+src/app/api/uploads/route.ts	/api/uploads	route	GET,POST
+src/app/api/usage/agents/route.ts	/api/usage/agents	route	GET
+src/app/api/usage/check/route.ts	/api/usage/check	route	POST
+src/app/api/usage/route.ts	/api/usage	route	GET
+src/app/api/usage/workflows/route.ts	/api/usage/workflows	route	GET
+src/app/api/users/[id]/route.ts	/api/users/[id]	route	PUT,DELETE
+src/app/api/users/invite/route.ts	/api/users/invite	route	POST,GET,PUT
+src/app/api/users/route.ts	/api/users	route	GET,POST
+src/app/api/v1/agents/[id]/route.ts	/api/v1/agents/[id]	route	GET
+src/app/api/v1/agents/[id]/run/route.ts	/api/v1/agents/[id]/run	route	POST
+src/app/api/v1/agents/execute/route.ts	/api/v1/agents/execute	route	POST,DELETE
+src/app/api/v1/agents/route.ts	/api/v1/agents	route	GET,POST
+src/app/api/v1/ai/capabilities/route.ts	/api/v1/ai/capabilities	route	GET
+src/app/api/v1/ai/health/route.ts	/api/v1/ai/health	route	GET
+src/app/api/v1/ai/tasks/[id]/route.ts	/api/v1/ai/tasks/[id]	route	GET
+src/app/api/v1/ai/tasks/route.ts	/api/v1/ai/tasks	route	POST,GET
+src/app/api/v1/ai/usage/route.ts	/api/v1/ai/usage	route	GET
+src/app/api/v1/approvals/[id]/route.ts	/api/v1/approvals/[id]	route	GET,POST
+src/app/api/v1/approvals/route.ts	/api/v1/approvals	route	GET
+src/app/api/v1/artifacts/[id]/route.ts	/api/v1/artifacts/[id]	route	GET,DELETE
+src/app/api/v1/artifacts/route.ts	/api/v1/artifacts	route	GET,POST
+src/app/api/v1/command/route.ts	/api/v1/command	route	POST
+src/app/api/v1/events/route.ts	/api/v1/events	route	GET
+src/app/api/v1/health/route.ts	/api/v1/health	route	GET
+src/app/api/v1/memory/route.ts	/api/v1/memory	route	GET,POST
+src/app/api/v1/models/route.ts	/api/v1/models	route	GET
+src/app/api/v1/projects/[id]/discover/route.ts	/api/v1/projects/[id]/discover	route	POST
+src/app/api/v1/projects/[id]/route.ts	/api/v1/projects/[id]	route	GET
+src/app/api/v1/projects/route.ts	/api/v1/projects	route	GET,POST,PUT
+src/app/api/v1/providers/[id]/route.ts	/api/v1/providers/[id]	route	GET,PATCH,DELETE
+src/app/api/v1/providers/[id]/test/route.ts	/api/v1/providers/[id]/test	route	POST
+src/app/api/v1/providers/decisions/route.ts	/api/v1/providers/decisions	route	GET
+src/app/api/v1/providers/route.ts	/api/v1/providers	route	GET,POST
+src/app/api/v1/runs/[id]/route.ts	/api/v1/runs/[id]	route	GET,DELETE
+src/app/api/v1/runs/route.ts	/api/v1/runs	route	GET,POST
+src/app/api/v1/skills/route.ts	/api/v1/skills	route	GET,POST
+src/app/api/v1/tasks/[id]/route.ts	/api/v1/tasks/[id]	route	GET
+src/app/api/v1/tasks/route.ts	/api/v1/tasks	route	GET
+src/app/api/v1/tools/route.ts	/api/v1/tools	route	GET
+src/app/api/v1/voice/agents/[id]/versions/route.ts	/api/v1/voice/agents/[id]/versions	route	GET
+src/app/api/v1/voice/agents/route.ts	/api/v1/voice/agents	route	GET,POST,PATCH
+src/app/api/v1/voice/analytics/route.ts	/api/v1/voice/analytics	route	GET
+src/app/api/v1/voice/billing/route.ts	/api/v1/voice/billing	route	GET,POST
+src/app/api/v1/voice/calls/[id]/end/route.ts	/api/v1/voice/calls/[id]/end	route	POST
+src/app/api/v1/voice/calls/[id]/route.ts	/api/v1/voice/calls/[id]	route	GET
+src/app/api/v1/voice/calls/[id]/transfer/route.ts	/api/v1/voice/calls/[id]/transfer	route	POST
+src/app/api/v1/voice/calls/inbound/route.ts	/api/v1/voice/calls/inbound	route	POST
+src/app/api/v1/voice/calls/route.ts	/api/v1/voice/calls	route	GET,POST
+src/app/api/v1/voice/campaigns/[id]/actions/route.ts	/api/v1/voice/campaigns/[id]/actions	route	POST
+src/app/api/v1/voice/campaigns/route.ts	/api/v1/voice/campaigns	route	GET,POST
+src/app/api/v1/voice/health/route.ts	/api/v1/voice/health	route	GET
+src/app/api/v1/workflows/[id]/run/route.ts	/api/v1/workflows/[id]/run	route	POST
+src/app/api/v1/workflows/route.ts	/api/v1/workflows	route	GET,POST
+src/app/api/video-hub/route.ts	/api/video-hub	route	GET,POST
+src/app/api/video-studio/generate/route.ts	/api/video-studio/generate	route	POST
+src/app/api/video-studio/productions/route.ts	/api/video-studio/productions	route	GET
+src/app/api/video-studio/transcribe/route.ts	/api/video-studio/transcribe	route	POST
+src/app/api/voice/agents/route.ts	/api/voice/agents	route	GET,POST,PATCH
+src/app/api/voice/appointments/route.ts	/api/voice/appointments	route	GET,POST,PATCH
+src/app/api/voice/asr/route.ts	/api/voice/asr	route	GET,POST,PATCH
+src/app/api/voice/benchmarks/route.ts	/api/voice/benchmarks	route	GET,POST
+src/app/api/voice/business-hours/route.ts	/api/voice/business-hours	route	GET,POST,PATCH,DELETE
+src/app/api/voice/callbacks/route.ts	/api/voice/callbacks	route	GET,POST
+src/app/api/voice/calls/route.ts	/api/voice/calls	route	GET,POST,PATCH
+src/app/api/voice/campaigns/route.ts	/api/voice/campaigns	route	GET,POST,PATCH
+src/app/api/voice/consents/route.ts	/api/voice/consents	route	GET,POST,PATCH
+src/app/api/voice/conversations/route.ts	/api/voice/conversations	route	GET
+src/app/api/voice/conversations/turn/route.ts	/api/voice/conversations/turn	route	POST
+src/app/api/voice/crm/route.ts	/api/voice/crm	route	GET,POST,PATCH
+src/app/api/voice/customer-consents/route.ts	/api/voice/customer-consents	route	GET,POST,PATCH
+src/app/api/voice/dnc/route.ts	/api/voice/dnc	route	GET,POST,DELETE
+src/app/api/voice/escalations/route.ts	/api/voice/escalations	route	GET,PATCH
+src/app/api/voice/health/route.ts	/api/voice/health	route	GET
+src/app/api/voice/inbox/route.ts	/api/voice/inbox	route	GET,POST
+src/app/api/voice/intelligence/route.ts	/api/voice/intelligence	route	GET,POST
+src/app/api/voice/ivr/route.ts	/api/voice/ivr	route	GET,POST,PATCH,DELETE,PUT
+src/app/api/voice/overview/route.ts	/api/voice/overview	route	GET
+src/app/api/voice/phone-numbers/route.ts	/api/voice/phone-numbers	route	GET,POST
+src/app/api/voice/presence/route.ts	/api/voice/presence	route	GET,POST
+src/app/api/voice/pronunciation/route.ts	/api/voice/pronunciation	route	GET,POST,PATCH,DELETE,PUT
+src/app/api/voice/queues/route.ts	/api/voice/queues	route	GET,POST,PATCH,DELETE
+src/app/api/voice/recordings/route.ts	/api/voice/recordings	route	GET,DELETE
+src/app/api/voice/routing/route.ts	/api/voice/routing	route	POST,GET
+src/app/api/voice/sip-trunks/route.ts	/api/voice/sip-trunks	route	GET,POST,PATCH
+src/app/api/voice/supervisor/route.ts	/api/voice/supervisor	route	GET,POST
+src/app/api/voice/telephony/providers/route.ts	/api/voice/telephony/providers	route	GET,POST,PATCH
+src/app/api/voice/telephony/webhook/route.ts	/api/voice/telephony/webhook	route	POST
+src/app/api/voice/tts/route.ts	/api/voice/tts	route	GET,POST
+src/app/api/voice/usage/route.ts	/api/voice/usage	route	GET,POST
+src/app/api/voice/voicemail/route.ts	/api/voice/voicemail	route	GET,POST,PATCH
+src/app/api/voice/voices/route.ts	/api/voice/voices	route	GET,POST,PATCH
+src/app/api/voice-system/route.ts	/api/voice-system	route	GET,POST
+src/app/api/webhooks/[id]/route.ts	/api/webhooks/[id]	route	PATCH,DELETE
+src/app/api/webhooks/deliveries/route.ts	/api/webhooks/deliveries	route	GET
+src/app/api/webhooks/route.ts	/api/webhooks	route	GET,POST
+src/app/api/whatsapp/campaigns/route.ts	/api/whatsapp/campaigns	route	POST,GET
+src/app/api/whatsapp/inbox/[id]/route.ts	/api/whatsapp/inbox/[id]	route	GET,POST,PATCH
+src/app/api/whatsapp/inbox/route.ts	/api/whatsapp/inbox	route	GET
+src/app/api/whatsapp/numbers/route.ts	/api/whatsapp/numbers	route	GET,POST,PUT,DELETE
+src/app/api/whatsapp/send/route.ts	/api/whatsapp/send	route	POST
+src/app/api/whatsapp/webhook/route.ts	/api/whatsapp/webhook	route	GET,POST
+src/app/api/workers/action/route.ts	/api/workers/action	route	GET,POST
+src/app/api/workers/route.ts	/api/workers	route	GET,POST,PUT,DELETE
+src/app/api/workflow-factory/build/route.ts	/api/workflow-factory/build	route	POST
+src/app/api/workflow-improvements/route.ts	/api/workflow-improvements	route	
+src/app/api/workflow-steps/route.ts	/api/workflow-steps	route	
+src/app/api/workflow-usage-summaries/route.ts	/api/workflow-usage-summaries	route	
+src/app/api/workflows/[id]/route.ts	/api/workflows/[id]	route	DELETE,PUT
+src/app/api/workflows/[id]/run/route.ts	/api/workflows/[id]/run	route	POST
+src/app/api/workflows/route.ts	/api/workflows	route	GET
+src/app/api/workforce/ai-employees/[id]/history/route.ts	/api/workforce/ai-employees/[id]/history	route	GET
+src/app/api/workforce/ai-employees/[id]/lifecycle/route.ts	/api/workforce/ai-employees/[id]/lifecycle	route	PATCH
+src/app/api/workforce/ai-employees/route.ts	/api/workforce/ai-employees	route	GET
+src/app/brand/page.tsx	/brand	page	
+src/app/dashboard/page.tsx	/dashboard	page	
+src/app/design/page.tsx	/design	page	
+src/app/invoice/page.tsx	/invoice	page	
+src/app/layout.tsx	/	layout	
+src/app/login/page.tsx	/login	page	
+src/app/page.tsx	/	page	
+src/app/portal/billing/page.tsx	/portal/billing	page	
+src/app/portal/deliverables/page.tsx	/portal/deliverables	page	
+src/app/portal/layout.tsx	/portal	layout	
+src/app/portal/notifications/page.tsx	/portal/notifications	page	
+src/app/portal/page.tsx	/portal	page	
+src/app/portal/projects/[id]/page.tsx	/portal/projects/[id]	page	
+src/app/portal/projects/page.tsx	/portal/projects	page	
+src/app/portal/services/[slug]/page.tsx	/portal/services/[slug]	page	
+src/app/portal/services/page.tsx	/portal/services	page	
+src/app/portal/support/[id]/page.tsx	/portal/support/[id]	page	
+src/app/portal/support/page.tsx	/portal/support	page	
+src/app/site/about/page.tsx	/site/about	page	
+src/app/site/careers/page.tsx	/site/careers	page	
+src/app/site/contact/page.tsx	/site/contact	page	
+src/app/site/diagrams/page.tsx	/site/diagrams	page	
+src/app/site/how-we-work/page.tsx	/site/how-we-work	page	
+src/app/site/insights/page.tsx	/site/insights	page	
+src/app/site/layout.tsx	/site	layout	
+src/app/site/page.tsx	/site	page	
+src/app/site/platform/page.tsx	/site/platform	page	
+src/app/site/platform/voice-contact-center/page.tsx	/site/platform/voice-contact-center	page	
+src/app/site/press/page.tsx	/site/press	page	
+src/app/site/pricing/page.tsx	/site/pricing	page	
+src/app/site/privacy/page.tsx	/site/privacy	page	
+src/app/site/projects/page.tsx	/site/projects	page	
+src/app/site/services/page.tsx	/site/services	page	
+src/app/site/solutions/page.tsx	/site/solutions	page	
+src/app/site/terms/page.tsx	/site/terms	page	
+src/app/site/work/page.tsx	/site/work	page	

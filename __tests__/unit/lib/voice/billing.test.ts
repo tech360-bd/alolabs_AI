@@ -28,7 +28,7 @@ describe('parsePriceBook', () => {
     const book = parsePriceBook(JSON.stringify({
       voicePriceBook: { prices: { not_a_dimension: 9, ai_call_minutes: -3, tts_characters: 'x' } },
     }))
-    expect(book.prices.not_a_dimension).toBeUndefined()
+    expect(book.prices).not.toHaveProperty('not_a_dimension')
     expect(book.prices.ai_call_minutes).toBeUndefined()
   })
 

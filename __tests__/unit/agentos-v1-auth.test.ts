@@ -179,7 +179,10 @@ describe('authenticateV1', () => {
   });
 
   it('rejects a session token with no company membership', async () => {
-    vi.mocked(verifySessionToken).mockResolvedValue({ userId: 'user-no-company' });
+    vi.mocked(verifySessionToken).mockResolvedValue({
+      userId: 'user-no-company', audience: 'internal', role: 'admin',
+      session: { userId: 'user-no-company', createdAt: '2026-01-01', lastUsedAt: '2026-01-01', expiresAt: '2026-01-02' },
+    });
     expect(await authenticateV1(req({ authorization: 'Bearer session-token' }))).toBeNull();
   });
 });

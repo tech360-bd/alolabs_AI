@@ -178,11 +178,14 @@ export async function registerNodeWorker(): Promise<void> {
   const { describeDatasource } = await import('@/lib/db');
   const datasource = describeDatasource();
   console.log(
-    `[AgentOS] datasource provider=${datasource.provider} url=${datasource.redactedUrl}`,
+    `[AgentOS] datasource provider=${datasource.provider}`,
   );
   // Throws in production unless the datasource is MySQL/MariaDB, so a
   // misconfigured server refuses to boot instead of quietly writing to SQLite.
   assertProductionDatasource();
 
+  if (process.env.REDIS_URL) {
+    void import('./lib/redis').then(({ connectRedis }) => connectRedis()).catch(() => console.error('[AgentOS] Redis not connected'));
+  }
   startWorker();
 }

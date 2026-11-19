@@ -1,3 +1,4 @@
+import { notFoundOrActionError as errorResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireCompanyAuth } from '@/lib/api-auth'
@@ -8,15 +9,6 @@ const ExecutionRequestSchema = z.object({
   input: z.record(z.string(), z.unknown()),
   priority: z.enum(['critical', 'high', 'normal', 'low']).optional(),
 })
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error'
-  const status = message === 'Unauthorized' ? 401
-    : message === 'Forbidden' ? 403
-      : message.includes('not found') ? 404
-        : 500
-  return NextResponse.json({ success: false, error: message }, { status })
-}
 
 function positiveInteger(value: string | null, fallback: number, maximum: number): number {
   if (!value) return fallback

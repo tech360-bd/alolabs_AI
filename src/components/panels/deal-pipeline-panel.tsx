@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCurrency, formatOptionalShortDate as formatDate } from '@/lib/display-format';
 import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -65,15 +66,6 @@ interface PipelineStageData {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatCurrency(val: number, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0 }).format(val)
-}
-
-function formatDate(d?: string) {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 
 function daysUntil(d?: string) {
   if (!d) return null

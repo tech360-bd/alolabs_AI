@@ -1,8 +1,9 @@
+import { parseJsonStringList as parseStringList } from '@/lib/json-values';
 import { db } from '@/lib/db';
 import type { Prisma } from '@prisma/client';
 import { agentCompanyScope } from '@/lib/agent-access';
 import { ProtectiveFilter } from './protective-filter';
-import { SAFETY_LEVELS } from './index';
+import { SAFETY_LEVELS } from './catalog';
 
 interface LearningInput {
   agentId: string;
@@ -32,15 +33,6 @@ interface LearningResult {
   insightsExtracted: string[];
   correctionsApplied: string[];
   blockedCount: number;
-}
-
-function parseStringList(value: string | null | undefined): string[] {
-  try {
-    const parsed: unknown = JSON.parse(value || '[]');
-    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : [];
-  } catch {
-    return [];
-  }
 }
 
 export class LearningEngine {

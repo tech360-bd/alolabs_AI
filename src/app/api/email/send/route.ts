@@ -1,5 +1,6 @@
+import { authenticateMailSession as authenticate, getAccountConfig } from '@/lib/email/account-access';
+import { canManageMail } from '@/lib/email/account-credentials';
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { SMTPEmailService } from '@/lib/email/smtp';
 import { EmailTrackingService } from '@/lib/email/tracking';
@@ -8,32 +9,6 @@ import type { SMTPConfig, EmailMessage, EmailAttachment } from '@/lib/email/type
 import * as crypto from 'crypto';
 
 // ─── Helpers ──────────────────────────────────────────────────────────
-
-async function authenticate(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return null;
-  return verifySessionToken(token);
-}
-
-async function getAccountConfig(accountId: string) {
-  const setting = await db.settings.findUnique({
-    where: { key: `email:account:${accountId}` },
-  });
-  if (!setting) return null;
-  try {
-    return JSON.parse(setting.value) as {
-      id: string;
-      email: string;
-      imap: { host: string; port: number; tls: boolean };
-      smtp: { host: string; port: number; secure: boolean };
-      auth: { user: string; pass: string };
-      isActive: boolean;
-    };
-  } catch {
-    return null;
-  }
-}
 
 function generateMessageId(): string {
   const timestamp = Date.now().toString(36);
@@ -75,6 +50,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await authenticate(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!canManageMail(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json();
     const {

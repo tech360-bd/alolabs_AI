@@ -17,7 +17,7 @@
 # Runtime: set PRISMA_SQLITE_ADAPTER=1 so src/lib/db.ts attaches the adapter.
 # Database: DATABASE_URL=file:./db/custom.db npx tsx scripts/sqlite-push.ts
 #
-# In production with CDN access, just run: npx prisma generate
+# Production only: npm run db:generate:mysql (requires the real engines).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

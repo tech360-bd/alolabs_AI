@@ -13,8 +13,10 @@ rule_files:
 scrape_configs:
   - job_name: 'alolabs-aios'
     static_configs:
-      - targets: ['host.docker.internal:3000']
+      - targets: ['host.docker.internal:3011']
     metrics_path: '/api/metrics/prometheus'
+    authorization:
+      credentials_file: /run/secrets/metrics_scrape_token
     scrape_interval: 30s
 
   - job_name: 'node-exporter'
@@ -24,13 +26,3 @@ scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
-
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['host.docker.internal:6379']
-    scrape_interval: 15s
-
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['host.docker.internal:5432']
-    scrape_interval: 15s

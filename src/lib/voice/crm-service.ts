@@ -21,6 +21,7 @@
  *   - Exports respect tenant scope and never include another tenant's rows.
  */
 
+import { parseNonNullJsonOr as safeJson } from '@/lib/json-values';
 import { db } from '@/lib/db'
 import { normalizeBdPhoneNumber } from './customers'
 
@@ -240,15 +241,6 @@ export async function customer360(companyId: string, contactId: string) {
       totalTalkSeconds: calls.reduce((sum, c) => sum + c.durationSeconds, 0),
       lastContactAt: calls[0]?.startedAt ?? contact.lastContactAt,
     },
-  }
-}
-
-function safeJson<T>(raw: string | null | undefined, fallback: T): T {
-  if (!raw) return fallback
-  try {
-    return (JSON.parse(raw) as T) ?? fallback
-  } catch {
-    return fallback
   }
 }
 

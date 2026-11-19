@@ -1,16 +1,16 @@
-version: '3.8'
-
 services:
   prometheus:
     image: prom/prometheus:v2.54.1
     container_name: alolabs-prometheus
     restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml
       - prometheus-data:/prometheus
+    secrets: [metrics_scrape_token]
+    extra_hosts: ["host.docker.internal:host-gateway"]
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.retention.time=30d'
@@ -23,10 +23,10 @@ services:
     container_name: alolabs-grafana
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-change_me_in_production}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set a unique Grafana password}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SERVER_ROOT_URL: ${GRAFANA_URL:-http://localhost:3001}
       GF_INSTALL_PLUGINS: grafana-clock-panel
@@ -43,7 +43,7 @@ services:
     container_name: alolabs-node-exporter
     restart: unless-stopped
     ports:
-      - "9100:9100"
+      - "127.0.0.1:9100:9100"
     command:
       - '--path.rootfs=/host'
       - '--path.procfs=/host/proc'
@@ -58,7 +58,8 @@ services:
     container_name: alolabs-alertmanager
     restart: unless-stopped
     ports:
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"
+    secrets: [alert_webhook_url]
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
     networks:
@@ -71,3 +72,9 @@ volumes:
 networks:
   monitoring:
     driver: bridge
+
+secrets:
+  metrics_scrape_token:
+    environment: METRICS_SCRAPE_TOKEN
+  alert_webhook_url:
+    environment: ALERT_WEBHOOK_URL

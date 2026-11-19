@@ -299,7 +299,7 @@ export default function WorkflowGraph({ selectedWorkflow, agents, onLogMessage, 
     addSimLog(`Total pipeline tasks registered: ${nodes.length}`, "info");
 
     // Initialize all as "idle"
-    let workingNodes = nodes.map(n => ({ ...n, status: "idle" as const }));
+    let workingNodes: GraphNode[] = nodes.map(n => ({ ...n, status: "idle" }));
     setGraphs(prev => ({ ...prev, [selectedWorkflow.id]: workingNodes }));
 
     const maxLoops = 20; // Safety halt

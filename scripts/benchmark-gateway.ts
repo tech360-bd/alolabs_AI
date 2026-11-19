@@ -19,6 +19,7 @@
  *   npx tsx scripts/benchmark-gateway.ts --models balanced,reasoning
  */
 
+import { argValue } from './shared/args';
 import { ensureRouterSynced } from '@/lib/ai-router';
 import type { AITool } from '@/lib/ai-router/types';
 
@@ -36,11 +37,6 @@ const TOOLS: AITool[] = [
     },
   },
 ];
-
-function argValue(flag: string, fallback: string): string {
-  const index = process.argv.indexOf(flag);
-  return index >= 0 && process.argv[index + 1] ? process.argv[index + 1] : fallback;
-}
 
 function percentile(values: number[], p: number): number | null {
   if (values.length === 0) return null;

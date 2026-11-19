@@ -7,7 +7,7 @@ import {
   freeProviderSpecsFromEnvironment,
 } from '@/lib/ai-router/free-provider-specs';
 
-const EMPTY_ENV = {} as NodeJS.ProcessEnv;
+const EMPTY_ENV: NodeJS.ProcessEnv = { NODE_ENV: 'test' };
 
 describe('free provider specs from environment', () => {
   it('returns nothing when no credential is present', () => {
@@ -15,11 +15,11 @@ describe('free provider specs from environment', () => {
   });
 
   it('ignores blank and whitespace-only credentials', () => {
-    expect(freeProviderSpecsFromEnvironment({ GEMINI_API_KEY: '', CEREBRAS_API_KEY: '   ' } as NodeJS.ProcessEnv)).toEqual([]);
+    expect(freeProviderSpecsFromEnvironment({ NODE_ENV: 'test',  GEMINI_API_KEY: '', CEREBRAS_API_KEY: '   ' })).toEqual([]);
   });
 
   it('registers every documented free vendor when its key is set', () => {
-    const specs = freeProviderSpecsFromEnvironment({
+    const specs = freeProviderSpecsFromEnvironment({ NODE_ENV: 'test',
       GEMINI_API_KEY: 'g-key',
       CEREBRAS_API_KEY: 'c-key',
       CLOUDFLARE_API_TOKEN: 'cf-token',
@@ -28,7 +28,7 @@ describe('free provider specs from environment', () => {
       NVIDIA_API_KEY: 'n-key',
       HF_TOKEN: 'hf-key',
       GITHUB_MODELS_TOKEN: 'gh-key',
-    } as NodeJS.ProcessEnv);
+    });
 
     expect(specs.map((spec) => spec.id).sort()).toEqual([
       'cerebras',
@@ -49,8 +49,8 @@ describe('free provider specs from environment', () => {
   });
 
   it('requires both Cloudflare values rather than half-registering', () => {
-    expect(freeProviderSpecsFromEnvironment({ CLOUDFLARE_API_TOKEN: 'token' } as NodeJS.ProcessEnv)).toEqual([]);
-    expect(freeProviderSpecsFromEnvironment({ CLOUDFLARE_ACCOUNT_ID: 'acct' } as NodeJS.ProcessEnv)).toEqual([]);
+    expect(freeProviderSpecsFromEnvironment({ NODE_ENV: 'test',  CLOUDFLARE_API_TOKEN: 'token' })).toEqual([]);
+    expect(freeProviderSpecsFromEnvironment({ NODE_ENV: 'test',  CLOUDFLARE_ACCOUNT_ID: 'acct' })).toEqual([]);
   });
 
   it('builds the Cloudflare account-scoped base URL and encodes the account id', () => {
@@ -61,9 +61,9 @@ describe('free provider specs from environment', () => {
   });
 
   it('accepts the HF_TOKEN and HUGGINGFACE_API_KEY aliases, and GITHUB_TOKEN fallback', () => {
-    const viaAlias = freeProviderSpecsFromEnvironment({ HUGGINGFACE_API_KEY: 'hf' } as NodeJS.ProcessEnv);
+    const viaAlias = freeProviderSpecsFromEnvironment({ NODE_ENV: 'test',  HUGGINGFACE_API_KEY: 'hf' });
     expect(viaAlias.map((spec) => spec.id)).toEqual(['huggingface']);
-    const viaGithubToken = freeProviderSpecsFromEnvironment({ GITHUB_TOKEN: 'gh' } as NodeJS.ProcessEnv);
+    const viaGithubToken = freeProviderSpecsFromEnvironment({ NODE_ENV: 'test',  GITHUB_TOKEN: 'gh' });
     expect(viaGithubToken.map((spec) => spec.id)).toEqual(['github-models']);
   });
 
@@ -83,7 +83,7 @@ describe('free provider specs from environment', () => {
   });
 
   it('does not claim free-only pricing for quota-metered vendors', () => {
-    const specs = freeProviderSpecsFromEnvironment({ GEMINI_API_KEY: 'k' } as NodeJS.ProcessEnv);
+    const specs = freeProviderSpecsFromEnvironment({ NODE_ENV: 'test',  GEMINI_API_KEY: 'k' });
     expect(specs[0]).not.toHaveProperty('freeOnly', true);
   });
 

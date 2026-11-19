@@ -1,5 +1,7 @@
 'use client'
 
+import { toast } from 'sonner'
+import SettingsPanel from './settings-panel'
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
 import {
@@ -23,7 +25,6 @@ import {
   XCircle,
   Download,
   Trash2,
-  Play,
   Power,
   Eye,
   Edit3,
@@ -128,10 +129,9 @@ interface BackupItem {
 }
 
 interface SocialAccount {
-  id: string
   platform: string
-  username: string
-  status: string
+  platformUsername: string | null
+  isActive: boolean
   connectedAt?: string
 }
 
@@ -147,9 +147,9 @@ interface WorkerItem {
   id: string
   name: string
   status: string
-  queueDepth?: number
-  failedJobs?: number
-  lastHeartbeat?: string
+  activeJobs: number
+  totalFailed: number
+  lastHeartbeatAt: string | null
 }
 
 // ─── Tab Icons & Labels ──────────────────────────────────────────────────
@@ -217,7 +217,7 @@ function useApiData<T>(url: string) {
     setLoading(true)
     setError(null)
     apiFetch(url)
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw Error('Request failed'); return r.json() })
       .then((res) => {
         setData(Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : [])
       })
@@ -542,7 +542,7 @@ function MonitoringTab() {
   const fetchHealth = useCallback(() => {
     setLoading(true)
     apiFetch('/api/health')
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw Error('Request failed'); return r.json() })
       .then((res) => setHealth(res.data || res))
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -695,14 +695,25 @@ function BackupsTab() {
 
   const handleCreate = async () => {
     setCreating(true)
-    await apiFetch('/api/backups', { method: 'POST' })
-    setCreating(false)
-    refetch()
+    try {
+      const res = await apiFetch('/api/backups/create', { method: 'POST' })
+      if (!res.ok) throw Error()
+      toast.success('Backup created')
+      refetch()
+    } catch { toast.error('Could not create the backup') }
+    finally { setCreating(false) }
   }
 
-  const handleRestore = async (id: string) => {
-    await apiFetch(`/api/backups/${id}/restore`, { method: 'POST' })
-    refetch()
+  const handleRestore = async (backupId: string) => {
+    try {
+      const res = await apiFetch('/api/backups/restore', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backupId, inPlace: false }),
+      })
+      if (!res.ok) throw Error()
+      toast.success('Restore staged. The live database was not replaced.')
+      refetch()
+    } catch { toast.error('Could not stage this restore') }
   }
 
   return (
@@ -721,10 +732,9 @@ function BackupsTab() {
             <Clock className="w-5 h-5 text-[#003ACC]" />
             <div>
               <p className="text-sm font-medium text-[#1E293B]">Auto-Backup Schedule</p>
-              <p className="text-xs text-[#94A3B8]">Daily at 02:00 UTC</p>
+              <p className="text-xs text-[#94A3B8]">Scheduled by the deployment operator, independently of manual snapshots.</p>
             </div>
           </div>
-          <Switch defaultChecked />
         </CardContent>
       </Card>
 
@@ -747,16 +757,13 @@ function BackupsTab() {
                 ) : data.map((b) => (
                   <TableRow key={b.id} className="border-[#E2E8F0]">
                     <TableCell className="font-medium text-[#1E293B]">{b.filename}</TableCell>
-                    <TableCell className="text-[#64748B]">{b.size ? `${(b.size / 1024 / 1024).toFixed(1)} MB` : '—'}</TableCell>
+                    <TableCell className="text-[#64748B]">{typeof b.size === 'number' ? `${b.size.toFixed(2)} MB` : '—'}</TableCell>
                     <TableCell>{statusBadge(b.status)}</TableCell>
                     <TableCell className="text-[#94A3B8] text-sm">{new Date(b.createdAt).toLocaleString()}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="sm" className="h-7 text-xs text-[#003ACC]" onClick={() => handleRestore(b.id)}>
-                          <Download className="w-3.5 h-3.5 mr-1" /> Restore
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600">
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Download className="w-3.5 h-3.5 mr-1" /> Stage restore
                         </Button>
                       </div>
                     </TableCell>
@@ -778,9 +785,24 @@ function BackupsTab() {
 function SocialTab() {
   const { data, loading, refetch } = useApiData<SocialAccount>('/api/social/accounts')
 
-  const handleDisconnect = async (id: string) => {
-    await apiFetch(`/api/social/accounts/${id}`, { method: 'DELETE' })
-    refetch()
+  const [provider, setProvider] = useState('facebook')
+  const [linking, setLinking] = useState(false)
+  const startLink = async () => {
+    setLinking(true)
+    try {
+      const res = await apiFetch(`/api/social/oauth/${provider}`, { method: 'POST', credentials: 'same-origin' })
+      const body = await res.json()
+      if (!res.ok || !body.authorizationUrl) throw Error(body.error || 'Could not start account linking')
+      window.location.assign(body.authorizationUrl)
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Account linking failed') }
+    finally { setLinking(false) }
+  }
+  const handleDisconnect = async (platform: string) => {
+    try {
+      const res = await apiFetch(`/api/social/accounts?${new URLSearchParams({ platform })}`, { method: 'DELETE' })
+      if (!res.ok) throw Error()
+      refetch()
+    } catch { toast.error('Could not disconnect this account') }
   }
 
   const platformIcon = (p: string) => {
@@ -796,6 +818,13 @@ function SocialTab() {
   return (
     <div className="space-y-4 p-6">
       <h3 className="text-lg font-semibold text-[#1E293B]">Connected Social Accounts ({data.length})</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor="social-provider">Platform</label>
+        <select id="social-provider" value={provider} onChange={e => setProvider(e.target.value)}>
+          {['facebook', 'instagram', 'linkedin', 'twitter', 'youtube', 'tiktok', 'pinterest', 'whatsapp'].map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <Button onClick={startLink} disabled={linking}>Connect account</Button>
+      </div>
       {loading ? <TabSkeleton /> : (
         <Card className="bg-white border-[#E2E8F0]">
           <CardContent className="p-0">
@@ -813,18 +842,18 @@ function SocialTab() {
                 {data.length === 0 ? (
                   <TableRow><TableCell colSpan={5} className="text-center py-8 text-[#94A3B8]">No social accounts connected</TableCell></TableRow>
                 ) : data.map((a) => (
-                  <TableRow key={a.id} className="border-[#E2E8F0]">
+                  <TableRow key={a.platform} className="border-[#E2E8F0]">
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <span className="w-8 h-8 rounded-lg bg-[#003ACC]/10 text-[#003ACC] flex items-center justify-center text-xs font-bold">{platformIcon(a.platform)}</span>
                         <span className="font-medium text-[#1E293B]">{a.platform}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-[#1E293B]">@{a.username}</TableCell>
-                    <TableCell>{statusBadge(a.status)}</TableCell>
+                    <TableCell className="text-[#1E293B]">{a.platformUsername ? `@${a.platformUsername}` : '—'}</TableCell>
+                    <TableCell>{statusBadge(a.isActive ? 'active' : 'inactive')}</TableCell>
                     <TableCell className="text-[#94A3B8] text-sm">{a.connectedAt ? new Date(a.connectedAt).toLocaleDateString() : '—'}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500 hover:text-red-700" onClick={() => handleDisconnect(a.id)}>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500 hover:text-red-700" onClick={() => handleDisconnect(a.platform)}>
                         <XCircle className="w-3.5 h-3.5 mr-1" /> Disconnect
                       </Button>
                     </TableCell>
@@ -896,14 +925,9 @@ function EmailTab() {
 function WorkersTab() {
   const { data, loading, refetch } = useApiData<WorkerItem>('/api/workers')
 
-  const handleRestart = async (id: string) => {
-    await apiFetch(`/api/workers/${id}/restart`, { method: 'POST' })
-    refetch()
-  }
-
-  const runningCount = data.filter((w) => w.status?.toLowerCase() === 'running' || w.status?.toLowerCase() === 'active').length
-  const totalFailed = data.reduce((sum, w) => sum + (w.failedJobs || 0), 0)
-  const totalQueue = data.reduce((sum, w) => sum + (w.queueDepth || 0), 0)
+  const runningCount = data.filter((w) => w.status === 'idle' || w.status === 'busy').length
+  const totalFailed = data.reduce((sum, w) => sum + (w.totalFailed || 0), 0)
+  const totalQueue = data.reduce((sum, w) => sum + (w.activeJobs || 0), 0)
 
   return (
     <div className="space-y-4 p-6">
@@ -914,7 +938,7 @@ function WorkersTab() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4 flex items-center gap-3"><Cpu className="w-8 h-8 text-emerald-500" /><div><p className="text-2xl font-bold text-[#1E293B]">{runningCount}/{data.length}</p><p className="text-xs text-[#94A3B8]">Running</p></div></CardContent></Card>
-        <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4 flex items-center gap-3"><Layers className="w-8 h-8 text-[#003ACC]" /><div><p className="text-2xl font-bold text-[#1E293B]">{totalQueue}</p><p className="text-xs text-[#94A3B8]">Queue Depth</p></div></CardContent></Card>
+        <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4 flex items-center gap-3"><Layers className="w-8 h-8 text-[#003ACC]" /><div><p className="text-2xl font-bold text-[#1E293B]">{totalQueue}</p><p className="text-xs text-[#94A3B8]">Active Jobs</p></div></CardContent></Card>
         <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4 flex items-center gap-3"><XCircle className="w-8 h-8 text-red-500" /><div><p className="text-2xl font-bold text-[#1E293B]">{totalFailed}</p><p className="text-xs text-[#94A3B8]">Failed Jobs</p></div></CardContent></Card>
       </div>
 
@@ -929,12 +953,10 @@ function WorkersTab() {
                 {statusBadge(w.status)}
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-[#94A3B8]">Queue Depth</span><span className="text-[#1E293B] font-medium">{w.queueDepth ?? 0}</span></div>
-                <div className="flex justify-between"><span className="text-[#94A3B8]">Failed Jobs</span><span className="text-[#1E293B] font-medium">{w.failedJobs ?? 0}</span></div>
-                <div className="flex justify-between"><span className="text-[#94A3B8]">Last Heartbeat</span><span className="text-[#1E293B]">{w.lastHeartbeat ? new Date(w.lastHeartbeat).toLocaleString() : '—'}</span></div>
-                <Button variant="outline" size="sm" className="w-full mt-2 border-[#E2E8F0] text-[#E8501A] hover:text-[#E8501A] hover:bg-[#E8501A]/5" onClick={() => handleRestart(w.id)}>
-                  <Play className="w-3.5 h-3.5 mr-1" /> Restart Worker
-                </Button>
+                <div className="flex justify-between"><span className="text-[#94A3B8]">Active Jobs</span><span className="text-[#1E293B] font-medium">{w.activeJobs ?? 0}</span></div>
+                <div className="flex justify-between"><span className="text-[#94A3B8]">Failed Jobs</span><span className="text-[#1E293B] font-medium">{w.totalFailed ?? 0}</span></div>
+                <div className="flex justify-between"><span className="text-[#94A3B8]">Last Heartbeat</span><span className="text-[#1E293B]">{w.lastHeartbeatAt ? new Date(w.lastHeartbeatAt).toLocaleString() : '—'}</span></div>
+                <p className="text-xs text-[#64748B]">Process restarts are managed by the host supervisor.</p>
               </CardContent>
             </Card>
           ))}
@@ -948,198 +970,17 @@ function WorkersTab() {
 // TAB 11 — Settings
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface SettingItem {
-  key: string
-  value: string | boolean | number
-  description?: string
-}
-
-function SettingsTab() {
-  const [settings, setSettings] = useState<SettingItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-
-  // Form fields
-  const [appName, setAppName] = useState('')
-  const [appUrl, setAppUrl] = useState('')
-  const [maintenance, setMaintenance] = useState(false)
-  const [featureAI, setFeatureAI] = useState(true)
-  const [featureSocial, setFeatureSocial] = useState(true)
-  const [featureEmail, setFeatureEmail] = useState(true)
-
-  useEffect(() => {
-    apiFetch('/api/settings')
-      .then((r) => r.json())
-      .then((res) => {
-        const items = Array.isArray(res.data) ? res.data : []
-        setSettings(items)
-        items.forEach((s: SettingItem) => {
-          if (s.key === 'app_name') setAppName(String(s.value))
-          if (s.key === 'app_url') setAppUrl(String(s.value))
-          if (s.key === 'maintenance_mode') setMaintenance(Boolean(s.value))
-          if (s.key === 'feature_ai') setFeatureAI(Boolean(s.value))
-          if (s.key === 'feature_social') setFeatureSocial(Boolean(s.value))
-          if (s.key === 'feature_email') setFeatureEmail(Boolean(s.value))
-        })
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  const handleSave = async () => {
-    setSaving(true)
-    await apiFetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify([
-        { key: 'app_name', value: appName },
-        { key: 'app_url', value: appUrl },
-        { key: 'maintenance_mode', value: maintenance },
-        { key: 'feature_ai', value: featureAI },
-        { key: 'feature_social', value: featureSocial },
-        { key: 'feature_email', value: featureEmail },
-      ]),
-    })
-    setSaving(false)
-  }
-
-  if (loading) return <TabSkeleton />
-
-  return (
-    <div className="space-y-6 p-6">
-      <h3 className="text-lg font-semibold text-[#1E293B]">System Settings</h3>
-
-      <Card className="bg-white border-[#E2E8F0]">
-        <CardHeader><CardTitle className="text-[#1E293B] text-base">General</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><Label className="text-[#1E293B]">Application Name</Label><Input value={appName} onChange={(e) => setAppName(e.target.value)} className="bg-white border-[#E2E8F0] text-[#1E293B]" /></div>
-            <div><Label className="text-[#1E293B]">Application URL</Label><Input value={appUrl} onChange={(e) => setAppUrl(e.target.value)} className="bg-white border-[#E2E8F0] text-[#1E293B]" /></div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-white border-[#E2E8F0]">
-        <CardHeader><CardTitle className="text-[#1E293B] text-base">Maintenance</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-[#1E293B]">Maintenance Mode</p>
-              <p className="text-xs text-[#94A3B8]">When enabled, users will see a maintenance page</p>
-            </div>
-            <Switch checked={maintenance} onCheckedChange={setMaintenance} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-white border-[#E2E8F0]">
-        <CardHeader><CardTitle className="text-[#1E293B] text-base">Feature Flags</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {[
-            { label: 'AI Features', desc: 'Enable AI-powered features including chat, agents, and models', value: featureAI, onChange: setFeatureAI },
-            { label: 'Social Media', desc: 'Enable social media integrations and posting', value: featureSocial, onChange: setFeatureSocial },
-            { label: 'Email System', desc: 'Enable email accounts and sync', value: featureEmail, onChange: setFeatureEmail },
-          ].map((flag) => (
-            <div key={flag.label} className="flex items-center justify-between py-2 border-b border-[#F1F5F9] last:border-0">
-              <div><p className="text-sm font-medium text-[#1E293B]">{flag.label}</p><p className="text-xs text-[#94A3B8]">{flag.desc}</p></div>
-              <Switch checked={flag.value} onCheckedChange={flag.onChange} />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving} className="bg-[#E8501A] hover:bg-[#e55d00] text-white gap-1.5 min-w-[120px]">
-          {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : null} {saving ? 'Saving...' : 'Save Settings'}
-        </Button>
-      </div>
-    </div>
-  )
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // TAB 12 — Deploy
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface DeployInfo {
-  version?: string
-  environment?: string
-  deployedAt?: string
-  deployedBy?: string
-  commit?: string
-  logs?: string[]
-}
-
+interface DeploymentRow { id: string; domain: string; status: string; sslStatus: string; updatedAt: string }
 function DeployTab() {
-  const [deploy, setDeploy] = useState<DeployInfo | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [triggering, setTriggering] = useState(false)
-
-  const fetchDeploy = useCallback(() => {
-    setLoading(true)
-    apiFetch('/api/deploy')
-      .then((r) => r.json())
-      .then((res) => setDeploy(res.data || res))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => { fetchDeploy() }, [fetchDeploy])
-
-  const handleDeploy = async () => {
-    setTriggering(true)
-    await apiFetch('/api/deploy', { method: 'POST' })
-    setTriggering(false)
-    fetchDeploy()
-  }
-
-  if (loading) return <TabSkeleton />
-
-  return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-[#1E293B]">Deployment</h3>
-        <Button onClick={handleDeploy} disabled={triggering} className="bg-[#E8501A] hover:bg-[#e55d00] text-white gap-1.5">
-          {triggering ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} Trigger Deploy
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4"><p className="text-xs text-[#94A3B8] mb-1">Version</p><p className="text-xl font-bold text-[#1E293B]">{deploy?.version || '—'}</p></CardContent></Card>
-        <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4"><p className="text-xs text-[#94A3B8] mb-1">Environment</p><p className="text-xl font-bold text-[#003ACC]">{deploy?.environment || '—'}</p></CardContent></Card>
-        <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4"><p className="text-xs text-[#94A3B8] mb-1">Last Deploy</p><p className="text-xl font-bold text-[#1E293B]">{deploy?.deployedAt ? new Date(deploy.deployedAt).toLocaleDateString() : '—'}</p></CardContent></Card>
-        <Card className="bg-white border-[#E2E8F0]"><CardContent className="p-4"><p className="text-xs text-[#94A3B8] mb-1">Deployed By</p><p className="text-xl font-bold text-[#1E293B]">{deploy?.deployedBy || '—'}</p></CardContent></Card>
-      </div>
-
-      {deploy?.commit && (
-        <Card className="bg-white border-[#E2E8F0]">
-          <CardContent className="p-4">
-            <p className="text-xs text-[#94A3B8] mb-1">Latest Commit</p>
-            <p className="font-mono text-sm text-[#1E293B] bg-[#F8FAFC] p-2 rounded-lg">{deploy.commit}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="bg-white border-[#E2E8F0]">
-        <CardHeader><CardTitle className="text-[#1E293B] text-base">Deploy Log</CardTitle></CardHeader>
-        <CardContent>
-          <ScrollArea className="max-h-96">
-            {deploy?.logs && deploy.logs.length > 0 ? (
-              <div className="space-y-1 font-mono text-sm">
-                {deploy.logs.map((log, i) => (
-                  <div key={i} className="text-[#1E293B] bg-[#F8FAFC] p-2 rounded">
-                    <span className="text-[#94A3B8] mr-2">[{i + 1}]</span>{log}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center py-8 text-[#94A3B8] text-sm">No deploy logs available</p>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
-    </div>
-  )
+  const {data, loading, error, refetch} = useApiData<DeploymentRow>('/api/deploy')
+  return <div className="space-y-4 p-6"><div className="flex justify-between"><h3 className="text-lg font-semibold">Deployment records</h3><Button variant="outline" onClick={refetch}>Refresh</Button></div>
+    <p className="text-sm text-slate-600">Deployments require the reviewed operations workflow. This read-only view shows registry records, not a live TLS or health probe.</p>
+    {loading ? <TabSkeleton /> : error ? <p role="alert">{error}</p> : !data.length ? <p>No deployment records.</p> : <Table><TableHeader><TableRow>{['Domain', 'Status', 'TLS record', 'Updated'].map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{data.map(r => <TableRow key={r.id}><TableCell>{r.domain}</TableCell><TableCell>{r.status}</TableCell><TableCell>{r.sslStatus}</TableCell><TableCell>{new Date(r.updatedAt).toLocaleString()}</TableCell></TableRow>)}</TableBody></Table>}
+  </div>
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1195,7 +1036,7 @@ export default function SuperAdminPanel() {
             <TabsContent value="social" className="m-0"><SocialTab /></TabsContent>
             <TabsContent value="email" className="m-0"><EmailTab /></TabsContent>
             <TabsContent value="workers" className="m-0"><WorkersTab /></TabsContent>
-            <TabsContent value="settings" className="m-0"><SettingsTab /></TabsContent>
+            <TabsContent value="settings" className="m-0"><SettingsPanel /></TabsContent>
             <TabsContent value="deploy" className="m-0"><DeployTab /></TabsContent>
             <TabsContent value="coverage" className="m-0"><LinkCoveragePanel /></TabsContent>
           </div>

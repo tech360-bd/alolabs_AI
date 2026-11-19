@@ -1,3 +1,4 @@
+import { sessionTtlHours } from '@/lib/session-ttl';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
@@ -6,19 +7,12 @@ import { z } from 'zod';
 import { parseBody } from '@/lib/validators';
 
 const MFA_TEMP_TTL_MS = 5 * 60 * 1000;
-const REMEMBER_ME_TTL_HOURS = 30 * 24;
 const mfaVerifyBodySchema = z.object({
   userId: z.string().min(1).max(191).optional(),
   tempToken: z.string().min(1).max(128).optional(),
   code: z.string().regex(/^\d{6}$/),
   context: z.enum(['login', 'setup']).optional(),
 }).strict();
-
-function sessionTtlHours(rememberMe: boolean): number {
-  if (rememberMe) return REMEMBER_ME_TTL_HOURS;
-  const configured = Number(process.env.SESSION_TTL_HOURS ?? 24);
-  return Number.isFinite(configured) && configured > 0 ? configured : 24;
-}
 
 /**
  * Generate a TOTP code per RFC 6238 using HMAC-SHA1.

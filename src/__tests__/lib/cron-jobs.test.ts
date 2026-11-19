@@ -94,7 +94,7 @@ describe('Cron Jobs', () => {
       expect(found).toBeDefined();
       expect(found!.schedule).toBe('*/5 * * * *');
       expect(found!.intervalMs).toBe(300_000);
-      expect(found!.timer).toBeUndefined(); // listJobs omits handler & timer
+      expect(found).not.toHaveProperty('timer'); // listJobs omits handler & timer
     });
 
     it('should have pre-registered jobs from module load', () => {

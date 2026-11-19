@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Mark } from '@/components/brand/alo-logo'
+import Image from 'next/image'
+import { BRAND, publicSiteIcons } from '@/lib/brand/public'
 
 export const metadata: Metadata = {
   title: 'Page not found — ALO Labs',
   description: 'The page you were looking for does not exist.',
   robots: { index: false },
+  icons: publicSiteIcons,
 }
 
 /**
@@ -16,14 +18,14 @@ export default function NotFound() {
   return (
     <main className="flex min-h-[70vh] items-center justify-center bg-[#0A1B3D] px-6 py-20 text-white">
       <div className="w-full max-w-[560px] text-center">
-        <div className="mx-auto mb-8 grid size-[88px] place-items-center rounded-[24px] border border-white/15 bg-white/5">
-          <Mark size={54} />
+        <div className="mx-auto mb-8 grid size-[88px] place-items-center rounded-[24px] border border-white/15 bg-white">
+          <Image src="/studio/alo-symbol.webp" alt="ALO Labs" unoptimized width={47} height={54} />
         </div>
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">
           Error 404
         </p>
         <h1 className="mt-4 text-[38px] font-bold leading-tight tracking-tight sm:text-[46px]">
-          This page does not exist<span className="text-[#FFB347]">.</span>
+          This page does not exist<span style={{ color: BRAND.sunshine }}>.</span>
         </h1>
         <p className="mx-auto mt-4 max-w-[440px] text-[14px] leading-relaxed text-white/70">
           The link may be out of date, or the page may have moved. Here are the
@@ -32,7 +34,8 @@ export default function NotFound() {
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link
             href="/"
-            className="inline-flex h-11 items-center rounded-lg bg-[#E8501A] px-5 text-[13px] font-semibold text-white transition hover:bg-[#FF8A2B]"
+            className="inline-flex h-11 items-center rounded-lg px-5 text-[13px] font-semibold transition hover:brightness-110"
+            style={{ background: BRAND.orange, color: BRAND.ink }}
           >
             Back to homepage
           </Link>

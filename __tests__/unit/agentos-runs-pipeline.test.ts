@@ -81,7 +81,7 @@ describe('AgentOS run pipeline (deterministic success path)', () => {
 
     expect(status).toBe('queued');
     const run = fakeDb.rows('agentOSRun').find((r) => r.id === runId);
-    expect(run).toBeTruthy();
+    if (!run) throw new Error('Expected new run');
     expect(run.status).toBe('queued');
     expect(run.objective).toContain('UK universities');
 
@@ -186,6 +186,7 @@ describe('AgentOS run pipeline (deterministic success path)', () => {
     await executeRun(runId, { plan: PLAN as any });
 
     const detail = await getRunDetail(runId);
+    if (!detail?.run) throw new Error('Expected persisted run');
     expect(detail.run.id).toBe(runId);
     expect(detail.run.status).toBe('completed');
     expect(detail.tasks.length).toBe(2);

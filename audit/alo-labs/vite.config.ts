@@ -5,6 +5,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // Tailwind runs through the Vite plugin here, not the parent Next/PostCSS pipeline.
+    css: { postcss: { plugins: [] } },
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

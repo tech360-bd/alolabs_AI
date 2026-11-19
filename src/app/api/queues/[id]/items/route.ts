@@ -1,3 +1,5 @@
+import { dequeue } from '@/lib/job-queue';
+import { mayOperateQueues } from '@/lib/access/queue';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
@@ -13,12 +15,14 @@ export async function GET(
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!mayOperateQueues(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const limit = Math.min(200, parseInt(searchParams.get('limit') || '50'));
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const offset = Number(searchParams.get('offset') || 0);
+    if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1) return NextResponse.json({ error: 'Invalid pagination' }, { status: 400 });
 
     const queue = await db.jobQueue.findUnique({ where: { id } });
     if (!queue) {
@@ -83,6 +87,7 @@ export async function POST(
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!mayOperateQueues(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   try {
     const { id } = await params;
     const body = await request.json();
@@ -133,6 +138,7 @@ export async function PATCH(
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!mayOperateQueues(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   try {
     const { id } = await params;
 
@@ -145,44 +151,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'Queue is not active' }, { status: 400 });
     }
 
-    // Count currently processing items
-    const processingCount = await db.queueItem.count({
-      where: { queueId: id, status: 'processing' },
-    });
-
-    if (processingCount >= queue.concurrency) {
-      return NextResponse.json(
-        { error: 'Queue is at max concurrency', processingCount, maxConcurrency: queue.concurrency },
-        { status: 429 }
-      );
-    }
-
-    // Find highest priority queued item (skip scheduled items not yet due)
-    const now = new Date();
-    const item = await db.queueItem.findFirst({
-      where: {
-        queueId: id,
-        status: 'queued',
-        OR: [
-          { scheduledAt: null },
-          { scheduledAt: { lte: now } },
-        ],
-      },
-      orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
-    });
-
-    if (!item) {
+    const updated = await dequeue(queue.name, { workerId: `api-${session.userId}` });
+    if (!updated) {
+      const processing = await db.queueItem.count({ where: { queueId: id, status: 'processing' } });
+      if (processing >= queue.concurrency) return NextResponse.json({ error: 'Queue is at max concurrency' }, { status: 429 });
       return NextResponse.json({ data: null, message: 'No items available' });
     }
-
-    // Mark as processing
-    const updated = await db.queueItem.update({
-      where: { id: item.id },
-      data: {
-        status: 'processing',
-        startedAt: new Date(),
-      },
-    });
 
     return NextResponse.json({
       data: {

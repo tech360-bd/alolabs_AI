@@ -22,6 +22,7 @@ function findClosingQuote(value, quote) {
  */
 function parseEnvConfig(source) {
   const lines = String(source).split(/\r?\n/);
+  /** @type {Record<string, string>} */
   const values = {};
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {

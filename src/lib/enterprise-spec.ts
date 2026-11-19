@@ -1402,35 +1402,7 @@ export const EVENTS: EnterpriseEventSpec[] = [
 ];
 
 
-// PART 4 — NOT POPULATED, DELIBERATELY
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//
-// Earlier revisions of this file declared twelve empty arrays here for
-// "phases 3-13" (department full specs, AI employees, SOPs, skills, prompts,
-// knowledge graph, collaboration protocols, self-improvement configs,
-// governance frameworks, dashboards, master builder agents), each carrying a
-// note to expand it later. They were never populated and nothing imported them:
-// a `grep` for every symbol returned zero consumers outside this file. They are
-// removed rather than filled, because generating several hundred plausible-
-// looking agent and SOP records by hand would put invented data behind a very
-// real-looking interface.
-//
-// The authoritative data for these concerns lives in modules that are actually
-// wired up:
-//   - departments ......... src/lib/department-registry (100 real departments)
-//   - AI employees ........ src/lib/workforce (2,000 provisioned agents)
-//   - skills .............. src/lib/agent-skills + the skills registry API
-//   - prompts ............. db `prompt_registry:` settings via /api/prompts
-//   - knowledge / RAG ..... src/lib/rag-engine
-//   - governance .......... CONSTITUTION_RULES and the governance endpoints below
-//
-// The corresponding *types* remain exported so tools that describe the target
-// schema (scripts/generate-enterprise-spec.ts) keep compiling. The arrays are
-// kept (rather than deleted) only because AIEOS_SPECIFICATION below is typed as
-// a complete AIEOSSpecification and requires every field to be present. They are
-// EMPTY, and nothing in the running application reads them — no route, panel or
-// job imports this module's phase 3-13 fields.
-
+// Compatibility only: see the live workforce, skills, prompts and RAG registries.
 export const DEPARTMENT_FULL_SPECS: DepartmentFullSpec[] = [];
 export const AI_EMPLOYEES: AIEmployeeSpec[] = [];
 export const SOPS: SOPSpec[] = [];

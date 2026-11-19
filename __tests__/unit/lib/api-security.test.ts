@@ -176,7 +176,7 @@ describe('secureRoute — tenant isolation', () => {
     expect(response.status).toBe(403);
     expect((await read(response)).error.code).toBe('tenant_mismatch');
     expect(handler).not.toHaveBeenCalled();
-    const event = mocks.securityEventCreate.mock.calls.at(-1)[0].data;
+    const event = mocks.securityEventCreate.mock.calls.at(-1)?.[0].data;
     expect(event.type).toBe('tenant_isolation_violation');
     expect(event.severity).toBe('critical');
   });
@@ -249,7 +249,7 @@ describe('secureRoute — authorisation', () => {
 
     expect(response.status).toBe(403);
     expect((await read(response)).error.code).toBe('forbidden');
-    const event = mocks.securityEventCreate.mock.calls.at(-1)[0].data;
+    const event = mocks.securityEventCreate.mock.calls.at(-1)?.[0].data;
     expect(event.type).toBe('authorization_denied');
     expect(event.details).toContain('insufficient_role');
   });
@@ -285,7 +285,7 @@ describe('secureRoute — authorisation', () => {
     const response = await route(request());
 
     expect(response.status).toBe(403);
-    const event = mocks.securityEventCreate.mock.calls.at(-1)[0].data;
+    const event = mocks.securityEventCreate.mock.calls.at(-1)?.[0].data;
     expect(event.details).toContain('missing_scope');
   });
 
@@ -381,7 +381,7 @@ describe('secureRoute — rate limiting', () => {
     expect(response.status).toBe(429);
     expect(response.headers.get('retry-after')).toBeTruthy();
     expect(handler).not.toHaveBeenCalled();
-    expect(mocks.securityEventCreate.mock.calls.at(-1)[0].data.type).toBe('rate_limit_exceeded');
+    expect(mocks.securityEventCreate.mock.calls.at(-1)?.[0].data.type).toBe('rate_limit_exceeded');
   });
 
   it('cannot be bypassed by spoofed client headers', async () => {
@@ -449,7 +449,7 @@ describe('security event hygiene', () => {
 
     await route(request({ body: { secret: 'super-secret-value' }, headers: { authorization: 'Bearer tok' } }));
 
-    const event = mocks.securityEventCreate.mock.calls.at(-1)[0].data;
+    const event = mocks.securityEventCreate.mock.calls.at(-1)?.[0].data;
     expect(event.details).not.toContain('super-secret-value');
     expect(event.details).not.toContain('tok');
   });

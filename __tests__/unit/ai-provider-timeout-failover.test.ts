@@ -173,7 +173,7 @@ describe('router failover on provider timeout', () => {
   it('serves the request from a healthy provider when another hangs', async () => {
     const router = new AIRouter();
     const decisions: RoutingDecisionRecord[] = [];
-    router.setDecisionRecorder((d) => decisions.push(d));
+    router.setDecisionRecorder((d) => { decisions.push(d); });
     // isLocal: these providers are loopback test servers; the merged router
     // billing-gates non-local providers unless the caller context allows paid use.
     router.registerProvider(hungProvider(), { isLocal: true });
@@ -196,7 +196,7 @@ describe('router failover on provider timeout', () => {
   it('records the timeout as the failover reason', async () => {
     const router = new AIRouter();
     const decisions: RoutingDecisionRecord[] = [];
-    router.setDecisionRecorder((d) => decisions.push(d));
+    router.setDecisionRecorder((d) => { decisions.push(d); });
     router.registerProvider(hungProvider('hung-2'), { isLocal: true });
     router.registerProvider(healthyProvider('healthy-2'), { isLocal: true });
     router.setLoadBalanceConfig({ strategy: 'round-robin' });

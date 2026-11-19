@@ -1,10 +1,10 @@
 // ALO Labs AIOS — SMS Campaigns API
 // Create and list SMS campaigns with bulk send and rate limiting (100ms delay)
 
+import { authenticateBearerSession as authenticate } from '@/lib/api/bearer-session';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
-import { verifySessionToken } from '@/lib/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -164,22 +164,6 @@ async function executeCampaign(campaign: StoredCampaign): Promise<void> {
   campaign.completedAt = new Date().toISOString();
   campaign.updatedAt = new Date().toISOString();
   await saveCampaign(campaign);
-}
-
-// ─── Auth Helper ──────────────────────────────────────────────────────────────
-
-async function authenticate(request: NextRequest): Promise<{ userId: string } | NextResponse> {
-  const authHeader = await (await import('next/headers')).headers();
-  const authorization = authHeader.get('authorization');
-  if (!authorization?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const token = authorization.substring(7);
-  const session = await verifySessionToken(token);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  return session;
 }
 
 // ─── POST: Create Campaign ────────────────────────────────────────────────────

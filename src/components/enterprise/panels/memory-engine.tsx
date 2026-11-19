@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDateTime as formatTime } from '@/lib/display-format';
 import React, { useState, useEffect, useMemo } from 'react'
 import { Brain, Activity, Search, Trash2, Database, Target, RefreshCw, Clock, TrendingUp } from 'lucide-react'
 import { fetchApi } from '@/lib/api-client'
@@ -33,11 +34,6 @@ const statusBadge: Record<string, string> = {
 
 const actionIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   store: Database, retrieve: Search, consolidate: RefreshCw, forget: Trash2, search: Search,
-}
-
-function formatTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function MemoryEngine() {

@@ -1,5 +1,6 @@
+import { authenticateMailSession as authenticate, getAccountConfig } from '@/lib/email/account-access';
+import { canManageMail, readMailAccount, storeMailAccount } from '@/lib/email/account-credentials';
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { IMAPEmailService } from '@/lib/email/imap';
 import type { IMAPConfig, EmailMessage } from '@/lib/email/types';
@@ -23,32 +24,6 @@ interface StoredEmailMessage {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
-
-async function authenticate(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return null;
-  return verifySessionToken(token);
-}
-
-async function getAccountConfig(accountId: string) {
-  const setting = await db.settings.findUnique({
-    where: { key: `email:account:${accountId}` },
-  });
-  if (!setting) return null;
-  try {
-    return JSON.parse(setting.value) as {
-      id: string;
-      email: string;
-      imap: { host: string; port: number; tls: boolean };
-      smtp: { host: string; port: number; secure: boolean };
-      auth: { user: string; pass: string };
-      isActive: boolean;
-    };
-  } catch {
-    return null;
-  }
-}
 
 async function storeEmail(accountId: string, message: EmailMessage, folder: string): Promise<void> {
   const emailId = `email:message:${accountId}:${message.id}`;
@@ -83,11 +58,11 @@ async function updateAccountLastSync(accountId: string): Promise<void> {
   if (!setting) return;
 
   try {
-    const account = JSON.parse(setting.value);
+    const account = JSON.parse(readMailAccount(setting.value));
     account.lastSyncAt = new Date().toISOString();
     await db.settings.update({
       where: { key: `email:account:${accountId}` },
-      data: { value: JSON.stringify(account), updatedAt: new Date() },
+      data: { value: storeMailAccount(account), updatedAt: new Date() },
     });
   } catch {
     // Ignore
@@ -100,7 +75,7 @@ async function getLastSyncTime(accountId: string): Promise<Date | null> {
   });
   if (!setting) return null;
   try {
-    const account = JSON.parse(setting.value);
+    const account = JSON.parse(readMailAccount(setting.value));
     if (account.lastSyncAt) return new Date(account.lastSyncAt);
   } catch {
     // Ignore
@@ -117,6 +92,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await authenticate(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!canManageMail(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json();
     const { accountId, folder = 'INBOX', fullSync = false } = body;

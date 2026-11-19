@@ -12,6 +12,7 @@ import { hasScope, type V1Identity } from '@/lib/v1-auth';
 function makeIdentity(scopes: string[], kind: 'apiKey' | 'session' = 'apiKey'): V1Identity {
   return {
     kind,
+    audience: 'internal',
     userId: 'u-test',
     role: 'api',
     email: 'test@example.com',

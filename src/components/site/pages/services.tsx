@@ -10,7 +10,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { BRAND } from '@/lib/brand/tokens'
+import { BRAND } from '@/lib/brand/public'
 import { ArrowRight, Check, FileText, Handshake, Layers3, Repeat, Settings2 } from 'lucide-react'
 import {
   CtaBand, CheckList, FaqList, NumberedCard, PageHero, Section, type FaqItem,

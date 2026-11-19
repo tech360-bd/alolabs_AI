@@ -13,7 +13,7 @@
  */
 
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, stat, copyFile, writeFile, rename } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { db } from '@/lib/db';
 import {
@@ -32,10 +32,11 @@ import {
   type TableDump,
 } from './dump';
 
-export const BACKUP_DIR = join(process.cwd(), 'db', 'backups');
+const dataDir = process.env.BACKUP_DATA_DIR || join(process.cwd(), 'db');
+export const BACKUP_DIR = join(dataDir, 'backups');
 const REGISTRY_PREFIX = 'db:backup:';
 const CONFIG_KEY = 'backup:config';
-const RESTORE_STAGING_DIR = join(process.cwd(), 'db', 'restore-staging');
+const RESTORE_STAGING_DIR = join(dataDir, 'restore-staging');
 const MAX_RESTORE_BYTES = 512 * 1024 * 1024;
 
 export interface BackupConfig {
@@ -188,10 +189,11 @@ export async function createBackup(options: CreateBackupOptions = {}): Promise<C
   const startedAt = Date.now();
   const source = options.source ?? createBackupSource();
   const adapterName = options.adapterName ?? 'primary';
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(adapterName)) throw Error('Invalid backup adapter name');
   await mkdir(BACKUP_DIR, { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `backup-${adapterName}-${timestamp}.sql`;
+  const filename = `backup-${adapterName}-${timestamp}-${randomUUID()}.sql`;
   const filepath = join(BACKUP_DIR, filename);
 
   let tablesCount = 0;
@@ -314,12 +316,14 @@ export async function restoreBackup(
   if (!recordRow) throw new Error(`Backup "${backupId}" is not registered`);
   const record = JSON.parse(recordRow.value) as StoredBackupRecord;
 
+  if (record.filename !== backupId) throw new Error('Invalid backup id in registry');
   const sourcePath = join(BACKUP_DIR, record.filename);
   const info = await stat(sourcePath).catch(() => null);
   if (!info || !info.isFile()) throw new Error(`Backup file "${record.filename}" is missing from disk`);
   if (info.size > MAX_RESTORE_BYTES) throw new Error('Backup exceeds the 512 MiB restore limit');
 
   const sql = await readFile(sourcePath, 'utf8');
+  if (!record.checksum || createHash('sha256').update(sql).digest('hex') !== record.checksum) throw Error('Backup failed validation: checksum mismatch or missing');
   const validation = validateDump(sql);
   if (!validation.ok) {
     throw new Error(`Backup failed validation: ${validation.errors.join('; ')}`);
@@ -338,10 +342,10 @@ export async function restoreBackup(
   // 3. Stage a verified copy.
   await mkdir(RESTORE_STAGING_DIR, { recursive: true });
   const stagedPath = join(RESTORE_STAGING_DIR, `${Date.now()}-${record.filename}`);
-  await copyFile(sourcePath, stagedPath);
+  await writeFile(stagedPath, sql, { mode: 0o600, flag: 'wx' });
 
   // 4. Replay only when explicitly enabled.
-  const inPlace = options.inPlace ?? process.env.BACKUP_RESTORE_IN_PLACE === '1';
+  const inPlace = process.env.NODE_ENV !== 'production' && options.inPlace === true && process.env.BACKUP_RESTORE_IN_PLACE === '1';
   const parsed = parseDatabaseUrl(process.env.DATABASE_URL);
   if (!inPlace) {
     return {
@@ -351,7 +355,7 @@ export async function restoreBackup(
       stagedPath,
       validation,
       message:
-        'Backup validated and staged. In-place replay is disabled; set BACKUP_RESTORE_IN_PLACE=1 and call restore again to apply it.',
+        'Backup validated and staged. No live data changed. Production restores require an offline operator procedure.',
     };
   }
   if (!parsed) throw new Error('Configuration required: DATABASE_URL is not a supported database URL');

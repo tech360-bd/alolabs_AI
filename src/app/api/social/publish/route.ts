@@ -1,3 +1,5 @@
+import { getPlatformToken } from '@/lib/social/platform-token';
+import { canManageSocial } from '@/lib/social/credentials';
 // ALO Labs AIOS — Social Publish API
 // Publish content to one or more social platforms, with scheduling support
 
@@ -48,29 +50,6 @@ interface QueuedPost {
 }
 
 // ─── Helper: Get stored token data for a platform ──────────────────────────────
-
-async function getPlatformToken(platform: SocialPlatform): Promise<{
-  accessToken: string;
-  refreshToken?: string;
-  metadata?: Record<string, unknown>;
-} | null> {
-  const setting = await db.settings.findUnique({
-    where: { key: `social:${platform}:token` },
-  });
-
-  if (!setting) return null;
-
-  try {
-    const data = JSON.parse(setting.value);
-    return {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken || undefined,
-      metadata: data.metadata || undefined,
-    };
-  } catch {
-    return null;
-  }
-}
 
 // ─── Helper: Publish to a single platform via API ──────────────────────────────
 
@@ -322,6 +301,7 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (!canManageSocial(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = (await request.json()) as PublishRequest;
 
@@ -469,6 +449,7 @@ export async function GET() {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (!canManageSocial(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const allSettings = await db.settings.findMany({
       where: { key: { startsWith: QUEUE_PREFIX } },

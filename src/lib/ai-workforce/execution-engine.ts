@@ -1,3 +1,5 @@
+import { taskPriority } from '@/lib/ai-workforce/task-priority';
+import { isRecord } from '@/lib/is-record';
 import { randomUUID } from 'node:crypto'
 import { db } from '@/lib/db'
 import { AGENT_EXECUTION_ACCESS_LEVELS } from '@/lib/agent-access'
@@ -21,15 +23,6 @@ interface ExecutionResult {
   approvalId?: string
   error?: string
   data?: unknown
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function taskPriority(value: string): TaskPriority {
-  if (value === 'critical' || value === 'high' || value === 'low') return value
-  return 'normal'
 }
 
 function taskText(input: Record<string, unknown>): string {

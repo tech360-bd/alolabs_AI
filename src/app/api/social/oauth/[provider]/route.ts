@@ -1,9 +1,11 @@
 // ALO Labs AIOS — Social OAuth Callback API
-// Handles OAuth callback for all 9 social platforms
+// Telegram bot tokens use the credential API, not this OAuth code exchange.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { verifySessionToken } from '@/lib/auth';
+import { requireRole } from '@/lib/api-auth';
+import { createLinkState, readLinkState, pendingLink, linkCookie, linkTtlSeconds } from '@/lib/social/link-state';
+import { storeSocialCredential } from '@/lib/social/credentials';
 import type { SocialPlatform, OAuthConfig } from '@/lib/social/types';
 
 // ─── Supported Platforms ───────────────────────────────────────────────────────
@@ -16,7 +18,6 @@ const SUPPORTED_PLATFORMS: SocialPlatform[] = [
   'youtube',
   'tiktok',
   'pinterest',
-  'telegram',
   'whatsapp',
 ];
 
@@ -122,20 +123,6 @@ function getPlatformOAuthConfig(platform: SocialPlatform): OAuthConfig | null {
         apiUrl: 'https://api.pinterest.com/v5',
       };
     },
-    telegram: () => {
-      const id = process.env.TELEGRAM_BOT_ID;
-      const secret = process.env.TELEGRAM_BOT_TOKEN;
-      if (!id || !secret) return null;
-      return {
-        clientId: id,
-        clientSecret: secret,
-        redirectUri: process.env.TELEGRAM_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/social/oauth/telegram`,
-        scopes: [],
-        authUrl: 'https://oauth.telegram.org/auth',
-        tokenUrl: 'https://oauth.telegram.org/auth/token',
-        apiUrl: 'https://api.telegram.org/bot',
-      };
-    },
     whatsapp: () => {
       const id = process.env.WHATSAPP_APP_ID;
       const secret = process.env.WHATSAPP_APP_SECRET;
@@ -158,7 +145,7 @@ function getPlatformOAuthConfig(platform: SocialPlatform): OAuthConfig | null {
 
 // ─── Token Exchange Functions per Platform ──────────────────────────────────────
 
-async function exchangeToken(platform: SocialPlatform, code: string, config: OAuthConfig): Promise<{
+async function exchangeToken(platform: SocialPlatform, code: string, config: OAuthConfig, verifier: string): Promise<{
   accessToken: string;
   refreshToken?: string;
   expiresIn?: number;
@@ -177,8 +164,8 @@ async function exchangeToken(platform: SocialPlatform, code: string, config: OAu
     case 'facebook':
     case 'instagram':
     case 'whatsapp': {
-      const response = await fetch(`${config.tokenUrl}?${params.toString()}`, {
-        method: 'GET',
+      const response = await fetch(config.tokenUrl, {
+        method: 'POST', body: params,
         headers: { Accept: 'application/json' },
       });
       if (!response.ok) throw new Error(`Token exchange failed: ${response.status}`);
@@ -189,8 +176,8 @@ async function exchangeToken(platform: SocialPlatform, code: string, config: OAu
       let userId = '';
       let username = '';
       try {
-        const meRes = await fetch(`${config.apiUrl}/me?access_token=${data.access_token}`, {
-          headers: { Accept: 'application/json' },
+        const meRes = await fetch(`${config.apiUrl}/me`, {
+          headers: { Accept: 'application/json', Authorization: `Bearer ${data.access_token}` },
         });
         if (meRes.ok) {
           const meData = (await meRes.json()) as { id: string; name: string };
@@ -251,7 +238,7 @@ async function exchangeToken(platform: SocialPlatform, code: string, config: OAu
           code,
           redirect_uri: config.redirectUri,
           grant_type: 'authorization_code',
-          code_verifier: 'challenge', // Should be stored in session
+          code_verifier: verifier,
         }).toString(),
       });
       if (!response.ok) throw new Error(`Token exchange failed: ${response.status}`);
@@ -293,10 +280,10 @@ async function exchangeToken(platform: SocialPlatform, code: string, config: OAu
       const response = await fetch(config.tokenUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
           'Cache-Control': 'no-cache',
         },
-        body: JSON.stringify({
+        body: new URLSearchParams({
           client_key: config.clientId,
           client_secret: config.clientSecret,
           code,
@@ -316,10 +303,12 @@ async function exchangeToken(platform: SocialPlatform, code: string, config: OAu
     }
 
     case 'pinterest': {
+      params.delete('client_id');
+      params.delete('client_secret');
       params.set('grant_type', 'authorization_code');
       const response = await fetch(config.tokenUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}` },
         body: params.toString(),
       });
       if (!response.ok) throw new Error(`Token exchange failed: ${response.status}`);
@@ -333,18 +322,45 @@ async function exchangeToken(platform: SocialPlatform, code: string, config: OAu
       };
     }
 
-    case 'telegram': {
-      // Telegram uses a different auth model (widget/login)
-      return {
-        accessToken: code,
-        expiresIn: 86400,
-      };
-    }
-
     default: {
       throw new Error(`Unsupported platform: ${platform}`);
     }
   }
+}
+
+// Start a link from an authenticated admin POST. Never send a session token to
+// the provider. The short-lived, encrypted cookie binds state and PKCE to this
+// browser, operator and provider. The callback revalidates the actual session.
+const admin = () => requireRole('admin', 'super_admin', 'platform_super_admin');
+function oauthError(error: unknown) {
+  const status = error instanceof Error && error.message === 'Unauthorized' ? 401 : error instanceof Error && error.message === 'Forbidden' ? 403 : 503;
+  return NextResponse.json({ error: status === 401 ? 'Unauthorized' : status === 403 ? 'Forbidden' : 'Social connection unavailable' }, { status });
+}
+export async function POST(_request: NextRequest, { params }: { params: Promise<{ provider: string }> }) {
+  try {
+    const user = await admin();
+    const { provider } = await params;
+    if (!SUPPORTED_PLATFORMS.includes(provider as SocialPlatform)) return NextResponse.json({ error: 'Unsupported provider' }, { status: 400 });
+    const config = getPlatformOAuthConfig(provider as SocialPlatform);
+    if (!config) return NextResponse.json({ error: 'Provider not configured' }, { status: 503 });
+    const { state, challenge, cookie } = createLinkState(user.userId, provider);
+    const url = new URL(config.authUrl);
+    url.searchParams.set(provider === 'tiktok' ? 'client_key' : 'client_id', config.clientId);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('redirect_uri', config.redirectUri);
+    url.searchParams.set('scope', config.scopes.join(provider === 'tiktok' ? ',' : ' '));
+    url.searchParams.set('state', state);
+    if (provider === 'twitter') {
+      url.searchParams.set('code_challenge_method', 'S256');
+      url.searchParams.set('code_challenge', challenge);
+    }
+    const { key, value } = pendingLink(user.userId, provider, state);
+    // One outstanding intent per operator/provider across all app instances.
+    await db.settings.upsert({ where: { key }, update: { value }, create: { key, value, type: 'oauth-state' } });
+    const res = NextResponse.json({ authorizationUrl: url.href }, { headers: { 'Cache-Control': 'no-store' } });
+    res.cookies.set(linkCookie, cookie, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: linkTtlSeconds, path: `/api/social/oauth/${provider}` });
+    return res;
+  } catch (err) { return oauthError(err); }
 }
 
 // ─── GET Handler: OAuth Callback ───────────────────────────────────────────────
@@ -357,67 +373,18 @@ export async function GET(
     const { provider: providerParam } = await params;
     const platform = providerParam as SocialPlatform;
 
-    // Validate platform
-    if (!SUPPORTED_PLATFORMS.includes(platform)) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || '/';
-      return NextResponse.redirect(
-        `${appUrl}/settings/integrations?error=unsupported_platform&platform=${platform}`,
-      );
-    }
-
-    const searchParams = request.nextUrl.searchParams;
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
-    const error = searchParams.get('error');
-    const errorDescription = searchParams.get('error_description');
-
-    // Handle OAuth error
-    if (error) {
-      console.error(`OAuth error for ${platform}:`, error, errorDescription);
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || '/';
-      return NextResponse.redirect(
-        `${appUrl}/settings/integrations?error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || '')}&platform=${platform}`,
-      );
-    }
-
-    if (!code) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || '/';
-      return NextResponse.redirect(
-        `${appUrl}/settings/integrations?error=no_code&platform=${platform}`,
-      );
-    }
-
-    // Verify session from state if provided
-    let userId = '';
-    if (state) {
-      try {
-        const sessionData = await verifySessionToken(state);
-        if (sessionData) {
-          userId = sessionData.userId;
-        }
-      } catch {
-        // State may not be a session token; try to extract userId from state
-        try {
-          const stateData = JSON.parse(Buffer.from(state, 'base64url').toString('utf-8'));
-          userId = stateData.userId || '';
-        } catch {
-          // Continue without userId
-        }
-      }
-    }
-
-    // Get OAuth config for platform
-    const oauthConfig = getPlatformOAuthConfig(platform);
-    if (!oauthConfig) {
-      console.error(`No OAuth config found for platform: ${platform}`);
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || '/';
-      return NextResponse.redirect(
-        `${appUrl}/settings/integrations?error=config_missing&platform=${platform}`,
-      );
-    }
-
-    // Exchange code for token
-    const tokenData = await exchangeToken(platform, code, oauthConfig);
+    const { userId } = await admin();
+    if (!SUPPORTED_PLATFORMS.includes(platform)) return NextResponse.json({ error: 'Unsupported provider' }, { status: 400 });
+    const query = request.nextUrl.searchParams;
+    const state = query.get('state');
+    const verifier = readLinkState(request.cookies.get(linkCookie)?.value, state, userId, platform);
+    if (!state || !verifier || (await db.settings.deleteMany({ where: pendingLink(userId, platform, state) })).count !== 1) return NextResponse.json({ error: 'Invalid or expired account-link request' }, { status: 403 });
+    const code = query.get('code');
+    if (!code || query.has('error')) return NextResponse.json({ error: 'Provider did not authorize this account' }, { status: 400 });
+    const config = getPlatformOAuthConfig(platform);
+    if (!config) return NextResponse.json({ error: 'Provider not configured' }, { status: 503 });
+    const tokenData = await exchangeToken(platform, code, config, verifier);
+    if (!tokenData.accessToken) return NextResponse.json({ error: 'Provider returned no credential' }, { status: 502 });
 
     // Store token in database
     const tokenPayload = {
@@ -430,17 +397,18 @@ export async function GET(
       connectedAt: new Date().toISOString(),
     };
 
+    const value = storeSocialCredential(tokenPayload);
     await db.settings.upsert({
       where: { key: `social:${platform}:token` },
       update: {
-        value: JSON.stringify(tokenPayload),
-        type: 'json',
+        value,
+        type: 'encrypted',
         updatedAt: new Date(),
       },
       create: {
         key: `social:${platform}:token`,
-        value: JSON.stringify(tokenPayload),
-        type: 'json',
+        value,
+        type: 'encrypted',
       },
     });
 
@@ -460,17 +428,8 @@ export async function GET(
       });
     }
 
-    // Redirect back to app with success
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '/';
-    return NextResponse.redirect(
-      `${appUrl}/settings/integrations?success=true&platform=${platform}&username=${encodeURIComponent(tokenData.platformUsername || '')}`,
-    );
-  } catch (error: unknown) {
-    console.error('Social OAuth callback error:', error);
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '/';
-    return NextResponse.redirect(
-      `${appUrl}/settings/integrations?error=internal&message=${encodeURIComponent(errorMsg)}`,
-    );
-  }
+    const res = NextResponse.redirect(new URL('/dashboard', request.nextUrl.origin));
+    res.cookies.set(linkCookie, '', { maxAge: 0, path: `/api/social/oauth/${platform}` });
+    return res;
+  } catch (err) { return oauthError(err); }
 }

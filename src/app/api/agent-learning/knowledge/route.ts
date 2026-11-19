@@ -1,3 +1,4 @@
+import { messageErrorResponse as errorResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
@@ -17,12 +18,6 @@ function parseTags(value: string): string[] {
   } catch {
     return []
   }
-}
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error'
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500
-  return NextResponse.json({ error: message }, { status })
 }
 
 export async function GET(req: NextRequest) {

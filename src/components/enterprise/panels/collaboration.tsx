@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDate as fmt } from '@/lib/display-format';
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Users, MessageSquare, Bot, Clock, CheckCircle2, XCircle, PauseCircle, PlayCircle, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api-client'
@@ -45,9 +46,6 @@ const statusIcons: Record<string, React.ComponentType<{ className?: string }>> =
   active: PlayCircle, completed: CheckCircle2, failed: XCircle, paused: PauseCircle,
 }
 
-function fmt(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 function fmtDur(sec: number) {
   if (sec < 60) return `${sec}s`
   return `${Math.floor(sec / 60)}m ${sec % 60}s`

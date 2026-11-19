@@ -4,6 +4,7 @@
  * Uses an OpenAI-compatible API format with SSE streaming.
  */
 
+import { mapRouterFinishReason as mapFinishReason } from '@/lib/ai-router/finish-reason';
 import { extractToolCalls } from './tool-calls';
 import type {
   AIModel,
@@ -130,22 +131,6 @@ function parseCapabilities(model: OpenRouterModel): AICapability[] {
   }
 
   return caps;
-}
-
-function mapFinishReason(reason: string | null): AIResponse['finishReason'] {
-  switch (reason) {
-    case 'stop':
-      return 'stop';
-    case 'length':
-    case 'max_tokens':
-      return 'length';
-    case 'tool_calls':
-      return 'tool-calls';
-    case 'content_filter':
-      return 'content-filter';
-    default:
-      return 'stop';
-  }
 }
 
 function isOpenRouterModel(obj: unknown): obj is OpenRouterModel {

@@ -1,7 +1,8 @@
 # ============================================================
 # ALO Labs AgentOS — Docker Compose (base)
 #
-# Services: app, redis, qdrant, minio, caddy (auto-SSL), prometheus, grafana
+# Core: app, Redis, Qdrant, MinIO, Caddy, Prometheus, Grafana
+# Optional (sockets profile): queue-service and realtime-service
 # Optional (tools profile): adminer, mariadb
 #
 # Usage:
@@ -34,9 +35,7 @@ services:
     container_name: alolabs-agentos
     restart: unless-stopped
     env_file:
-      # `required: false` so the stack still starts before an operator has run
-      # `cp .env.example .env`; every value the app needs is set explicitly in
-      # `environment` below or has a default.
+      # Values may be supplied via the environment or a local dotenv file.
       - path: .env
         required: false
     environment:
@@ -44,9 +43,13 @@ services:
       HOSTNAME: 0.0.0.0
       PORT: "3011"
       NEXT_TELEMETRY_DISABLED: "1"
-      # SQLite file inside the app_data volume, so the database survives
-      # `docker compose down` and is shared with the prod override.
-      DATABASE_URL: file:/app/data/agenthub.db
+      # Separate from the host's dev DATABASE_URL; production never selects SQLite.
+      DATABASE_URL: ${COMPOSE_DATABASE_URL:?Set a container-reachable mysql:// DSN}
+      PRISMA_SQLITE_ADAPTER: "0"
+      JWT_SECRET: ${JWT_SECRET:?Set a strong signing secret}
+      APP_SECRET: ${APP_SECRET:?Set a strong application secret}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set an encryption key}
+      METRICS_SCRAPE_TOKEN: ${METRICS_SCRAPE_TOKEN:?Set a dedicated read-only scrape token}
       REDIS_URL: redis://redis:6379
       REDIS_HOST: redis
       REDIS_PORT: "6379"
@@ -57,13 +60,13 @@ services:
       MINIO_HOST: minio
       MINIO_PORT: "9000"
       MINIO_SSL: "false"
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-alolabs}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-alolabs-minio-secret}
+      MINIO_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY}
       MINIO_BUCKET: ${MINIO_BUCKET:-agent-hub}
       MINIO_REGION: ${MINIO_REGION:-us-east-1}
       S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: ${MINIO_ACCESS_KEY:-alolabs}
-      S3_SECRET_KEY: ${MINIO_SECRET_KEY:-alolabs-minio-secret}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY}
       S3_BUCKET: ${MINIO_BUCKET:-agent-hub}
       S3_REGION: ${MINIO_REGION:-us-east-1}
       S3_USE_SSL: "false"
@@ -74,15 +77,15 @@ services:
       - app_data:/app/data
       - app_storage:/app/storage
       - app_logs:/app/logs
-      - app_backups:/app/backups
+      - app_backups:/app/db/backups
     healthcheck:
       <<: *healthcheck-defaults
-      # node:20-slim ships neither wget nor curl; use node's built-in fetch.
+      # The slim runner does not require wget or curl; use node's built-in fetch.
       test:
         - CMD
         - node
         - -e
-        - "fetch('http://127.0.0.1:3011/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        - "fetch('http://127.0.0.1:3011/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
     networks:
       - alolabs-net
     depends_on:
@@ -95,6 +98,43 @@ services:
     extra_hosts:
       # Lets the container reach an Ollama instance on the Docker host.
       - "host.docker.internal:host-gateway"
+
+  # Optional socket services use the app image and the SAME generated DB client.
+  queue-service:
+    profiles: [sockets]
+    image: alolabs-agentos:local
+    command: [node, mini-services/queue-service.cjs]
+    environment:
+      DATABASE_URL: ${COMPOSE_DATABASE_URL:?Set a container-reachable mysql:// DSN}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      QUEUE_SERVICE_TOKEN: ${QUEUE_SERVICE_TOKEN:-}
+      QUEUE_CORS_ORIGIN: ${NEXT_PUBLIC_APP_URL:-}
+      SOCKET_BIND_HOST: 0.0.0.0
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [alolabs-net]
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  realtime-service:
+    profiles: [sockets]
+    image: alolabs-agentos:local
+    command: [node, mini-services/realtime-service.cjs]
+    environment:
+      DATABASE_URL: ${COMPOSE_DATABASE_URL:?Set a container-reachable mysql:// DSN}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGIN: ${NEXT_PUBLIC_APP_URL:-}
+      SOCKET_BIND_HOST: 0.0.0.0
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [alolabs-net]
+    healthcheck:
+      disable: true
+    restart: unless-stopped
 
   # ── Redis (cache, rate limiting, sessions) ───────────────────
   redis:
@@ -150,8 +190,8 @@ services:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-alolabs}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-alolabs-minio-secret}
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY}
     volumes:
       - minio_data:/data
     healthcheck:
@@ -200,6 +240,7 @@ services:
     volumes:
       - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
+    secrets: [metrics_scrape_token]
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.retention.time=30d'
@@ -222,7 +263,7 @@ services:
       - "127.0.0.1:3001:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set a unique Grafana password}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3001}
     volumes:
@@ -257,8 +298,7 @@ services:
       - mariadb
 
   # ── MariaDB (optional dev exploration — tools profile only) ──
-  # The application uses SQLite by default; this exists for evaluating the
-  # MySQL/MariaDB path in prisma/schema.mysql.prisma.
+  # Optional local database. Provision its schema separately before starting the app.
   mariadb:
     image: mariadb:10.11
     container_name: alolabs-mariadb
@@ -267,10 +307,10 @@ services:
     ports:
       - "127.0.0.1:3306:3306"
     environment:
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-alolabs-root}
+      MARIADB_RANDOM_ROOT_PASSWORD: "yes"
       MARIADB_DATABASE: ${MARIADB_DATABASE:-agentos}
       MARIADB_USER: ${MARIADB_USER:-agentos}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-alolabs-db}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-}
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./deploy/docker/mariadb-custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
@@ -312,3 +352,7 @@ volumes:
 networks:
   alolabs-net:
     driver: bridge
+
+secrets:
+  metrics_scrape_token:
+    environment: METRICS_SCRAPE_TOKEN

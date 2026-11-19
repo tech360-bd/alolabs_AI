@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { notificationScope } from '@/lib/access/notifications';
+import { redisPublish } from '@/lib/redis';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-auth';
 import { parseBody, parseQuery, paginationQuery, buildOrderBy, paginatedResponse } from '@/lib/validators';
@@ -25,7 +27,7 @@ const notificationUpdateSchema = z.object({
 // GET /api/notifications
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth();
+    const user = await requireAuth();
     const parsed = parseQuery(paginationQuery, new URL(request.url).searchParams);
     if (parsed.error) return NextResponse.json({ error: parsed.error.message }, { status: parsed.error.status });
 
@@ -33,7 +35,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tab = searchParams.get('tab') || '';
 
-    const where: Record<string, unknown> = {};
+    const scope = notificationScope(user);
+    const where: Record<string, unknown> = { ...scope };
     if (tab === 'unread') {
       where.read = false;
     } else if (tab === 'alerts') {
@@ -52,7 +55,7 @@ export async function GET(request: NextRequest) {
         take: limit,
       }),
       db.notification.count({ where }),
-      db.notification.count({ where: { read: false } }),
+      db.notification.count({ where: { ...scope, read: false } }),
     ]);
 
     return NextResponse.json({ ...paginatedResponse(data, page, limit, total), unreadCount });
@@ -73,7 +76,12 @@ export async function POST(request: NextRequest) {
     const parsed = parseBody(notificationCreateSchema, body);
     if (parsed.error) return NextResponse.json({ error: parsed.error.message }, { status: parsed.error.status });
 
-    const notification = await db.notification.create({ data: parsed.data });
+    const data = parsed.data;
+    if (!['super_admin', 'platform_super_admin'].includes(user.role)) {
+      if ((data.userId && data.userId !== user.userId) || (data.companyId && data.companyId !== user.companyId)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      data.userId = user.userId;
+    }
+    const notification = await db.notification.create({ data });
 
     await db.auditLog.create({
       data: {
@@ -84,6 +92,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // DB is authoritative; send a scoped invalidation, not the message body.
+    await redisPublish('realtime:notification:new', JSON.stringify({ id: notification.id, userId: notification.userId, companyId: notification.companyId }));
     return NextResponse.json({ data: notification }, { status: 201 });
   } catch (error: unknown) {
     if (error instanceof Error && error.message === 'Unauthorized') {
@@ -104,7 +114,7 @@ export async function PUT(req: NextRequest) {
 
     const { id, read, ...rest } = parsed.data;
 
-    const existing = await db.notification.findUnique({ where: { id } });
+    const existing = await db.notification.findFirst({ where: { id, ...notificationScope(user) } });
     if (!existing) {
       return NextResponse.json({ error: 'Notification not found' }, { status: 404 });
     }
@@ -112,7 +122,7 @@ export async function PUT(req: NextRequest) {
     const data: Record<string, unknown> = {};
     if (read !== undefined) {
       data.read = read;
-      if (read) data.readAt = new Date();
+      data.readAt = read ? new Date() : null;
     }
     if (rest.title !== undefined) data.title = rest.title;
     if (rest.message !== undefined) data.message = rest.message;
@@ -152,7 +162,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const existing = await db.notification.findUnique({ where: { id } });
+    const existing = await db.notification.findFirst({ where: { id, ...notificationScope(user) } });
     if (!existing) {
       return NextResponse.json({ error: 'Notification not found' }, { status: 404 });
     }

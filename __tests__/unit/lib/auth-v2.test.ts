@@ -287,6 +287,7 @@ describe('auth utilities — expanded v2', () => {
 
     it('also removes hashed and raw-key Settings records from the compatibility path', async () => {
       const token = 'legacy-token-here';
+      mockSettingsFindUnique.mockResolvedValue({ value: '{}' });
       await deleteSessionToken(token);
       expect(mockSettingsDelete).toHaveBeenCalledWith({ where: { key: sessionKey(token) } });
       expect(mockSettingsDelete).toHaveBeenCalledWith({ where: { key: legacySessionKey(token) } });
@@ -297,11 +298,11 @@ describe('auth utilities — expanded v2', () => {
       await expect(deleteSessionToken('nonexistent')).resolves.not.toThrow();
     });
 
-    it('should resolve even if DB throws', async () => {
+    it('must not report successful revocation when the database is unavailable', async () => {
       mockSessionFindUnique.mockRejectedValue(new Error('DB error'));
       mockSettingsFindUnique.mockRejectedValue(new Error('DB error'));
       mockSettingsDelete.mockRejectedValue(new Error('DB error'));
-      await expect(deleteSessionToken('any-token')).resolves.toBeUndefined();
+      await expect(deleteSessionToken('any-token')).rejects.toThrow('DB error');
     });
   });
 });

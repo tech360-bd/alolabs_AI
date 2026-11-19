@@ -1,3 +1,4 @@
+import { actionErrorResponse as errorResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
@@ -16,12 +17,6 @@ const CreateMetricSchema = z.object({
 }).refine((value) => value.instanceId || value.agentId, {
   message: 'instanceId or agentId is required',
 })
-
-function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Internal server error'
-  const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 500
-  return NextResponse.json({ error: message, success: false }, { status })
-}
 
 export async function GET(req: NextRequest) {
   try {

@@ -1,3 +1,4 @@
+import { authFailure as authResponse } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -17,12 +18,6 @@ const UpdateSchema = z.object({
   publicPublishAllowed: z.boolean().optional(),
   webCrmConnected: z.boolean().optional(),
 }).strict();
-
-function authResponse(error: unknown) {
-  if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  return null;
-}
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

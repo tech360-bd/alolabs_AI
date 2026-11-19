@@ -68,6 +68,8 @@ vi.mock('@/lib/auth', () => ({
 
 import { POST } from '@/app/api/auth/login/route';
 import { compare } from 'bcrypt';
+// Select bcrypt's Promise overload (not its callback overload).
+const compareAsync: (data: string, encrypted: string) => Promise<boolean> = compare;
 import { createSessionToken } from '@/lib/auth';
 
 describe('POST /api/auth/login', () => {
@@ -125,7 +127,7 @@ describe('POST /api/auth/login', () => {
       isActive: true,
       passwordHash: 'hashed',
     });
-    vi.mocked(compare).mockResolvedValue(false);
+    vi.mocked(compareAsync).mockResolvedValue(false);
     const request = new MockNextRequest({ email: 'test@alo.com', password: 'wrong' });
     const response = await POST(request as any);
     expect(response.status).toBe(401);
@@ -141,7 +143,7 @@ describe('POST /api/auth/login', () => {
       passwordHash: 'hashed',
       otpEnabled: false,
     });
-    vi.mocked(compare).mockResolvedValue(true);
+    vi.mocked(compareAsync).mockResolvedValue(true);
     mockUserUpdate.mockResolvedValue({});
     mockAuditLogCreate.mockResolvedValue({});
 
@@ -165,7 +167,7 @@ describe('POST /api/auth/login', () => {
       passwordHash: 'hashed',
       otpEnabled: false,
     });
-    vi.mocked(compare).mockResolvedValue(true);
+    vi.mocked(compareAsync).mockResolvedValue(true);
     mockUserUpdate.mockResolvedValue({});
     mockAuditLogCreate.mockResolvedValue({});
 
@@ -199,7 +201,7 @@ describe('POST /api/auth/login', () => {
       passwordHash: 'hashed',
       otpEnabled: true,
     });
-    vi.mocked(compare).mockResolvedValue(true);
+    vi.mocked(compareAsync).mockResolvedValue(true);
 
     const request = new MockNextRequest({ email: 'mfa@alo.com', password: 'correct', rememberMe: true });
     const response = await POST(request as any);

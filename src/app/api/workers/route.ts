@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { requireAuth } from '@/lib/api-auth';
+import { requireRole } from '@/lib/api-auth';
 import {
   parseBody,
   parseQuery,
@@ -14,19 +14,19 @@ import {
 const workerCreateSchema = z.object({
   name: z.string().min(1),
   host: z.string().min(1),
-  port: z.number().int(),
-  concurrency: z.number().int().default(5),
-  maxMemoryMb: z.number().int().default(512),
+  port: z.number().int().min(1).max(65535),
+  concurrency: z.number().int().min(1).max(1024).default(5),
+  maxMemoryMb: z.number().int().positive().default(512),
 });
 
 const workerUpdateSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).optional(),
   host: z.string().optional(),
-  port: z.number().int().optional(),
+  port: z.number().int().min(1).max(65535).optional(),
   status: z.enum(['idle', 'busy', 'draining', 'offline']).optional(),
-  concurrency: z.number().int().optional(),
-  maxMemoryMb: z.number().int().optional(),
+  concurrency: z.number().int().min(1).max(1024).optional(),
+  maxMemoryMb: z.number().int().positive().optional(),
   activeJobs: z.number().int().optional(),
   cpuUsage: z.number().optional(),
   memoryUsageMb: z.number().int().optional(),
@@ -38,7 +38,7 @@ const workerUpdateSchema = z.object({
 // GET /api/workers
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth();
+    await requireRole('super_admin', 'platform_super_admin', 'infrastructure_admin');
     const parsed = parseQuery(paginationQuery, new URL(request.url).searchParams);
     if (parsed.error) return NextResponse.json({ error: parsed.error.message }, { status: parsed.error.status });
 
@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(paginatedResponse(workers, page, limit, total));
   } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -69,8 +70,8 @@ export async function GET(request: NextRequest) {
 // POST /api/workers
 export async function POST(req: NextRequest) {
   try {
-    const user = await requireAuth();
-    const body = await req.json();
+    const user = await requireRole('super_admin', 'platform_super_admin', 'infrastructure_admin');
+    const body = await req.json().catch(() => null);
     const parsed = parseBody(workerCreateSchema, body);
     if (parsed.error) return NextResponse.json({ error: parsed.error.message }, { status: parsed.error.status });
 
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: worker }, { status: 201 });
   } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -98,8 +100,8 @@ export async function POST(req: NextRequest) {
 // PUT /api/workers
 export async function PUT(req: NextRequest) {
   try {
-    const user = await requireAuth();
-    const body = await req.json();
+    const user = await requireRole('super_admin', 'platform_super_admin', 'infrastructure_admin');
+    const body = await req.json().catch(() => null);
     const parsed = parseBody(workerUpdateSchema, body);
     if (parsed.error) return NextResponse.json({ error: parsed.error.message }, { status: parsed.error.status });
 
@@ -140,6 +142,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ data: worker });
   } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -151,7 +154,7 @@ export async function PUT(req: NextRequest) {
 // DELETE /api/workers
 export async function DELETE(req: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = await requireRole('super_admin', 'platform_super_admin', 'infrastructure_admin');
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) {
@@ -176,6 +179,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

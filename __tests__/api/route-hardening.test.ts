@@ -626,6 +626,7 @@ describe('ai security events', () => {
     );
     expect(res.status).toBe(200);
     const created = mocks.securityEventCreate.mock.calls.find((c: any) => c[0].data?.source === 'ai-security');
+    if (!created) throw new Error('Expected event creation');
     expect(created[0].data.companyId).toBe(TENANT_A);
     expect(JSON.stringify(created[0].data.details)).not.toContain('hunter2');
   });

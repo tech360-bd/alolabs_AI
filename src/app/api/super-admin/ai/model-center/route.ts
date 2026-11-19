@@ -1,3 +1,4 @@
+import { authFailure as authError } from '@/lib/api/route-errors';
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/api-auth';
 import { db } from '@/lib/db';
@@ -21,12 +22,6 @@ export const dynamic = 'force-dynamic';
  *
  * Read-only. It never changes a provider, policy or model assignment.
  */
-
-function authError(error: unknown) {
-  if (error instanceof Error && error.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (error instanceof Error && error.message === 'Forbidden') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  return null;
-}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatShortDate as fmt } from '@/lib/display-format';
 import React, { useState, useEffect } from 'react'
 import { HardDrive, FolderTree, Database, Clock, Archive, Tag } from 'lucide-react'
 import { fetchApi } from '@/lib/api-client'
@@ -29,10 +30,6 @@ function fmtSize(bytes: number) {
   if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`
   return `${(bytes / 1073741824).toFixed(2)} GB`
-}
-
-function fmt(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export default function DataLakePanel() {
