@@ -173,7 +173,7 @@ jobs:
           if ! bunx prisma db push --schema=prisma/schema.mysql.prisma --skip-generate > /tmp/schema-init.log 2>&1; then
             codes=$(grep -Eo 'P[0-9]{4}|Error code: [0-9]+' /tmp/schema-init.log | sort -u | tr '\n' ' ' || true)
             reason=unclassified
-            for category in 'key was too long' 'row size too large' 'key specification without a key length' 'cannot have a default value' 'cannot be used in a key specification' 'would be lost' 'data loss' 'permission denied' 'duplicate key' 'index column size too large' 'syntax error'; do
+            for category in 'key was too long' 'row size too large' 'key specification without a key length' 'cannot have a default value' 'cannot be used in a key specification' 'would be lost' 'data loss' 'permission denied' 'duplicate key' "can't have a default value" 'identifier name' 'foreign key constraint' 'invalid default value' 'is too long' 'unknown argument' 'index column size too large' 'syntax error' ; do
               if grep -Fiq "$category" /tmp/schema-init.log; then reason=$category; break; fi
             done
             echo "::error title=Disposable schema initialization failed::Category: $reason; Prisma/MySQL codes: ${codes:-not reported}"

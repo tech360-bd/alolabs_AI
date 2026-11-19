@@ -13,7 +13,20 @@ INSERT INTO alo_backup_ci.evidence VALUES (42);
 SQL
 t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
 # The URL is only in the environment of the backup, never in the argv/file.
-url=$(node -e 'process.stdout.write("mysql://root:"+encodeURIComponent(process.env.MYSQL_PWD)+"@127.0.0.1:3306/alo_backup_ci")')
+url=$(node <<'JS'
+const mysql=require('mysql2/promise'),{randomBytes}=require('node:crypto');
+(async()=>{
+  const admin=await mysql.createConnection({host:'127.0.0.1',user:'root',password:process.env.MYSQL_PWD});
+  const user='restore@probe', pass=randomBytes(20).toString('hex')+'!$#%&@:/';
+  try {
+    await admin.query("CREATE USER ?@'%' IDENTIFIED BY ?",[user,pass]);
+    await admin.query("GRANT SELECT, SHOW VIEW, TRIGGER, EVENT, LOCK TABLES ON alo_backup_ci.* TO ?@'%'",[user]);
+    await admin.query("GRANT PROCESS, SHOW_ROUTINE ON *.* TO ?@'%'",[user]);
+    process.stdout.write(`mysql://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@127.0.0.1:3306/alo_backup_ci`);
+  } finally { await admin.end(); }
+})().catch(()=>{console.error('Isolated dump account initialization failed');process.exitCode=1;});
+JS
+)
 touch "$t/.env"
 APP_DIR="$t" DATABASE_URL="$url" bash deploy/scripts/backup.sh
 snapshots=("$t"/backups/*); [[ ${#snapshots[@]} == 1 ]]
