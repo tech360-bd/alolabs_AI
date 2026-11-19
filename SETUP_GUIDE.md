@@ -23,53 +23,9 @@ ALO Labs AISMH is a full AI-powered Marketing Operating System.
 
 ---
 
-## METHOD 1: LOCAL DEVELOPMENT (Fastest — 2 minutes)
+## Contributor setup
 
-### Step 1: Extract
-```bash
-unzip aismh-production.zip
-cd aismh-production
-```
-
-### Step 2: Install
-```bash
-bun install
-```
-### Step 3: Configure
-```bash
-cp .env.example .env
-```
-
-Edit `.env` — set ONLY these 3 for local dev:
-```env
-DATABASE_URL=file:./db/aismh.db
-AUTH_SECRET=dev-secret-change-me-32chars-minimum
-JWT_SECRET=dev-jwt-secret-change-me-in-prod
-```
-
-### Step 4: Database
-```bash
-mkdir -p db
-bun run db:generate
-bun run db:push
-```
-
-### Step 5: Run
-```bash
-bun run dev
-```
-Open **http://localhost:3011** in your browser.
-
-> The dev server runs on **3011**, not 3000 — see `next dev -p 3011` in
-> `package.json`. Port 3011 is the project-wide contract: `Dockerfile`,
-> both compose files, `Caddyfile` and `deploy/prometheus.yml` all agree on it,
-> and `scripts/validate-compose.mjs` fails CI if they drift apart.
-
-### Default Login
-- Email: `admin@alolabs.com`
-- Password: `Admin@123`
-
----
+Follow the [canonical clone-to-login guide](docs/CONTRIBUTOR_QUICKSTART.md) for MySQL, offline SQLite, account creation and tests.
 
 ## METHOD 2: PRODUCTION SERVER (Ubuntu 24.04)
 
@@ -224,97 +180,9 @@ Check: `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f`
 
 ---
 
-## AIR-GAPPED / RESTRICTED-NETWORK BOOTSTRAP
+## Local development reference
 
-Use this when the machine cannot reach `binaries.prisma.sh` (Prisma engines) or
-`nodejs.org` (Node headers for native addons) — common in CI sandboxes, behind
-TLS-intercepting proxies, or on isolated build hosts.
-
-**Symptom:** `npm install` or `bun install` fails while building
-`better-sqlite3`, and `npx prisma generate` fails to download the query engine.
-If you then run `tsc --noEmit` you will see **hundreds of TypeScript errors**
-(`TS7006` implicit-any, `TS2305` "no exported member 'Prisma'"). Those are not
-real bugs — they are a cascade from the Prisma client never having been
-generated. Generate the client and they disappear.
-
-### 1. Install without running native build scripts
-
-```bash
-npm install --no-audit --no-fund --ignore-scripts
-```
-
-`better-sqlite3` is a native addon; skipping its build script avoids the
-`nodejs.org` header download. The cost is that real-database integration tests
-cannot run — see the note at the end of this section.
-
-### 2. Generate the Prisma client without the engines CDN
-
-```bash
-npm run db:generate:client-engine      # scripts/dev-generate-client.sh
-```
-
-This stubs the engine binaries and generates a client with
-`engineType = "client"` (WASM query compiler + better-sqlite3 driver adapter).
-Your `prisma/schema.prisma` is **not** modified.
-
-> **Critical:** an `engineType = "client"` PrismaClient throws at construction
-> unless a driver adapter is supplied, and `next build` constructs it while
-> collecting page data. So a build must set the adapter flag:
->
-> ```bash
-> PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build
-> ```
->
-> Omitting it fails with `P2038: Missing configured driver adapter`.
->
-> If you only need **typecheck and lint** (no build), generate against the
-> *default* schema instead — that client needs no adapter and no engine:
->
-> ```bash
-> mkdir -p .arena-tmp/engines
-> printf '#!/bin/bash\nif [ "$1" = "--version" ]; then echo "schema-engine stub"; exit 0; fi\nexit 0\n' \
->   > .arena-tmp/engines/schema-engine
-> chmod +x .arena-tmp/engines/schema-engine
-> touch .arena-tmp/engines/libquery_engine.so.node
->
-> PRISMA_SCHEMA_ENGINE_BINARY="$PWD/.arena-tmp/engines/schema-engine" \
-> PRISMA_QUERY_ENGINE_LIBRARY="$PWD/.arena-tmp/engines/libquery_engine.so.node" \
->   npx prisma generate --schema=prisma/schema.prisma
-> ```
-
-### 3. Create the database without the schema-engine binary
-
-`prisma db push` also needs the engines CDN. Use the equivalent DDL generator,
-which parses the schema and applies it via Node's built-in SQLite:
-
-```bash
-mkdir -p db
-DATABASE_URL=file:./db/custom.db npx tsx scripts/sqlite-push.ts
-# -> sqlite-push: applied 460 statements
-# -> sqlite-push: 179 models, 179 tables present
-```
-
-### 4. Verify
-
-```bash
-npx tsc --noEmit                              # expect 0 errors
-npm run lint                                  # expect 0 errors, 0 warnings
-npx vitest run                                # see caveat below
-node scripts/validate-compose.mjs             # expect 0 violations
-```
-
-**Test caveat:** the 8 real-database suites under `__tests__/integration/`
-(27 tests) need the `better-sqlite3` native binding. Without network access to
-fetch a prebuilt binary or Node headers to compile one, they fail with
-`Could not locate the bindings file`. This is environmental, not a regression —
-the other ~984 tests pass, and all 27 pass on any host with normal network
-access. To get them running locally, rebuild the addon once you have
-connectivity: `npm rebuild better-sqlite3`.
-
-With full network access, none of this section is necessary — just
-`bun install && bun run db:generate && bun run db:push`.
-
----
+Follow the [canonical clone-to-login guide](docs/CONTRIBUTOR_QUICKSTART.md) for MySQL, offline SQLite, account creation and tests.
 
 ## WHERE TO EDIT THINGS
 

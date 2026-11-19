@@ -618,3 +618,4 @@ echo "bunx lint-staged" > .husky/pre-commit
 - [ ] Backup workflow verified
 - [ ] Security scanning workflow enabled
 - [ ] Pre-commit hooks installed for developers
+**Host identity:** `PRODUCTION_HOST_FINGERPRINT` is required in the protected production environment. See [enrollment and rotation](SSH_HOST_KEY_ROTATION_RUNBOOK.md).

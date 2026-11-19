@@ -2,7 +2,7 @@
  * AgentOS Seed Script — idempotent.
  *
  * Creates the minimum real data for the Command Center to work:
- *   - admin user (email/password from env or defaults)
+ *   - admin user (password required in environment)
  *   - company + membership
  *   - departments (from the 100-department registry, upserted)
  *   - 4 starter AI employees (research, analysis, verification, writing)
@@ -14,7 +14,7 @@
  *
  * Env:
  *   SEED_ADMIN_EMAIL     (default admin@alolabs.net)
- *   SEED_ADMIN_PASSWORD  (default Admin@2026 — CHANGE IN PRODUCTION)
+ *   SEED_ADMIN_PASSWORD  (required; no default)
  */
 
 import { randomUUID } from 'node:crypto';

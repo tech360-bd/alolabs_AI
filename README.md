@@ -22,9 +22,7 @@
 >
 > New entry points: `POST /api/runs`, `GET /api/runs/:id`, `GET /api/runs/:id/events`
 > (SSE), `POST /api/workflows/:id/run`, and the versioned `/api/v1/*` surface.
-> Start a local SQLite sandbox with `npm run db:push:sqlite`,
-> `SEED_ADMIN_PASSWORD=<strong-unique-password> npm run seed:agentos`,
-> and `npm run dev` (port 3011). Never use the checked-in examples as secrets.
+> For first login, follow the [contributor quickstart](docs/CONTRIBUTOR_QUICKSTART.md).
 
 ## Features
 
@@ -157,51 +155,9 @@ alolabs-agentos/
 
 ---
 
-## Quick Start (5 minutes)
+## Contributor setup
 
-Deploy AgentOS on a fresh Ubuntu 22.04 server:
-
-```bash
-# 1. Update system and install base packages
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y curl git sqlite3 libsqlite3-dev
-
-# 2. Install Bun
-curl -fsSL https://bun.sh/install | bash
-source ~/.bashrc
-
-# 3. Install Node.js (required for PM2 and npx)
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# 4. Clone and enter the project
-git clone https://github.com/alolabs/agentos.git alolabs-agentos
-cd alolabs-agentos
-
-# 5. Configure environment
-cp .env.example .env
-nano .env  # Set APP_SECRET, ENCRYPTION_KEY, CSRF_SECRET at minimum
-
-# 6. Install dependencies
-bun install
-
-# 7. Generate Prisma client and initialize database
-npx prisma generate
-npx prisma db push
-
-# 8. Seed database with initial data
-bun run scripts/seed.ts
-
-# 9. Build for production
-bun run build
-
-# 10. Start the application
-bun run start
-```
-
-The application will be available at **http://your-server-ip:3000**.
-
----
+Follow the [canonical clone-to-login guide](docs/CONTRIBUTOR_QUICKSTART.md) for MySQL, offline SQLite, account creation and tests.
 
 ## Environment Variables
 
@@ -306,20 +262,9 @@ Copy `.env.example` to `.env` and configure. Generate secrets: `openssl rand -ba
 
 ---
 
-## Development Mode
+## Local development reference
 
-```bash
-bun install
-npx prisma generate
-npx prisma db push
-bun run dev
-```
-
-Development server runs on **http://localhost:3000** with hot reload. Logs output to terminal and `dev.log`.
-
-Health check: `curl http://localhost:3000/api/health`
-
----
+Follow the [canonical clone-to-login guide](docs/CONTRIBUTOR_QUICKSTART.md) for MySQL, offline SQLite, account creation and tests.
 
 ## Production Build
 
