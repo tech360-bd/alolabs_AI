@@ -172,7 +172,11 @@ jobs:
           node -e 'const u=new URL(process.env.DATABASE_URL); if (u.protocol!=="mysql:" || u.hostname!=="127.0.0.1" || u.port!=="3306" || u.pathname!=="/alolabs_test") process.exit(1)'
           if ! bunx prisma db push --schema=prisma/schema.mysql.prisma --skip-generate > /tmp/schema-init.log 2>&1; then
             codes=$(grep -Eo 'P[0-9]{4}|Error code: [0-9]+' /tmp/schema-init.log | sort -u | tr '\n' ' ' || true)
-            echo "::error title=Disposable schema initialization failed::Prisma/MySQL error codes: ${codes:-not reported}"
+            reason=unclassified
+            for category in 'key was too long' 'row size too large' 'key specification without a key length' 'cannot have a default value' 'cannot be used in a key specification' 'would be lost' 'data loss' 'permission denied' 'duplicate key' 'index column size too large' 'syntax error'; do
+              if grep -Fiq "$category" /tmp/schema-init.log; then reason=$category; break; fi
+            done
+            echo "::error title=Disposable schema initialization failed::Category: $reason; Prisma/MySQL codes: ${codes:-not reported}"
             exit 1
           fi
       - name: Build standalone with the MySQL client
@@ -180,7 +184,9 @@ jobs:
           SKIP_PAID_SERVICES: 'true'
           FREE_ONLY_MODE: 'true'
           NEXT_TELEMETRY_DISABLED: '1'
-        run: bun run build
+        run: |
+          export JWT_SECRET="$(openssl rand -hex 32)" APP_SECRET="$(openssl rand -hex 32)" ENCRYPTION_KEY="$(openssl rand -hex 32)"
+          bun run build
       - name: Verify standalone readiness and login on the disposable service
         env:
           SKIP_PAID_SERVICES: 'true'
