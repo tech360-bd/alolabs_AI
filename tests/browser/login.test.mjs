@@ -25,6 +25,7 @@ before(async () => {
   const path=join(temp,'test.sqlite');
   const env={PATH:process.env.PATH,HOME:temp,NEXT_TELEMETRY_DISABLED:'1',NODE_ENV:'development',DATABASE_URL:`file:${path}`,PRISMA_SQLITE_ADAPTER:'1',JWT_SECRET:randomBytes(32).toString('hex')};
   execFileSync('npm',['run','db:push:sqlite'],{cwd,env,stdio:'ignore'});
+  execFileSync('npm',['run','seed:agentos'],{cwd,env:{...env,SEED_ADMIN_EMAIL:'initial@example.test',SEED_ADMIN_PASSWORD:password},stdio:'ignore'});
   db=new DatabaseSync(path);
   for(const [id,mfa] of [['staff',0],['mfa',1]]) db.prepare('INSERT INTO User(id,email,name,passwordHash,role,otpSecret,otpEnabled,updatedAt) VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP)').run(id,`${id}@example.test`,id,await bcrypt.hash(password,10),'account_manager',mfa?secret.toString('hex'):null,mfa);
   browser=await chromium.launch({executablePath:process.env.TEST_CHROMIUM_PATH || undefined});
@@ -48,6 +49,9 @@ async function persisted(page,ctx) {
   const cookie=(await ctx.cookies()).find(c=>c.name==='session-token');assert.ok(cookie?.httpOnly && cookie.path==='/' && cookie.sameSite==='Lax');
   assert.equal((await ctx.request.get('/api/auth/me',{headers:{authorization:`Bearer ${cookie.value}`}})).status(),200);return cookie.value;
 }
+test('locally provisioned initial administrator can sign in',async t=>{
+  const {page,ctx}=await session(t);await signIn(page,'initial');await persisted(page,ctx);
+});
 test('normal login survives reload; server denies privileged API and revokes session on logout',async t=>{
   const {page,ctx}=await session(t);await signIn(page,'staff');const token=await persisted(page,ctx);
   const headers={authorization:`Bearer ${token}`};assert.equal((await ctx.request.get('/api/users',{headers})).status(),403);
