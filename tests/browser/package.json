@@ -1,0 +1,1 @@
+{"name":"alolabs-browser-regression","private":true,"type":"module","scripts":{"test":"node --test login.test.mjs"},"devDependencies":{"playwright":"1.58.2"}}
