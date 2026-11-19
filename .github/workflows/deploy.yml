@@ -163,6 +163,7 @@ jobs:
       # problem is distinguishable from a deployment failure at a glance.
       - name: Validate required production SSH secrets
         env:
+          PRODUCTION_HOST_FINGERPRINT: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
           PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
           PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
@@ -192,6 +193,7 @@ jobs:
         # catches a dangling symlink, which -e misses.
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         with:
+          fingerprint: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
@@ -209,6 +211,7 @@ jobs:
       - name: Transfer reviewed safety scripts without changing production
         uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
         with:
+          fingerprint: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
@@ -225,6 +228,7 @@ jobs:
           MIGRATIONS_APPROVED: ${{ inputs.migrations_approved || 'false' }}
           PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
         with:
+          fingerprint: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}

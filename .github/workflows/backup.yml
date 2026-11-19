@@ -50,6 +50,7 @@ jobs:
       # inline copy of the same check is deduplicated into it.)
       - name: Validate required production SSH secrets
         env:
+          PRODUCTION_HOST_FINGERPRINT: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
           PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
           PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
@@ -60,6 +61,7 @@ jobs:
         env:
           PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
         with:
+          fingerprint: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}

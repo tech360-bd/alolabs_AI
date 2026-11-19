@@ -64,6 +64,11 @@ user="${PRODUCTION_USER-}"
 key="${PRODUCTION_SSH_KEY-}"
 port="${PRODUCTION_PORT-}"
 
+fingerprint="${PRODUCTION_HOST_FINGERPRINT-}"
+expect PRODUCTION_HOST_FINGERPRINT "$fingerprint" "independently verified SHA256 server host-key fingerprint"
+if [[ -n "$fingerprint" && ! "$fingerprint" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]]; then
+  invalid+=("PRODUCTION_HOST_FINGERPRINT is not an OpenSSH SHA256 fingerprint")
+fi
 expect PRODUCTION_HOST "${host}" "server hostname or IP address, e.g. 203.0.113.10"
 expect PRODUCTION_USER "${user}" "SSH login user on the server, e.g. aloedu"
 expect PRODUCTION_SSH_KEY "${key}" "full private key file (OpenSSH or PEM), not a path"
