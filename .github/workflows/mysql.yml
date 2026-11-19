@@ -163,24 +163,35 @@ jobs:
         env:
           NODE_ENV: test
 
-      - name: Prove full schema and production standalone startup on the disposable service
-        # No deployment secrets; this job must never provision a remote database.
+      - name: Prove backup and logical restore in separate CI-only schemas
+        run: bash tests/reliability/mysql-restore.sh
+
+      - name: Initialize complete schema on the disposable MySQL service
+        run: |
+          set -euo pipefail
+          node -e 'const u=new URL(process.env.DATABASE_URL); if (u.protocol!=="mysql:" || u.hostname!=="127.0.0.1" || u.port!=="3306" || u.pathname!=="/alolabs_test") process.exit(1)'
+          if ! bunx prisma db push --schema=prisma/schema.mysql.prisma --skip-generate > /tmp/schema-init.log 2>&1; then
+            codes=$(grep -Eo 'P[0-9]{4}|Error code: [0-9]+' /tmp/schema-init.log | sort -u | tr '\n' ' ' || true)
+            echo "::error title=Disposable schema initialization failed::Prisma/MySQL error codes: ${codes:-not reported}"
+            exit 1
+          fi
+      - name: Build standalone with the MySQL client
+        env:
+          SKIP_PAID_SERVICES: 'true'
+          FREE_ONLY_MODE: 'true'
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: bun run build
+      - name: Verify standalone readiness and login on the disposable service
         env:
           SKIP_PAID_SERVICES: 'true'
           FREE_ONLY_MODE: 'true'
           NEXT_TELEMETRY_DISABLED: '1'
         run: |
           set -euo pipefail
-          node -e 'const u=new URL(process.env.DATABASE_URL); if (u.protocol!=="mysql:" || u.hostname!=="127.0.0.1" || u.port!=="3306" || u.pathname!=="/alolabs_test") process.exit(1)'
-          bunx prisma db push --schema=prisma/schema.mysql.prisma --skip-generate
           export JWT_SECRET="$(openssl rand -hex 32)" APP_SECRET="$(openssl rand -hex 32)" ENCRYPTION_KEY="$(openssl rand -hex 32)"
-          bun run build
           NODE_ENV=production HOSTNAME=127.0.0.1 PORT=3011 node .next/standalone/server.js >/tmp/standalone-mysql.log 2>&1 &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
           curl --fail --retry 15 --retry-delay 1 --retry-connrefused --max-time 5 http://127.0.0.1:3011/api/health/ready > /tmp/standalone-ready.json
           node -e 'const r=require("/tmp/standalone-ready.json"); if (!r.ready || r.provider!=="mysql" || !r.production_policy_enforced) process.exit(1)'
           curl --fail --silent --output /dev/null http://127.0.0.1:3011/login
-
-      - name: Prove backup and logical restore in separate CI-only schemas
-        run: bash tests/reliability/mysql-restore.sh
