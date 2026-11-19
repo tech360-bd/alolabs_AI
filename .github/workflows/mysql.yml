@@ -18,6 +18,9 @@ on:
   push:
     branches: [main, develop, 'arena/**']
     paths:
+      - 'deploy/scripts/backup.sh'
+      - 'deploy/scripts/lib/**'
+      - 'tests/reliability/mysql-restore.sh'
       - 'prisma/**'
       - 'src/lib/db.ts'
       - 'src/lib/production-database.ts'
@@ -27,6 +30,9 @@ on:
   pull_request:
     branches: [main, develop, 'arena/**']
     paths:
+      - 'deploy/scripts/backup.sh'
+      - 'deploy/scripts/lib/**'
+      - 'tests/reliability/mysql-restore.sh'
       - 'prisma/**'
       - 'src/lib/db.ts'
       - 'src/lib/production-database.ts'
@@ -175,3 +181,6 @@ jobs:
           curl --fail --retry 15 --retry-delay 1 --retry-connrefused --max-time 5 http://127.0.0.1:3011/api/health/ready > /tmp/standalone-ready.json
           node -e 'const r=require("/tmp/standalone-ready.json"); if (!r.ready || r.provider!=="mysql" || !r.production_policy_enforced) process.exit(1)'
           curl --fail --silent --output /dev/null http://127.0.0.1:3011/login
+
+      - name: Prove backup and logical restore in separate CI-only schemas
+        run: bash tests/reliability/mysql-restore.sh

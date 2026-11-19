@@ -198,6 +198,11 @@ test -d .next/standalone/public
 
 # Use the existing environment and data, not new per-release directories.
 # Keep the legacy checkout (including its built output) intact on first cutover.
+configured_storage=$(setting STORAGE_LOCAL_PATH)
+case "${configured_storage#./}" in
+  ''|/*|uploads|uploads/*|storage|storage/*|data|data/*|public/uploads|public/uploads/*) ;;
+  *) fail "custom relative storage must have an approved absolute shared path before activation" ;;
+esac
 for name in uploads storage data public/uploads; do
   shared="$APP_DIR/$name"
   legacy="$APP_DIR/.next/standalone/$name"

@@ -181,9 +181,20 @@ esac
 
 # Preserve the provider's data AND .metadata ownership records. The previous
 # archive omitted the local provider's default `uploads/` directory.
+check_storage_root() {
+  local path
+  path=$(alo_canonical_path "$1")
+  case "$path/" in "$BACKUP_DIR/"*) echo 'ERROR: storage points into backup directory' >&2; return 1 ;; esac
+  case "$BACKUP_DIR/" in "$path/"*) echo 'ERROR: storage contains backup directory' >&2; return 1 ;; esac
+  case "$APP_DIR/" in "$path/"*) echo 'ERROR: storage contains application configuration' >&2; return 1 ;; esac
+}
 storage_paths=()
 for candidate in storage data public/uploads uploads; do
-  [[ -d "${APP_DIR}/${candidate}" ]] && storage_paths+=("${candidate}")
+  if [[ -d "${APP_DIR}/${candidate}" ]]; then
+    check_storage_root "${APP_DIR}/${candidate}"
+    [[ ! -L "${APP_DIR}/${candidate}" ]] || { echo 'ERROR: shared storage mapping needs independent snapshot' >&2; exit 1; }
+    storage_paths+=("${candidate}")
+  fi
 done
 external_storage=false
 if [[ "${STORAGE_PROVIDER:-local}" == local ]]; then
@@ -191,10 +202,10 @@ if [[ "${STORAGE_PROVIDER:-local}" == local ]]; then
   [[ "${configured}" = /* ]] || configured="${APP_DIR}/${configured#./}"
   configured="$(alo_canonical_path "${configured}")"
   if [[ -d "${configured}" ]]; then
+    check_storage_root "$configured"
     # `realpath --relative-to` equivalent — both sides are canonical.
     relative="$(alo_relative_path "${APP_DIR}" "${configured}")"
     if [[ "${relative}" == ../* || "${relative}" == .. ]]; then
-      [[ "${configured}" != "${BACKUP_DIR}"* ]] || { echo "ERROR: storage points into backup directory" >&2; exit 1; }
       tar -C "${configured}" -czf "${dest}/configured-storage.tar.gz" .
       tar -tzf "${dest}/configured-storage.tar.gz" >/dev/null
       external_storage=true

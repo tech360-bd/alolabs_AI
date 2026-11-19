@@ -13,6 +13,8 @@ import time
 def verified(path):
     try:
         manifest = json.loads((path / 'manifest.json').read_bytes())
+        if manifest.get('commit') != (path / 'commit.txt').read_text().strip() or manifest.get('checksum_manifest') != 'SHA256SUMS':
+            return False
         expected = {'commit.txt', 'manifest.json'}
         dumps = {'database.sqlite', 'database.sql.gz'} & {x.name for x in path.iterdir()}
         if len(dumps) != 1 or manifest['database_backup_verified'] is not True:
