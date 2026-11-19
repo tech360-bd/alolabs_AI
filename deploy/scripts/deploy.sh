@@ -38,7 +38,7 @@ finish() {
   local status=$?
   trap - EXIT INT TERM HUP
   if [[ "$activated" == true && "$completed" != true ]]; then
-    if switch_release "$STATE" "$PREVIOUS" && pm2 startOrReload "$PREVIOUS/ecosystem.config.js" --only "$PM2_NAME" --update-env && verify_serving "$PREVIOUS"; then
+    if activate_release "$STATE" "$PREVIOUS" "$PM2_NAME"; then
       record rolled_back "$CURRENT_COMMIT"
     else
       record rollback_failed unknown
@@ -142,9 +142,7 @@ esac
 # Inspect migration history and schema compatibility. Any error fails closed.
 if [[ -d prisma/migrations ]] && find prisma/migrations -mindepth 2 -name migration.sql -print -quit | grep -q .; then
   run_as_owner bunx prisma migrate status --schema "${DB_SCHEMA}" || fail "migration history is inconsistent or pending review"
-  MIGRATIONS_PRESENT=true
 else
-  MIGRATIONS_PRESENT=false
   echo "No Prisma-format migrations. prisma/migrations/mysql/*.sql are manual, reviewed SQL; none are applied by this deploy."
 fi
 run_as_owner bunx prisma validate --schema "${DB_SCHEMA}" || fail "Prisma schema validation failed"
@@ -212,9 +210,7 @@ for name in uploads storage data public/uploads; do
 done
 ln -sT "$ENV_FILE" "$RELEASE/.env.config"
 activated=true
-switch_release "$STATE" "$RELEASE"
-pm2 startOrReload "$RELEASE/ecosystem.config.js" --only "$PM2_NAME" --update-env
-verify_serving "$RELEASE" || fail "new release readiness failed"
+activate_release "$STATE" "$RELEASE" "$PM2_NAME" || fail "new release readiness failed"
 run_as_owner bunx prisma db execute --schema "${DB_SCHEMA}" --stdin <<<'SELECT 1;' >/dev/null
 
 # Existing optional infrastructure is verified only when configured; no data is changed.
