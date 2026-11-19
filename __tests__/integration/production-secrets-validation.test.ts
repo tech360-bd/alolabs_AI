@@ -27,6 +27,7 @@ const VALID_KEY = [
 ].join('\n');
 
 const VALID = {
+  PRODUCTION_HOST_FINGERPRINT: 'SHA256:' + 'A'.repeat(43),
   PRODUCTION_HOST: '203.0.113.10',
   PRODUCTION_USER: 'deploy-bot',
   PRODUCTION_SSH_KEY: VALID_KEY,
@@ -88,7 +89,11 @@ describe('production secret validation', () => {
     // Each name is reported once; the annotation repeats the list, so count
     // distinct names rather than occurrences.
     const names = new Set(result.output.match(/`(PRODUCTION_[A-Z_]+)` is not set/g));
-    expect(names.size).toBe(4);
+    expect(names.size).toBe(5);
+  });
+
+  it('rejects a missing or malformed fingerprint', () => {
+    for (const pin of ['', 'MD5:unknown']) expect(run({ ...VALID, PRODUCTION_HOST_FINGERPRINT: pin }).status).toBe(1);
   });
 
   it('rejects a host that carries a scheme or a port', () => {

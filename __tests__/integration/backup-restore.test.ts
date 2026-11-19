@@ -302,8 +302,7 @@ describe('isolated real backup → restore (not production certification)', () =
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('storage points into backup directory');
       const created = readdirSync(fixture.backups);
-      expect(created).toHaveLength(1);
-      expect(existsSync(join(fixture.backups, created[0], 'manifest.json'))).toBe(false);
+      expect(created).toHaveLength(0);
     } finally {
       rmSync(fixture.root, { recursive: true, force: true });
     }
@@ -317,9 +316,7 @@ describe('isolated real backup → restore (not production certification)', () =
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('active SQLite database is missing or empty');
       const created = readdirSync(fixture.backups);
-      expect(created).toHaveLength(1);
-      expect(existsSync(join(fixture.backups, created[0], 'manifest.json'))).toBe(false);
-      expect(existsSync(join(fixture.backups, created[0], 'database.sqlite'))).toBe(false);
+      expect(created).toHaveLength(0);
     } finally {
       rmSync(fixture.root, { recursive: true, force: true });
     }
