@@ -128,13 +128,16 @@ if [[ "${1:-}" == "--preflight" ]]; then
 fi
 
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+command -v python3 >/dev/null || { echo "ERROR: python3 required for snapshot publication" >&2; exit 1; }
 install -d -m 700 "${BACKUP_DIR}"
 dest="$(mktemp -d "${BACKUP_DIR}/.stage-${stamp}-XXXXXXXX")"
 final="${BACKUP_DIR}/${dest##*/.stage-}"
 trap '[[ ! -d "$dest" ]] || alo_remove_tree "$dest" "$BACKUP_DIR"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
-printf '%s\n' "$(git -C "${APP_DIR}" rev-parse HEAD 2>/dev/null || echo unknown)" > "${dest}/commit.txt"
+revision_dir=$APP_DIR
+if [[ -L "$APP_DIR/.alo-releases/current" ]]; then revision_dir="$APP_DIR/.alo-releases/current"; fi
+printf '%s\n' "$(git -C "$revision_dir" rev-parse HEAD 2>/dev/null || echo unknown)" > "${dest}/commit.txt"
 
 case "${DATABASE_URL}" in
   file:*)

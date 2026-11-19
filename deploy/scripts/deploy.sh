@@ -71,14 +71,15 @@ ENV_FILE="${APP_DIR}/.env.production"
 [[ -f "${ENV_FILE}" ]] || ENV_FILE="${APP_DIR}/.env"
 [[ -f "${ENV_FILE}" ]] || fail "production environment file not found"
 ENV_RELATIVE="$(realpath --relative-to="${APP_DIR}" "${ENV_FILE}")"
-if [[ "${ENV_RELATIVE}" != ../* ]] && git ls-files --error-unmatch "${ENV_RELATIVE}" >/dev/null 2>&1; then
+if [[ "${ENV_RELATIVE}" != ../* ]] && git -C "$APP_DIR" ls-files --error-unmatch "${ENV_RELATIVE}" >/dev/null 2>&1; then
   fail "production environment is tracked by Git and could be overwritten"
 fi
 ENV_HASH="$(sha256sum "${ENV_FILE}" | awk '{print $1}')"
-set -a
-# shellcheck disable=SC1090
-source "${ENV_FILE}"
-set +a
+# PM2 reads the full dotenv with its parser. Only import keys needed by these
+# checks; never execute dotenv as root or let it override the release target.
+setting() { node -e 'const fs=require("fs"),{parseEnv}=require("node:util");process.stdout.write(parseEnv(fs.readFileSync(process.argv[1],"utf8"))[process.argv[2]] ?? "")' "$ENV_FILE" "$1"; }
+DATABASE_URL=$(setting DATABASE_URL); export DATABASE_URL
+QDRANT_URL=$(setting QDRANT_URL); MINIO_URL=$(setting MINIO_URL); S3_ENDPOINT=$(setting S3_ENDPOINT)
 [[ -n "${DATABASE_URL:-}" ]] || fail "production DATABASE_URL is missing"
 bash "${SAFETY_SCRIPT_DIR}/database-safety-scan.sh" .
 
@@ -167,6 +168,7 @@ RELEASE=$(mktemp -d "$STATE/releases/${APPROVED_SHA}-${DEPLOY_RUN_ID}-XXXXXXXX")
 chown --reference="$APP_DIR" "$RELEASE"
 run_as_owner git clone --quiet --no-local --no-checkout "$APP_DIR" "$RELEASE"
 cd "$RELEASE"
+run_as_owner git fetch --quiet --no-tags origin refs/remotes/origin/main
 run_as_owner git checkout --quiet --detach "$APPROVED_SHA"
 [[ "$(run_as_owner git rev-parse HEAD)" == "$APPROVED_SHA" ]] || fail "staged revision mismatch"
 bash "${SAFETY_SCRIPT_DIR}/database-safety-scan.sh" .
@@ -176,6 +178,7 @@ bash "${SAFETY_SCRIPT_DIR}/database-safety-scan.sh" .
 # this deployment verified earlier.
 grep -Eq 'provider *= *"mysql"' "${DB_SCHEMA}" || fail "target Prisma provider differs from production (expected mysql)"
 
+ln -sT "$ENV_FILE" "$RELEASE/.env.production"
 run_as_owner bun install --frozen-lockfile
 run_as_owner bunx prisma validate --schema "${DB_SCHEMA}"
 run_as_owner bun run "${GENERATE_SCRIPT}"
@@ -231,7 +234,7 @@ fi
 
 df -h "${APP_DIR}"
 pm2 status
-pm2 describe "${PM2_NAME}"
+# Avoid PM2 describe, which may print inherited environment values.
 LOG_REVIEW="$(mktemp)"
 pm2 logs "${PM2_NAME}" --lines 100 --nostream >"${LOG_REVIEW}" 2>&1
 if grep -qiE '(DATABASE_URL=|password=|api[_-]?key=|private key|access[_-]?token=|refresh[_-]?token=)' "${LOG_REVIEW}"; then

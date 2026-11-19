@@ -183,6 +183,10 @@ jobs:
         with:
           name: production-safety-scripts
           path: production-safety-scripts
+      - name: Require the production host pin in this job
+        env:
+          HOST_PIN: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
+        run: '[[ "$HOST_PIN" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]]'
       - name: Create a private staging directory (refuse any pre-existing path)
         # /tmp is world-writable. The scp below writes into
         # /tmp/alo-deploy-<run_id>-<run_attempt>, and that directory is later
@@ -256,5 +260,5 @@ jobs:
               exit 1
             fi
             echo "Application directory: ${APP_DIR}"
-            sudo -n env APP_DIR="${APP_DIR}" APPROVED_SHA="${APPROVED_SHA}" DEPLOY_RUN_ID="${DEPLOY_RUN_ID}" SAFETY_SCRIPT_DIR="${TEMP_DIR}" \
+            sudo -n APP_DIR="${APP_DIR}" APPROVED_SHA="${APPROVED_SHA}" DEPLOY_RUN_ID="${DEPLOY_RUN_ID}" SAFETY_SCRIPT_DIR="${TEMP_DIR}" \
               MIGRATIONS_APPROVED="${MIGRATIONS_APPROVED}" bash "${TEMP_DIR}/deploy.sh"
