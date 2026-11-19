@@ -18,3 +18,21 @@ activate_release() {
   fi
   pm2 start "$target/ecosystem.config.js" --only "$process_name" && verify_serving "$target"
 }
+
+# EXIT handler shared with the fault-injection rehearsal. The deploy caller sets
+# STATE, PREVIOUS, PM2_NAME, commit IDs, activation flags and record().
+finish_release() {
+  local status=$1 activated=$2 completed=$3
+  trap - EXIT INT TERM HUP
+  if [[ "$activated" == true && "$completed" != true ]]; then
+    if activate_release "$STATE" "$PREVIOUS" "$PM2_NAME"; then
+      record rolled_back "$CURRENT_COMMIT"
+      rm -f "$STATE/activation-pending"
+    else
+      record rollback_failed unknown
+      echo 'CRITICAL: rollback not verified; operator intervention required' >&2
+    fi
+    exit 1
+  elif [[ "$completed" != true ]]; then record staging_failed "$CURRENT_COMMIT"; fi
+  exit "$status"
+}

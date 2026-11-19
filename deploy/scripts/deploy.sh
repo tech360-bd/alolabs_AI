@@ -22,6 +22,7 @@ STATE="${APP_DIR}/.alo-releases"
 install -d -m 755 "$STATE" "$STATE/releases"
 exec 9>"$STATE/lock"
 flock -n 9 || fail "another deployment holds the lock"
+[[ ! -e "$STATE/activation-pending" ]] || fail "interrupted activation requires rollback runbook"
 source "${SAFETY_SCRIPT_DIR}/lib/release-pointer.sh"
 source "${SAFETY_SCRIPT_DIR}/lib/approved-revision.sh"
 fetch_approved_revision "$APPROVED_SHA" || fail "approved revision verification failed"
@@ -34,20 +35,6 @@ record() {
 }
 record started "$CURRENT_COMMIT"
 activated=false; completed=false
-finish() {
-  local status=$?
-  trap - EXIT INT TERM HUP
-  if [[ "$activated" == true && "$completed" != true ]]; then
-    if activate_release "$STATE" "$PREVIOUS" "$PM2_NAME"; then
-      record rolled_back "$CURRENT_COMMIT"
-    else
-      record rollback_failed unknown
-      echo 'CRITICAL: rollback not verified; operator intervention required' >&2
-    fi
-    exit 1
-  elif [[ "$completed" != true ]]; then record staging_failed "$CURRENT_COMMIT"; fi
-  exit "$status"
-}
 verify_serving() {
   local expected=$1 pid cwd active_db sockets
   for ((i=0;i<30;i++)); do
@@ -62,7 +49,7 @@ verify_serving() {
   done
   return 1
 }
-trap finish EXIT
+trap 'finish_release "$?" "$activated" "$completed"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 cd "$PREVIOUS"
@@ -222,6 +209,7 @@ if [[ "$apply_pending" == true ]]; then
   run_as_owner bunx prisma migrate deploy --schema "$DB_SCHEMA" || fail "migration failed; inspect database separately"
   run_as_owner bunx prisma migrate status --schema "$DB_SCHEMA" || fail "migration history not healthy"
 fi
+printf '%s\n' "$PREVIOUS" "$RELEASE" "$DEPLOY_RUN_ID" > "$STATE/activation-pending"
 activated=true
 activate_release "$STATE" "$RELEASE" "$PM2_NAME" || fail "new release readiness failed"
 run_as_owner bunx prisma db execute --schema "${DB_SCHEMA}" --stdin <<<'SELECT 1;' >/dev/null
@@ -253,5 +241,6 @@ fi
 echo "Application logs reviewed: no common secret signatures detected."
 rm -f "${LOG_REVIEW}"
 record healthy "$APPROVED_SHA"
+rm -f "$STATE/activation-pending"
 completed=true
 echo "DEPLOYMENT SUCCESSFUL: CODE SAFE; BUILD SAFE; DATABASE SAFE; BACKUP VERIFIED; PM2/PORT/API HEALTHY"
