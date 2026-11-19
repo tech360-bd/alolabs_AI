@@ -2,7 +2,8 @@
 set -Eeuo pipefail
 
 APP_DIR="${APP_DIR:-/opt}"
-BRANCH="${BRANCH:-main}"
+readonly APPROVED_SHA="${APPROVED_SHA:?missing approved SHA}" DEPLOY_RUN_ID="${DEPLOY_RUN_ID:?missing deployment run ID}"
+[[ "$APPROVED_SHA" =~ ^[0-9a-f]{40}$ && "$DEPLOY_RUN_ID" =~ ^[0-9]+$ ]] || exit 1
 PM2_NAME="alolabs-agentos"
 NODE_EXECUTABLE="$(readlink -f "$(command -v node)")"
 PORT=3011
@@ -115,8 +116,9 @@ printf '%s\n' \
  'Destructive operation detected: NO' 'New database creation required: NO' \
  'Data-loss flag detected: NO' 'Database reset requested: NO' 'DROP/TRUNCATE detected: NO'
 
-git fetch origin "${BRANCH}"
-TARGET_COMMIT="$(git rev-parse "origin/${BRANCH}")"
+source "${SAFETY_SCRIPT_DIR}/lib/approved-revision.sh"
+fetch_approved_revision "$APPROVED_SHA" || fail "approved revision verification failed"
+TARGET_COMMIT="$APPROVED_SHA"
 git reset --hard "${TARGET_COMMIT}"
 bash "${SAFETY_SCRIPT_DIR}/database-safety-scan.sh" .
 [[ "$(sha256sum "${ENV_FILE}" | awk '{print $1}')" == "${ENV_HASH}" ]] || fail "production environment was modified"

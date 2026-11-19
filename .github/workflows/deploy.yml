@@ -133,6 +133,7 @@ jobs:
       - name: Stage reviewed safety scripts
         run: |
           mkdir -p production-safety-scripts/lib
+          install -m 600 deploy/scripts/lib/approved-revision.sh production-safety-scripts/lib/approved-revision.sh
           install -m 600 deploy/scripts/lib/mysql-dump.mjs production-safety-scripts/lib/mysql-dump.mjs
           install -m 600 deploy/scripts/lib/portable-coreutils.sh production-safety-scripts/lib/portable-coreutils.sh
           install -m 700 deploy/scripts/deploy.sh production-safety-scripts/deploy.sh
@@ -154,7 +155,7 @@ jobs:
     #
     # A push may run quality checks, but only a manually confirmed dispatch can
     # contact production. Repository/environment settings can change independently.
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production_deploy == true
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_production_deploy == true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       # Reports every missing or malformed PRODUCTION_* value at once, by name
@@ -219,6 +220,8 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         env:
+          APPROVED_SHA: ${{ github.sha }}
+          DEPLOY_RUN_ID: ${{ github.run_id }}
           MIGRATIONS_APPROVED: ${{ inputs.migrations_approved || 'false' }}
           PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
         with:
@@ -227,7 +230,7 @@ jobs:
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           port: ${{ secrets.PRODUCTION_PORT }}
           command_timeout: 30m
-          envs: MIGRATIONS_APPROVED,PRODUCTION_APP_DIR
+          envs: MIGRATIONS_APPROVED,PRODUCTION_APP_DIR,APPROVED_SHA,DEPLOY_RUN_ID
           script: |
             set -euo pipefail
             TEMP_DIR=/tmp/alo-deploy-${{ github.run_id }}-${{ github.run_attempt }}
@@ -247,5 +250,5 @@ jobs:
               exit 1
             fi
             echo "Application directory: ${APP_DIR}"
-            sudo -n env APP_DIR="${APP_DIR}" BRANCH=main SAFETY_SCRIPT_DIR="${TEMP_DIR}" \
+            sudo -n env APP_DIR="${APP_DIR}" APPROVED_SHA="${APPROVED_SHA}" DEPLOY_RUN_ID="${DEPLOY_RUN_ID}" SAFETY_SCRIPT_DIR="${TEMP_DIR}" \
               MIGRATIONS_APPROVED="${MIGRATIONS_APPROVED}" bash "${TEMP_DIR}/deploy.sh"
