@@ -196,6 +196,7 @@ jobs:
           bash tests/reliability/revision.sh
           bash tests/reliability/release.sh
           bash tests/reliability/failures.sh
+          bash tests/reliability/checks.sh
           bash tests/reliability/host-key.sh
           npm ci --prefix tests/reliability
           PATH="$PWD/tests/reliability/node_modules/.bin:$PATH" bash tests/reliability/pm2.sh

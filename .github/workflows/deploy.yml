@@ -153,6 +153,9 @@ jobs:
     name: Deploy configuration (production bridge)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
     environment: production
     # EXPLICIT APPROVAL GATE.
     #
@@ -161,6 +164,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_production_deploy == true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Require verified production build and checks for the approved main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPROVED_SHA: ${{ github.sha }}
+        run: bash .github/scripts/require-release-checks.sh
       # Reports every missing or malformed PRODUCTION_* value at once, by name
       # only. Nothing secret is echoed. Runs as its own job so a configuration
       # problem is distinguishable from a deployment failure at a glance.

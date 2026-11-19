@@ -14,7 +14,7 @@ Edit `.env` as data, not a shell script. Generate independent random values for 
 
 ### Primary: MySQL/MariaDB
 
-**Verification note:** MySQL is the supported production engine, not a promise that this revision can initialize every table on a fresh server. The disposable MySQL 8 full-schema gate failed in [run 44490220529](https://github.com/tech360-bd/alolabs_AI/actions/runs/44490220529). Do not force schema changes past an error. Use the verified SQLite contributor path below while that gate is unresolved.
+**Verification note:** MySQL is the supported production engine, not a promise that this revision can initialize every table on a fresh server. The disposable MySQL 8 full-schema gate failed in [run 44490803324](https://github.com/tech360-bd/alolabs_AI/actions/runs/44490803324) with the server diagnostic “can't have a default value”. The logical dump and restore probe passed in that same run. Do not force schema changes past an error. Use the verified SQLite contributor path below while that gate is unresolved.
 
 Ask your local database administrator to provision a dedicated empty **development** database (utf8mb4), and a user permitted to manage its schema. Set `DATABASE_URL` in `.env` to its `mysql://` URL with percent-encoded username/password; leave `PRISMA_SQLITE_ADAPTER` unset. Generate the MySQL client, then create the schema **only in that disposable database**:
 
