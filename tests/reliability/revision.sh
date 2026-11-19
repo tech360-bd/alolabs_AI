@@ -2,7 +2,7 @@
 set -euo pipefail
 source deploy/scripts/lib/approved-revision.sh
 t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
-git() { if [[ "$1" == fetch ]]; then [[ ${fail_fetch:-false} != true ]] || return 1; command git fetch --no-tags . '+refs/heads/main:refs/remotes/origin/main'; else command git "$@"; fi; }
+git() { if [[ "$1" == fetch ]]; then [[ ${fail_fetch:-false} != true ]] || return 1; command git fetch --no-tags . "$4"; else command git "$@"; fi; }
 cd "$t"; git init -qb main; git config user.name Test; git config user.email test@localhost
 git commit -qm first --allow-empty; approved=$(git rev-parse HEAD); git commit -qm second --allow-empty
 git remote add origin https://github.com/tech360-bd/alolabs_AI.git

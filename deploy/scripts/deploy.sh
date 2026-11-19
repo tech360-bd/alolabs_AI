@@ -16,8 +16,10 @@ cd "${APP_DIR}"
 fail() { echo "DEPLOYMENT BLOCKED: $*" >&2; exit 1; }
 run_as_owner() { sudo -u "$(stat -c %U "${APP_DIR}")" --preserve-env=DATABASE_URL -- "$@"; }
 
-[[ "$(git rev-parse --show-toplevel)" == "${APP_DIR}" ]] || fail "${APP_DIR} is not the Git repository root"
-[[ -z "$(git status --porcelain --untracked-files=no)" ]] || fail "production repository has tracked changes"
+owner_git() { run_as_owner git "$@"; }
+
+[[ "$(owner_git rev-parse --show-toplevel)" == "${APP_DIR}" ]] || fail "${APP_DIR} is not the Git repository root"
+[[ -z "$(owner_git status --porcelain --untracked-files=no)" ]] || fail "production repository has tracked changes"
 STATE="${APP_DIR}/.alo-releases"
 install -d -m 755 "$STATE" "$STATE/releases"
 exec 9>"$STATE/lock"
@@ -25,7 +27,7 @@ flock -n 9 || fail "another deployment holds the lock"
 [[ ! -e "$STATE/activation-pending" ]] || fail "interrupted activation requires rollback runbook"
 source "${SAFETY_SCRIPT_DIR}/lib/release-pointer.sh"
 source "${SAFETY_SCRIPT_DIR}/lib/approved-revision.sh"
-fetch_approved_revision "$APPROVED_SHA" || fail "approved revision verification failed"
+fetch_approved_revision "$APPROVED_SHA" owner_git || fail "approved revision verification failed"
 PREVIOUS="$APP_DIR"
 if [[ -L "$STATE/current" ]]; then PREVIOUS=$(realpath -e "$STATE/current"); fi
 [[ "$PREVIOUS" == "$APP_DIR" || "$PREVIOUS" == "$STATE/releases/"* ]] || fail "invalid active release"
@@ -58,7 +60,7 @@ ENV_FILE="${APP_DIR}/.env.production"
 [[ -f "${ENV_FILE}" ]] || ENV_FILE="${APP_DIR}/.env"
 [[ -f "${ENV_FILE}" ]] || fail "production environment file not found"
 ENV_RELATIVE="$(realpath --relative-to="${APP_DIR}" "${ENV_FILE}")"
-if [[ "${ENV_RELATIVE}" != ../* ]] && git -C "$APP_DIR" ls-files --error-unmatch "${ENV_RELATIVE}" >/dev/null 2>&1; then
+if [[ "${ENV_RELATIVE}" != ../* ]] && owner_git -C "$APP_DIR" ls-files --error-unmatch "${ENV_RELATIVE}" >/dev/null 2>&1; then
   fail "production environment is tracked by Git and could be overwritten"
 fi
 ENV_HASH="$(sha256sum "${ENV_FILE}" | awk '{print $1}')"
