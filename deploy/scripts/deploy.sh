@@ -180,10 +180,13 @@ ln -sT "$ENV_FILE" "$RELEASE/.env.production"
 run_as_owner bun install --frozen-lockfile
 run_as_owner bunx prisma validate --schema "${DB_SCHEMA}"
 run_as_owner bun run "${GENERATE_SCRIPT}"
-# No automatic SQL changes are safe to undo during a code rollback. Require
-# migration-status success; reviewed pending DDL needs a separate operator step.
+apply_pending=false
 if find prisma/migrations -mindepth 2 -name migration.sql -print -quit | grep -q .; then
-  run_as_owner bunx prisma migrate status --schema "$DB_SCHEMA" || fail "apply reviewed compatible migrations separately"
+  if ! run_as_owner bunx prisma migrate status --schema "$DB_SCHEMA"; then
+    [[ "${MIGRATIONS_APPROVED:-false}" == true ]] || fail "pending migration not approved"
+    node "$SAFETY_SCRIPT_DIR/lib/review-migrations.mjs" || fail "schema change not proven rollback compatible"
+    apply_pending=true
+  fi
 fi
 run_as_owner env NODE_ENV=production bun run build
 
@@ -209,6 +212,11 @@ for name in uploads storage data public/uploads; do
   done
 done
 ln -sT "$ENV_FILE" "$RELEASE/.env.config"
+if [[ "$apply_pending" == true ]]; then
+  node "$SAFETY_SCRIPT_DIR/lib/review-migrations.mjs" || fail "recheck failed"
+  run_as_owner bunx prisma migrate deploy --schema "$DB_SCHEMA" || fail "migration failed; inspect database separately"
+  run_as_owner bunx prisma migrate status --schema "$DB_SCHEMA" || fail "migration history not healthy"
+fi
 activated=true
 activate_release "$STATE" "$RELEASE" "$PM2_NAME" || fail "new release readiness failed"
 run_as_owner bunx prisma db execute --schema "${DB_SCHEMA}" --stdin <<<'SELECT 1;' >/dev/null

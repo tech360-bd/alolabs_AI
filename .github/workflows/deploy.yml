@@ -133,6 +133,7 @@ jobs:
       - name: Stage reviewed safety scripts
         run: |
           mkdir -p production-safety-scripts/lib
+          install -m 600 deploy/scripts/lib/review-migrations.mjs production-safety-scripts/lib/review-migrations.mjs
           install -m 600 deploy/scripts/lib/release-pointer.sh production-safety-scripts/lib/release-pointer.sh
           install -m 600 deploy/scripts/lib/approved-revision.sh production-safety-scripts/lib/approved-revision.sh
           install -m 600 deploy/scripts/lib/publish-snapshot.py production-safety-scripts/lib/publish-snapshot.py
