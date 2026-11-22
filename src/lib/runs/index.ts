@@ -47,9 +47,10 @@ export const RUN_QUEUE = 'agentos';
 export const RUN_JOB_TYPE = 'agentos.run';
 
 export type RunStatus =
-  | 'queued' | 'planning' | 'running' | 'waiting_approval' | 'completed' | 'failed' | 'cancelled';
+  | 'queued' | 'planning' | 'running' | 'waiting_approval' | 'validating' | 'completed' | 'failed' | 'cancelled'
+  | 'blocked' | 'timed_out';
 
-const TERMINAL_STATUSES: RunStatus[] = ['completed', 'failed', 'cancelled'];
+const TERMINAL_STATUSES: RunStatus[] = ['completed', 'failed', 'cancelled', 'blocked', 'timed_out'];
 
 // ─── Events ──────────────────────────────────────────────────────────────────
 

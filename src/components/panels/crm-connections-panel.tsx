@@ -1,421 +1,351 @@
 'use client'
 
+/**
+ * CRM Connections — real verification and real draft runs.
+ *
+ * This panel replaces the previous demonstration UI. It never shows a
+ * "connected" badge from a stored flag: every connection row displays the
+ * persisted verdict of the last real request, and the only way to become
+ * green is to re-verify against the CRM. Draft runs are queued on the durable
+ * worker and their results are read back from the database (artifacts), not
+ * from a local optimistic state.
+ */
+
+import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api-client'
-import { useEffect, useState, useCallback } from 'react'
-import {
-  Wifi, WifiOff, RefreshCw, Send, TestTube2, ChevronDown, ChevronUp,
-  Building2, Globe, Activity, Zap, Shield, Database, ArrowRightLeft,
-  CheckCircle2, XCircle, Clock, Loader2,
-} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
+import { CheckCircle2, XCircle, RefreshCw, Play, ShieldCheck, FileText, AlertTriangle } from 'lucide-react'
 
-interface CrmConnection {
+interface ConnectionRow {
   id: string
-  companyName: string
-  slug: string
-  domain: string | null
+  name: string
+  integrationType: string
+  endpoint: string | null
   status: string
   connected: boolean
-  connectionDetails: {
-    crmEndpoint: string | null
-    syncStatus: string
-    lastSync: string | null
-    webhookSecret: string | null
-    apiVersion: string
-    protocol: string
-    dataFormat: string
-  }
-  stats: {
-    usageCount: number
-    monthlyUsageLimit: number
-    usagePercent: number
-    agentPool: number
-    workflowsAssigned: number
-  }
-  recentActivity: { id: string; action: string; timestamp: string; status: string; tokens: number }[]
+  hasSecret: boolean
+  lastVerifiedAt: string | null
   capabilities: { name: string; enabled: boolean }[]
 }
 
-interface Summary {
-  totalCompanies: number
-  connected: number
-  disconnected: number
-  totalUsage: number
-  overallSyncStatus: string
+interface Verification {
+  state: string
+  message: string
+  endpointHost: string | null
+  httpStatus?: number
+  latencyMs: number
+  lastVerifiedAt: string | null
+}
+
+interface PreflightCheck {
+  id: string
+  label: string
+  status: 'pass' | 'fail' | 'missing'
+  detail: string
+}
+
+interface PreflightReport {
+  preflight_status: 'ok' | 'error'
+  /** Deprecated alias of workflow_execution_ready. */
+  ready: boolean
+  workflow_execution_ready: boolean
+  checkedAt: string
+  credentialId: string | null
+  liveVerified: boolean
+  checks: PreflightCheck[]
+  missing_dependencies: { id: string; label: string; status: string; detail: string }[]
+  blockers: string[]
+}
+
+interface FollowupRun {
+  runId: string
+  status: string
+  createdAt: string
+  completedAt: string | null
+  provider: string | null
+  model: string | null
+  error: string | null
+  drafts: { leadId: string; artifactId: string; checksum: string; content: string }[]
+}
+
+const TERMINAL = new Set(['completed', 'failed', 'blocked', 'timed_out', 'cancelled'])
+
+function statusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+  if (status === 'connected' || status === 'completed') return 'default'
+  if (status === 'authentication_failed' || status === 'permission_denied' || status === 'failed') return 'destructive'
+  if (status === 'blocked' || status === 'timed_out' || status === 'unreachable' || status === 'sync_failed') return 'secondary'
+  return 'outline'
 }
 
 export default function CrmConnectionsPanel() {
-  const [connections, setConnections] = useState<CrmConnection[]>([])
-  const [summary, setSummary] = useState<Summary | null>(null)
+  const [rows, setRows] = useState<ConnectionRow[]>([])
+  const [runs, setRuns] = useState<FollowupRun[]>([])
+  const [preflight, setPreflight] = useState<PreflightReport | null>(null)
   const [loading, setLoading] = useState(true)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [dispatchForm, setDispatchForm] = useState<Record<string, { count: number; dept: string; cmd: string }>>({})
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
 
-  const fetchData = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/crm-connections')
-      const json = await res.json()
-      setConnections(json.data || [])
-      setSummary(json.summary || null)
-    } catch { /* ignore */ }
-    finally { setLoading(false) }
+      const [connectionsRes, runsRes, preflightRes] = await Promise.all([
+        apiFetch('/api/crm-connections'),
+        apiFetch('/api/v1/crm/followup-drafts'),
+        apiFetch('/api/v1/crm/preflight'),
+      ])
+      const connectionsJson = await connectionsRes.json()
+      const runsJson = await runsRes.json()
+      const preflightJson = await preflightRes.json().catch(() => null)
+      setRows(Array.isArray(connectionsJson.data) ? connectionsJson.data : [])
+      setRuns(Array.isArray(runsJson?.data?.runs) ? runsJson.data.runs : [])
+      setPreflight(preflightJson?.data ?? null)
+    } catch {
+      setNotice({ tone: 'warn', text: 'Could not load CRM connections.' })
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { load() }, [load])
 
-  const showToast = (msg: string) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3000)
-  }
-
-  const handleAction = async (companyId: string, action: string, config?: object) => {
-    setActionLoading(`${companyId}-${action}`)
+  const act = useCallback(async (credentialId: string, action: 'test' | 'sync') => {
+    setBusy(`${credentialId}-${action}`)
     try {
       const res = await apiFetch('/api/crm-connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, action, config }),
+        body: JSON.stringify({ credentialId, action }),
       })
       const json = await res.json()
-      if (json.success) {
-        showToast(json.message)
-        fetchData()
+      if (action === 'test' && json.verification) {
+        const verification = json.verification as Verification
+        setNotice({
+          tone: verification.state === 'connected' ? 'ok' : 'warn',
+          text: `${verification.state}: ${verification.message} (${verification.latencyMs} ms)`,
+        })
       } else {
-        showToast(json.error || 'Action failed')
+        setNotice({ tone: json.success ? 'ok' : 'warn', text: json.message || 'No verdict returned' })
       }
-    } catch {
-      showToast('Network error')
+      await load()
+    } finally {
+      setBusy(null)
     }
-    finally { setActionLoading(null) }
-  }
+  }, [load])
 
-  const handleToggleConnection = async (companyId: string, currentConnected: boolean) => {
-    await handleAction(companyId, currentConnected ? 'disconnect' : 'connect')
-  }
+  const startRun = useCallback(async (credentialId: string) => {
+    setBusy(`${credentialId}-run`)
+    try {
+      const res = await apiFetch('/api/v1/crm/followup-drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credentialId }),
+      })
+      const json = await res.json()
+      const payload = json?.data ?? json
+      if (res.ok && payload?.runId) {
+        setNotice({ tone: 'ok', text: `Run ${payload.runId} queued. Status: ${payload.status}. This is not completion.` })
+        await load()
+      } else {
+        setNotice({ tone: 'warn', text: payload?.error?.message || json?.error?.message || 'Run was not accepted' })
+      }
+    } finally {
+      setBusy(null)
+    }
+  }, [load])
 
-  const handleDispatch = async (companyId: string) => {
-    const form = dispatchForm[companyId] || { count: 10, dept: '', cmd: '' }
-    await handleAction(companyId, 'dispatch', {
-      command: form.cmd || `Dispatch ${form.count} agents`,
-      departmentSlug: form.dept || undefined,
-      agentCount: form.count,
-    })
-    setDispatchForm((prev) => ({ ...prev, [companyId]: { count: 10, dept: '', cmd: '' } }))
-  }
+  const livePreflight = useCallback(async () => {
+    setBusy('preflight')
+    try {
+      const id = preflight?.credentialId
+      const res = await apiFetch(`/api/v1/crm/preflight?verify=1${id ? `&credentialId=${encodeURIComponent(id)}` : ''}`)
+      const json = await res.json()
+      const report = (json?.data ?? null) as PreflightReport | null
+      if (report) {
+        setPreflight(report)
+        setNotice({
+          tone: report.workflow_execution_ready ? 'ok' : 'warn',
+          text: report.workflow_execution_ready
+            ? 'Configuration complete. Real CRM + AI execution is still unproven until one run is independently verified.'
+            : `External execution blocked: ${report.missing_dependencies.map((d) => d.label).join(', ')}`,
+        })
+      }
+    } finally {
+      setBusy(null)
+    }
+  }, [preflight])
+
+  const refreshRun = useCallback(async () => {
+    setBusy('refresh-runs')
+    try { await load() } finally { setBusy(null) }
+  }, [load])
 
   if (loading) {
     return (
-      <div className="space-y-6 p-6">
-        <Skeleton className="h-8 w-64 bg-[#F8FAFC]" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-lg bg-gray-50" />
-          ))}
-        </div>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-40 rounded-lg bg-gray-50" />
-        ))}
+      <div className="space-y-4 p-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-40 w-full" />
       </div>
     )
   }
 
   return (
     <div className="space-y-6 p-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-white rounded-xl border border-[#E2E8F0] px-4 py-3 text-sm text-[#1E293B] border border-[#E8501A]/30 ">
-          {toast}
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">CRM Connections</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Read-only lead access via the ALO Lead API v1 contract. A connection is healthy only when the last real
+          verification succeeded; a stored URL and key are not evidence on their own.
+        </p>
+      </div>
+
+      {notice && (
+        <div
+          className={`flex items-start gap-2 rounded-lg border p-3 text-sm ${notice.tone === 'ok' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}
+          role="status"
+        >
+          {notice.tone === 'ok' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
+          <span className="break-words">{notice.text}</span>
         </div>
       )}
 
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <ArrowRightLeft className="w-6 h-6 text-[#0066CC]" />
-          <h2 className="text-xl font-semibold text-[#1E293B]">CRM Connections</h2>
-          <Badge className={summary?.overallSyncStatus === 'all_synced' ? 'bg-emerald-600/10 text-emerald-600' : 'bg-amber-600/10 text-amber-600'}>
-            {summary?.overallSyncStatus === 'all_synced' ? 'All Synced' : 'Partial Sync'}
-          </Badge>
-        </div>
-        <Button variant="outline" size="sm" onClick={fetchData} className="border-[#E2E8F0] text-[#64748B] hover:text-[#0066CC]">
-          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-          Refresh
-        </Button>
-      </div>
-
-      {/* Architecture Overview */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] p-5">
-        <h3 className="text-sm font-semibold text-[#1E293B] mb-4 flex items-center gap-2">
-          <Database className="w-4 h-4 text-[#0066CC]" />
-          How Agent Hub Connects to Sister Company CRMs
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div className="space-y-2">
-            <p className="text-[#0066CC] font-semibold uppercase tracking-wider text-[10px]">1. Hub Registers Company</p>
-            <p className="text-[#64748B]">Each sister company (ALO Education, English AI, ICLA, TECH360, etc.) is registered in the Hub with its domain and API credentials.</p>
-          </div>
-          <div className="space-y-2">
-            <p className="text-[#E8501A] font-semibold uppercase tracking-wider text-[10px]">2. Bidirectional Data Flow</p>
-            <p className="text-[#64748B]">The Hub sends <span className="text-[#0066CC]">agents &amp; workflows</span> to the company CRM. The CRM sends back <span className="text-[#E8501A]">leads, contacts, deals</span> to the Hub for AI processing.</p>
-          </div>
-          <div className="space-y-2">
-            <p className="text-emerald-600 font-semibold uppercase tracking-wider text-[10px]">3. Agents Work in CRM</p>
-            <p className="text-[#64748B]">Dispatched agents perform lead scoring, auto follow-ups, contact enrichment, deal prediction, and email automation directly in the sister company&apos;s CRM.</p>
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Staging readiness</h2>
+          <div className="flex items-center gap-2">
+            {preflight && (
+              <>
+                <Badge variant="outline">preflight: {preflight.preflight_status}</Badge>
+                <Badge variant={preflight.workflow_execution_ready ? 'default' : 'secondary'}>
+                  {preflight.workflow_execution_ready ? 'execution: ready' : `execution: BLOCKED · ${preflight.missing_dependencies.length} missing`}
+                </Badge>
+              </>
+            )}
+            <Button size="sm" variant="outline" disabled={busy !== null} onClick={livePreflight}>
+              <ShieldCheck className="mr-1 h-4 w-4" />{busy === 'preflight' ? 'Checking…' : 'Run live preflight'}
+            </Button>
           </div>
         </div>
+        {preflight ? (
+          <ul className="space-y-1 rounded-lg border p-4 text-sm">
+            {preflight.checks.map((check) => (
+              <li key={check.id} className="flex flex-wrap items-baseline gap-2">
+                <Badge variant={check.status === 'pass' ? 'default' : check.status === 'missing' ? 'outline' : 'destructive'}>
+                  {check.status}
+                </Badge>
+                <span className="font-medium">{check.label}</span>
+                <span className="text-muted-foreground">{check.detail}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">Preflight unavailable.</div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Preflight health only says the check ran. {preflight?.workflow_execution_ready ? '' : 'External execution: BLOCKED — '}
+          a missing CRM connection, CRM URL, CRM credential, AI provider or model is listed above as a missing dependency.
+          The workflow stays blocked until every dependency is present and a real run is independently verified;
+          nothing is simulated.
+        </p>
+      </section>
 
-        {/* Visual flow */}
-        <div className="mt-4 p-3 rounded-lg bg-gray-50 border border-[#E2E8F0]">
-          <div className="flex items-center justify-center gap-2 flex-wrap text-xs">
-            <span className="px-2 py-1 rounded bg-[#E8501A]/10 text-[#E8501A] font-medium">Agent Hub</span>
-            <ArrowRightLeft className="w-4 h-4 text-[#0066CC]" />
-            <span className="px-2 py-1 rounded bg-[#F8FAFC] text-[#1E293B] font-medium">REST API + WebSocket</span>
-            <ArrowRightLeft className="w-4 h-4 text-[#0066CC]" />
-            <span className="px-2 py-1 rounded bg-emerald-600/10 text-emerald-600 font-medium">Sister Company CRM</span>
-            <ArrowRightLeft className="w-4 h-4 text-[#0066CC]" />
-            <span className="px-2 py-1 rounded bg-amber-600/10 text-amber-600 font-medium">Leads/Deals/Contacts</span>
-            <ArrowRightLeft className="w-4 h-4 text-[#0066CC]" />
-            <span className="px-2 py-1 rounded bg-[#0066CC]/10 text-[#0066CC] font-medium">AI Processing</span>
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Stored connections</h2>
+        {rows.length === 0 && (
+          <div className="rounded-lg border bg-muted/30 p-6 text-sm text-muted-foreground">
+            No CRM connection is stored for this tenant. An administrator can add one at
+            <code className="mx-1 rounded bg-background px-1">/api/company/integrations</code>
+            with integration type <code className="mx-1 rounded bg-background px-1">crm.alo-lead-api</code>, a base URL and
+            a read-only API key. Keys are encrypted at rest and never returned.
           </div>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Companies', value: summary?.totalCompanies ?? 0, icon: Building2, color: 'text-[#E8501A]' },
-          { label: 'Connected', value: summary?.connected ?? 0, icon: Wifi, color: 'text-emerald-600' },
-          { label: 'Disconnected', value: summary?.disconnected ?? 0, icon: WifiOff, color: 'text-red-600' },
-          { label: 'Total Usage', value: summary?.totalUsage ?? 0, icon: Activity, color: 'text-[#0066CC]' },
-        ].map((s) => {
-          const Icon = s.icon
-          return (
-            <div key={s.label} className="bg-white rounded-xl border border-[#E2E8F0] p-4 text-center">
-              <Icon className={`w-5 h-5 mx-auto mb-2 ${s.color}`} />
-              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-              <p className="text-xs text-[#64748B] mt-1">{s.label}</p>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Company Connection Cards */}
-      <div className="space-y-3">
-        {connections.map((conn) => {
-          const isExpanded = expandedId === conn.id
-          const form = dispatchForm[conn.id] || { count: 10, dept: '', cmd: '' }
-          const isLoading = actionLoading?.startsWith(conn.id)
-
-          return (
-            <div key={conn.id} className={`bg-white rounded-xl border border-[#E2E8F0] transition-all duration-300 ${conn.connected ? 'border-l-2 border-l-emerald-600/50' : 'border-l-2 border-l-red-600/30'}`}>
-              {/* Header Row */}
-              <div className="p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${conn.connected ? 'bg-emerald-600/10' : 'bg-[#F8FAFC]'}`}>
-                    {conn.connected ? (
-                      <Wifi className="w-5 h-5 text-emerald-600" />
-                    ) : (
-                      <WifiOff className="w-5 h-5 text-red-600/60" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-[#1E293B]">{conn.companyName}</h3>
-                      <Badge variant={conn.status === 'active' ? 'default' : 'secondary'} className={`text-[10px] py-0 ${conn.status === 'active' ? 'bg-emerald-600/10 text-emerald-600' : 'bg-gray-100 text-[#64748B]'}`}>
-                        {conn.status}
-                      </Badge>
-                    </div>
-                    {conn.domain && (
-                      <div className="flex items-center gap-1 text-xs text-[#64748B]">
-                        <Globe className="w-3 h-3" />
-                        {conn.domain}
-                      </div>
-                    )}
-                  </div>
+        )}
+        {rows.map((row) => (
+          <article key={row.id} className="rounded-lg border p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium">{row.name}</h3>
+                  <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
                 </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {/* Connection Toggle */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-[#64748B] hidden sm:inline">{conn.connected ? 'Connected' : 'Disconnected'}</span>
-                    <Switch
-                      checked={conn.connected}
-                      onCheckedChange={() => handleToggleConnection(conn.id, conn.connected)}
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  {/* Quick Actions */}
-                  {conn.connected && (
-                    <div className="hidden md:flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-[#64748B] hover:text-[#0066CC]"
-                        onClick={() => handleAction(conn.id, 'sync')}
-                        disabled={isLoading}
-                        title="Sync"
-                      >
-                        {actionLoading === `${conn.id}-sync` ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-[#64748B] hover:text-[#0066CC]"
-                        onClick={() => handleAction(conn.id, 'test')}
-                        disabled={isLoading}
-                        title="Test Connection"
-                      >
-                        {actionLoading === `${conn.id}-test` ? <Loader2 className="w-4 h-4 animate-spin" /> : <TestTube2 className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  )}
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-[#64748B] hover:text-[#1E293B]"
-                    onClick={() => setExpandedId(isExpanded ? null : conn.id)}
-                  >
-                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </Button>
-                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {row.endpoint ?? 'no endpoint'} · {row.integrationType} · key {row.hasSecret ? 'stored' : 'missing'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Last successful verification: {row.lastVerifiedAt ? new Date(row.lastVerifiedAt).toLocaleString() : 'never'}
+                </p>
               </div>
-
-              {/* Expanded Details */}
-              {isExpanded && (
-                <div className="px-4 pb-4 space-y-4 border-t border-[#E2E8F0] pt-4">
-                  {/* Connection Info Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Connection Details */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#64748B]">Connection Details</p>
-                      <div className="space-y-1.5 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-[#64748B]">Endpoint</span>
-                          <span className="text-[#1E293B] font-mono text-[11px] truncate ml-2">{conn.connectionDetails.crmEndpoint || 'Not set'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[#64748B]">Protocol</span>
-                          <span className="text-[#1E293B]">{conn.connectionDetails.protocol}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[#64748B]">API Version</span>
-                          <span className="text-[#1E293B]">{conn.connectionDetails.apiVersion}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[#64748B]">Data Format</span>
-                          <span className="text-[#1E293B]">{conn.connectionDetails.dataFormat}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[#64748B]">Webhook Secret</span>
-                          <span className="text-[#1E293B] font-mono">{conn.connectionDetails.webhookSecret || 'None'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[#64748B]">Sync Status</span>
-                          <Badge className={`text-[10px] py-0 ${conn.connectionDetails.syncStatus === 'synced' ? 'bg-emerald-600/10 text-emerald-600' : 'bg-red-600/10 text-red-600'}`}>
-                            {conn.connectionDetails.syncStatus}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Capabilities */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#64748B]">AI Capabilities</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {conn.capabilities.map((cap) => (
-                          <div key={cap.name} className="flex items-center gap-1.5 text-xs">
-                            {cap.enabled ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                            ) : (
-                              <XCircle className="w-3.5 h-3.5 text-[#64748B]/40 flex-shrink-0" />
-                            )}
-                            <span className={cap.enabled ? 'text-[#1E293B]' : 'text-[#64748B]/50'}>{cap.name}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Usage */}
-                      <div className="mt-3">
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-[#64748B]">Usage</span>
-                          <span className="text-[#1E293B]">{conn.stats.usageCount}/{conn.stats.monthlyUsageLimit}</span>
-                        </div>
-                        <div className="h-1.5 bg-[#F8FAFC] rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${conn.stats.usagePercent > 80 ? 'bg-red-600' : 'bg-[#E8501A]'}`}
-                            style={{ width: `${Math.min(conn.stats.usagePercent, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Agent Dispatch */}
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[#64748B]">Dispatch Agents to This CRM</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Input
-                        placeholder="Command (e.g., Score all pending leads)"
-                        value={form.cmd}
-                        onChange={(e) => setDispatchForm((prev) => ({ ...prev, [conn.id]: { ...form, cmd: e.target.value } }))}
-                        className="flex-1 min-w-[200px] h-8 bg-gray-50 border-[#E2E8F0] text-[#1E293B] text-xs"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Agents"
-                        min={1}
-                        max={50}
-                        value={form.count}
-                        onChange={(e) => setDispatchForm((prev) => ({ ...prev, [conn.id]: { ...form, count: parseInt(e.target.value) || 10 } }))}
-                        className="w-20 h-8 bg-gray-50 border-[#E2E8F0] text-[#1E293B] text-xs"
-                      />
-                      <Button
-                        size="sm"
-                        className="h-8 bg-[#E8501A]/10 text-[#0066CC] hover:bg-[#E8501A]/10 border border-[#E8501A]/30"
-                        onClick={() => handleDispatch(conn.id)}
-                        disabled={isLoading}
-                      >
-                        {actionLoading === `${conn.id}-dispatch` ? (
-                          <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                        ) : (
-                          <Send className="w-3.5 h-3.5 mr-1" />
-                        )}
-                        Dispatch
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Recent Activity */}
-                  {conn.recentActivity.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#64748B]">Recent Activity</p>
-                      <div className="space-y-1">
-                        {conn.recentActivity.map((act) => (
-                          <div key={act.id} className="flex items-center gap-2 text-xs py-1 px-2 rounded bg-[#F8FAFC]">
-                            <Clock className="w-3 h-3 text-[#64748B]" />
-                            <span className="text-[#1E293B]">{act.action}</span>
-                            <Badge className={`text-[10px] py-0 ml-auto ${act.status === 'completed' ? 'bg-emerald-600/10 text-emerald-600' : 'bg-amber-600/10 text-amber-600'}`}>
-                              {act.status}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => act(row.id, 'test')}>
+                  <ShieldCheck className="mr-1 h-4 w-4" />
+                  {busy === `${row.id}-test` ? 'Verifying…' : 'Verify now'}
+                </Button>
+                <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => act(row.id, 'sync')}>
+                  <RefreshCw className="mr-1 h-4 w-4" />Read 5 leads
+                </Button>
+                <Button size="sm" disabled={busy !== null || !row.connected} onClick={() => startRun(row.id)}>
+                  <Play className="mr-1 h-4 w-4" />
+                  {busy === `${row.id}-run` ? 'Queueing…' : 'Draft follow-ups'}
+                </Button>
+              </div>
             </div>
-          )
-        })}
-      </div>
+          </article>
+        ))}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Follow-up runs</h2>
+          <Button size="sm" variant="ghost" disabled={busy !== null} onClick={refreshRun}>
+            <RefreshCw className={`mr-1 h-4 w-4 ${busy === 'refresh-runs' ? 'animate-spin' : ''}`} />Refresh
+          </Button>
+        </div>
+        {runs.length === 0 && (
+          <div className="rounded-lg border bg-muted/30 p-6 text-sm text-muted-foreground">
+            No follow-up run yet. A run reads five real leads, generates one Bengali draft per lead and stores every
+            draft with its source record id. Nothing is sent.
+          </div>
+        )}
+        {runs.map((run) => (
+          <article key={run.runId} className="rounded-lg border p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
+                <span className="text-sm font-medium">{run.drafts.length}/5 drafts</span>
+                {run.provider && <span className="text-xs text-muted-foreground">{run.provider} · {run.model}</span>}
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {new Date(run.createdAt).toLocaleString()}
+                {!TERMINAL.has(run.status) ? ' · in progress' : ''}
+              </span>
+            </div>
+            {run.error && <p className="mt-2 text-xs text-destructive">{run.error}</p>}
+            {run.drafts.length > 0 && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-sm">Show drafts and evidence</summary>
+                <ul className="mt-2 space-y-2">
+                  {run.drafts.map((draft) => (
+                    <li key={draft.artifactId} className="rounded-md border bg-muted/20 p-3">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <FileText className="h-3 w-3" />
+                        <span>lead {draft.leadId}</span>
+                        <span>artifact {draft.artifactId}</span>
+                        <span className="font-mono">{draft.checksum.slice(0, 23)}…</span>
+                      </div>
+                      <pre className="mt-2 whitespace-pre-wrap break-words text-sm">{draft.content}</pre>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </article>
+        ))}
+      </section>
+
+      <p className="text-xs text-muted-foreground">
+        <XCircle className="mr-1 inline h-3 w-3" />
+        A queued or running status is not completion. Completion requires five persisted drafts whose source record ids
+        match the CRM records returned by the verification read — nothing here sends WhatsApp, email or SMS.
+      </p>
     </div>
   )
 }

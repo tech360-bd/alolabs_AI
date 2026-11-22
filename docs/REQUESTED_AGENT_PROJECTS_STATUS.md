@@ -16,6 +16,10 @@ Audit date: 2026-11-02. This report describes what is in this checkout, not what
 | AI Memory | Seven documents from [akitaonrails/ai-memory](https://github.com/akitaonrails/ai-memory) are cataloged, all quarantined. The request did not include an AI Memory URL, so this identification is not confirmed. | No external shared-memory integration; tenant isolation, retention, access and security controls need review. |
 | [Presenter](https://github.com/bisque-cloud/presenter) | Three advisory instruction documents cataloged. | The Presenter application, presentation rendering and narration are not installed or verified by the skill import. |
 
+## Related project discovery
+
+See the [MetaGPT topic inventory and local-model candidates](METAGPT_TOPIC_INTAKE.md). These are references, not installed skills or running providers.
+
 ## Meaning of cataloged
 
 Advisory entries are instruction-only guidance, eligible for task-based selection by the Command Agent (`src/lib/command-agent/agent.ts`). Quarantined entries are not selected or injected. No skill import grants tools or installs upstream applications, dependencies, scripts or models. The database registry installer is optional and does not automatically assign skills; its execution or production deployment has not been verified in this audit. See [Agent Skills](AGENT_SKILLS.md) for the architecture and installation commands.

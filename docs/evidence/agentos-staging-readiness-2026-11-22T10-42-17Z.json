@@ -1,0 +1,124 @@
+{
+  "kind": "agentos-staging-readiness-evidence",
+  "generatedAt": "2026-11-22T10:42:17Z",
+  "sessionDate": "2026-11-19",
+  "clockNote": "Evidence timestamps use the sandbox UTC clock; the session date is 2026-11-19. No clock adjustment was performed.",
+  "branch": "arena/304ea66d-alolabs-ai",
+  "headCommit": "19723593b0ea8bfad2707786c79a1d090ca3e366",
+  "environment": {
+    "node": "v22.22.3",
+    "database": "temporary SQLite per test via scripts/sqlite-push.ts",
+    "crm": "local ALO Lead API v1 contract stub over loopback HTTP \u2014 NOT an external CRM",
+    "aiProvider": "none configured (no provider env var, no .env, no ollama binary)",
+    "productionContacted": false
+  },
+  "preflightSemantics": {
+    "preflight_status": "did the check run (ok|error) \u2014 never implies execution is possible",
+    "workflow_execution_ready": "true only when CRM connection/URL/credential/verification, AI provider and model are all present",
+    "ready": "deprecated alias, always equal to workflow_execution_ready",
+    "missing_dependencies": "one explicit entry per missing/failed dependency",
+    "observedInTests": {
+      "bareTenant": {
+        "preflight_status": "ok",
+        "workflow_execution_ready": false,
+        "ready": false,
+        "missing": [
+          "crm_connection",
+          "ai_provider",
+          "ai_model"
+        ]
+      },
+      "fullyConfiguredSimulatedProvider": {
+        "preflight_status": "ok",
+        "workflow_execution_ready": true,
+        "ready": true,
+        "missing": []
+      }
+    }
+  },
+  "suites": [
+    {
+      "name": "crm-workflow-integration",
+      "command": "npx vitest run __tests__/integration/crm-lead-followup.test.ts --maxWorkers=1",
+      "startedAt": "2026-11-22T10:41:43Z",
+      "exitCode": 0,
+      "durationMs": 8656,
+      "testFiles": 1,
+      "tests": 22,
+      "failed": 0,
+      "logTail": " Test Files  1 passed (1)\n      Tests  22 passed (22)\n   Start at  10:41:44\n   Duration  7.72s (transform 2.29s, setup 169ms, import 156ms, tests 7.16s, environment 0ms)"
+    },
+    {
+      "name": "company-integrations-api",
+      "command": "npx vitest run __tests__/api/company-integrations.test.ts --maxWorkers=1",
+      "startedAt": "2026-11-22T10:41:52Z",
+      "exitCode": 0,
+      "durationMs": 1722,
+      "testFiles": 1,
+      "tests": 8,
+      "failed": 0,
+      "logTail": " Test Files  1 passed (1)\n      Tests  8 passed (8)\n   Start at  10:41:53\n   Duration  737ms (transform 190ms, setup 179ms, import 283ms, tests 34ms, environment 0ms)"
+    },
+    {
+      "name": "run-queue-regression",
+      "command": "npx vitest run __tests__/integration/run-resume.test.ts __tests__/integration/registered-queue-handlers.test.ts __tests__/integration/job-queue-durability.test.ts --maxWorkers=1",
+      "startedAt": "2026-11-22T10:41:54Z",
+      "exitCode": 0,
+      "durationMs": 6106,
+      "testFiles": 3,
+      "tests": 16,
+      "failed": 0,
+      "logTail": " Test Files  3 passed (3)\n      Tests  16 passed (16)\n   Start at  10:41:55\n   Duration  5.12s (transform 466ms, setup 369ms, import 188ms, tests 3.95s, environment 1ms)"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "startedAt": "2026-11-22T10:42:00Z",
+      "exitCode": 0,
+      "durationMs": 4089,
+      "findings": "none",
+      "logTail": "> next typegen && node scripts/typecheck/run.mjs\n\nGenerating route types...\n\u2713 Types generated successfully"
+    },
+    {
+      "name": "typecheck-tests",
+      "command": "npm run typecheck:tests",
+      "startedAt": "2026-11-22T10:42:04Z",
+      "exitCode": 0,
+      "durationMs": 3319,
+      "findings": "none",
+      "logTail": "> alolabs-agentos@1.0.0 typecheck:tests\n> node scripts/typecheck/run.mjs --tests"
+    },
+    {
+      "name": "eslint-changed",
+      "command": "npx eslint src/lib/integrations src/app/api/v1/crm src/app/api/crm-connections/route.ts src/components/panels/crm-connections-panel.tsx src/lib/workers/agentos-dispatcher.ts src/instrumentation.node.ts src/lib/runs/index.ts __tests__/integration/crm-lead-followup.test.ts __tests__/api/company-integrations.test.ts",
+      "startedAt": "2026-11-22T10:42:07Z",
+      "exitCode": 0,
+      "durationMs": 5480,
+      "findings": "none",
+      "logTail": ""
+    },
+    {
+      "name": "browser-e2e",
+      "command": "LD_LIBRARY_PATH=/tmp/alo-chrome2/libs/lib TEST_CHROMIUM_PATH=/tmp/chromium npm test --prefix tests/browser",
+      "startedAt": "2026-11-22T10:40:56Z",
+      "exitCode": 0,
+      "durationMs": null,
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "logTail": "# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 96435.007319"
+    }
+  ],
+  "externalE2E": {
+    "status": "BLOCKED",
+    "crmStagingConfigured": false,
+    "aiProviderConfigured": false,
+    "reason": "No authorized staging CRM base URL/read-only credential and no configured AI provider/model in this environment.",
+    "notProven": [
+      "real staging CRM read",
+      "real model invocation",
+      "real Bengali drafts",
+      "production B2B acceptance"
+    ]
+  }
+}

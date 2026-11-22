@@ -101,6 +101,29 @@ export class IntegrationError extends Error {
 }
 
 /** Loopback / private-network targets are rejected unless explicitly allow-listed. */
+function isNumericLabel(label: string): boolean {
+  if (label.length === 0 || label.length > 3) return false;
+  for (const ch of label) {
+    if (ch < '0' || ch > '9') return false;
+  }
+  return true;
+}
+
+/** RFC1918 / loopback / link-local / CGNAT / unspecified IPv4 hosts. */
+function isPrivateIpv4Host(host: string): boolean {
+  const parts = host.split('.');
+  if (parts.length !== 4 || !parts.every(isNumericLabel)) return false;
+  const [a, b] = parts.map(Number);
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  // 224/4 multicast and 240/4 reserved/broadcast are never a legitimate CRM.
+  if (a >= 224) return true;
+  return false;
+}
+
 export function isAllowedIntegrationUrl(
   rawUrl: string,
   opts: { allowInsecure?: boolean } = {},
@@ -120,12 +143,25 @@ export function isAllowedIntegrationUrl(
       url,
     };
   }
-  const host = url.hostname.toLowerCase();
-  const isLoopback = host === 'localhost' || host === '::1' || host.endsWith('.localhost');
-  const isPrivateV4 = /^10\.|^127\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\.|^169\.254\./.test(host);
-  const isPrivateV6 = host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80');
+  if (allowInsecure) return { allowed: true, url };
+
+  const rawHost = url.hostname.toLowerCase();
+  // A trailing dot is DNS-equivalent to the bare name (`localhost.` resolves to
+  // loopback), so normalise before matching.
+  let host = rawHost;
+  while (host.endsWith('.')) host = host.slice(0, -1);
+
+  // IPv6 literals arrive bracketed (`[::1]`, `[::ffff:7f00:1]`), which the
+  // string checks below would miss. A CRM never needs a literal IPv6 address,
+  // so fail closed rather than enumerate every inner form.
+  if (rawHost.startsWith('[') || host.includes(':')) {
+    return { allowed: false, reason: `IPv6 literal target "${rawHost}" is blocked (SSRF guard)`, url };
+  }
+
+  const isLoopback = host === 'localhost' || host.endsWith('.localhost');
+  const isUnspecified = host === '0' || host === '0.0.0.0';
   const isLocalHostname = host.endsWith('.local') || host.endsWith('.internal');
-  if ((isLoopback || isPrivateV4 || isPrivateV6 || isLocalHostname) && !allowInsecure) {
+  if (isLoopback || isUnspecified || isLocalHostname || isPrivateIpv4Host(host)) {
     return { allowed: false, reason: `private network target "${host}" is blocked (SSRF guard)`, url };
   }
   return { allowed: true, url };
@@ -144,7 +180,11 @@ export async function guardedFetch(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), init.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   try {
-    return await fetch(guard.url.toString(), { ...init, signal: controller.signal });
+    // Redirects are refused: the SSRF guard validates only the first URL, and a
+    // 30x to a private/link-local address would otherwise bypass it.
+    // Placed after `...init` so a caller can never re-enable redirect following
+    // and bypass the SSRF guard through a 30x to a private address.
+    return await fetch(guard.url.toString(), { ...init, redirect: 'error', signal: controller.signal });
   } finally {
     clearTimeout(timeout);
   }

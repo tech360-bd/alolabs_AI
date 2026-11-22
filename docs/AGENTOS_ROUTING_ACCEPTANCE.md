@@ -1,0 +1,31 @@
+# AgentOS deployment and routing acceptance — 2026-11-19 UTC
+
+**Decision: repository routing contract verified; live production acceptance withheld.** This is not evidence of an outage. The target is the existing `tech360-bd/alolabs_AI` AgentOS service, not the Hosting Portal. Nothing in production was contacted, restarted, rebuilt, deployed, migrated or changed. No test targeted port 3062.
+
+## What the checkout establishes
+
+Local HEAD `19723593b0ea8bfad2707786c79a1d090ca3e366`; inspected working tree has pending remediation changes. GitHub working-branch tip `6d3425bdf1678b59855ff82af9f1cb5ab1361eb8`. Neither SHA identifies what is running on the server.
+
+| Control | Source evidence | Production verdict |
+|---|---|---|
+| Apex | `deploy/caddy/alolabs-apex-redirect.Caddyfile` defines **308** to `https://www.alolabs.net{uri}`. It is optional and not imported by the www site file. | Effective apex ownership/import unknown; **not** proof of a direct apex proxy. |
+| Canonical host | `deploy/caddy/alolabs.net.Caddyfile` proxies API and ordinary requests to `{$APP_UPSTREAM:127.0.0.1:3011}`. Socket paths have separate upstreams. The root `Caddyfile` uses Compose service names and is not the PM2 configuration. | Loaded config and upstream override unknown. |
+| Runtime | `ecosystem.config.js` specifies one Node fork named `alolabs-agentos`, `.next/standalone/server.js`, production mode and `127.0.0.1:3011`. | Online PID, listener ownership, active release and running revision unverified. |
+| Environment | Ecosystem loader reads `.env.config` and permits inherited values; deployment code selects `.env.production`, then `.env.config`, then `.env`. `docs/PRODUCTION_MYSQL.md` specifies canonical HTTPS www URLs and MySQL/MariaDB. | Effective PM2 and Caddy settings, file permissions and DB-target agreement unverified. Do not dump environment values. |
+| Health | `src/app/api/health/ready/route.ts` checks datasource policy and performs `SELECT 1` before returning `ready:true`. | No live local or public readiness response captured. |
+| DNS, TLS, firewall | Config describes intended hostnames and loopback boundary, not current DNS records, certificates, firewall or cloud ingress. | All unverified. |
+
+Read-only static assertions executed successfully against non-comment Caddy directives and PM2 source: both default AgentOS upstreams, distinct optional apex redirect, process identity, entrypoint and loopback bind. Not a parser/runtime test. No Caddy executable in this sandbox; outbound host restrictions exclude `alolabs.net` and `www.alolabs.net`, and this session is not attached to the production host. A sandbox loopback probe would not test production.
+
+## Isolated staging test prepared (not executed)
+
+Use an isolated VM or network namespace, not the live proxy. Supply a copy of the reviewed site definitions, a staging-only Caddy data directory and two test host mappings for apex/www. Use a staging-only trusted CA (`tls internal` in the fixture; no public DNS or ACME writes). Bind a disposable upstream **inside that namespace** to `127.0.0.1:3011` returning a unique fixture marker. Keep the production app/artifact unchanged. Test both with and without the optional apex import: with it, HTTPS apex `/login?probe=1` must return 308 preserving path/query; canonical `/login` and `/api/health/ready` must reach the marked upstream, with no shared caching on the API. Without it, apex must not be credited to the www block. Stop only the fixture upstream and confirm a proxy failure rather than a cached healthy response. Repeat readiness against the retained AgentOS artifact and a staging MySQL database before any proposed rollout. A fixture marker proves proxy routing, not AgentOS health.
+
+## Evidence needed to sign off — read-only collection
+
+1. **External observation:** timestamp UTC, resolve A/AAAA and CNAME chains for both names; compare to approved ingress (CDN/tunnel addresses need not equal origin IP). For each advertised address family verify trusted TLS chain, SAN, expiry and SNI for each hostname, without `-k`. Record each HTTP/HTTPS hop, not just the final 200. Example: `curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' 'https://alolabs.net/login?probe=1'`. Verify the final HTTPS www login page, with no loop or unexpected host. Do not include cookies or credentials in evidence.
+2. **Origin identity:** an authorized host operator checks existing listener ownership (`ss -lntp` filtered to 80, 443 and 3011), existing service status, active Caddy routes and effective upstream. Confirm the apex redirect is actually loaded, not merely present on disk. If a CDN terminates public TLS, verify its routing and origin TLS separately. Record only host matcher, redirect and upstream; never publish the full Caddy admin config.
+3. **PM2 and health:** use the existing supervisor owner's already-running PM2 daemon; correlate `alolabs-agentos` PID with the loopback socket, executable, retained release path and deployed SHA. Do not start a second PM2 daemon. Query `http://127.0.0.1:3011/api/health/ready` and `https://www.alolabs.net/api/health/ready`; require status 200 and `ready:true` with the expected MySQL provider. Match a timestamped public request to a sanitized Caddy access entry. Identical JSON or a 200 from the edge alone cannot identify the origin.
+4. **Exposure and environment:** review host firewall and cloud ingress policies for 80/443 and no public 3011, including IPv6. Check runtime environment privately for canonical URLs, production mode, MySQL target agreement and SQLite adapter disabled; inspect env-file ownership/mode. Return pass/fail per setting only. No keys, connection strings, raw logs or `.env` files are needed.
+
+**Pass criterion:** one timestamped evidence set links apex DNS/TLS through the accepted apex → www redirect, the active Caddy route, and the loopback listener owned by the expected healthy AgentOS release. If apex must serve content without changing the visible hostname, the repository's optional redirect does not meet that different requirement. Record any mismatch and stop; this report does not authorize a configuration change.

@@ -63,7 +63,7 @@ function startWorker(): void {
   // Lazy Node-only imports — this module is also bundled for the edge
   // runtime, where Prisma/node:crypto must never be loaded.
   void (async () => {
-    const [{ db }, { processQueue, reclaimExpiredLeases }, { RUN_QUEUE, executeRun, expireStaleApprovals }, { executeWorkflowRun }, { dispatchAgentOSJob }, { ensureRouterSynced }, { dispatchVoiceJob }] = await Promise.all([
+    const [{ db }, { processQueue, reclaimExpiredLeases }, { RUN_QUEUE, executeRun, expireStaleApprovals }, { executeWorkflowRun }, { dispatchAgentOSJob }, { ensureRouterSynced }, { dispatchVoiceJob }, { executeLeadFollowupRun }] = await Promise.all([
       import('@/lib/db'),
       import('@/lib/job-queue'),
       import('@/lib/runs'),
@@ -71,6 +71,7 @@ function startWorker(): void {
       import('@/lib/workers/agentos-dispatcher'),
       import('@/lib/ai-router'),
       import('@/lib/voice/queue-worker'),
+      import('@/lib/integrations/workflows/lead-followup'),
     ]);
 
     await recoverStaleJobs(db, reclaimExpiredLeases);
@@ -117,7 +118,7 @@ function startWorker(): void {
         }
         await processQueue(
           RUN_QUEUE,
-          (job) => dispatchAgentOSJob(job, { db, executeRun, executeWorkflowRun }),
+          (job) => dispatchAgentOSJob(job, { db, executeRun, executeWorkflowRun, executeLeadFollowup: executeLeadFollowupRun }),
           { workerId: WORKER_ID },
         );
       } catch (error) {
