@@ -1049,6 +1049,25 @@ export class AIRouter {
   }
 
   /** Public, read-only view used by health/settings endpoints. */
+  /**
+   * Providers that are actually usable right now: initialized by a real
+   * `initialize()` attempt, not circuit-open, no stored init error.
+   * Used by readiness checks (e.g. CRM preflight) so "configured" is not
+   * confused with "reachable".
+   */
+  async getReadyProviderSummaries(): Promise<Array<{
+    provider: AIProvider;
+    companyId?: string;
+    initialized: boolean;
+    circuitOpen: boolean;
+    initError?: string;
+    isLocal: boolean;
+    models: string[];
+  }>> {
+    await this.ensureProvidersInitialized();
+    return this.getProviderSummaries().filter((p) => p.initialized && !p.circuitOpen && !p.initError);
+  }
+
   getProviderSummaries(): Array<{
     provider: AIProvider;
     companyId?: string;

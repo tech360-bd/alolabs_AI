@@ -177,3 +177,36 @@ jobs:
         # workflows (DEPLOY_* vs PRODUCTION_* made the documented setup unable
         # to deploy). Also rejects interpolating secrets straight into `run:`.
         run: node scripts/validate-workflow-security.mjs
+
+  login-browser:
+    name: Login and MFA (isolated Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit
+      - run: npm run db:generate:client-engine
+      - name: Isolated reliability regressions
+        run: |
+          node --test tests/reliability/*.test.mjs
+          python3 tests/reliability/snapshots.py
+          bash tests/reliability/revision.sh
+          bash tests/reliability/release.sh
+          bash tests/reliability/failures.sh
+          bash tests/reliability/checks.sh
+          bash tests/reliability/host-key.sh
+          npm ci --prefix tests/reliability
+          PATH="$PWD/tests/reliability/node_modules/.bin:$PATH" bash tests/reliability/pm2.sh
+      - run: npm ci --prefix tests/browser
+      - name: Select a Chromium executable
+        working-directory: tests/browser
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "TEST_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
+      - run: npm test --prefix tests/browser

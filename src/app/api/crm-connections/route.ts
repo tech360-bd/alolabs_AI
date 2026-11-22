@@ -1,299 +1,223 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/api-auth';
+import { readCrmLeads, verifyCrmConnection } from '@/lib/integrations/connections';
+import { createRun } from '@/lib/runs';
 
-export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+/**
+ * /api/crm-connections — tenant-scoped view of stored CRM connections.
+ *
+ * REWRITTEN 2026-11-19. The previous implementation returned fabricated
+ * evidence: `connect` merely set `Company.webCrmConnected`, invented a
+ * `webhookSecret`, reported `syncedAgents: 2000` and `contactsProcessed:
+ * Math.floor(Math.random()…)`; `test` reported `auth: valid` and a random
+ * latency from the same flag; any authenticated user could act on ANY
+ * companyId. Nothing in it contacted a CRM.
+ *
+ * This version never invents a verdict:
+ *  - reads are scoped to the caller's company;
+ *  - `connect` / `test` perform a real authenticated, read-only request;
+ *  - `sync` reads real leads (bounded) and reports only what the CRM returned;
+ *  - `dispatch` queues a real AgentOS run instead of claiming agents deployed.
+ */
+
+export const dynamic = 'force-dynamic';
+
+const BodySchema = z.object({
+  credentialId: z.string().min(1).max(200),
+  action: z.enum(['connect', 'disconnect', 'test', 'sync', 'dispatch']),
+  config: z.record(z.string(), z.unknown()).optional(),
+}).strict();
+
+function canManage(role: string, companyRole?: string): boolean {
+  return role === 'super_admin' || companyRole === 'owner' || companyRole === 'admin';
+}
+
+function statusLabel(state: string): string {
+  switch (state) {
+    case 'connected': return 'connected';
+    case 'authentication_failed': return 'authentication_failed';
+    case 'permission_denied': return 'permission_denied';
+    case 'unreachable': return 'unreachable';
+    case 'sync_failed': return 'sync_failed';
+    case 'not_configured': return 'not_configured';
+    default: return 'unverified';
+  }
+}
+
+function endpointHost(baseUrl: string | null): string | null {
+  if (!baseUrl) return null;
   try {
-    const companies = await db.company.findMany({
-      orderBy: { createdAt: 'asc' },
-    });
+    const url = new URL(baseUrl);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
 
-    const connections = await Promise.all(
-      companies.map(async (company) => {
-        const usageCount = await db.usageLog.count({
-          where: { companyId: company.id },
-        });
+export async function GET() {
+  try {
+    const user = await requireAuth();
+    if (!user.companyId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-        const recentLogs = await db.usageLog.findMany({
-          where: { companyId: company.id },
-          orderBy: { createdAt: 'desc' },
-          take: 3,
-        });
+    const [credentials, usageCount] = await Promise.all([
+      db.integrationCredential.findMany({
+        where: { companyId: user.companyId, integrationType: { startsWith: 'crm.' } },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true, name: true, integrationType: true, baseUrl: true, status: true,
+          lastVerifiedAt: true, secretFingerprint: true, updatedAt: true,
+        },
+      }),
+      db.usageLog.count({ where: { companyId: user.companyId } }),
+    ]);
 
-        const agentCount = await db.agent.count();
+    const data = credentials.map((credential) => ({
+      id: credential.id,
+      name: credential.name,
+      integrationType: credential.integrationType,
+      endpoint: endpointHost(credential.baseUrl),
+      status: statusLabel(credential.status),
+      connected: credential.status === 'connected',
+      hasSecret: Boolean(credential.secretFingerprint),
+      lastVerifiedAt: credential.lastVerifiedAt?.toISOString() ?? null,
+      updatedAt: credential.updatedAt.toISOString(),
+      capabilities: [
+        { name: 'Leads (read-only)', enabled: credential.status === 'connected' },
+      ],
+      connectionDetails: {
+        apiVersion: 'ALO Lead API v1',
+        protocol: 'REST (read-only)',
+        dataFormat: 'JSON',
+        lastSync: credential.lastVerifiedAt?.toISOString() ?? null,
+      },
+      stats: { usageCount },
+    }));
 
-        const crmEndpoint = company.domain
-          ? `https://${company.domain}/api/webhook/agent-hub`
-          : null;
-        const syncStatus = company.webCrmConnected ? 'synced' : 'disconnected';
-        const lastSync = company.webCrmConnected ? new Date().toISOString() : null;
-        const webhookSecret = company.webCrmConnected
-          ? `whsec_${company.slug}_****`
-          : null;
-
-        return {
-          id: company.id,
-          companyName: company.name,
-          slug: company.slug,
-          domain: company.domain,
-          status: company.status,
-          connected: company.webCrmConnected,
-          connectionDetails: {
-            crmEndpoint,
-            syncStatus,
-            lastSync,
-            webhookSecret,
-            apiVersion: 'v2',
-            protocol: 'REST + WebSocket',
-            dataFormat: 'JSON',
-          },
-          stats: {
-            usageCount,
-            monthlyUsageLimit: company.monthlyUsageLimit,
-            usagePercent: Math.round((usageCount / company.monthlyUsageLimit) * 100),
-            agentPool: agentCount,
-            workflowsAssigned: 0,
-          },
-          recentActivity: recentLogs.map((log) => ({
-            id: log.id,
-            action: log.workflowName || log.skillName || 'api_call',
-            timestamp: log.createdAt?.toISOString(),
-            status: log.status || 'completed',
-            tokens: log.tokensOrLocalUsed || 0,
-          })),
-          capabilities: [
-            { name: 'Lead Scoring', enabled: company.webCrmConnected },
-            { name: 'Auto Follow-up', enabled: company.webCrmConnected },
-            { name: 'Contact Enrichment', enabled: company.webCrmConnected },
-            { name: 'Deal Prediction', enabled: company.webCrmConnected },
-            { name: 'Email Automation', enabled: company.webCrmConnected },
-            { name: 'Task Assignment', enabled: company.webCrmConnected },
-          ],
-        };
-      })
-    );
-
-    const totalConnected = connections.filter((c) => c.connected).length;
-    const totalDisconnected = connections.filter((c) => !c.connected).length;
-    const totalUsage = connections.reduce((sum, c) => sum + c.stats.usageCount, 0);
-
+    const connected = data.filter((entry) => entry.connected).length;
     return NextResponse.json({
-      data: connections,
+      data,
       summary: {
-        totalCompanies: connections.length,
-        connected: totalConnected,
-        disconnected: totalDisconnected,
-        totalUsage,
-        overallSyncStatus: totalConnected === connections.length ? 'all_synced' : 'partial',
+        totalConnections: data.length,
+        connected,
+        disconnected: data.length - connected,
+        totalUsage: usageCount,
+        overallSyncStatus: data.length === 0 ? 'not_configured' : connected === data.length ? 'all_verified' : 'partial',
       },
     });
   } catch (error) {
-    console.error('CRM Connections GET error:', error);
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
-    const body = await request.json();
-    const { companyId, action, config } = body;
-
-    if (!companyId || !action) {
-      return NextResponse.json(
-        { error: 'companyId and action are required' },
-        { status: 400 }
-      );
+    const user = await requireAuth();
+    if (!user.companyId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!canManage(user.role, user.companyRole)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const company = await db.company.findUnique({
-      where: { id: companyId },
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+    const parsed = BodySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'credentialId and a valid action are required' }, { status: 400 });
+    }
+    const { credentialId, action, config } = parsed.data;
+
+    const credential = await db.integrationCredential.findFirst({
+      where: { id: credentialId, companyId: user.companyId, integrationType: { startsWith: 'crm.' } },
+      select: { id: true, name: true, baseUrl: true },
     });
-
-    if (!company) {
-      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
-    }
-
-    let result: Record<string, unknown> = {};
+    if (!credential) return NextResponse.json({ error: 'Connection not found' }, { status: 404 });
 
     switch (action) {
-      case 'connect': {
-        await db.company.update({
-          where: { id: companyId },
-          data: { webCrmConnected: true },
+      case 'connect':
+      case 'test': {
+        const verification = await verifyCrmConnection({ companyId: user.companyId, credentialId });
+        if (action === 'connect') {
+          await db.company.update({
+            where: { id: user.companyId },
+            data: { webCrmConnected: verification.state === 'connected' },
+          });
+        }
+        return NextResponse.json({
+          success: verification.state === 'connected',
+          action,
+          verification,
+          message: verification.state === 'connected'
+            ? `CRM verified: ${verification.endpointHost}`
+            : `CRM verification failed (${verification.state}): ${verification.message}`,
         });
-
-        await db.auditLog.create({
-          data: {
-            action: 'crm_connect',
-            resource: 'companies',
-            details: JSON.stringify({
-              companyId,
-              companyName: company.name,
-              domain: company.domain,
-            }),
-          },
-        });
-
-        result = {
-          success: true,
-          message: `CRM connected to ${company.name}`,
-          endpoint: company.domain
-            ? `https://${company.domain}/api/webhook/agent-hub`
-            : null,
-          webhookSecret: `whsec_${company.slug}_${Date.now().toString(36)}`,
-          syncedAgents: 2000,
-          syncedWorkflows: 63,
-        };
-        break;
       }
 
       case 'disconnect': {
-        await db.company.update({
-          where: { id: companyId },
-          data: { webCrmConnected: false },
-        });
-
-        await db.auditLog.create({
+        await db.company.update({ where: { id: user.companyId }, data: { webCrmConnected: false } });
+        await db.auditEvent.create({
           data: {
-            action: 'crm_disconnect',
-            resource: 'companies',
-            details: JSON.stringify({
-              companyId,
-              companyName: company.name,
-            }),
+            actorUserId: user.userId,
+            companyId: user.companyId,
+            action: 'company.crm.disconnect',
+            resource: 'integration-credential',
+            resourceId: credential.id,
+            details: JSON.stringify({ name: credential.name }),
           },
         });
-
-        result = {
-          success: true,
-          message: `CRM disconnected from ${company.name}`,
-        };
-        break;
+        return NextResponse.json({ success: true, message: 'CRM marked disconnected for this tenant; the stored credential was not deleted.' });
       }
 
       case 'sync': {
-        const agentsCount = await db.agent.count();
-        const workflowsCount = await db.workflow.count();
-
-        result = {
+        const limit = Math.min(Math.max(Number(config?.limit ?? 5) || 5, 1), 50);
+        const read = await readCrmLeads({ companyId: user.companyId, credentialId, limit });
+        if (!read.ok) {
+          return NextResponse.json({
+            success: false,
+            message: `CRM read failed (${read.state}): ${read.message}`,
+            connectionStatus: read.state,
+          }, { status: 502 });
+        }
+        return NextResponse.json({
           success: true,
-          message: `Sync completed for ${company.name}`,
+          message: `Read ${read.leads.length} lead record(s) from the CRM (read-only).`,
           syncedAt: new Date().toISOString(),
-          stats: {
-            agentsSynced: agentsCount,
-            workflowsSynced: workflowsCount,
-            contactsProcessed: Math.floor(Math.random() * 500) + 100,
-            dealsUpdated: Math.floor(Math.random() * 50) + 10,
-            tasksCreated: Math.floor(Math.random() * 20) + 5,
-          },
-        };
-
-        await db.auditLog.create({
-          data: {
-            action: 'crm_sync',
-            resource: 'companies',
-            details: JSON.stringify({
-              companyId,
-              companyName: company.name,
-              ...(result.stats as Record<string, unknown>),
-            }),
-          },
+          stats: { leadsRead: read.leads.length, latencyMs: read.latencyMs },
+          leadIds: read.leads.map((lead) => lead.id),
         });
-        break;
-      }
-
-      case 'test': {
-        const isConnected = company.webCrmConnected;
-
-        result = {
-          success: true,
-          connectionTest: isConnected ? 'passed' : 'failed',
-          latency: isConnected ? `${Math.floor(Math.random() * 50) + 10}ms` : 'timeout',
-          endpoint: company.domain
-            ? `https://${company.domain}/api/webhook/agent-hub`
-            : null,
-          ssl: isConnected,
-          auth: isConnected ? 'valid' : 'none',
-        };
-        break;
       }
 
       case 'dispatch': {
-        const { command, departmentSlug, agentCount: requestedAgents } = config || {};
-
-        const dept = departmentSlug
-          ? await db.department.findFirst({ where: { slug: departmentSlug } })
-          : null;
-
-        const dispatchedAgents = Math.min(requestedAgents || 10, 50);
-
-        const commandRecord = await db.command.create({
-          data: {
-            rawCommand: command || `Dispatch ${dispatchedAgents} agents to ${company.name} CRM`,
-            parsedIntent: `Agent dispatch to ${company.name}`,
-            detectedDept: dept?.name || null,
-            status: 'processing',
-          },
+        const command = typeof config?.command === 'string' && config.command.trim()
+          ? config.command.trim().slice(0, 2000)
+          : `Work the ${credential.name} CRM pipeline`;
+        const run = await createRun({
+          objective: command,
+          companyId: user.companyId,
+          userId: user.userId,
         });
-
-        const taskRecord = await db.task.create({
-          data: {
-            title: `CRM Dispatch: ${company.name}`,
-            description: `Dispatching ${dispatchedAgents} agents to ${company.name} CRM${dept ? ` (${dept.name})` : ''}`,
-            status: 'processing',
-            priority: 'high',
-            commandId: commandRecord.id,
-          },
-        });
-
-        result = {
+        return NextResponse.json({
           success: true,
-          message: `${dispatchedAgents} agents dispatched to ${company.name}`,
-          commandId: commandRecord.id,
-          taskId: taskRecord.id,
-          dispatchedTo: {
-            company: company.name,
-            domain: company.domain,
-            department: dept?.name || 'All Departments',
-          },
-          agentCount: dispatchedAgents,
-          status: 'agents_deployed',
-          estimatedCompletion: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-        };
-
-        await db.auditLog.create({
-          data: {
-            action: 'agent_dispatch',
-            resource: 'companies',
-            details: JSON.stringify(result),
-          },
+          message: 'AgentOS run queued. Agents are not "deployed"; the run executes through the normal pipeline.',
+          runId: run.runId,
+          status: run.status,
         });
-        break;
       }
 
       default:
-        return NextResponse.json(
-          { error: `Unknown action: ${action}` },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Unsupported action' }, { status: 400 });
     }
-
-    return NextResponse.json(result);
   } catch (error) {
-    console.error('CRM Connections POST error:', error);
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

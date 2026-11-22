@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
+set +x
 set -Eeuo pipefail
+umask 077
 
 APP_DIR="${APP_DIR:-/opt}"
-BRANCH="${BRANCH:-main}"
+readonly APPROVED_SHA="${APPROVED_SHA:?missing approved SHA}" DEPLOY_RUN_ID="${DEPLOY_RUN_ID:?missing deployment run ID}"
+[[ "$APPROVED_SHA" =~ ^[0-9a-f]{40}$ && "$DEPLOY_RUN_ID" =~ ^[0-9]+$ ]] || exit 1
 PM2_NAME="alolabs-agentos"
 NODE_EXECUTABLE="$(readlink -f "$(command -v node)")"
 PORT=3011
@@ -13,24 +16,59 @@ cd "${APP_DIR}"
 fail() { echo "DEPLOYMENT BLOCKED: $*" >&2; exit 1; }
 run_as_owner() { sudo -u "$(stat -c %U "${APP_DIR}")" --preserve-env=DATABASE_URL -- "$@"; }
 
-[[ "$(git rev-parse --show-toplevel)" == "${APP_DIR}" ]] || fail "${APP_DIR} is not the Git repository root"
-[[ -z "$(git status --porcelain --untracked-files=no)" ]] || fail "production repository has tracked changes"
-CURRENT_COMMIT="$(git rev-parse HEAD)"
-echo "Current production commit: ${CURRENT_COMMIT}"
+owner_git() { run_as_owner git "$@"; }
 
+[[ "$(owner_git rev-parse --show-toplevel)" == "${APP_DIR}" ]] || fail "${APP_DIR} is not the Git repository root"
+[[ -z "$(owner_git status --porcelain --untracked-files=no)" ]] || fail "production repository has tracked changes"
+STATE="${APP_DIR}/.alo-releases"
+install -d -m 755 "$STATE" "$STATE/releases"
+exec 9>"$STATE/lock"
+flock -n 9 || fail "another deployment holds the lock"
+[[ ! -e "$STATE/activation-pending" ]] || fail "interrupted activation requires rollback runbook"
+source "${SAFETY_SCRIPT_DIR}/lib/release-pointer.sh"
+source "${SAFETY_SCRIPT_DIR}/lib/approved-revision.sh"
+fetch_approved_revision "$APPROVED_SHA" owner_git || fail "approved revision verification failed"
+PREVIOUS="$APP_DIR"
+if [[ -L "$STATE/current" ]]; then PREVIOUS=$(realpath -e "$STATE/current"); fi
+[[ "$PREVIOUS" == "$APP_DIR" || "$PREVIOUS" == "$STATE/releases/"* ]] || fail "invalid active release"
+CURRENT_COMMIT=$(run_as_owner git -C "$PREVIOUS" rev-parse HEAD)
+record() {
+  printf '%s run=%s previous=%s approved=%s active=%s outcome=%s\n' "$(date -u +%FT%TZ)" "$DEPLOY_RUN_ID" "$CURRENT_COMMIT" "$APPROVED_SHA" "$2" "$1" >> "$STATE/history"
+}
+record started "$CURRENT_COMMIT"
+activated=false; completed=false
+verify_serving() {
+  local expected=$1 pid cwd active_db sockets
+  for ((i=0;i<30;i++)); do
+    pid=$(pm2 pid "$PM2_NAME") || return 1
+    if [[ "$pid" =~ ^[1-9][0-9]*$ ]]; then
+      cwd=$(readlink -f "/proc/$pid/cwd") || continue
+      active_db=$(tr '\0' '\n' < "/proc/$pid/environ" | sed -n 's/^DATABASE_URL=//p' | tail -1) || continue
+      sockets=$(ss -lntp) || return 1
+      if [[ ( "$cwd" == "$expected" || "$cwd" == "$expected/.next/standalone" ) && "$active_db" == "$DATABASE_URL" && "$(readlink -f "/proc/$pid/exe")" == "$NODE_EXECUTABLE" ]] && grep -E "127[.]0[.]0[.]1:${PORT} .*pid=${pid}," <<<"$sockets" >/dev/null && curl -fsS --max-time 2 "http://127.0.0.1:$PORT/api/health/ready" >/dev/null; then return 0; fi
+    fi
+    sleep 1
+  done
+  return 1
+}
+trap 'finish_release "$?" "$activated" "$completed"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM HUP
+cd "$PREVIOUS"
 ENV_FILE="${APP_DIR}/.env.production"
 [[ -f "${ENV_FILE}" ]] || ENV_FILE="${APP_DIR}/.env.config"
 [[ -f "${ENV_FILE}" ]] || ENV_FILE="${APP_DIR}/.env"
 [[ -f "${ENV_FILE}" ]] || fail "production environment file not found"
 ENV_RELATIVE="$(realpath --relative-to="${APP_DIR}" "${ENV_FILE}")"
-if [[ "${ENV_RELATIVE}" != ../* ]] && git ls-files --error-unmatch "${ENV_RELATIVE}" >/dev/null 2>&1; then
+if [[ "${ENV_RELATIVE}" != ../* ]] && owner_git -C "$APP_DIR" ls-files --error-unmatch "${ENV_RELATIVE}" >/dev/null 2>&1; then
   fail "production environment is tracked by Git and could be overwritten"
 fi
 ENV_HASH="$(sha256sum "${ENV_FILE}" | awk '{print $1}')"
-set -a
-# shellcheck disable=SC1090
-source "${ENV_FILE}"
-set +a
+# PM2 reads the full dotenv with its parser. Only import keys needed by these
+# checks; never execute dotenv as root or let it override the release target.
+setting() { node -e 'const fs=require("fs"),{parseEnv}=require("node:util");process.stdout.write(parseEnv(fs.readFileSync(process.argv[1],"utf8"))[process.argv[2]] ?? "")' "$ENV_FILE" "$1"; }
+DATABASE_URL=$(setting DATABASE_URL); export DATABASE_URL
+QDRANT_URL=$(setting QDRANT_URL); MINIO_URL=$(setting MINIO_URL); S3_ENDPOINT=$(setting S3_ENDPOINT)
 [[ -n "${DATABASE_URL:-}" ]] || fail "production DATABASE_URL is missing"
 bash "${SAFETY_SCRIPT_DIR}/database-safety-scan.sh" .
 
@@ -45,7 +83,7 @@ unset ACTIVE_DATABASE_URL
 printf '%s\n' "=== DATABASE CONFIGURATION (values redacted) ==="
 grep -nE '^[A-Za-z_][A-Za-z0-9_]*(DATABASE|MYSQL|MARIADB|SQLITE)[A-Za-z0-9_]*=' "${ENV_FILE}" 2>/dev/null |
   sed -E 's/=.*$/=[REDACTED]/' || true
-grep -RniE 'DATABASE_URL|DATABASE_PROVIDER|sqlite|mysql|mariadb|postgres' prisma package.json 2>/dev/null || true
+
 printf '%s\n' "=== SERVER AND RUNTIME VERSIONS ==="
 uname -a
 BUN_VERSION="$(/usr/local/bin/bun --version)"
@@ -78,7 +116,7 @@ prisma/schema.mysql.prisma. The SQLite inventory is preview-only. A reviewed dat
     [[ -f "${DB_SCHEMA}" ]] || fail "MySQL Prisma schema is missing"
     grep -Eq 'provider *= *"mysql"' "${DB_SCHEMA}" || fail "Prisma schema does not match MySQL/MariaDB"
     DB_STATS="$(node -e '
-      const mysql=require("mysql2/promise"); (async()=>{const c=await mysql.createConnection(process.env.DATABASE_URL); const [r]=await c.query("SELECT COUNT(*) n, COALESCE(SUM(data_length+index_length),0) bytes FROM information_schema.tables WHERE table_schema=DATABASE()"); console.log(`${r[0].n}:${r[0].bytes}`); await c.end()})().catch(e=>{console.error(e.message);process.exit(1)})')" || fail "database connectivity check failed"
+      const mysql=require("mysql2/promise"); (async()=>{const c=await mysql.createConnection(process.env.DATABASE_URL); const [r]=await c.query("SELECT COUNT(*) n, COALESCE(SUM(data_length+index_length),0) bytes FROM information_schema.tables WHERE table_schema=DATABASE()"); console.log(`${r[0].n}:${r[0].bytes}`); await c.end()})().catch(e=>{console.error("Database check failed");process.exit(1)})')" || fail "database connectivity check failed"
     TABLE_COUNT="${DB_STATS%%:*}"
     DB_SIZE="${DB_STATS#*:}"
     [[ "${TABLE_COUNT}" -gt 0 ]] || fail "configured production database has no tables"
@@ -93,16 +131,14 @@ esac
 # Inspect migration history and schema compatibility. Any error fails closed.
 if [[ -d prisma/migrations ]] && find prisma/migrations -mindepth 2 -name migration.sql -print -quit | grep -q .; then
   run_as_owner bunx prisma migrate status --schema "${DB_SCHEMA}" || fail "migration history is inconsistent or pending review"
-  MIGRATIONS_PRESENT=true
 else
-  MIGRATIONS_PRESENT=false
   echo "No Prisma-format migrations. prisma/migrations/mysql/*.sql are manual, reviewed SQL; none are applied by this deploy."
 fi
 run_as_owner bunx prisma validate --schema "${DB_SCHEMA}" || fail "Prisma schema validation failed"
 
 # A verified recovery backup is mandatory before any deployment can proceed.
-BACKUP_RESULT="$(mktemp)"
-trap 'rm -f "${BACKUP_RESULT}"' EXIT
+verify_serving "$PREVIOUS" || fail "active process does not match previous release"
+BACKUP_RESULT="$(mktemp "$STATE/backup-${DEPLOY_RUN_ID}-XXXXXXXX")"
 APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" bash "${SAFETY_SCRIPT_DIR}/backup.sh" | tee "${BACKUP_RESULT}"
 BACKUP_PATH="$(sed -n 's/^BACKUP_VERIFIED=//p' "${BACKUP_RESULT}" | tail -1)"
 [[ -n "${BACKUP_PATH}" && -d "${BACKUP_PATH}" ]] || fail "backup was not verified"
@@ -115,9 +151,13 @@ printf '%s\n' \
  'Destructive operation detected: NO' 'New database creation required: NO' \
  'Data-loss flag detected: NO' 'Database reset requested: NO' 'DROP/TRUNCATE detected: NO'
 
-git fetch origin "${BRANCH}"
-TARGET_COMMIT="$(git rev-parse "origin/${BRANCH}")"
-git reset --hard "${TARGET_COMMIT}"
+RELEASE=$(mktemp -d "$STATE/releases/${APPROVED_SHA}-${DEPLOY_RUN_ID}-XXXXXXXX")
+chown --reference="$APP_DIR" "$RELEASE"
+run_as_owner git clone --quiet --no-local --no-checkout "$APP_DIR" "$RELEASE"
+cd "$RELEASE"
+run_as_owner git fetch --quiet --no-tags origin refs/remotes/origin/main
+run_as_owner git checkout --quiet --detach "$APPROVED_SHA"
+[[ "$(run_as_owner git rev-parse HEAD)" == "$APPROVED_SHA" ]] || fail "staged revision mismatch"
 bash "${SAFETY_SCRIPT_DIR}/database-safety-scan.sh" .
 [[ "$(sha256sum "${ENV_FILE}" | awk '{print $1}')" == "${ENV_HASH}" ]] || fail "production environment was modified"
 # The datasource is MySQL/MariaDB by the check above, so the generated schema
@@ -125,32 +165,16 @@ bash "${SAFETY_SCRIPT_DIR}/database-safety-scan.sh" .
 # this deployment verified earlier.
 grep -Eq 'provider *= *"mysql"' "${DB_SCHEMA}" || fail "target Prisma provider differs from production (expected mysql)"
 
+ln -sT "$ENV_FILE" "$RELEASE/.env.production"
 run_as_owner bun install --frozen-lockfile
 run_as_owner bunx prisma validate --schema "${DB_SCHEMA}"
 run_as_owner bun run "${GENERATE_SCRIPT}"
-if [[ -d prisma/migrations ]] && find prisma/migrations -mindepth 2 -name migration.sql -print -quit | grep -q .; then
-  MIGRATIONS_PRESENT=true
-  MIGRATION_STATUS="$(run_as_owner bunx prisma migrate status --schema "${DB_SCHEMA}" 2>&1)" || {
-    echo "${MIGRATION_STATUS}" >&2
-    [[ "${MIGRATIONS_APPROVED:-false}" == true ]] || fail "target migrations are pending or inconsistent and are not approved"
-  }
-else
-  MIGRATIONS_PRESENT=false
-fi
-if [[ "${MIGRATIONS_PRESENT}" == true ]]; then
-  echo "Migrations exist; application requires explicit MIGRATIONS_APPROVED=true."
-  [[ "${MIGRATIONS_APPROVED:-false}" == true ]] || fail "migration approval is absent"
-  if ! run_as_owner bunx prisma migrate deploy --schema "${DB_SCHEMA}"; then
-    cat >&2 <<'MSG'
-DATABASE MIGRATION FAILED
-Production database was NOT reset.
-Production database was NOT replaced.
-No destructive fallback was executed.
-Application restart was skipped.
-Existing database remains intact.
-Backup remains available for recovery.
-MSG
-    exit 1
+apply_pending=false
+if find prisma/migrations -mindepth 2 -name migration.sql -print -quit | grep -q .; then
+  if ! run_as_owner bunx prisma migrate status --schema "$DB_SCHEMA"; then
+    [[ "${MIGRATIONS_APPROVED:-false}" == true ]] || fail "pending migration not approved"
+    run_as_owner node --input-type=module - < "$SAFETY_SCRIPT_DIR/lib/review-migrations.mjs" || fail "schema change not proven rollback compatible"
+    apply_pending=true
   fi
 fi
 run_as_owner env NODE_ENV=production bun run build
@@ -161,41 +185,35 @@ test -d .next/standalone/.next/static
 test -d public
 test -d .next/standalone/public
 
-rollback_code() {
-  trap - ERR
-  echo "Health validation failed; rolling back application code only." >&2
-  git reset --hard "${CURRENT_COMMIT}"
-  run_as_owner bun install --frozen-lockfile
-  run_as_owner bun run "${GENERATE_SCRIPT}"
-  run_as_owner env NODE_ENV=production bun run build
-  pm2 reload "${PM2_NAME}" --update-env
-  sleep 3
-  ROLLBACK_PID="$(pm2 pid "${PM2_NAME}")"
-  [[ "${ROLLBACK_PID}" =~ ^[0-9]+$ && "${ROLLBACK_PID}" -gt 0 ]]
-  [[ "$(readlink -f "/proc/${ROLLBACK_PID}/cwd")" == "${APP_DIR}" ]]
-  [[ "$(readlink -f "/proc/${ROLLBACK_PID}/exe")" == "${NODE_EXECUTABLE}" ]]
-  ROLLBACK_DATABASE_URL="$(tr '\0' '\n' < "/proc/${ROLLBACK_PID}/environ" | sed -n 's/^DATABASE_URL=//p' | tail -1)"
-  [[ "${ROLLBACK_DATABASE_URL}" == "${DATABASE_URL}" ]]
-  ss -lntp | grep ":${PORT}" | grep -q "pid=${ROLLBACK_PID}"
-  if ! curl -fsS --max-time 15 "http://127.0.0.1:${PORT}/api/health/ready" >/dev/null; then
-    echo "CRITICAL: rolled-back application failed its health check; database remains untouched." >&2
+# Use the existing environment and data, not new per-release directories.
+# Keep the legacy checkout (including its built output) intact on first cutover.
+configured_storage=$(setting STORAGE_LOCAL_PATH)
+case "${configured_storage#./}" in
+  ''|/*|uploads|uploads/*|storage|storage/*|data|data/*|public/uploads|public/uploads/*) ;;
+  *) fail "custom relative storage must have an approved absolute shared path before activation" ;;
+esac
+for name in uploads storage data public/uploads; do
+  shared="$APP_DIR/$name"
+  legacy="$APP_DIR/.next/standalone/$name"
+  if [[ -d "$legacy" && ! "$legacy" -ef "$shared" ]]; then
+    fail "resolve standalone versus shared storage for $name before cutover"
   fi
-  echo "Application code rollback completed; production database was not changed by rollback." >&2
-  exit 1
-}
-trap 'rollback_code' ERR
-pm2 reload ecosystem.config.js --only "${PM2_NAME}" --update-env
-PID="$(pm2 pid "${PM2_NAME}")"
-[[ "${PID}" =~ ^[0-9]+$ && "${PID}" -gt 0 ]]
-[[ "$(readlink -f "/proc/${PID}/cwd")" == "${APP_DIR}" ]]
-[[ "$(readlink -f "/proc/${PID}/exe")" == "${NODE_EXECUTABLE}" ]]
-POST_DATABASE_URL="$(tr '\0' '\n' < "/proc/${PID}/environ" | sed -n 's/^DATABASE_URL=//p' | tail -1)"
-[[ -n "${POST_DATABASE_URL}" && "${POST_DATABASE_URL}" == "${DATABASE_URL}" ]]
-unset POST_DATABASE_URL
-PORT_RECORD="$(ss -lntp | grep ":${PORT}")"
-grep -q "pid=${PID}" <<<"${PORT_RECORD}"
-grep -Eq "127\.0\.0\.1:${PORT}" <<<"${PORT_RECORD}"
-curl -fsS --max-time 15 "http://127.0.0.1:${PORT}/api/health/ready"
+  [[ -d "$shared" ]] || fail "provision shared $name before first cutover"
+  for base in "$RELEASE" "$RELEASE/.next/standalone"; do
+    path="$base/$name"
+    if [[ -d "$path" ]]; then rmdir "$path" || fail "refusing to replace nonempty release data"; fi
+    ln -sT "$shared" "$path"
+  done
+done
+ln -sT "$ENV_FILE" "$RELEASE/.env.config"
+if [[ "$apply_pending" == true ]]; then
+  run_as_owner node --input-type=module - < "$SAFETY_SCRIPT_DIR/lib/review-migrations.mjs" || fail "recheck failed"
+  run_as_owner bunx prisma migrate deploy --schema "$DB_SCHEMA" || fail "migration failed; inspect database separately"
+  run_as_owner bunx prisma migrate status --schema "$DB_SCHEMA" || fail "migration history not healthy"
+fi
+printf '%s\n' "$PREVIOUS" "$RELEASE" "$DEPLOY_RUN_ID" > "$STATE/activation-pending"
+activated=true
+activate_release "$STATE" "$RELEASE" "$PM2_NAME" || fail "new release readiness failed"
 run_as_owner bunx prisma db execute --schema "${DB_SCHEMA}" --stdin <<<'SELECT 1;' >/dev/null
 
 # Existing optional infrastructure is verified only when configured; no data is changed.
@@ -215,7 +233,7 @@ fi
 
 df -h "${APP_DIR}"
 pm2 status
-pm2 describe "${PM2_NAME}"
+# Avoid PM2 describe, which may print inherited environment values.
 LOG_REVIEW="$(mktemp)"
 pm2 logs "${PM2_NAME}" --lines 100 --nostream >"${LOG_REVIEW}" 2>&1
 if grep -qiE '(DATABASE_URL=|password=|api[_-]?key=|private key|access[_-]?token=|refresh[_-]?token=)' "${LOG_REVIEW}"; then
@@ -224,5 +242,7 @@ if grep -qiE '(DATABASE_URL=|password=|api[_-]?key=|private key|access[_-]?token
 fi
 echo "Application logs reviewed: no common secret signatures detected."
 rm -f "${LOG_REVIEW}"
-trap - ERR
+record healthy "$APPROVED_SHA"
+rm -f "$STATE/activation-pending"
+completed=true
 echo "DEPLOYMENT SUCCESSFUL: CODE SAFE; BUILD SAFE; DATABASE SAFE; BACKUP VERIFIED; PM2/PORT/API HEALTHY"

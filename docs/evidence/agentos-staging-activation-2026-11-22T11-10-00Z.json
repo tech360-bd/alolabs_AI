@@ -1,0 +1,222 @@
+{
+  "kind": "agentos-staging-activation-evidence",
+  "generatedAt": "2026-11-22T11:10:00Z",
+  "sessionDate": "2026-11-19",
+  "clockNote": "Evidence timestamps use the sandbox UTC clock; the session date is 2026-11-19. No clock adjustment was performed and no prior evidence file was rewritten.",
+  "branch": "arena/304ea66d-alolabs-ai",
+  "headCommit": "19723593b0ea8bfad2707786c79a1d090ca3e366",
+  "worktreeState": "uncommitted remediation on top of headCommit (26 files changed vs base at the time of this run)",
+  "milestone": "SIMULATED_STAGING_ACTIVATION_VERIFIED",
+  "environment": {
+    "node": "v22.22.3",
+    "database": "temporary SQLite per test via scripts/sqlite-push.ts",
+    "crm": "local ALO Lead API v1 contract stub over loopback HTTP — NOT an external CRM",
+    "aiProvider": "none real: no provider key, no .env, no ollama; local OpenAI-compatible stub used only in the simulation suite",
+    "productionContacted": false,
+    "productionUntouched": [
+      "port 3011",
+      "Caddy",
+      "PM2",
+      "production database",
+      "production secrets/.env",
+      "Hosting Portal hosting.alolabs.net (port 3062)"
+    ]
+  },
+  "suites": [
+    {
+      "name": "full-vitest-suite",
+      "command": "npx vitest run --maxWorkers=2",
+      "startedAt": "2026-11-22T11:11:27Z",
+      "exitCode": 0,
+      "durationMs": 196530,
+      "testFiles": 193,
+      "testFilesPassed": 192,
+      "testFilesSkipped": 1,
+      "tests": 2126,
+      "passed": 2111,
+      "failed": 0,
+      "skipped": 15,
+      "skippedDetail": "All 15 skipped tests are in __tests__/integration/mysql-compatibility.test.ts, which requires a MySQL server not available in this sandbox. Skipped is NOT reported as passed.",
+      "logTail": " Test Files  192 passed | 1 skipped (193)\\n      Tests  2111 passed | 15 skipped (2126)\\n   Start at  11:11:27\\n   Duration  196.53s (transform 15.32s, setup 17.47s, import 22.64s, tests 124.61s, environment 185.63s)",
+      "note": "Final run on the tree containing every fix in this milestone (SSRF guard, redirect precedence, multicast/reserved blocking, preflight forced re-sync, test hardening)."
+    },
+    {
+      "name": "integration-url-guard",
+      "command": "npx vitest run __tests__/unit/integration-url-guard.test.ts --maxWorkers=1",
+      "exitCode": 0,
+      "testFiles": 1,
+      "tests": 29,
+      "failed": 0,
+      "skipped": 0,
+      "covers": [
+        "private IPv4 ranges 10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, 100.64/10, 0/8, >=224",
+        "decimal/hex/shortened IPv4 canonicalisation",
+        "multicast/reserved IPv4 (>=224)",
+        "IPv6 literals [::1], [::], [::ffff:127.0.0.1], [fe80::1], [fd00::1], [2001:db8::1]",
+        "localhost, localhost., api.localhost., *.local, *.internal",
+        "no socket opened for a blocked target",
+        "redirect:'error' survives a caller-supplied redirect:'follow'",
+        "credential never present in URL or reason"
+      ]
+    },
+    {
+      "name": "post-change-regression",
+      "command": "npx vitest run __tests__/integration/crm-lead-followup.test.ts __tests__/integration/crm-staging-simulation.test.ts __tests__/api/company-integrations.test.ts __tests__/unit/integration-url-guard.test.ts --maxWorkers=1",
+      "exitCode": 0,
+      "testFiles": 4,
+      "tests": 62,
+      "failed": 0,
+      "skipped": 0,
+      "logTail": " Test Files  4 passed (4)\\n      Tests  62 passed (62)\\n   Start at  11:14:52\\n   Duration  10.39s",
+      "startedAt": "2026-11-22T11:14:52Z",
+      "durationMs": 10390
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "findings": "none",
+      "logTail": "> next typegen && node scripts/typecheck/run.mjs\\n\\nGenerating route types...\\n✓ Types generated successfully"
+    },
+    {
+      "name": "typecheck-tests",
+      "command": "npm run typecheck:tests",
+      "exitCode": 0,
+      "findings": "none"
+    },
+    {
+      "name": "eslint-changed",
+      "command": "npx eslint src/lib/integrations src/app/api/v1/crm src/app/api/crm-connections/route.ts src/components/panels/crm-connections-panel.tsx __tests__/unit/integration-url-guard.test.ts __tests__/integration/crm-lead-followup.test.ts",
+      "exitCode": 0,
+      "findings": "none"
+    },
+    {
+      "name": "npm-audit-production",
+      "command": "npm audit --omit=dev --json",
+      "exitCode": 0,
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "productionDependencies": 339,
+      "totalDependencies": 918,
+      "devDependencies": 541
+    }
+  ],
+  "browserTests": {
+    "status": "VERIFIED_PREVIOUSLY_NOT_RE_RUN_IN_THIS_AUDIT",
+    "files": {
+      "tests/browser/login.test.mjs": 4,
+      "tests/browser/crm-panel.test.mjs": 1
+    },
+    "lastKnownExitCode": 0,
+    "note": "Playwright scripts outside Vitest; a dev server was not started for this audit. CI runs 'npm test --prefix tests/browser' (4 auth tests). The panel test boots its own Next dev server + SQLite and is run via 'npm run test:crm-panel --prefix tests/browser'. Port 3011 (production) is never used."
+  },
+  "securityRemediation": [
+    {
+      "id": "REM-01",
+      "severity": "CRITICAL",
+      "status": "FIXED_VERIFIED",
+      "summary": "double-escaped private-IPv4 regexes never matched; replaced with numeric-label range matching"
+    },
+    {
+      "id": "REM-02",
+      "severity": "HIGH",
+      "status": "FIXED_VERIFIED",
+      "summary": "bracketed IPv6 literals now fail closed"
+    },
+    {
+      "id": "REM-03",
+      "severity": "MEDIUM",
+      "status": "FIXED_VERIFIED",
+      "summary": "trailing dot, 0.0.0.0, 0, CGNAT, *.local, *.internal blocked"
+    },
+    {
+      "id": "REM-04",
+      "severity": "HIGH",
+      "status": "FIXED_VERIFIED",
+      "summary": "guardedFetch forces redirect:'error' after caller options"
+    },
+    {
+      "id": "REM-05",
+      "severity": "HIGH",
+      "status": "FIXED_VERIFIED",
+      "summary": "registered adapter alone no longer satisfies ai_provider; real 4s health check required"
+    },
+    {
+      "id": "REM-06",
+      "severity": "MEDIUM",
+      "status": "FIXED_VERIFIED",
+      "summary": "preflight_status / workflow_execution_ready / deprecated ready alias; CRM egress only with verify=1"
+    },
+    {
+      "id": "REM-07",
+      "severity": "CRITICAL",
+      "status": "FIXED_VERIFIED",
+      "summary": "legacy /api/crm-connections fabricated successes and crossed tenants; now tenant-scoped and honest"
+    },
+    {
+      "id": "REM-08",
+      "severity": "MEDIUM",
+      "status": "FIXED_VERIFIED",
+      "summary": "hard-coded event count replaced with semantic invariants"
+    },
+    {
+      "id": "REM-09",
+      "severity": "MEDIUM",
+      "status": "FIXED_VERIFIED",
+      "summary": "artifact checksum independently recomputed in tests"
+    },
+    {
+      "id": "REM-10",
+      "severity": "LOW",
+      "status": "FIXED_VERIFIED",
+      "summary": "preflight forces provider registry re-sync (freshness)"
+    }
+  ],
+  "preflightSemantics": {
+    "preflight_status": "did the check run (ok|error)",
+    "workflow_execution_ready": "true only when CRM connection/URL/credential/verification and a HEALTH-CHECKED AI provider/model exist",
+    "ready": "deprecated alias, always equal to workflow_execution_ready",
+    "missing_dependencies": "explicit list",
+    "provider_probe": "router | injected_simulated (test seam only)",
+    "healthCheck": "provider readiness requires a real health check (4 s bound); registered-but-unhealthy providers do not count",
+    "registryFreshness": "preflight calls ensureRouterSynced({ force: true })"
+  },
+  "externalE2E": {
+    "status": "BLOCKED",
+    "crmStagingConfigured": false,
+    "aiProviderConfigured": false,
+    "reason": "No authorized staging CRM URL/key, no real AI provider key, no staging deployment authorization in this environment.",
+    "notProven": [
+      "real staging CRM read",
+      "real model invocation",
+      "real Bengali drafts",
+      "real staging deployment behaviour (TLS, proxy, headers on the wire)",
+      "production B2B acceptance"
+    ]
+  },
+  "documents": {
+    "completeEngineeringAudit": "docs/AGENTOS_COMPLETE_ENGINEERING_AUDIT.md",
+    "remediationRegister": "docs/AGENTOS_REMEDIATION_REGISTER.md",
+    "securityAudit": "docs/AGENTOS_SECURITY_AUDIT.md",
+    "crmConnectorOperations": "docs/AGENTOS_CRM_CONNECTOR_OPERATIONS.md",
+    "aiProviderOperations": "docs/AGENTOS_AI_PROVIDER_OPERATIONS.md",
+    "stagingActivationRunbook": "docs/AGENTOS_STAGING_ACTIVATION_RUNBOOK.md",
+    "realStagingAcceptanceChecklist": "docs/AGENTOS_REAL_STAGING_ACCEPTANCE_CHECKLIST.md",
+    "finalAcceptanceReport": "docs/AGENTOS_FINAL_ACCEPTANCE_REPORT.md"
+  },
+  "gates": {
+    "A_local_engineering": "PASS (local)",
+    "B_security_fixes": "PASS (local regression suite)",
+    "C_real_crm": "BLOCKED_EXTERNAL_DEPENDENCY",
+    "D_real_ai_provider": "BLOCKED_EXTERNAL_DEPENDENCY",
+    "E_real_staging_deployment": "BLOCKED_AUTHORIZATION",
+    "F_production_readiness": "NOT_CLAIMED"
+  },
+  "updatedAt": "2026-11-22T11:30:00Z"
+}

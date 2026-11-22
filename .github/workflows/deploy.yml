@@ -133,6 +133,11 @@ jobs:
       - name: Stage reviewed safety scripts
         run: |
           mkdir -p production-safety-scripts/lib
+          install -m 600 deploy/scripts/lib/review-migrations.mjs production-safety-scripts/lib/review-migrations.mjs
+          install -m 600 deploy/scripts/lib/release-pointer.sh production-safety-scripts/lib/release-pointer.sh
+          install -m 600 deploy/scripts/lib/approved-revision.sh production-safety-scripts/lib/approved-revision.sh
+          install -m 600 deploy/scripts/lib/publish-snapshot.py production-safety-scripts/lib/publish-snapshot.py
+          install -m 600 deploy/scripts/lib/mysql-dump.mjs production-safety-scripts/lib/mysql-dump.mjs
           install -m 600 deploy/scripts/lib/portable-coreutils.sh production-safety-scripts/lib/portable-coreutils.sh
           install -m 700 deploy/scripts/deploy.sh production-safety-scripts/deploy.sh
           install -m 700 deploy/scripts/backup.sh production-safety-scripts/backup.sh
@@ -148,19 +153,28 @@ jobs:
     name: Deploy configuration (production bridge)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
     environment: production
     # EXPLICIT APPROVAL GATE.
     #
     # A push may run quality checks, but only a manually confirmed dispatch can
     # contact production. Repository/environment settings can change independently.
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production_deploy == true
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_production_deploy == true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Require verified production build and checks for the approved main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPROVED_SHA: ${{ github.sha }}
+        run: bash .github/scripts/require-release-checks.sh
       # Reports every missing or malformed PRODUCTION_* value at once, by name
       # only. Nothing secret is echoed. Runs as its own job so a configuration
       # problem is distinguishable from a deployment failure at a glance.
       - name: Validate required production SSH secrets
         env:
+          PRODUCTION_HOST_FINGERPRINT: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
           PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
           PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
@@ -178,6 +192,10 @@ jobs:
         with:
           name: production-safety-scripts
           path: production-safety-scripts
+      - name: Require the production host pin in this job
+        env:
+          HOST_PIN: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
+        run: '[[ "$HOST_PIN" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]]'
       - name: Create a private staging directory (refuse any pre-existing path)
         # /tmp is world-writable. The scp below writes into
         # /tmp/alo-deploy-<run_id>-<run_attempt>, and that directory is later
@@ -190,6 +208,7 @@ jobs:
         # catches a dangling symlink, which -e misses.
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         with:
+          fingerprint: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
@@ -207,6 +226,7 @@ jobs:
       - name: Transfer reviewed safety scripts without changing production
         uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
         with:
+          fingerprint: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
@@ -218,15 +238,18 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         env:
+          APPROVED_SHA: ${{ github.sha }}
+          DEPLOY_RUN_ID: ${{ github.run_id }}
           MIGRATIONS_APPROVED: ${{ inputs.migrations_approved || 'false' }}
           PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
         with:
+          fingerprint: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           port: ${{ secrets.PRODUCTION_PORT }}
           command_timeout: 30m
-          envs: MIGRATIONS_APPROVED,PRODUCTION_APP_DIR
+          envs: MIGRATIONS_APPROVED,PRODUCTION_APP_DIR,APPROVED_SHA,DEPLOY_RUN_ID
           script: |
             set -euo pipefail
             TEMP_DIR=/tmp/alo-deploy-${{ github.run_id }}-${{ github.run_attempt }}
@@ -246,5 +269,5 @@ jobs:
               exit 1
             fi
             echo "Application directory: ${APP_DIR}"
-            sudo -n env APP_DIR="${APP_DIR}" BRANCH=main SAFETY_SCRIPT_DIR="${TEMP_DIR}" \
+            sudo -n APP_DIR="${APP_DIR}" APPROVED_SHA="${APPROVED_SHA}" DEPLOY_RUN_ID="${DEPLOY_RUN_ID}" SAFETY_SCRIPT_DIR="${TEMP_DIR}" \
               MIGRATIONS_APPROVED="${MIGRATIONS_APPROVED}" bash "${TEMP_DIR}/deploy.sh"

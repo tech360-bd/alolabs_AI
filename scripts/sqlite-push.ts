@@ -7,9 +7,8 @@
  * (binaries.prisma.sh) is unreachable and `prisma db push` cannot download the
  * schema-engine binary.
  *
- * In production (with CDN access), prefer the standard:
- *     npx prisma db push          (SQLite dev)
- *     npx prisma migrate deploy   (MySQL/Postgres prod)
+ * Local development only. See docs/CONTRIBUTOR_QUICKSTART.md for the
+ * supported MySQL path and the offline SQLite adapter setup.
  *
  * Usage:
  *     DATABASE_URL=file:./db/custom.db npx tsx scripts/sqlite-push.ts [--schema=prisma/schema.prisma]

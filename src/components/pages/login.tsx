@@ -297,7 +297,16 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'MFA verification failed.')
+        if (res.status === 401) {
+            // Login challenges are single-use, including a rejected code.
+            setMfaData(null)
+            setMfaCode('')
+            setPassword('')
+            setError('Verification failed. Sign in again to request a new challenge.')
+            setStep('error')
+            return
+          }
+          throw new Error(data.error || 'MFA verification failed.')
       }
 
       const data = await res.json()

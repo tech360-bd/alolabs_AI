@@ -22,6 +22,13 @@ export type { SmsSendResult } from './connectors/messaging/httpsms';
 export { rsshubAdapter, rsshubFetchRoute } from './connectors/content/rsshub';
 export type { FeedItem } from './connectors/content/rsshub';
 export { videoGenAdapter, submitVideoJob, getVideoJob } from './connectors/media/video-gen';
+export {
+  aloLeadApiAdapter,
+  aloLeadApiVerify,
+  aloLeadApiListRecentLeads,
+  ALO_LEAD_API_ID,
+} from './connectors/crm/alo-lead-api';
+export type { CrmLead, CrmFailureKind, LeadReadOutcome } from './connectors/crm/alo-lead-api';
 export type { VideoJob, VideoJobStatus } from './connectors/media/video-gen';
 
 import { integrationRegistry } from './registry';
@@ -30,6 +37,7 @@ import { frappeAdapter } from './connectors/crm/frappe';
 import { httpsmsAdapter } from './connectors/messaging/httpsms';
 import { rsshubAdapter } from './connectors/content/rsshub';
 import { videoGenAdapter } from './connectors/media/video-gen';
+import { aloLeadApiAdapter } from './connectors/crm/alo-lead-api';
 
 let bootstrapped = false;
 
@@ -41,6 +49,7 @@ export function bootstrapIntegrations(): void {
   integrationRegistry.register(httpsmsAdapter);
   integrationRegistry.register(rsshubAdapter);
   integrationRegistry.register(videoGenAdapter);
+  integrationRegistry.register(aloLeadApiAdapter);
   bootstrapped = true;
 }
 

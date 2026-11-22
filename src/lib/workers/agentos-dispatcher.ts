@@ -10,15 +10,18 @@ import type { QueueItemData } from '@/lib/job-queue';
 type DbClient = typeof import('@/lib/db')['db'];
 type ExecuteRunFn = typeof import('@/lib/runs')['executeRun'];
 type ExecuteWorkflowRunFn = typeof import('@/lib/workflow-engine')['executeWorkflowRun'];
+type ExecuteLeadFollowupFn = typeof import('@/lib/integrations/workflows/lead-followup')['executeLeadFollowupRun'];
 type PlanResultT = import('@/lib/runs/planner').PlanResult;
 
 export interface DispatchDeps {
   db: DbClient;
   executeRun: ExecuteRunFn;
   executeWorkflowRun: ExecuteWorkflowRunFn;
+  /** Optional so older callers/tests keep compiling; required at runtime for CRM jobs. */
+  executeLeadFollowup?: ExecuteLeadFollowupFn;
 }
 
-export const AGENTOS_JOB_TYPES = ['agentos.run', 'agentos.workflow', 'agentos.command'] as const;
+export const AGENTOS_JOB_TYPES = ['agentos.run', 'agentos.workflow', 'agentos.command', 'agentos.crm.lead-followup'] as const;
 
 /**
  * One run, one executor: if another worker holds an earlier, still-leased
@@ -79,6 +82,13 @@ export async function dispatchAgentOSJob(
       await deps.executeWorkflowRun(runId, workflowRunId, plan, taskId ?? undefined);
       return { runId, workflowRunId };
     }
+    case 'agentos.crm.lead-followup': {
+      const runId = typeof payload.runId === 'string' ? payload.runId : null;
+      if (!runId) throw new Error('agentos.crm.lead-followup job missing runId');
+      if (!deps.executeLeadFollowup) throw new Error('agentos.crm.lead-followup executor is not wired');
+      const result = await deps.executeLeadFollowup(runId);
+      return { runId, status: result.status };
+    }
     case 'agentos.command': {
       const runId = typeof payload.runId === 'string' ? payload.runId : null;
       if (!runId) throw new Error('agentos.command job missing runId');
@@ -93,10 +103,11 @@ export async function dispatchAgentOSJob(
 
 /** Resolve the executor dependencies lazily (Node runtime only). */
 export async function loadDispatchDeps(): Promise<DispatchDeps> {
-  const [{ db }, { executeRun }, { executeWorkflowRun }] = await Promise.all([
+  const [{ db }, { executeRun }, { executeWorkflowRun }, { executeLeadFollowupRun }] = await Promise.all([
     import('@/lib/db'),
     import('@/lib/runs'),
     import('@/lib/workflow-engine'),
+    import('@/lib/integrations/workflows/lead-followup'),
   ]);
-  return { db, executeRun, executeWorkflowRun };
+  return { db, executeRun, executeWorkflowRun, executeLeadFollowup: executeLeadFollowupRun };
 }

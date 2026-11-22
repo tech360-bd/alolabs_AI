@@ -111,57 +111,13 @@ The legacy importer is **preview-only**. Run `npm run db:migrate:mysql -- /expli
 
 ---
 
-## Deployment
+## Deployment and rollback
 
-```bash
-# On the Ubuntu host, from the application directory (/opt):
-git fetch --all --prune
-git checkout <reviewed-commit>
-
-set -a; source .env.production; set +a
-npm ci --include=dev            # or: bun install --frozen-lockfile
-npm run db:generate:mysql
-npm run build                # Next.js standalone output
-
-pm2 reload alolabs-agentos --update-env
-```
-
-`deploy/scripts/deploy.sh` automates this and additionally:
-
-1. Verifies the working tree is clean and the directory is the repo root.
-2. Verifies the running PM2 process and that its live `DATABASE_URL` matches the
-   environment file — so a deploy cannot silently retarget a database.
-3. Rejects a SQLite `DATABASE_URL` outright.
-4. Connects to MySQL and reports engine version, database name, table count and
-   size before changing anything.
-5. Runs `prisma validate` and `prisma migrate status`; applies migrations only
-   with `MIGRATIONS_APPROVED=true`.
-6. Reloads PM2 only after the build and pre-checks succeed, then re-verifies the
-   new PID.
-
-### Rollback
-
-Application rollback is a git operation, **never** a destructive database
-rollback:
-
-```bash
-cd /opt
-git checkout <previous-good-commit>
-npm ci --include=dev && npm run db:generate:mysql && npm run build
-pm2 reload alolabs-agentos --update-env
-curl -fsS http://127.0.0.1:3011/api/health/ready
-```
-
-If a migration was applied, use its paired `prisma/migrations/mysql/*_rollback.sql`
-after taking a backup — and only after confirming no newer data depends on the
-rolled-back columns.
+Use the [release activation and rollback runbook](PRODUCTION_DEPLOYMENT_ROLLBACK_RUNBOOK.md) for the approved SHA, staging layout, PM2 handoff, recovery records and migration limits. Do not reset or rebuild a running checkout, and do not restore a database as part of code rollback.
 
 ### Backups
 
-```bash
-sudo APP_DIR=/opt bash deploy/scripts/backup.sh      # checksummed, verified
-bash deploy/scripts/restore.sh <backup>              # restore path
-```
+Follow the [backup verification and isolated recovery runbook](PRODUCTION_BACKUP_RECOVERY_RUNBOOK.md). Automated production database restore is intentionally disabled.
 
 ---
 

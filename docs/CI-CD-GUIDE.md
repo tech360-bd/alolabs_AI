@@ -220,119 +220,15 @@ jobs:
 
 ## 4. Production Deployment Workflow
 
-### Workflow: `deploy.yml`
+Source of truth: [protected deployment workflow](../.github/workflows/deploy.yml).
 
-```yaml
-name: Deploy to Production
+### Deployment process
 
-on:
-  push:
-    branches: [main]
+The protected manual main dispatch approves an immutable SHA. The release is built separately from the live checkout. See the [release runbook](PRODUCTION_DEPLOYMENT_ROLLBACK_RUNBOOK.md) rather than the older in-place deployment examples.
 
-jobs:
-  backup:
-    name: Pre-Deployment Backup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create backup on server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ secrets.PRODUCTION_USER }}
-          key: ${{ secrets.PRODUCTION_SSH_KEY }}
-          script: |
-            sudo bash /opt/alolabs/agent-hub/deploy/scripts/backup.sh \
-              --id "pre-deploy-${GITHUB_SHA::0:8}" --quiet
+## 5. Rollback procedure
 
-  deploy:
-    name: Deploy Application
-    needs: [backup]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ secrets.PRODUCTION_USER }}
-          key: ${{ secrets.PRODUCTION_SSH_KEY }}
-          script: |
-            cd /opt/alolabs/agent-hub
-            sudo bash deploy/scripts/deploy.sh --branch main
-
-      - name: Verify deployment
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ secrets.PRODUCTION_USER }}
-          key: ${{ secrets.PRODUCTION_SSH_KEY }}
-          script: |
-            sudo bash /opt/alolabs/agent-hub/deploy/scripts/health-check.sh --json
-```
-
-### Deployment Process
-
-The `deploy.sh` script (at `deploy/scripts/deploy.sh`) performs:
-
-1. **Pre-flight checks** (root user, directory exists, user exists)
-2. **Save current commit** for rollback
-3. **Pull latest code** from `origin/main`
-4. **Install dependencies** (`bun install --frozen-lockfile`)
-5. **Run database migrations** (`bun run db:push`)
-6. **Build application** (`NODE_ENV=production bun run build`)
-7. **Restart service** with health check (up to 3 retries, 60s timeout)
-8. **Record deployment** in `logs/deployments.log`
-
----
-
-## 5. Rollback Procedure
-
-### Automatic Rollback
-
-If the deployment health check fails after 3 retries, the deploy script exits with an error. The previous commit is saved at `.deploy-previous-commit`.
-
-### Manual Rollback
-
-```bash
-# On the production server:
-sudo bash /opt/alolabs/agent-hub/deploy/scripts/rollback.sh
-```
-
-The rollback script:
-1. Reads the previous commit from `.deploy-previous-commit`
-2. Resets git to that commit
-3. Rebuilds the application
-4. Restarts the service
-5. Verifies health
-
-### Rollback to Specific Backup
-
-```bash
-# If you need to rollback to a specific backup
-sudo bash /opt/alolabs/agent-hub/deploy/scripts/restore.sh \
-  --backup-id pre-deploy-abc12345
-```
-
-### Emergency Rollback (No Script)
-
-```bash
-# 1. Find the previous working commit
-cd /opt/alolabs/agent-hub
-PREVIOUS=$(cat .deploy-previous-commit)
-
-# 2. Reset to it
-sudo -u alohub git reset --hard ${PREVIOUS}
-
-# 3. Rebuild
-sudo -u alohub NODE_ENV=production bun run build
-
-# 4. Restart
-sudo systemctl restart alolabs-agent-hub
-
-# 5. Verify
-sleep 5 && curl -sf http://127.0.0.1:3004/api/health
-```
-
----
+Restore the retained release, not a rebuilt checkout. Follow the [activation/rollback runbook](PRODUCTION_DEPLOYMENT_ROLLBACK_RUNBOOK.md) and the [backup recovery runbook](PRODUCTION_BACKUP_RECOVERY_RUNBOOK.md). Do not run a database restore as a code rollback.
 
 ## 6. Security Scanning Workflow
 
@@ -618,3 +514,4 @@ echo "bunx lint-staged" > .husky/pre-commit
 - [ ] Backup workflow verified
 - [ ] Security scanning workflow enabled
 - [ ] Pre-commit hooks installed for developers
+**Host identity:** `PRODUCTION_HOST_FINGERPRINT` is required in the protected production environment. See [enrollment and rotation](SSH_HOST_KEY_ROTATION_RUNBOOK.md).
