@@ -929,180 +929,8 @@ export class AgentExecutionEngine {
       return this.stateManager.getTask(taskId)!;
     } catch (error) {
       const latency = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const timeoutError = error instanceof AgentTaskTimeoutError
-        ? error
-        : abortController.signal.reason instanceof AgentTaskTimeoutError
-          ? abortController.signal.reason
-          : null;
-      if (timeoutError) {
-        const message = timeoutError.message;
-        task.error = {
-          code: 'TIMEOUT',
-          message,
-          retryable: false,
-          attempts: 1,
-          maxRetries: 0,
-          lastAttemptAt: new Date(),
-        };
-        if (task.status === 'running') this.stateManager.transition(taskId, 'timed_out', message);
-        this.healthMonitor.recordFailure(task.agentId, latency, message);
-        if (agentDbId) {
-          await db.agentRun.create({
-            data: {
-              id: task.id,
-              agentId: agentDbId,
-              companyId: task.companyId,
-              input: task.input,
-              status: 'timed_out',
-              instanceId: task.instanceId,
-              requestId: task.id,
-              userId: task.userId,
-              priority: task.priority,
-              riskScore: task.riskScore,
-              securityFlags: JSON.stringify(task.securityFlags ?? []),
-              approvalId: task.approvalId,
-              error: 'TIMEOUT',
-              errorMessage: message,
-              durationMs: latency,
-              completedAt: new Date(),
-            },
-          }).catch(() => { /* The in-memory task remains explicitly timed out if persistence fails. */ });
-        }
-        await db.auditLog.create({
-          data: {
-            action: 'agent_execution_timed_out',
-            resource: task.agentId,
-            details: JSON.stringify({ taskId, companyId: task.companyId, timeoutMs: task.timeoutMs, latencyMs: latency }),
-            ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
-          },
-        }).catch(() => {});
-        return this.stateManager.getTask(taskId)!;
-      }
-      if (error instanceof CompanyAIError && DEFERRED_ROUTING_CODES.has(error.code)) {
-        task.error = {
-          code: error.code,
-          message: errorMessage,
-          retryable: error.code !== 'EXTERNAL_DATA_NOT_AUTHORIZED' && error.code !== 'TOKEN_BUDGET_EXHAUSTED',
-          attempts: 1,
-          maxRetries: 3,
-          lastAttemptAt: new Date(),
-        };
-        if (task.status === 'running') {
-          this.stateManager.transition(taskId, 'paused', `Model routing deferred: ${error.code}`);
-        }
-        try {
-          getEventBus().publish({
-            id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            type: 'agent.task.deferred',
-            source: task.agentId,
-            companyId: task.companyId,
-            ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
-            data: { taskId, agentId: task.agentId, code: error.code, requestId: error.requestId, message: errorMessage },
-            priority: task.priority,
-            timestamp: new Date(),
-            correlationId: taskId,
-          }).catch(() => {});
-        } catch { /* Event delivery must not block safe deferral. */ }
-
-        if (agentDbId) {
-          await db.agentRun.create({
-            data: {
-              id: task.id,
-              agentId: agentDbId,
-              companyId: task.companyId,
-              input: task.input,
-              status: 'deferred',
-              instanceId: task.instanceId,
-              requestId: task.id,
-              userId: task.userId,
-              priority: task.priority,
-              riskScore: task.riskScore,
-              securityFlags: JSON.stringify(task.securityFlags ?? []),
-              approvalId: task.approvalId,
-              error: error.code,
-              errorMessage,
-              durationMs: latency,
-              completedAt: new Date(),
-            },
-          }).catch(() => { /* Deferred status remains visible in memory if persistence is unavailable. */ });
-        }
-        await db.auditLog.create({
-          data: {
-            action: 'agent_execution_deferred',
-            resource: task.agentId,
-            details: JSON.stringify({ taskId, companyId: task.companyId, errorCode: error.code, requestId: error.requestId, latencyMs: latency }),
-            ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
-          },
-        }).catch(() => {});
-        return this.stateManager.getTask(taskId)!;
-      }
-
-      const retryable = this.isRetryable(error);
-      const errorCode = this.classifyError(error);
-
-      try {
-        getEventBus().publish({
-          id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          type: 'agent.task.failed',
-          source: task.agentId,
-          companyId: task.companyId,
-          userId: task.userId,
-          data: { taskId, agentId: task.agentId, errorCode, errorMessage, latencyMs: latency },
-          priority: task.priority,
-          timestamp: new Date(),
-          correlationId: taskId,
-        }).catch(() => {});
-      } catch { /* Event delivery must not block failure handling. */ }
-
-      task.error = {
-        code: errorCode,
-        message: errorMessage,
-        retryable,
-        attempts: (task.error?.attempts ?? 0) + 1,
-        maxRetries: 3,
-        lastAttemptAt: new Date(),
-      };
-      if (task.status === 'running' || task.status === 'ready' || task.status === 'created') {
-        try {
-          this.stateManager.transition(taskId, 'failed', `Execution failed: ${errorMessage}`);
-        } catch { /* Preserve the recorded failure if the transition has already occurred. */ }
-      }
-      this.healthMonitor.recordFailure(task.agentId, latency, errorMessage);
-
-      if (agentDbId) {
-        await db.agentRun.create({
-          data: {
-            id: task.id,
-            agentId: agentDbId,
-            companyId: task.companyId,
-            input: task.input,
-            status: 'failed',
-            instanceId: task.instanceId,
-            requestId: task.id,
-            userId: task.userId,
-            priority: task.priority,
-            riskScore: task.riskScore,
-            securityFlags: JSON.stringify(task.securityFlags ?? []),
-            approvalId: task.approvalId,
-            error: errorCode,
-            errorMessage,
-            durationMs: latency,
-            completedAt: new Date(),
-          },
-        }).catch(() => { /* Failure record persistence is best-effort. */ });
-      }
-
-      await db.auditLog.create({
-        data: {
-          action: 'agent_execution_failed',
-          resource: task.agentId,
-          details: JSON.stringify({ taskId, companyId: task.companyId, errorCode, latencyMs: latency }),
-          ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
-        },
-      }).catch(() => {});
-
-      return this.stateManager.getTask(taskId)!;
+      // Centralized failure transition
+      return await this.handleFailureTransition(taskId, error, latency, agentDbId);
     } finally {
       taskTimeout?.dispose();
       this.abortControllers.delete(taskId);
@@ -1176,6 +1004,213 @@ export class AgentExecutionEngine {
   ): Promise<void> {
     // Audit logging is done in the runTask success/failure paths
     // This method is a hook point for extensibility
+  }
+
+  /**
+   * Centralized failure transition for background task integrity.
+   * Ensures state persistence, error storage, registry removal, event bus notification, and UI consistency.
+   */
+  private async handleFailureTransition(
+    taskId: string,
+    error: unknown,
+    latency: number,
+    agentDbId?: string,
+  ): Promise<AgentTask> {
+    const task = this.stateManager.getTask(taskId);
+    if (!task) throw new Error(`Task ${taskId} not found during failure transition`);
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const timeoutError = error instanceof AgentTaskTimeoutError
+      ? error
+      : this.abortControllers.get(taskId)?.signal.reason instanceof AgentTaskTimeoutError
+        ? this.abortControllers.get(taskId)?.signal.reason
+        : null;
+
+    // 1. State Persistence & Error Storage
+    if (timeoutError) {
+      const message = timeoutError.message;
+      task.error = {
+        code: 'TIMEOUT',
+        message,
+        retryable: false,
+        attempts: 1,
+        maxRetries: 0,
+        lastAttemptAt: new Date(),
+      };
+      if (task.status === 'running') this.stateManager.transition(taskId, 'timed_out', message);
+      this.healthMonitor.recordFailure(task.agentId, latency, message);
+      
+      // 2. Registry Removal & Persistence
+      if (agentDbId) {
+        await db.agentRun.create({
+          data: {
+            id: task.id,
+            agentId: agentDbId,
+            companyId: task.companyId,
+            input: task.input,
+            status: 'timed_out',
+            instanceId: task.instanceId,
+            requestId: task.id,
+            userId: task.userId,
+            priority: task.priority,
+            riskScore: task.riskScore,
+            securityFlags: JSON.stringify(task.securityFlags ?? []),
+            approvalId: task.approvalId,
+            error: 'TIMEOUT',
+            errorMessage: message,
+            durationMs: latency,
+            completedAt: new Date(),
+          },
+        }).catch(() => { /* The in-memory task remains explicitly timed out if persistence fails. */ });
+      }
+      
+      // 3. Event Bus Notification & UI Consistency
+      await db.auditLog.create({
+        data: {
+          action: 'agent_execution_timed_out',
+          resource: task.agentId,
+          details: JSON.stringify({ taskId, companyId: task.companyId, timeoutMs: task.timeoutMs, latencyMs: latency }),
+          ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
+        },
+      }).catch(() => {});
+      
+      return this.stateManager.getTask(taskId)!;
+    }
+
+    if (error instanceof CompanyAIError && DEFERRED_ROUTING_CODES.has(error.code)) {
+      task.error = {
+        code: error.code,
+        message: errorMessage,
+        retryable: error.code !== 'EXTERNAL_DATA_NOT_AUTHORIZED' && error.code !== 'TOKEN_BUDGET_EXHAUSTED',
+        attempts: 1,
+        maxRetries: 3,
+        lastAttemptAt: new Date(),
+      };
+      if (task.status === 'running') {
+        this.stateManager.transition(taskId, 'paused', `Model routing deferred: ${error.code}`);
+      }
+      
+      // Event Bus Notification
+      try {
+        getEventBus().publish({
+          id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          type: 'agent.task.deferred',
+          source: task.agentId,
+          companyId: task.companyId,
+          ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
+          data: { taskId, agentId: task.agentId, code: error.code, requestId: error.requestId, message: errorMessage },
+          priority: task.priority,
+          timestamp: new Date(),
+          correlationId: taskId,
+        }).catch(() => {});
+      } catch { /* Event delivery must not block safe deferral. */ }
+
+      // Registry Removal & Persistence
+      if (agentDbId) {
+        await db.agentRun.create({
+          data: {
+            id: task.id,
+            agentId: agentDbId,
+            companyId: task.companyId,
+            input: task.input,
+            status: 'deferred',
+            instanceId: task.instanceId,
+            requestId: task.id,
+            userId: task.userId,
+            priority: task.priority,
+            riskScore: task.riskScore,
+            securityFlags: JSON.stringify(task.securityFlags ?? []),
+            approvalId: task.approvalId,
+            error: error.code,
+            errorMessage,
+            durationMs: latency,
+            completedAt: new Date(),
+          },
+        }).catch(() => { /* Deferred status remains visible in memory if persistence is unavailable. */ });
+      }
+      
+      // Event Bus Notification & UI Consistency
+      await db.auditLog.create({
+        data: {
+          action: 'agent_execution_deferred',
+          resource: task.agentId,
+          details: JSON.stringify({ taskId, companyId: task.companyId, errorCode: error.code, requestId: error.requestId, latencyMs: latency }),
+          ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
+        },
+      }).catch(() => {});
+      
+      return this.stateManager.getTask(taskId)!;
+    }
+
+    const retryable = this.isRetryable(error);
+    const errorCode = this.classifyError(error);
+
+    // Event Bus Notification
+    try {
+      getEventBus().publish({
+        id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        type: 'agent.task.failed',
+        source: task.agentId,
+        companyId: task.companyId,
+        userId: task.userId,
+        data: { taskId, agentId: task.agentId, errorCode, errorMessage, latencyMs: latency },
+        priority: task.priority,
+        timestamp: new Date(),
+        correlationId: taskId,
+      }).catch(() => {});
+    } catch { /* Event delivery must not block failure handling. */ }
+
+    // State Persistence & Error Storage
+    task.error = {
+      code: errorCode,
+      message: errorMessage,
+      retryable,
+      attempts: (task.error?.attempts ?? 0) + 1,
+      maxRetries: 3,
+      lastAttemptAt: new Date(),
+    };
+    if (task.status === 'running' || task.status === 'ready' || task.status === 'created') {
+      try {
+        this.stateManager.transition(taskId, 'failed', `Execution failed: ${errorMessage}`);
+      } catch { /* Preserve the recorded failure if the transition has already occurred. */ }
+    }
+    this.healthMonitor.recordFailure(task.agentId, latency, errorMessage);
+
+    // Registry Removal & Persistence
+    if (agentDbId) {
+      await db.agentRun.create({
+        data: {
+          id: task.id,
+          agentId: agentDbId,
+          companyId: task.companyId,
+          input: task.input,
+          status: 'failed',
+          instanceId: task.instanceId,
+          requestId: task.id,
+          userId: task.userId,
+          priority: task.priority,
+          riskScore: task.riskScore,
+          securityFlags: JSON.stringify(task.securityFlags ?? []),
+          approvalId: task.approvalId,
+          error: errorCode,
+          errorMessage,
+          durationMs: latency,
+          completedAt: new Date(),
+        },
+      }).catch(() => { /* Failure record persistence is best-effort. */ });
+    }
+    
+    // Event Bus Notification & UI Consistency
+    await db.auditLog.create({
+      data: {
+        action: 'agent_execution_failed',
+        resource: task.agentId,
+        details: JSON.stringify({ taskId, companyId: task.companyId, errorCode, latencyMs: latency }),
+        ...(task.userId && task.userId !== 'anonymous' ? { userId: task.userId } : {}),
+      },
+    }).catch(() => {});
+    
+    return this.stateManager.getTask(taskId)!;
   }
 }
 

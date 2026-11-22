@@ -49,8 +49,7 @@ ALO Labs AIOS (AI Operating System) is an enterprise-grade platform for building
 └─────────┘  └──────────┘
 ```
 
----
-
+---\n
 ## Tech Stack
 
 | Layer | Technology | Version |
@@ -74,8 +73,7 @@ ALO Labs AIOS (AI Operating System) is an enterprise-grade platform for building
 | Testing | Vitest | 4.x |
 | Linting | ESLint | 9.x |
 
----
-
+---\n
 ## Module Architecture
 
 ### 1. Agent Runtime (`src/lib/agent-runtime/`)
@@ -85,11 +83,12 @@ Manages the full lifecycle of AI agents: creation, execution, scheduling, health
 | File | Purpose |
 |------|---------|
 | `types.ts` | Agent status enum, task types, resource limits, priority weights |
-| `execution.ts` | `AgentExecutionEngine` — executes agent tasks with tool calls and delegation |
+| `execution.ts` | `AgentExecutionEngine` — executes agent tasks with tool calls and delegation (REM-02: Centralized failure transition) |
 | `state.ts` | `AgentStateManager` — tracks agent state transitions with validation |
 | `health.ts` | `AgentHealthMonitor` — health scoring, degradation detection, circuit breaker |
-| `scheduler.ts` | `AgentScheduler` — cron-based and interval-based task scheduling |
+| `scheduler.ts` | `AgentScheduler` — cron-based and interval-based task scheduling (REM-02: Centralized failure transition) |
 | `lifecycle.ts` | `AgentLifecycleManager` — creation → initialization → ready → run → archive |
+| `orchestrator.ts` | `MultiAgentOrchestrator` — multi-agent coordination (REM-02: Centralized failure transition) |
 
 **Agent tiers**: `ceo`, `director`, `manager`, `worker`
 
@@ -154,6 +153,12 @@ Unified storage abstraction across multiple backends.
 
 Local storage generates **HMAC-signed URLs** for secure file access. The `StorageFactory` pattern provides cached, singleton instances per configuration.
 
+**REM-08 (MinIO & Local Storage Fallback)**:
+- Implemented safe fallback behavior in `src/lib/minio.ts`
+- Documented fallback events in audit log (`minio_fallback_activated`, `minio_write_fallback`, `minio_read_fallback`, `minio_delete_fallback`, `minio_presigned_fallback`)
+- Sanitizes object keys to prevent path traversal
+- Reports fallback honestly through `getMinioStatus`
+
 ### 5. Authentication & Security (`src/lib/auth.ts`, `src/lib/route-auth.ts`, `src/lib/security/`)
 
 | Module | File | Purpose |
@@ -164,8 +169,13 @@ Local storage generates **HMAC-signed URLs** for secure file access. The `Storag
 | Rate Limiter | `security/rate-limiter.ts` | Sliding window, Redis-backed + in-memory fallback, endpoint-specific configs |
 | CSRF | `security/csrf.ts` | CSRF token generation and validation |
 | File Validator | `security/file-validator.ts` | Upload type/size validation |
-| Secret Manager | `security/secret-manager.ts` | Encrypted secret storage |
+| Secret Manager | `security/secret-manager.ts` | Encrypted secret storage (REM-03: Server-only access, validation, rotation, audit logging) |
 | Token Guard | `token-guard.ts` | Token budget enforcement and usage tracking |
+
+**REM-03 (Secret Manager & Environment Security)**:
+- Enforced server-only access in `src/lib/security/secret-manager.ts`
+- Implemented validation and rotation with audit logging
+- Audited `src/app/api/auth/password-reset/route.ts` SMTP configuration
 
 ### 6. Enterprise Modules
 
@@ -198,6 +208,10 @@ Provider-based architecture for 10 social platforms:
 | Google Business | `google-business.ts` |
 | Threads | `threads.ts` |
 
+**REM-01 (Social Analytics External API Handling)**:
+- Fixed in `src/app/api/social/analytics/route.ts` (timeouts, error mapping, validation)
+- Added tests in `__tests__/api/social-analytics.test.ts` (13 regression cases)
+
 ### 8. Real-time Services (`mini-services/`)
 
 | Service | Purpose |
@@ -205,8 +219,7 @@ Provider-based architecture for 10 social platforms:
 | `queue-service` | Standalone Bun-based job queue processor |
 | `realtime-service` | WebSocket/SSE real-time notification delivery |
 
----
-
+---\n
 ## Data Flow: Agent Execution
 
 ```
@@ -241,8 +254,7 @@ Provider-based architecture for 10 social platforms:
    → On approve/reject → Agent resumes or fails
 ```
 
----
-
+---\n
 ## Data Flow: Authentication
 
 ```
@@ -262,8 +274,7 @@ Provider-based architecture for 10 social platforms:
    → Load user from DB → pass to handler
 ```
 
----
-
+---\n
 ## Deployment Architecture
 
 ```
@@ -288,8 +299,7 @@ Optional: Prometheus + Grafana (monitoring/)
 - **Process manager**: systemd (`alolabs-agent-hub.service`)
 - **Cron**: System cron for scheduled jobs (`deploy/cron/alolabs-cron`)
 
----
-
+---\n
 ## Frontend Architecture
 
 ```
@@ -325,24 +335,56 @@ src/lib/
 ├── job-queue.ts            # In-process job queue
 ├── rag-engine.ts           # RAG chunking + search
 ├── qdrant.ts               # Qdrant vector DB client
-├── agent-runtime/          # Agent execution system
+├── agent-runtime/          # Agent execution system (REM-02: Fixed)
 ├── ai-router/              # Multi-provider LLM routing
-├── storage/                # Multi-backend file storage
-├── security/               # Security utilities
-├── social/                 # Social media providers
+├── storage/                # Multi-backend file storage (REM-08: Fixed)
+├── security/               # Security utilities (REM-03: Fixed)
+├── social/                 # Social media providers (REM-01: Fixed)
 ├── email/                  # Email (SMTP/IMAP)
 ├── whatsapp/               # WhatsApp integration
 ├── memory/                 # Memory tier management
 ├── approval-engine/        # Approval workflow engine
 ├── event-bus/              # Internal event system
 ├── db-adapters/            # Multi-database adapters
-├── metrics-collector.ts    # Prometheus-compatible metrics
+├── metrics-collector.ts    # Prometheus-compatible metrics (REM-06: Used)
 ├── cron-jobs.ts            # Scheduled job definitions
 └── validators.ts           # Input validation utilities
 ```
 
----
+**REM-01 (Social Analytics External API Handling)**:
+- Fixed in `src/app/api/social/analytics/route.ts` (timeouts, error mapping, validation)
+- Added tests in `__tests__/api/social-analytics.test.ts` (13 regression cases)
 
+**REM-02 (Background Task Failure Integrity)**:
+- Centralized failure transition in `src/lib/agent-runtime/execution.ts`, `scheduler.ts`, `orchestrator.ts`
+
+**REM-03 (Secret Manager & Environment Security)**:
+- Enforced server-only access in `src/lib/security/secret-manager.ts`
+- Implemented validation and rotation with audit logging
+- Audited `src/app/api/auth/password-reset/route.ts` SMTP configuration
+
+**REM-04 (Automation Execution Timeout/SSRF)**:
+- Refactored `src/app/api/automation/execute/route.ts` (AbortController ownership, timer cleanup, abort-aware delays, SSRF protection)
+
+**REM-05 (Social Analytics API Contract)**:
+- Documented in `API.md`
+
+**REM-06 (Agent Command Center Observability)**:
+- Replaced `console.error` in `src/components/enterprise/panels/agent-command-center.tsx` with `src/lib/metrics-collector.ts`
+
+**REM-07 (OpenRouter Catalog Failure)**:
+- Verified timeout (6s) and failure state distinction in `src/app/api/command-agent/catalog/route.ts`
+
+**REM-08 (MinIO & Local Storage Fallback)**:
+- Implemented safe fallback behavior and documentation in `src/lib/minio.ts`
+
+**REM-09 (SSRF Regression Protection)**:
+- Retested and extended protections in `src/lib/integrations/types.ts`
+
+**REM-10 (Cross-Cutting Audits)**:
+- Completed audit of all outbound HTTP calls and background timers/promises
+
+---\n
 ## Configuration
 
 All configuration is managed through environment variables and the `Settings` Prisma model (key-value store). The `next.config.ts` file handles security headers and build settings.

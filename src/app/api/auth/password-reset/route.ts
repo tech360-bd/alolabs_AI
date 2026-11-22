@@ -35,23 +35,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
     }
     if (!token) {
-      const { SMTP_HOST: host, SMTP_USER: sender, SMTP_PASS: pass } = process.env;
-      const port = Number(process.env.SMTP_PORT || 587);
-      if (!host || !sender || !pass || !Number.isInteger(port) || port <= 0 || port > 65535) {
-        return NextResponse.json({ error: 'Password recovery is not configured. Contact your administrator.' }, { status: 503 });
+      // SECURITY AUDIT: Enforce server-only access and validate SMTP config
+      if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.error('[Password Reset] SMTP configuration missing or incomplete');
+        await db.auditLog.create({ data: { userId: 'system', action: 'password_reset_smtp_error', resource: 'Auth', details: JSON.stringify({ error: 'SMTP configuration missing' }) } }).catch(() => {});
+        return NextResponse.json({ error: 'Password recovery configuration error. Contact administrator.' }, { status: 503 });
       }
+      
+      const port = Number(process.env.SMTP_PORT || 587);
+      if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+        console.error('[Password Reset] SMTP port invalid:', process.env.SMTP_PORT);
+        await db.auditLog.create({ data: { userId: 'system', action: 'password_reset_smtp_error', resource: 'Auth', details: JSON.stringify({ error: 'Invalid SMTP port' }) } }).catch(() => {});
+        return NextResponse.json({ error: 'Password recovery configuration error. Contact administrator.' }, { status: 503 });
+      }
+      
       const user = await db.user.findUnique({ where: { email: normalized }, select: { id: true, isActive: true, email: true } });
       if (user?.isActive) {
         const code = crypto.randomBytes(32).toString('hex'), value = digest(code);
         await db.settings.upsert({ where: { key }, create: { key, value, type: 'string' }, update: { value, updatedAt: new Date() } });
-        const transport = new SMTPEmailService({ host, port, secure: port === 465, auth: { user: sender, pass } });
+        const transport = new SMTPEmailService({ host: process.env.SMTP_HOST!, port, secure: port === 465, auth: { user: process.env.SMTP_USER!, pass: process.env.SMTP_PASS! } });
         const sent = await transport.send({
-          id: '', from: process.env.SMTP_FROM || sender, to: [user.email], cc: [], bcc: [],
+          id: '', from: process.env.SMTP_FROM || process.env.SMTP_USER!, to: [user.email], cc: [], bcc: [],
           subject: 'ALO Labs password recovery code', text: `Enter this code in the ALO Labs password recovery form within 15 minutes:\n\n${code}\n\nIf you did not request this, ignore this message.`,
           html: '', attachments: [], headers: {}, inReplyTo: null, references: [],
         });
-        if (!sent.success) await db.settings.deleteMany({ where: { key, value } });
-        await db.auditLog.create({ data: { userId: user.id, action: sent.success ? 'user.password_reset_requested' : 'user.password_reset_delivery_failed', resource: 'User', details: '{}' } });
+        if (!sent.success) {
+          await db.settings.deleteMany({ where: { key, value } });
+          await db.auditLog.create({ data: { userId: user.id, action: 'user.password_reset_delivery_failed', resource: 'User', details: JSON.stringify({ error: 'SMTP delivery failed' }) } }).catch(() => {});
+          return NextResponse.json({ error: 'Password recovery delivery failed. Contact administrator.' }, { status: 500 });
+        }
+        await db.auditLog.create({ data: { userId: user.id, action: 'user.password_reset_requested', resource: 'User', details: '{}' } }).catch(() => {});
       }
       // The credential is delivered only to the account's mailbox, even in development.
       return NextResponse.json({ success: true, message: 'Check your mailbox if this is an active account.' });
@@ -70,6 +83,8 @@ export async function POST(request: NextRequest) {
     });
     return applied ? NextResponse.json({ success: true, message: 'Password changed. Sign in again.' }) : invalid();
   } catch {
+    // SECURITY AUDIT: Log server-side errors for password reset
+    await db.auditLog.create({ data: { userId: 'system', action: 'password_reset_server_error', resource: 'Auth', details: '{}' } }).catch(() => {});
     return NextResponse.json({ error: 'Password recovery is unavailable.' }, { status: 500 });
   }
 }

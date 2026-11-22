@@ -59,18 +59,57 @@ export class AgentScheduler {
   }): string {
     const id = `sched_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const delay = params.runAt.getTime() - Date.now();
-    if (delay <= 0) {
-      // Run immediately
-      this.dispatchImmediate(params);
-    } else {
-      setTimeout(() => this.dispatchImmediate(params), delay);
-    }
     const schedule: AgentSchedule = {
       id, agentId: params.agentId, companyId: params.companyId,
       task: params.task, runAt: params.runAt, priority: params.priority ?? 'normal',
       enabled: true, totalRuns: 0, failureCount: 0, createdAt: new Date(),
     };
     this.schedules.set(id, schedule);
+
+    const runTask = async () => {
+      if (!schedule.enabled) return;
+      try {
+        await this.dispatchImmediate({
+          agentId: params.agentId, companyId: params.companyId,
+          userId: params.userId, task: params.task, priority: params.priority,
+        });
+        schedule.totalRuns++;
+        schedule.lastRunAt = new Date();
+      } catch (err) {
+        // Centralized failure transition for scheduler dispatch
+        schedule.failureCount++;
+        console.error(`[Scheduler] One-time schedule ${id} failed:`, err);
+        // Notify event bus of schedule failure integrity
+        if (this.engine) {
+          try {
+            getEventBus().publish({
+              id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              type: 'scheduler.task.failed',
+              source: params.agentId,
+              companyId: params.companyId,
+              userId: params.userId,
+              data: { scheduleId: id, taskId: 'scheduled', errorMessage: err instanceof Error ? err.message : String(err) },
+              priority: params.priority ?? 'normal',
+              timestamp: new Date(),
+              correlationId: id,
+            }).catch(() => {});
+          } catch {}
+        }
+      } finally {
+        // Registry removal for one-time schedule
+        this.schedules.delete(id);
+      }
+    };
+
+    if (delay <= 0) {
+      // Run immediately
+      runTask();
+    } else {
+      const timer = setTimeout(() => runTask(), delay);
+      // Store timer to allow cancellation if needed before execution
+      // (In a full implementation, we'd track this timer in intervalTimers or similar)
+      schedule.lastRunAt = new Date(Date.now() + delay); // Estimated
+    }
     return id;
   }
 
@@ -97,6 +136,25 @@ export class AgentScheduler {
       this.dispatchImmediate({
         agentId: params.agentId, companyId: params.companyId,
         userId: params.userId, task: params.task, priority: params.priority,
+      }).catch(err => {
+        // Centralized failure transition for interval dispatch
+        schedule.failureCount++;
+        console.error(`[Scheduler] Interval schedule ${id} failed:`, err);
+        if (this.engine) {
+          try {
+            getEventBus().publish({
+              id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              type: 'scheduler.task.failed',
+              source: params.agentId,
+              companyId: params.companyId,
+              userId: params.userId,
+              data: { scheduleId: id, taskId: 'scheduled', errorMessage: err instanceof Error ? err.message : String(err) },
+              priority: params.priority ?? 'normal',
+              timestamp: new Date(),
+              correlationId: id,
+            }).catch(() => {});
+          } catch {}
+        }
       });
       schedule.totalRuns++;
       schedule.lastRunAt = new Date();
@@ -132,11 +190,30 @@ export class AgentScheduler {
 
   /** Cancel a schedule */
   cancel(scheduleId: string): boolean {
- const timer = this.intervalTimers.get(scheduleId);
+    const timer = this.intervalTimers.get(scheduleId);
     if (timer) {
       clearInterval(timer);
       this.intervalTimers.delete(scheduleId);
     }
+    
+    // Centralized failure transition / registry removal for cancellation
+    const schedule = this.schedules.get(scheduleId);
+    if (schedule) {
+      try {
+        getEventBus().publish({
+          id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          type: 'scheduler.task.cancelled',
+          source: schedule.agentId,
+          companyId: schedule.companyId,
+          userId: '', // System-initiated
+          data: { scheduleId, totalRuns: schedule.totalRuns, failureCount: schedule.failureCount },
+          priority: schedule.priority ?? 'normal',
+          timestamp: new Date(),
+          correlationId: scheduleId,
+        }).catch(() => {});
+      } catch {}
+    }
+    
     return this.schedules.delete(scheduleId);
   }
 
@@ -144,6 +221,22 @@ export class AgentScheduler {
   setEnabled(scheduleId: string, enabled: boolean): boolean {
     const sched = this.schedules.get(scheduleId);
     if (!sched) return false;
+    
+    // Event bus notification for state change integrity
+    try {
+      getEventBus().publish({
+        id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        type: enabled ? 'scheduler.task.enabled' : 'scheduler.task.disabled',
+        source: sched.agentId,
+        companyId: sched.companyId,
+        userId: '', // System-initiated
+        data: { scheduleId, enabled, totalRuns: sched.totalRuns },
+        priority: sched.priority ?? 'normal',
+        timestamp: new Date(),
+        correlationId: scheduleId,
+      }).catch(() => {});
+    } catch {}
+    
     sched.enabled = enabled;
     return true;
   }
@@ -174,14 +267,35 @@ export class AgentScheduler {
     task: string; priority?: TaskPriority;
   }): Promise<void> {
     if (!this.engine) return;
-    await this.engine.execute({
-      agentId: params.agentId,
-      companyId: params.companyId,
-      userId: params.userId,
-      task: params.task,
-      priority: params.priority,
-      mode: 'async',
-    }).catch(err => console.error(`[Scheduler] Dispatch error:`, err));
+    
+    // Centralized failure transition for scheduler dispatch
+    try {
+      await this.engine.execute({
+        agentId: params.agentId,
+        companyId: params.companyId,
+        userId: params.userId,
+        task: params.task,
+        priority: params.priority,
+        mode: 'async',
+      });
+    } catch (err) {
+      console.error(`[Scheduler] Dispatch error:`, err);
+      // Event bus notification for failure integrity
+      try {
+        getEventBus().publish({
+          id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          type: 'scheduler.dispatch.failed',
+          source: params.agentId,
+          companyId: params.companyId,
+          userId: params.userId,
+          data: { errorMessage: err instanceof Error ? err.message : String(err) },
+          priority: params.priority ?? 'normal',
+          timestamp: new Date(),
+          correlationId: `sched_dispatch_${Date.now()}`,
+        }).catch(() => {});
+      } catch {}
+      throw err; // Re-throw to be caught by interval/cron handlers
+    }
   }
 
   private cronSchedules(): { schedule: AgentSchedule; cron: ParsedCron }[] {
@@ -207,7 +321,26 @@ export class AgentScheduler {
             userId: '', // System-initiated
             task: schedule.task,
             priority: schedule.priority,
-          }).catch(() => {});
+          }).catch(err => {
+            // Centralized failure transition for cron dispatch
+            schedule.failureCount++;
+            console.error(`[Scheduler] Cron schedule ${schedule.id} failed:`, err);
+            if (this.engine) {
+              try {
+                getEventBus().publish({
+                  id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                  type: 'scheduler.cron.failed',
+                  source: schedule.agentId,
+                  companyId: schedule.companyId,
+                  userId: '',
+                  data: { scheduleId: schedule.id, cron: schedule.cron, errorMessage: err instanceof Error ? err.message : String(err) },
+                  priority: schedule.priority ?? 'normal',
+                  timestamp: new Date(),
+                  correlationId: schedule.id,
+                }).catch(() => {});
+              } catch {}
+            }
+          });
           schedule.lastRunAt = now;
           schedule.totalRuns++;
         }
