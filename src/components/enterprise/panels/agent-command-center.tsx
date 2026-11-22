@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchApi } from '@/lib/api-client'
+import { metricsCollector } from '@/lib/metrics-collector' // ─── METRICS COLLECTOR IMPORT ───
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -269,7 +270,7 @@ function RoutingCard({ routing }: { routing: RoutingInfo }) {
 
       {/* Reasoning */}
       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed italic">
-        &quot;{routing.reasoning}&quot;
+        "{routing.reasoning}"
       </p>
     </div>
   )
@@ -622,7 +623,18 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
         if (statsJson.success) {
           setStats(statsJson.data.stats)
           setRecentRuns(statsJson.data.recentRuns)
+        } else {
+          // ─── METRICS COLLECTOR: Report API failure ───
+          metricsCollector.reportError('AgentCommandCenter', 'fetch_initial_stats_failed', {
+            status: statsJson.status,
+            message: statsJson.error || 'Unknown error',
+          })
         }
+      } else {
+        // ─── METRICS COLLECTOR: Report network failure ───
+        metricsCollector.reportError('AgentCommandCenter', 'fetch_initial_stats_network_error', {
+          reason: statsRes.reason?.message || 'Network error',
+        })
       }
 
       // Conversations
@@ -630,9 +642,24 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
         const convsJson = convsRes.value
         if (convsJson.success) {
           setConversations(convsJson.data)
+        } else {
+          // ─── METRICS COLLECTOR: Report API failure ───
+          metricsCollector.reportError('AgentCommandCenter', 'fetch_initial_conversations_failed', {
+            status: convsJson.status,
+            message: convsJson.error || 'Unknown error',
+          })
         }
+      } else {
+        // ─── METRICS COLLECTOR: Report network failure ───
+        metricsCollector.reportError('AgentCommandCenter', 'fetch_initial_conversations_network_error', {
+          reason: convsRes.reason?.message || 'Network error',
+        })
       }
     } catch (err) {
+      // ─── METRICS COLLECTOR: Report unexpected error ───
+      metricsCollector.reportError('AgentCommandCenter', 'fetch_initial_data_unexpected_error', {
+        error: err instanceof Error ? err.message : 'Unknown error',
+      })
       console.error('[AgentCommandCenter] Failed to fetch initial data:', err)
       setError('Failed to load data. Please try again.')
     } finally {
@@ -657,8 +684,18 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
         if (json.success) {
           setStats(json.data.stats)
           setRecentRuns(json.data.recentRuns)
+        } else {
+          // ─── METRICS COLLECTOR: Report background refresh failure ───
+          metricsCollector.reportError('AgentCommandCenter', 'background_refresh_failed', {
+            status: json.status,
+            message: json.error || 'Unknown error',
+          })
         }
-      } catch {
+      } catch (err) {
+        // ─── METRICS COLLECTOR: Report background refresh network error ───
+        metricsCollector.reportError('AgentCommandCenter', 'background_refresh_network_error', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+        })
         // silent fail for background refresh
       }
     }, 15000)
@@ -682,6 +719,13 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
     setIsSending(true)
     setError(null)
 
+    // ─── METRICS COLLECTOR: Track execution start ───
+    const executionStart = Date.now()
+    metricsCollector.reportEvent('AgentCommandCenter', 'execution_started', {
+      taskLength: task.length,
+      conversationId: currentConversationId || 'new',
+    })
+
     try {
       const json = await fetchApi('/api/enterprise/orchestrator', {
         method: 'POST',
@@ -692,8 +736,23 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
       })
 
       if (!json.success) {
+        // ─── METRICS COLLECTOR: Report execution failure ───
+        metricsCollector.reportError('AgentCommandCenter', 'execution_failed', {
+          status: json.status,
+          error: json.error || 'Unknown error',
+          durationMs: Date.now() - executionStart,
+        })
         throw new Error(json.error || 'Unknown error')
       }
+
+      // ─── METRICS COLLECTOR: Report execution success ───
+      metricsCollector.reportEvent('AgentCommandCenter', 'execution_completed', {
+        durationMs: Date.now() - executionStart,
+        model: json.data.model,
+        confidence: json.data.confidence,
+        tokensUsed: json.data.contextTokens,
+        latencyMs: json.data.latencyMs,
+      })
 
       const data: ExecuteResponse = json.data
 
@@ -722,11 +781,26 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
         const convsJson = await fetchApi('/api/enterprise/conversations')
         if (convsJson.success) {
           setConversations(convsJson.data)
+        } else {
+          // ─── METRICS COLLECTOR: Report conversation refresh failure ───
+          metricsCollector.reportError('AgentCommandCenter', 'conversation_refresh_failed', {
+            status: convsJson.status,
+            message: convsJson.error || 'Unknown error',
+          })
         }
-      } catch {
+      } catch (err) {
+        // ─── METRICS COLLECTOR: Report conversation refresh network error ───
+        metricsCollector.reportError('AgentCommandCenter', 'conversation_refresh_network_error', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+        })
         // non-critical
       }
     } catch (err) {
+      // ─── METRICS COLLECTOR: Report execution error ───
+      metricsCollector.reportError('AgentCommandCenter', 'execution_error', {
+        error: err instanceof Error ? err.message : 'Unknown error',
+        durationMs: Date.now() - executionStart,
+      })
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
       setError(errorMessage)
       // Remove the user message that was optimistically added, since it failed
@@ -743,8 +817,20 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
     try {
       const json = await fetchApi(`/api/enterprise/conversations?id=${encodeURIComponent(convId)}`)
       if (!json.success || !json.data) {
+        // ─── METRICS COLLECTOR: Report load failure ───
+        metricsCollector.reportError('AgentCommandCenter', 'load_conversation_failed', {
+          status: json.status,
+          message: json.error || 'Unknown error',
+          conversationId: convId,
+        })
         throw new Error('Conversation not found')
       }
+
+      // ─── METRICS COLLECTOR: Report load success ───
+      metricsCollector.reportEvent('AgentCommandCenter', 'load_conversation_success', {
+        conversationId: convId,
+        messageCount: json.data.messages?.length || 0,
+      })
 
       const conv = json.data
       setCurrentConversationId(conv.id)
@@ -764,6 +850,11 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
 
       setMessages(loadedMessages)
     } catch (err) {
+      // ─── METRICS COLLECTOR: Report load error ───
+      metricsCollector.reportError('AgentCommandCenter', 'load_conversation_error', {
+        error: err instanceof Error ? err.message : 'Unknown error',
+        conversationId: convId,
+      })
       setError(err instanceof Error ? err.message : 'Failed to load conversation')
     }
   }, [])
@@ -775,6 +866,8 @@ export default function AgentCommandCenter({ onNavigate }: AgentCommandCenterPro
     setError(null)
     setInputValue('')
     inputRef.current?.focus()
+    // ─── METRICS COLLECTOR: Report new chat start ───
+    metricsCollector.reportEvent('AgentCommandCenter', 'new_chat_started', {})
   }, [])
 
   // ── Keyboard handler ──

@@ -204,15 +204,37 @@ export async function GET(request: NextRequest) {
       for (const p of allPlatforms) {
         try {
           const tokenData = await getPlatformToken(p);
-          if (!tokenData) continue;
+          if (!tokenData) {
+            results.push({
+              platform: p,
+              period,
+              data: { error: 'No connected account' },
+              fetchedAt: new Date().toISOString(),
+            });
+            continue;
+          }
 
           const data = await fetchAnalyticsForPlatform(p, tokenData.accessToken, tokenData.metadata, since, until);
           results.push({ platform: p, period, data, fetchedAt: new Date().toISOString() });
         } catch (error: unknown) {
+          let status = 500;
+          let errorMessage = 'Internal server error';
+          
+          if (error instanceof Error) {
+            const msg = error.message.toLowerCase();
+            if (msg.includes('authentication failure')) { status = 401; errorMessage = 'Authentication failure'; }
+            else if (msg.includes('permission failure')) { status = 403; errorMessage = 'Permission failure'; }
+            else if (msg.includes('rate limit')) { status = 429; errorMessage = 'Rate limit exceeded'; }
+            else if (msg.includes('provider unavailable')) { status = 503; errorMessage = 'Provider unavailable'; }
+            else if (msg.includes('timeout')) { status = 504; errorMessage = 'Request timeout'; }
+            else if (msg.includes('invalid json') || msg.includes('invalid response shape')) { status = 400; errorMessage = 'Invalid provider response'; }
+            else if (msg.includes('network error') || msg.includes('unknown')) { status = 502; errorMessage = 'Provider network error'; }
+          }
+
           results.push({
             platform: p,
             period,
-            data: { error: error instanceof Error ? error.message : 'Failed to fetch' },
+            data: { error: errorMessage, code: status },
             fetchedAt: new Date().toISOString(),
           });
         }
@@ -249,7 +271,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `No connected account for ${platform}` }, { status: 404 });
     }
 
-    const data = await fetchAnalyticsForPlatform(platform, tokenData.accessToken, tokenData.metadata, since, until);
+    let data: Record<string, unknown>;
+    try {
+      data = await fetchAnalyticsForPlatform(platform, tokenData.accessToken, tokenData.metadata, since, until);
+    } catch (error: unknown) {
+      let status = 500;
+      let errorMessage = 'Internal server error';
+      
+      if (error instanceof Error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('authentication failure')) { status = 401; errorMessage = 'Authentication failure'; }
+        else if (msg.includes('permission failure')) { status = 403; errorMessage = 'Permission failure'; }
+        else if (msg.includes('rate limit')) { status = 429; errorMessage = 'Rate limit exceeded'; }
+        else if (msg.includes('provider unavailable')) { status = 503; errorMessage = 'Provider unavailable'; }
+        else if (msg.includes('timeout')) { status = 504; errorMessage = 'Request timeout'; }
+        else if (msg.includes('invalid json') || msg.includes('invalid response shape')) { status = 400; errorMessage = 'Invalid provider response'; }
+        else if (msg.includes('network error') || msg.includes('unknown')) { status = 502; errorMessage = 'Provider network error'; }
+      }
+
+      // Audit log
+      await db.auditLog.create({
+        data: {
+          userId: session.userId,
+          action: 'social_analytics_fetch',
+          resource: `social:${platform}`,
+          details: JSON.stringify({ platform, period, error: errorMessage }),
+        },
+      });
+
+      return NextResponse.json({ error: errorMessage }, { status });
+    }
 
     // Audit log
     await db.auditLog.create({

@@ -28,11 +28,33 @@ export const dynamic = 'force-dynamic';
 
 async function liveOpenRouterFree(): Promise<{ available: boolean; count: number; models: string[] }> {
   try {
+    // ─── OPENROUTER CATALOG FAILURE REMEDIATION ──────────────────────────
+    // Add timeout (6s) and distinguish failure states (network, timeout, 4xx/5xx, invalid JSON)
+    const controller = new AbortController()
+    const timeoutHandle = setTimeout(() => controller.abort(), 6000)
+
     const response = await fetch('https://openrouter.ai/api/v1/models', {
       headers: { accept: 'application/json' },
-      signal: AbortSignal.timeout(6_000),
+      signal: controller.signal,
     });
-    if (!response.ok) return { available: false, count: 0, models: [] };
+
+    // Cleanup timeout immediately
+    clearTimeout(timeoutHandle)
+
+    if (!response.ok) {
+      // Distinguish failure states
+      if (response.status === 401 || response.status === 403) {
+        return { available: false, count: 0, models: [], error: 'Unauthorized/Forbidden access to OpenRouter catalog' };
+      }
+      if (response.status === 429) {
+        return { available: false, count: 0, models: [], error: 'Rate limited by OpenRouter' };
+      }
+      if (response.status >= 500) {
+        return { available: false, count: 0, models: [], error: `OpenRouter server error (${response.status})` };
+      }
+      return { available: false, count: 0, models: [], error: `OpenRouter HTTP ${response.status}` };
+    }
+
     const payload = (await response.json()) as { data?: unknown[] };
     const rows = Array.isArray(payload.data) ? payload.data : [];
     const free = rows
@@ -41,8 +63,10 @@ async function liveOpenRouterFree(): Promise<{ available: boolean; count: number
       .filter((id): id is string => typeof id === 'string')
       .sort();
     return { available: true, count: free.length, models: free.slice(0, 200) };
-  } catch {
-    return { available: false, count: 0, models: [] };
+  } catch (err) {
+    // Distinguish timeout vs other network errors
+    const isTimeout = err instanceof Error && (err.name === 'AbortError' || err.message.includes('timeout'))
+    return { available: false, count: 0, models: [], error: isTimeout ? 'OpenRouter catalog timeout' : (err instanceof Error ? err.message : 'Unknown network error') };
   }
 }
 
@@ -107,6 +131,6 @@ export async function GET() {
       'Optional but recommended: run Ollama locally (ollama pull qwen3:30b-a3b) as the unlimited offline fallback.',
       'Come back here and command your agent — every call is policy-checked, budget-checked and audited at $0.',
     ],
-    disclaimer: 'Free tiers change often. Verify current limits and commercial-use terms on each provider\u2019s official page before relying on them; AgentOS records that verification and never silently falls back to a paid route.',
+    disclaimer: 'Free tiers change often. Verify current limits and commercial-use terms on each provider’s official page before relying on them; AgentOS records that verification and never silently falls back to a paid route.',
   });
 }

@@ -332,9 +332,22 @@ export class MultiAgentOrchestrator {
       task.status = 'failed';
       task.error = error instanceof Error ? error.message : String(error);
       task.updatedAt = new Date();
-      await this.persistTask(task).catch((persistError: unknown) => {
-        console.error(`[Orchestrator] Failed to persist task ${taskId}:`, persistError);
-      });
+      
+      // Centralized failure transition for orchestration
+      try {
+        await this.persistTask(task).catch((persistError: unknown) => {
+          console.error(`[Orchestrator] Failed to persist task ${taskId}:`, persistError);
+        });
+        
+        // Event bus notification for integrity
+        await this.emitEvent(task, 'orchestration.failed', {
+          taskId,
+          error: task.error,
+          failureIntegrity: true,
+        });
+      } catch (persistErr) {
+        console.error(`[Orchestrator] Critical failure transition error for task ${taskId}:`, persistErr);
+      }
     });
 
     return task;
@@ -374,6 +387,19 @@ export class MultiAgentOrchestrator {
           task.status = 'failed';
           task.error = step.error;
           changed = true;
+          
+          // Centralized failure transition for approval lookup failure
+          try {
+            await this.persistTask(task, 'waiting_approval');
+            await this.emitEvent(task, 'orchestration.failed', {
+              taskId: task.id,
+              stepId: step.id,
+              error: step.error,
+              failureIntegrity: true,
+            });
+          } catch (persistErr) {
+            console.error(`[Orchestrator] Critical failure transition error in approval lookup ${step.id}:`, persistErr);
+          }
           continue;
         }
         if (execution.status === 'completed' && execution.executionOutput !== null) {
@@ -394,13 +420,36 @@ export class MultiAgentOrchestrator {
             }
           }
           changed = true;
+          
+          // Event bus notification for successful completion integrity
+          try {
+            await this.emitEvent(task, 'orchestration.step.completed', {
+              taskId: task.id,
+              stepId: step.id,
+              successIntegrity: true,
+            });
+          } catch {}
         } else if (execution.status === 'failed') {
           step.status = 'failed';
           step.error = execution.errorMessage ?? 'Approved execution failed';
           task.status = 'failed';
           task.error = step.error;
           changed = true;
+          
+          // Centralized failure transition for approval execution failure
+          try {
+            await this.persistTask(task, 'waiting_approval');
+            await this.emitEvent(task, 'orchestration.failed', {
+              taskId: task.id,
+              stepId: step.id,
+              error: step.error,
+              failureIntegrity: true,
+            });
+          } catch (persistErr) {
+            console.error(`[Orchestrator] Critical failure transition error in approval failure ${step.id}:`, persistErr);
+          }
         }
+      }
       }
 
       if (changed) {
@@ -412,13 +461,26 @@ export class MultiAgentOrchestrator {
           task.error = undefined;
         }
         task.updatedAt = new Date();
+        
+        // Centralized failure transition / state persistence for waiting_approval
         const claimed = await this.persistTask(task, 'waiting_approval');
         if (claimed && task.status === 'pending') {
           void this.runOrchestration(task, task.parallelConfig).catch(async (error: unknown) => {
             task.status = 'failed';
             task.error = error instanceof Error ? error.message : String(error);
             task.updatedAt = new Date();
-            await this.persistTask(task).catch(() => {});
+            
+            // Centralized failure transition for re-run failure
+            try {
+              await this.persistTask(task);
+              await this.emitEvent(task, 'orchestration.failed', {
+                taskId: task.id,
+                error: task.error,
+                failureIntegrity: true,
+              });
+            } catch (persistErr) {
+              console.error(`[Orchestrator] Critical failure transition error in re-run ${task.id}:`, persistErr);
+            }
           });
         }
       }
@@ -448,7 +510,17 @@ export class MultiAgentOrchestrator {
         ...(task.result ? { durationMs: task.result.totalLatencyMs } : {}),
       },
     });
+    
+    // Centralized failure transition for persistence failure
     if (persisted.count !== 1 && !expectedStatus) {
+      // Event bus notification for persistence failure integrity
+      try {
+        await this.emitEvent(task, 'orchestration.persistence.failed', {
+          taskId: task.id,
+          expectedStatus,
+          failureIntegrity: true,
+        });
+      } catch {}
       throw new Error('Persisted orchestration task was not found for this company');
     }
     return persisted.count === 1;
@@ -519,12 +591,20 @@ export class MultiAgentOrchestrator {
       task.status = awaitingApproval ? 'waiting_approval' : 'failed';
       task.error = error instanceof Error ? error.message : String(error);
       task.updatedAt = new Date();
-      await this.persistTask(task);
-
-      await this.emitEvent(task, awaitingApproval ? 'orchestration.waiting_approval' : 'orchestration.failed', {
-        taskId: task.id,
-        error: task.error,
-      });
+      
+      // Centralized failure transition for orchestration main execution
+      try {
+        await this.persistTask(task);
+        
+        // Event bus notification for integrity
+        await this.emitEvent(task, awaitingApproval ? 'orchestration.waiting_approval' : 'orchestration.failed', {
+          taskId: task.id,
+          error: task.error,
+          failureIntegrity: true,
+        });
+      } catch (persistErr) {
+        console.error(`[Orchestrator] Critical failure transition error in runOrchestration for task ${task.id}:`, persistErr);
+      }
     }
   }
 
@@ -571,7 +651,19 @@ export class MultiAgentOrchestrator {
           task.status = 'waiting_approval';
           task.error = error.message;
           task.updatedAt = new Date();
-          await this.persistTask(task);
+          
+          // Centralized failure transition for sequential step approval
+          try {
+            await this.persistTask(task);
+            await this.emitEvent(task, 'orchestration.waiting_approval', {
+              taskId: task.id,
+              stepId: step.id,
+              error: error.message,
+              failureIntegrity: true,
+            });
+          } catch (persistErr) {
+            console.error(`[Orchestrator] Critical failure transition error in sequential step ${step.id}:`, persistErr);
+          }
           throw error;
         }
 
@@ -579,7 +671,19 @@ export class MultiAgentOrchestrator {
         step.error = error instanceof Error ? error.message : String(error);
         step.completedAt = new Date();
         task.updatedAt = new Date();
-        await this.persistTask(task);
+        
+        // Centralized failure transition for sequential step failure
+        try {
+          await this.persistTask(task);
+          await this.emitEvent(task, 'orchestration.step.failed', {
+            taskId: task.id,
+            stepId: step.id,
+            error: step.error,
+            failureIntegrity: true,
+          });
+        } catch (persistErr) {
+          console.error(`[Orchestrator] Critical failure transition error in sequential step ${step.id}:`, persistErr);
+        }
 
         const maxRetries = step.retryCount ?? 2;
         let retryAttempt = 0;
@@ -611,12 +715,38 @@ export class MultiAgentOrchestrator {
               task.status = 'waiting_approval';
               task.error = retryError.message;
               task.updatedAt = new Date();
-              await this.persistTask(task);
+              
+              // Centralized failure transition for sequential retry approval
+              try {
+                await this.persistTask(task);
+                await this.emitEvent(task, 'orchestration.waiting_approval', {
+                  taskId: task.id,
+                  stepId: step.id,
+                  error: retryError.message,
+                  failureIntegrity: true,
+                  retryAttempt,
+                });
+              } catch (persistErr) {
+                console.error(`[Orchestrator] Critical failure transition error in sequential retry ${step.id}:`, persistErr);
+              }
               throw retryError;
             }
             step.error = retryError instanceof Error ? retryError.message : String(retryError);
             task.updatedAt = new Date();
-            await this.persistTask(task);
+            
+            // Centralized failure transition for sequential retry failure
+            try {
+              await this.persistTask(task);
+              await this.emitEvent(task, 'orchestration.step.failed', {
+                taskId: task.id,
+                stepId: step.id,
+                error: step.error,
+                failureIntegrity: true,
+                retryAttempt,
+              });
+            } catch (persistErr) {
+              console.error(`[Orchestrator] Critical failure transition error in sequential retry ${step.id}:`, persistErr);
+            }
           }
         }
 
@@ -1107,10 +1237,39 @@ ${producerResult.content}`;
         task.status = 'waiting_approval';
         task.error = step.error;
         task.updatedAt = new Date();
-        await this.persistTask(task);
+        
+        // Centralized failure transition for step approval
+        try {
+          await this.persistTask(task);
+          await this.emitEvent(task, 'orchestration.step.waiting_approval', {
+            taskId: task.id,
+            stepId: step.id,
+            error: step.error,
+            failureIntegrity: true,
+          });
+        } catch (persistErr) {
+          console.error(`[Orchestrator] Critical failure transition error in step ${step.id} approval:`, persistErr);
+        }
         throw new OrchestrationApprovalRequiredError(executionResult.executionId, executionResult.approvalId);
       }
       if (!executionResult.success) {
+        // Centralized failure transition for step execution failure
+        step.status = 'failed';
+        step.error = executionResult.error ?? 'Agent runtime execution did not complete';
+        task.status = 'failed';
+        task.error = step.error;
+        task.updatedAt = new Date();
+        try {
+          await this.persistTask(task);
+          await this.emitEvent(task, 'orchestration.step.failed', {
+            taskId: task.id,
+            stepId: step.id,
+            error: step.error,
+            failureIntegrity: true,
+          });
+        } catch (persistErr) {
+          console.error(`[Orchestrator] Critical failure transition error in step ${step.id} execution:`, persistErr);
+        }
         throw new Error(executionResult.error ?? 'Agent runtime execution did not complete');
       }
 
@@ -1119,6 +1278,23 @@ ${producerResult.content}`;
         select: { executionOutput: true, agentRunId: true },
       });
       if (!execution?.executionOutput) {
+        // Centralized failure transition for missing execution output
+        step.status = 'failed';
+        step.error = 'Completed agent output was not persisted';
+        task.status = 'failed';
+        task.error = step.error;
+        task.updatedAt = new Date();
+        try {
+          await this.persistTask(task);
+          await this.emitEvent(task, 'orchestration.step.failed', {
+            taskId: task.id,
+            stepId: step.id,
+            error: step.error,
+            failureIntegrity: true,
+          });
+        } catch (persistErr) {
+          console.error(`[Orchestrator] Critical failure transition error in output missing ${step.id}:`, persistErr);
+        }
         throw new Error('Completed agent output was not persisted');
       }
 

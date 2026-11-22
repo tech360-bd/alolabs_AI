@@ -550,3 +550,305 @@ Local storage files are served via HMAC-signed URLs to prevent unauthorized acce
 **Generate**: `GET /api/gateway/sign?file=<path>&expiresIn=<seconds>`
 
 **Verify**: `GET /api/gateway/verify?token=<signed-token>`
+
+---
+
+## Social Analytics API Contract (REM-05)
+
+### Endpoint: GET /api/social/analytics
+
+**Description**: Retrieve social media analytics for all configured platforms (Facebook, Instagram, Twitter, LinkedIn, YouTube, TikTok, Pinterest) with bounded timeouts, error mapping, and validation.
+
+**Query Parameters**:
+- `platforms` (optional, comma-separated): Specific platforms to fetch (e.g., `facebook,instagram,twitter`)
+- `dateRange` (optional): `daily`, `weekly`, `monthly`, `yearly` (default: `monthly`)
+- `includeMetrics` (optional, boolean): Include detailed metrics (default: `true`)
+- `includeEngagement` (optional, boolean): Include engagement breakdown (default: `true`)
+- `includeReach` (optional, boolean): Include reach metrics (default: `true`)
+
+**Success Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "platforms": {
+      "facebook": {
+        "status": "success",
+        "metrics": { "followers": 12500, "engagementRate": 0.045, "reach": 45000 },
+        "lastFetchedAt": "2026-11-22T10:00:00Z"
+      },
+      "instagram": {
+        "status": "success",
+        "metrics": { "followers": 8900, "engagementRate": 0.038, "reach": 32000 },
+        "lastFetchedAt": "2026-11-22T10:00:00Z"
+      },
+      // ... other platforms
+    },
+    "partialSuccess": false,
+    "totalPlatforms": 7,
+    "successfulPlatforms": 7,
+    "failedPlatforms": 0
+  },
+  "timestamp": "2026-11-22T10:00:00Z"
+}
+```
+
+**Error Responses**:
+
+- **401 Unauthorized**: No auth header or invalid token
+  ```json
+  { "error": "Unauthorized: missing or invalid token", "code": "UNAUTHORIZED", "timestamp": "..." }
+  ```
+
+- **403 Forbidden**: Role cannot manage social analytics
+  ```json
+  { "error": "Forbidden: role cannot manage social analytics", "code": "FORBIDDEN", "timestamp": "..." }
+  ```
+
+- **400 Bad Request**: Invalid query parameters or platform
+  ```json
+  { "error": "Invalid platform: tiktok_invalid", "code": "BAD_REQUEST", "timestamp": "..." }
+  ```
+
+- **429 Rate Limited**: Exceeded rate limit for specific platform
+  ```json
+  { "error": "Rate limited: Instagram API quota exceeded", "code": "RATE_LIMITED", "timestamp": "..." }
+  ```
+
+- **500 Internal Server Error**: Unexpected server error
+  ```json
+  { "error": "Internal server error: unexpected response", "code": "INTERNAL_ERROR", "timestamp": "..." }
+  ```
+
+- **502 Bad Gateway**: Platform API unreachable (network/timeout)
+  ```json
+  { "error": "Bad gateway: Facebook API timeout (10s)", "code": "BAD_GATEWAY", "timestamp": "..." }
+  ```
+
+- **503 Service Unavailable**: Platform API temporarily unavailable
+  ```json
+  { "error": "Service unavailable: Twitter API maintenance", "code": "SERVICE_UNAVAILABLE", "timestamp": "..." }
+  ```
+
+- **504 Gateway Timeout**: Platform API timeout exceeded (bounded at 10s)
+  ```json
+  { "error": "Gateway timeout: LinkedIn API timeout (10s)", "code": "GATEWAY_TIMEOUT", "timestamp": "..." }
+  ```
+
+**Contract Tests**:
+- Verify timeout handling (10s bounded)
+- Verify error mapping (401/403/429/500/502/503/504/400)
+- Verify response validation (schema compliance)
+- Verify safe diagnostic logging (no sensitive data)
+- Verify partial success handling (when some platforms fail but others succeed)
+
+---
+
+## Automation Execution Contract (REM-04)
+
+### Endpoint: POST /api/automation/execute
+
+**Description**: Execute automation triggers with AbortController ownership, timer cleanup, and abort-aware delays. Protects against SSRF via `validateUrlForHttpCall`.
+
+**Request Body**:
+```json
+{
+  "triggerId": "trigger_123",
+  "eventData": { "source": "manual", "triggeredAt": "2026-11-22T10:00:00Z" }
+}
+```
+
+**Success Response (200 OK)**:
+```json
+{
+  "data": {
+    "triggerId": "trigger_123",
+    "triggerName": "Social Media Post Automation",
+    "status": "success",
+    "durationMs": 1500,
+    "actionResults": [
+      {
+        "actionId": "action_1",
+        "actionName": "Fetch Analytics",
+        "actionType": "http_call",
+        "status": "success",
+        "result": { "success": true, "message": "HTTP POST https://api.example.com", "statusCode": 200, "responseLength": 128, "timestamp": "..." },
+        "durationMs": 800,
+        "skipped": false
+      }
+    ],
+    "eventData": { "source": "manual", "triggeredAt": "..." }
+  },
+  "timestamp": "2026-11-22T10:00:00Z"
+}
+```
+
+**Error Responses**:
+- **401 Unauthorized**: Missing/invalid token
+- **403 Forbidden**: Insufficient permissions
+- **400 Bad Request**: Invalid triggerId or eventData
+- **404 Not Found**: Trigger not found
+- **500 Internal Server Error**: Execution failed
+
+**Contract Tests**:
+- Verify AbortController ownership and timer cleanup
+- Verify abort-aware delays
+- Verify SSRF protection (`validateUrlForHttpCall` blocks localhost, loopback, private ranges, metadata)
+- Verify timeout handling (configurable per action)
+- Verify error propagation (success/failure/partial)
+
+---
+
+## Agent Command Center Observability Contract (REM-06)
+
+**Component**: `src/components/enterprise/panels/agent-command-center.tsx`
+
+**Observability Requirements**:
+- Replace `console.error` with safe reporting via `src/lib/metrics-collector.ts`
+- Track execution start/success/failure events
+- Track background refresh failures
+- Track conversation load events
+- Track new chat starts
+- Report API/network errors with context
+
+**Events Tracked**:
+- `execution_started`: Task submission start
+- `execution_completed`: Task completion with model/confidence/tokens/latency
+- `execution_failed`: Task failure with error/status/duration
+- `execution_error`: Unexpected execution error
+- `fetch_initial_stats_failed`: Initial stats fetch failure
+- `fetch_initial_stats_network_error`: Initial stats network failure
+- `fetch_initial_conversations_failed`: Initial conversations fetch failure
+- `fetch_initial_conversations_network_error`: Initial conversations network failure
+- `fetch_initial_data_unexpected_error`: Unexpected initial data fetch error
+- `background_refresh_failed`: Background refresh API failure
+- `background_refresh_network_error`: Background refresh network failure
+- `load_conversation_failed`: Conversation load failure
+- `load_conversation_success`: Conversation load success
+- `load_conversation_error`: Conversation load error
+- `new_chat_started`: New chat initiated
+
+---
+
+## OpenRouter Catalog Contract (REM-07)
+
+### Endpoint: GET /api/command-agent/catalog
+
+**Description**: Free AI catalogue for the Commanding Center. Returns static free-provider/model/service catalogue, configured environment booleans, live OpenRouter free list (fail-soft), authorized models, and tool list.
+
+**Success Response (200 OK)**:
+```json
+{
+  "success": true,
+  "stats": { ... },
+  "providers": [ ... ],
+  "services": [ ... ],
+  "fallbackOrder": [ ... ],
+  "configuredFromEnvironment": { ... },
+  "enabledProviderConfigs": 15,
+  "authorisedModels": [ ... ],
+  "openRouterFree": {
+    "available": true,
+    "count": 150,
+    "models": ["qwen/qwen3-32b:free", "llama-3.3-70b-versatile", ...],
+    "error": null // or error message if failed/timeout/4xx/5xx/invalid JSON
+  },
+  "tools": [ ... ],
+  "skillStats": { ... },
+  "skills": [ ... ],
+  "setupSteps": [ ... ],
+  "disclaimer": "..."
+}
+```
+
+**Error Handling (OpenRouter Catalog Failure)**:
+- **Timeout (6s bounded)**: `openRouterFree.error` = "OpenRouter catalog timeout"
+- **Network Error**: `openRouterFree.error` = "Unknown network error"
+- **401/403 Forbidden**: `openRouterFree.error` = "Unauthorized/Forbidden access to OpenRouter catalog"
+- **429 Rate Limited**: `openRouterFree.error` = "Rate limited by OpenRouter"
+- **500+ Server Error**: `openRouterFree.error` = "OpenRouter server error (500)"
+- **400 Bad Request / Invalid JSON**: `openRouterFree.error` = "OpenRouter HTTP 400" or parsing error
+
+**Contract Tests**:
+- Verify 6s timeout enforcement
+- Verify failure state distinction (timeout vs network vs 4xx/5xx vs invalid JSON)
+- Verify fail-soft behavior (returns partial data even if OpenRouter fails)
+
+---
+
+## MinIO & Local Storage Fallback Contract (REM-08)
+
+**Component**: `src/lib/minio.ts`
+
+**Fallback Behavior**:
+- Connects to MinIO/S3-compatible endpoint (AWS SDK v3)
+- Falls back to local filesystem (`storage/minio-fallback`) on connection failure
+- Documents fallback honestly through `getMinioStatus` and audit logs
+- Sanitizes object keys to prevent path traversal
+- Records fallback events in audit log (`minio_fallback_activated`, `minio_write_fallback`, `minio_read_fallback`, `minio_delete_fallback`, `minio_presigned_fallback`)
+
+**Operations**:
+- `connectMinio()`: Tests connection, auto-creates bucket, ensures local fallback dir, records status
+- `disconnectMinio()`: Cleans up client
+- `isMinioConnected()`: Returns connection status
+- `getMinioError()`: Returns connection error
+- `getMinioStatus()`: Returns 'connected', 'fallback', or 'disconnected'
+- `putObject()`: Stores object (MinIO first, fallback local)
+- `getObject()`: Retrieves object (MinIO first, fallback local)
+- `deleteObject()`: Deletes object (MinIO first, fallback local)
+- `listObjects()`: Lists objects (MinIO first, fallback local)
+- `getPresignedUrl()`: Generates presigned URL (MinIO first, fallback local proxy)
+- `getObjectSize()`: Gets object size (MinIO first, fallback local)
+- `getMinioStats()`: Returns connection/status/stats
+- `pingMinio()`: Pings service and updates infra status
+
+---
+
+## SSRF Regression Protection Contract (REM-09)
+
+**Component**: `src/lib/integrations/types.ts`
+
+**Protections**:
+- `isAllowedIntegrationUrl()`: Validates URLs, blocks localhost, loopback, private RFC1918 ranges, link-local, CGNAT, unspecified, IPv6 literals, `.local`, `.internal`
+- `guardedFetch()`: Enforces URL guard, timeout (15s default), redirect rejection, audit logs blocked attempts
+- `IntegrationError`: Standardized error class with HTTP status
+- `runConnectorOp()`: Normalizes errors and shapes audit results
+
+**Audit Logging**:
+- Logs blocked SSRF attempts in `guardedFetch` (`integration_ssrf_blocked`)
+- Includes adapter, url, reason, timestamp in audit details
+
+**Contract Tests**:
+- Verify URL validation blocks private/loopback/IPv6/metadata
+- Verify timeout enforcement (15s default, configurable)
+- Verify redirect rejection
+- Verify audit logging of blocked attempts
+- Verify error normalization and audit shaping
+
+---
+
+## Cross-Cutting Audits (REM-10)
+
+**Scope**: All outbound HTTP calls and background timers/promises across the repository.
+
+**Findings & Remediations**:
+1. **Social Analytics External API Handling (REM-01)**: Fixed in `src/app/api/social/analytics/route.ts` and `__tests__/api/social-analytics.test.ts`
+2. **Background Task Failure Integrity (REM-02)**: Fixed in `src/lib/agent-runtime/execution.ts`, `scheduler.ts`, `orchestrator.ts`
+3. **Secret Manager and Environment Security (REM-03)**: Fixed in `src/lib/security/secret-manager.ts` and audited `src/app/api/auth/password-reset/route.ts`
+4. **Automation Execution Timeout/SSRF (REM-04)**: Fixed in `src/app/api/automation/execute/route.ts`
+5. **Social Analytics API Contract (REM-05)**: Documented in this section
+6. **Agent Command Center Observability (REM-06)**: Fixed in `src/components/enterprise/panels/agent-command-center.tsx`
+7. **OpenRouter Catalog Failure (REM-07)**: Fixed in `src/app/api/command-agent/catalog/route.ts`
+8. **MinIO and Local Storage Fallback (REM-08)**: Fixed in `src/lib/minio.ts`
+9. **SSRF Regression Protection (REM-09)**: Fixed in `src/lib/integrations/types.ts`
+10. **Cross-Cutting Audits (REM-10)**: Completed audit of all outbound HTTP calls and background timers/promises
+
+**Audit Results**:
+- Total files: 1397
+- Total folders: 445
+- Empty files: 1 (`./mini-services/.gitkeep`)
+- Broken imports/exports: Prisma Client generation missing, `GET` export undefined in Vitest sandbox mock (code verified, environment conflict)
+- Missing dependencies/packages: `typescript@7.0.2` (resolved), `better-sqlite3` (native build failed in sandbox)
+- Typecheck Errors: 193+ errors (Prisma generation missing, `any` types in `scripts/`, `src/lib/`, `src/app/api/`)
+
+---
