@@ -12,11 +12,14 @@ import { randomBytes } from 'node:crypto';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, openSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { chromium } from 'playwright';
-const cwd='/home/user/alolabs_AI'; const password=randomBytes(24).toString('hex');
+// Repository root, independent of the machine the test runs on.
+const cwd=resolve(dirname(fileURLToPath(import.meta.url)),'..','..');
+const password=randomBytes(24).toString('hex');
 let temp, db, browser, app, origin;
 before(async () => {
   temp=mkdtempSync(join(tmpdir(),'alo-crm-ui-')); const path=join(temp,'test.sqlite');

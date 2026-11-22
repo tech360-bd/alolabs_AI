@@ -146,11 +146,14 @@ a caller's `follow`.
 - CSRF double-submit with constant-time compare; login lockout plus per-IP limiter; `/v1/*`
   API-key limits via Redis.
 - Security headers present (CSP/HSTS/X-Frame-Options/nosniff/Referrer-Policy).
-- 4 auth browser tests (`tests/browser/login.test.mjs`) and 5 panel browser tests
-  (`tests/browser/crm-panel.test.mjs`) passed in the preceding milestone. They are Playwright
-  scripts outside Vitest and were **not re-run during this audit** (no dev server was started;
-  starting one is unnecessary for the changes here and port 3011 is off-limits). Their status
-  in this document is "verified previously", not "re-verified now".
+- 4 auth browser tests (`tests/browser/login.test.mjs`, run by `npm test --prefix tests/browser`)
+  and 1 panel browser test (`tests/browser/crm-panel.test.mjs`, run by
+  `npm run test:crm-panel --prefix tests/browser`) passed in the preceding milestone. They are
+  Playwright scripts outside Vitest and were **not re-run during this audit** (no dev server was
+  started; starting one is unnecessary for the changes here and port 3011 is off-limits). Their
+  status in this document is "verified previously", not "re-verified now". The panel test is
+  kept out of the default script because it boots its own Next dev server and SQLite database;
+  CI runs the auth script only.
 - One legacy Playwright spec (`__tests__/e2e/login-flow.test.ts`) was removed in an earlier
   milestone because it could not run in this environment and duplicated the browser coverage.
   Disclosed here rather than buried: net coverage of the login flow is the 4 browser tests.

@@ -37,7 +37,7 @@ Audit, register, security narrative and operations guides:
 | Typecheck | `npm run typecheck` | **exit 0**, no findings |
 | Test typecheck | `npm run typecheck:tests` | **exit 0**, no findings |
 | ESLint (changed files) | `npx eslint src/lib/integrations src/app/api/v1/crm src/app/api/crm-connections/route.ts src/components/panels/crm-connections-panel.tsx __tests__/unit/integration-url-guard.test.ts …` | **exit 0**, no findings |
-| Browser E2E (4 auth + 5 panel) | `npm test --prefix tests/browser` | passed in the preceding milestone; **not re-run during this audit** (no dev server started; port 3011 untouched) |
+| Browser E2E (4 auth + 1 panel) | `npm test --prefix tests/browser` (auth) / `npm run test:crm-panel --prefix tests/browser` (panel) | passed in the preceding milestone; **not re-run during this audit** (no dev server started; port 3011 untouched). CI runs the auth script only; the panel script is run locally because it boots Next + SQLite. |
 
 **Skipped, not passed:** all 15 skipped tests are `__tests__/integration/mysql-compatibility.test.ts`,
 which needs a MySQL server absent from this sandbox. No test was newly skipped, and no lint rule

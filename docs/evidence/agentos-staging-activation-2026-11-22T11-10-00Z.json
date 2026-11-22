@@ -111,10 +111,10 @@
     "status": "VERIFIED_PREVIOUSLY_NOT_RE_RUN_IN_THIS_AUDIT",
     "files": {
       "tests/browser/login.test.mjs": 4,
-      "tests/browser/crm-panel.test.mjs": 5
+      "tests/browser/crm-panel.test.mjs": 1
     },
     "lastKnownExitCode": 0,
-    "note": "Playwright scripts outside Vitest; a dev server was not started for this audit. Port 3011 (production) is never used."
+    "note": "Playwright scripts outside Vitest; a dev server was not started for this audit. CI runs 'npm test --prefix tests/browser' (4 auth tests). The panel test boots its own Next dev server + SQLite and is run via 'npm run test:crm-panel --prefix tests/browser'. Port 3011 (production) is never used."
   },
   "securityRemediation": [
     {
@@ -218,5 +218,5 @@
     "E_real_staging_deployment": "BLOCKED_AUTHORIZATION",
     "F_production_readiness": "NOT_CLAIMED"
   },
-  "updatedAt": "2026-11-22T11:15:10Z"
+  "updatedAt": "2026-11-22T11:30:00Z"
 }

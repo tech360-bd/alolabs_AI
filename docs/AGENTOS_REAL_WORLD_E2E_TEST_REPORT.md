@@ -104,7 +104,8 @@ Tests       16 passed (16)
 
 ```
 $ LD_LIBRARY_PATH=/tmp/alo-chrome2/libs/lib TEST_CHROMIUM_PATH=/tmp/chromium \
-    npm test --prefix tests/browser
+    npm test --prefix tests/browser                 # 4 auth/MFA tests
+    npm run test:crm-panel --prefix tests/browser    # 1 CRM panel test (boots Next + SQLite)
 # tests 5 · pass 5 · fail 0
 ```
 
