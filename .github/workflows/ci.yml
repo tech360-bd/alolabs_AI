@@ -68,6 +68,18 @@ jobs:
           set -euo pipefail
           grep -Eq 'provider *= *"sqlite"' prisma/schema.prisma \
             || { echo 'prisma/schema.prisma must stay provider="sqlite" (dev/CI). Production uses prisma/schema.mysql.prisma via deploy.sh / npm run db:generate:mysql.'; exit 1; }
+      - name: Assert the MySQL schema is in sync with the SQLite schema
+        # prisma/schema.mysql.prisma is generated from prisma/schema.prisma by
+        # scripts/generate-mysql-schema.ts. Nothing regenerated-and-diffed it,
+        # so a model added to only one file reached production undetected. The
+        # generator is idempotent; any diff here means the two schemas drifted.
+        run: |
+          set -euo pipefail
+          bun run db:generate:schema
+          if ! git diff --exit-code -- prisma/schema.mysql.prisma; then
+            echo 'prisma/schema.mysql.prisma is out of date. Run `npm run db:generate:schema` and commit the result.'
+            exit 1
+          fi
       - name: Validate workflow files
         # Catches unpinned actions and context-availability mistakes (for
         # example `secrets` in `jobs.<job_id>.if`, where it is not allowed)

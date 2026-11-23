@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
  * Access: super_admin or company owner/admin.
  */
 
-async function liveOpenRouterFree(): Promise<{ available: boolean; count: number; models: string[] }> {
+async function liveOpenRouterFree(): Promise<{ available: boolean; count: number; models: string[]; error?: string }> {
   try {
     // ─── OPENROUTER CATALOG FAILURE REMEDIATION ──────────────────────────
     // Add timeout (6s) and distinguish failure states (network, timeout, 4xx/5xx, invalid JSON)

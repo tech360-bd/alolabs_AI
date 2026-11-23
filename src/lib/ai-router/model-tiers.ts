@@ -14,6 +14,7 @@
  *   Tier 2 — departmental workflows, CRM automation (32B class)
  *   Tier 3 — high-speed classification and tagging (1–3B class)
  */
+import { isFreeOnlyMode } from './free-only-mode';
 
 import { envFlag } from '@/lib/ai-router/env-flag';
 import type { AICapability } from './types';
@@ -174,16 +175,19 @@ export function localOnlyEnabled(env: NodeJS.ProcessEnv = process.env): boolean 
 }
 
 /**
- * FREE-ONLY operating mode (`FREE_ONLY=true`). Stronger than a per-request
- * `allowPaid=false`: while enabled, ONLY local inference and providers whose
- * adapter carries the verified free-only flag are eligible — for every
- * request, including ones whose context tries to authorize paid usage.
- * Enabling paid providers requires disabling the mode (a deliberate Super
- * Admin action), never a per-request override. Default is off, so existing
+ * FREE-ONLY operating mode. Stronger than a per-request `allowPaid=false`:
+ * while enabled, ONLY local inference and providers whose adapter carries the
+ * verified free-only flag are eligible — for every request, including ones
+ * whose context tries to authorize paid usage. Default is off, so existing
  * deployments keep their current billing behaviour.
+ *
+ * Delegates to `free-only-mode.ts#isFreeOnlyMode` so there is exactly one
+ * predicate. Previously this read only `FREE_ONLY` while the router's billing
+ * gate read only `FREE_ONLY_MODE`, so setting the documented variable alone
+ * left the paid path open.
  */
 export function freeOnlyModeEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return envFlag(env.FREE_ONLY) === true;
+  return isFreeOnlyMode(env);
 }
 
 /** Provider names are considered local only when their configured endpoint is a trusted private target. */

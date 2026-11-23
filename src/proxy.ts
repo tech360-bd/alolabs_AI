@@ -277,7 +277,14 @@ export async function proxy(request: NextRequest) {
   // environment keeps the full framing lockdown.
   if (process.env.NODE_ENV !== 'development') response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
-  response.headers.set('Strict-Transport-Security', 'max-age=31536000');
+  // HSTS is only meaningful (and only safe) over HTTPS. Emitting it on a plain
+  // HTTP response — a local preview, a non-TLS staging host — makes the browser
+  // pin HTTPS for a year for that hostname and breaks the site. The static
+  // header in next.config.ts covers the TLS-terminating proxy path; this one
+  // must stay conditional.
+  if (request.nextUrl.protocol === 'https:') {
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000');
+  }
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 

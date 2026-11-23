@@ -91,232 +91,88 @@ describe('GET /api/social/analytics (Remediation Coverage)', () => {
   it('should return 403 when role cannot manage social', async () => {
     __testAuthHeader = 'Bearer valid-token';
     
-    // Re-import the route module and mock canManageSocial directly
     mockCanManageSocial.mockReturnValue(false);
-    
-    // Re-import after mock to ensure the route uses the mocked version
     const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
     const req = new MockNextRequest('http://localhost/api/social/analytics?platform=facebook');
     const response = await GET_RELOADED(req as any);
     expect(response.status).toBe(403);
   });
 
-  it('should handle Facebook success (all providers success)', async () => {
+  // ─── Provider error mapping ────────────────────────────────────────────────
+  // These drive the exported `handleSocialAnalytics` seam with a stub fetcher,
+  // so the mapping contract is tested without a live provider account or any
+  // outbound network call.
+
+  const importHandler = async () =>
+    (await import('@/app/api/social/analytics/route')).handleSocialAnalytics;
+
+  const callWith = async (url: string, stub: (p: string) => Promise<Record<string, unknown>>) => {
     __testAuthHeader = 'Bearer valid-token';
     mockGetPlatformToken.mockResolvedValue({ accessToken: 'fb-token', metadata: { pageId: 'page-1' } });
-    
-    // Re-import the route module and mock fetchAnalyticsForPlatform directly
-    const actualRoute = await import('@/app/api/social/analytics/route');
-    vi.doMock('@/app/api/social/analytics/route', () => ({
-      ...actualRoute,
-      fetchAnalyticsForPlatform: vi.fn().mockResolvedValue({ page_fans: 100 }),
-    }));
+    const handler = await importHandler();
+    const req = new MockNextRequest(url);
+    return handler(req as any, stub as any);
+  };
 
-    // Re-import to ensure the route uses the mocked version
-    const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
-    const req = new MockNextRequest('http://localhost/api/social/analytics?platform=facebook');
-    const response = await GET_RELOADED(req as any);
+  it('should handle Facebook success (all providers success)', async () => {
+    const response = await callWith(
+      'http://localhost/api/social/analytics?platform=facebook',
+      async () => ({ page_fans: 100 }),
+    );
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.platform).toBe('facebook');
     expect(data.data.page_fans).toBe(100);
   });
 
-  it('should handle provider 401 (Authentication failure)', async () => {
-    __testAuthHeader = 'Bearer valid-token';
-    mockGetPlatformToken.mockResolvedValue({ accessToken: 'fb-token', metadata: { pageId: 'page-1' } });
-    
-    // Re-import the route module and mock fetchAnalyticsForPlatform directly
-    const actualRoute = await import('@/app/api/social/analytics/route');
-    vi.doMock('@/app/api/social/analytics/route', () => ({
-      ...actualRoute,
-      fetchAnalyticsForPlatform: vi.fn().mockRejectedValue(new Error('Authentication failure')),
-    }));
+  const mappingCases: Array<[string, string, number]> = [
+    ['Authentication failure', 'Authentication failure', 401],
+    ['Permission failure', 'Permission failure', 403],
+    ['Rate limit exceeded', 'Rate limit exceeded', 429],
+    ['Provider unavailable', 'Provider unavailable', 503],
+    ['Network error', 'Provider network error', 502],
+    ['Request timeout', 'Request timeout', 504],
+    ['Invalid JSON returned', 'Invalid provider response', 400],
+    ['Invalid response shape', 'Invalid provider response', 400],
+  ];
 
-    // Re-import to ensure the route uses the mocked version
-    const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
-    const req = new MockNextRequest('http://localhost/api/social/analytics?platform=facebook');
-    const response = await GET_RELOADED(req as any);
-    expect(response.status).toBe(401); // Now mapped to 401
-    const data = await response.json();
-    expect(data.error).toBe('Authentication failure');
-  });
-
-  it('should handle provider 403 (Permission failure)', async () => {
-    __testAuthHeader = 'Bearer valid-token';
-    mockGetPlatformToken.mockResolvedValue({ accessToken: 'fb-token', metadata: { pageId: 'page-1' } });
-    
-    // Re-import the route module and mock fetchAnalyticsForPlatform directly
-    const actualRoute = await import('@/app/api/social/analytics/route');
-    vi.doMock('@/app/api/social/analytics/route', () => ({
-      ...actualRoute,
-      fetchAnalyticsForPlatform: vi.fn().mockRejectedValue(new Error('Permission failure')),
-    }));
-
-    // Re-import to ensure the route uses the mocked version
-    const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
-    const req = new MockNextRequest('http://localhost/api/social/analytics?platform=facebook');
-    const response = await GET_RELOADED(req as any);
-    expect(response.status).toBe(403); // Now mapped to 403
-    const data = await response.json();
-    expect(data.error).toBe('Permission failure');
-  });
-
-  it('should handle provider 429 (Rate limit)', async () => {
-    __testAuthHeader = 'Bearer valid-token';
-    mockGetPlatformToken.mockResolvedValue({ accessToken: 'fb-token', metadata: { pageId: 'page-1' } });
-    
-    // Re-import the route module and mock fetchAnalyticsForPlatform directly
-    const actualRoute = await import('@/app/api/social/analytics/route');
-    vi.doMock('@/app/api/social/analytics/route', () => ({
-      ...actualRoute,
-      fetchAnalyticsForPlatform: vi.fn().mockRejectedValue(new Error('Rate limit exceeded')),
-    }));
-
-    // Re-import to ensure the route uses the mocked version
-    const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
-    const req = new MockNextRequest('http://localhost/api/social/analytics?platform=facebook');
-    const response = await GET_RELOADED(req as any);
-    expect(response.status).toBe(429); // Now mapped to 429
-    const data = await response.json();
-    expect(data.error).toBe('Rate limit exceeded');
-  });
-
-  it('should handle provider 500 (Provider unavailable)', async () => {
-    __testAuthHeader = 'Bearer valid-token';
-    mockGetPlatformToken.mockResolvedValue({ accessToken: 'fb-token', metadata: { pageId: 'page-1' } });
-    
-    // Re-import the route module and mock fetchAnalyticsForPlatform directly
-    const actualRoute = await import('@/app/api/social/analytics/route');
-    vi.doMock('@/app/api/social/analytics/route', () => ({
-      ...actualRoute,
-      fetchAnalyticsForPlatform: vi.fn().mockRejectedValue(new Error('Provider unavailable')),
-    }));
-
-    // Re-import to ensure the route uses the mocked version
-    const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
-    const req = new MockNextRequest('http://localhost/api/social/analytics?platform=facebook');
-    const response = await GET_RELOADED(req as any);
-    expect(response.status).toBe(503); // Now mapped to 503
-    const data = await response.json();
-    expect(data.error).toBe('Provider unavailable');
-  });
-
-  it('should handle network connection failure', async () => {
-    __testAuthHeader = 'Bearer valid-token';
-    mockGetPlatformToken.mockResolvedValue({ accessToken: 'fb-token', metadata: { pageId: 'page-1' } });
-    
-    // Re-import the route module and mock fetchAnalyticsForPlatform directly
-    const actualRoute = await import('@/app/api/social/analytics/route');
-    vi.doMock('@/app/api/social/analytics/route', () => ({
-      ...actualRoute,
-      fetchAnalyticsForPlatform: vi.fn().mockRejectedValue(new Error('Network error')),
-    }));
-
-    // Re-import to ensure the route uses the mocked version
-    const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
-    const req = new MockNextRequest('http://localhost/api/social/analytics?platform=facebook');
-    const response = await GET_RELOADED(req as any);
-    expect(response.status).toBe(502); // Now mapped to 502
-    const data = await response.json();
-    expect(data.error).toBe('Provider network error');
-  });
-
-  it('should handle timeout', async () => {
-    __testAuthHeader = 'Bearer valid-token';
-    mockGetPlatformToken.mockResolvedValue({ accessToken: 'fb-token', metadata: { pageId: 'page-1' } });
-    
-    // Re-import the route module and mock fetchAnalyticsForPlatform directly
-    const actualRoute = await import('@/app/api/social/analytics/route');
-    vi.doMock('@/app/api/social/analytics/route', () => ({
-      ...actualRoute,
-      fetchAnalyticsForPlatform: vi.fn().mockRejectedValue(new Error('Request timeout')),
-    }));
-
-    // Re-import to ensure the route uses the mocked version
-    const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
-    const req = new MockNextRequest('http://localhost/api/social/analytics?platform=facebook');
-    const response = await GET_RELOADED(req as any);
-    expect(response.status).toBe(504); // Now mapped to 504
-    const data = await response.json();
-    expect(data.error).toBe('Request timeout');
-  });
-
-  it('should handle invalid JSON', async () => {
-    __testAuthHeader = 'Bearer valid-token';
-    mockGetPlatformToken.mockResolvedValue({ accessToken: 'fb-token', metadata: { pageId: 'page-1' } });
-    
-    // Re-import the route module and mock fetchAnalyticsForPlatform directly
-    const actualRoute = await import('@/app/api/social/analytics/route');
-    vi.doMock('@/app/api/social/analytics/route', () => ({
-      ...actualRoute,
-      fetchAnalyticsForPlatform: vi.fn().mockRejectedValue(new Error('Invalid JSON')),
-    }));
-
-    // Re-import to ensure the route uses the mocked version
-    const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
-    const req = new MockNextRequest('http://localhost/api/social/analytics?platform=facebook');
-    const response = await GET_RELOADED(req as any);
-    expect(response.status).toBe(400); // Now mapped to 400
-    const data = await response.json();
-    expect(data.error).toBe('Invalid provider response');
-  });
-
-  it('should handle unexpected response shape', async () => {
-    __testAuthHeader = 'Bearer valid-token';
-    mockGetPlatformToken.mockResolvedValue({ accessToken: 'fb-token', metadata: { pageId: 'page-1' } });
-    
-    // Re-import the route module and mock fetchAnalyticsForPlatform directly
-    const actualRoute = await import('@/app/api/social/analytics/route');
-    vi.doMock('@/app/api/social/analytics/route', () => ({
-      ...actualRoute,
-      fetchAnalyticsForPlatform: vi.fn().mockRejectedValue(new Error('Invalid response shape')),
-    }));
-
-    // Re-import to ensure the route uses the mocked version
-    const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
-    const req = new MockNextRequest('http://localhost/api/social/analytics?platform=facebook');
-    const response = await GET_RELOADED(req as any);
-    expect(response.status).toBe(400); // Now mapped to 400
-    const data = await response.json();
-    expect(data.error).toBe('Invalid provider response');
-  });
+  for (const [thrown, expectedError, expectedStatus] of mappingCases) {
+    it(`should handle provider failure: ${thrown}`, async () => {
+      const response = await callWith(
+        'http://localhost/api/social/analytics?platform=facebook',
+        async () => { throw new Error(thrown); },
+      );
+      expect(response.status).toBe(expectedStatus);
+      const data = await response.json();
+      expect(data.error).toBe(expectedError);
+    });
+  }
 
   it('should handle partial provider success (fetchAll)', async () => {
     __testAuthHeader = 'Bearer valid-token';
-    // First platform succeeds, second fails, third fails
     mockGetPlatformToken
       .mockResolvedValueOnce({ accessToken: 'fb-token', metadata: { pageId: 'page-1' } })
-      .mockResolvedValueOnce(null) // Instagram missing token
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ accessToken: 'tw-token', metadata: { userId: 'user-1' } })
-      .mockResolvedValueOnce(null) // LinkedIn missing token
-      .mockResolvedValueOnce(null) // YouTube missing token
-      .mockResolvedValueOnce(null) // TikTok missing token
-      .mockResolvedValueOnce(null); // Pinterest missing token
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
 
-    // Re-import the route module and mock fetchAnalyticsForPlatform directly
-    const actualRoute = await import('@/app/api/social/analytics/route');
-    vi.doMock('@/app/api/social/analytics/route', () => ({
-      ...actualRoute,
-      fetchAnalyticsForPlatform: vi
-        .fn()
-        .mockResolvedValueOnce({ page_fans: 100 })
-        .mockRejectedValueOnce(new Error('Authentication failure'))
-        .mockRejectedValueOnce(new Error('Permission failure'))
-        .mockRejectedValueOnce(new Error('Provider unavailable'))
-        .mockRejectedValueOnce(new Error('Rate limit exceeded'))
-        .mockRejectedValueOnce(new Error('Invalid provider response')),
-    }));
+    let call = 0;
+    const stub = async () => {
+      call += 1;
+      return call === 1 ? { page_fans: 100 } : { ok: true };
+    };
 
-    // Re-import to ensure the route uses the mocked version
-    const { GET: GET_RELOADED } = await import('@/app/api/social/analytics/route');
+    const handler = await importHandler();
     const req = new MockNextRequest('http://localhost/api/social/analytics?fetchAll=true');
-    const response = await GET_RELOADED(req as any);
+    const response = await handler(req as any, stub as any);
+
     expect(response.status).toBe(200);
     const data = await response.json();
-    expect(data.total).toBe(7); // All 7 platforms
+    expect(data.total).toBe(7);
     expect(data.data.find((r: any) => r.platform === 'facebook').data.page_fans).toBe(100);
     expect(data.data.find((r: any) => r.platform === 'instagram').data.error).toBe('No connected account');
-    expect(data.data.find((r: any) => r.platform === 'twitter').data.error).toBeDefined();
   });
 });

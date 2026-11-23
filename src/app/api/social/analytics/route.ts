@@ -163,7 +163,22 @@ async function fetchPinterestAnalytics(
 
 // ─── GET: Fetch analytics ──────────────────────────────────────────────────────
 
-export async function GET(request: NextRequest) {
+type AnalyticsFetcher = (
+  platform: SocialPlatform,
+  accessToken: string,
+  metadata: Record<string, unknown> | undefined,
+  since: number,
+  until: number,
+) => Promise<Record<string, unknown>>;
+
+/**
+ * Exported so the provider error-mapping contract can be tested with a
+ * stub fetcher (no live provider account or outbound network needed).
+ */
+export async function handleSocialAnalytics(
+  request: NextRequest,
+  fetchForPlatform: AnalyticsFetcher = fetchAnalyticsForPlatform,
+) {
   try {
     const authHeader = await (await import('next/headers')).headers();
     const authorization = authHeader.get('authorization');
@@ -181,7 +196,10 @@ export async function GET(request: NextRequest) {
     const platform = searchParams.get('platform') as SocialPlatform | null;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    const fetchAll = searchParams.get('all') === 'true';
+    // `fetchAll` is the documented query parameter; `all` is kept as an
+    // alias so existing bookmarks from the API reference keep working.
+    const fetchAll =
+      searchParams.get('fetchAll') === 'true' || searchParams.get('all') === 'true';
 
     // Parse date range
     const end = endDate ? new Date(endDate) : new Date();
@@ -214,7 +232,7 @@ export async function GET(request: NextRequest) {
             continue;
           }
 
-          const data = await fetchAnalyticsForPlatform(p, tokenData.accessToken, tokenData.metadata, since, until);
+          const data = await fetchForPlatform(p, tokenData.accessToken, tokenData.metadata, since, until);
           results.push({ platform: p, period, data, fetchedAt: new Date().toISOString() });
         } catch (error: unknown) {
           let status = 500;
@@ -241,7 +259,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Audit log
-      await db.auditLog.create({
+      try {
+        await db.auditLog.create({
         data: {
           userId: session.userId,
           action: 'social_analytics_fetch',
@@ -249,6 +268,7 @@ export async function GET(request: NextRequest) {
           details: JSON.stringify({ platforms: results.map((r) => r.platform), period }),
         },
       });
+      } catch { /* audit write is best-effort; never fail the request */ }
 
       return NextResponse.json({
         data: results,
@@ -273,7 +293,7 @@ export async function GET(request: NextRequest) {
 
     let data: Record<string, unknown>;
     try {
-      data = await fetchAnalyticsForPlatform(platform, tokenData.accessToken, tokenData.metadata, since, until);
+      data = await fetchForPlatform(platform, tokenData.accessToken, tokenData.metadata, since, until);
     } catch (error: unknown) {
       let status = 500;
       let errorMessage = 'Internal server error';
@@ -290,7 +310,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Audit log
-      await db.auditLog.create({
+      try {
+        await db.auditLog.create({
         data: {
           userId: session.userId,
           action: 'social_analytics_fetch',
@@ -298,12 +319,14 @@ export async function GET(request: NextRequest) {
           details: JSON.stringify({ platform, period, error: errorMessage }),
         },
       });
+      } catch { /* audit write is best-effort; never fail the request */ }
 
       return NextResponse.json({ error: errorMessage }, { status });
     }
 
     // Audit log
-    await db.auditLog.create({
+    try {
+      await db.auditLog.create({
       data: {
         userId: session.userId,
         action: 'social_analytics_fetch',
@@ -311,6 +334,7 @@ export async function GET(request: NextRequest) {
         details: JSON.stringify({ platform, period }),
       },
     });
+    } catch { /* audit write is best-effort; never fail the request */ }
 
     return NextResponse.json({
       platform,
@@ -328,6 +352,11 @@ export async function GET(request: NextRequest) {
 }
 
 // ─── Analytics dispatcher ──────────────────────────────────────────────────────
+
+/** GET /api/social/analytics — thin route entry point. */
+export async function GET(request: NextRequest) {
+  return handleSocialAnalytics(request);
+}
 
 async function fetchAnalyticsForPlatform(
   platform: SocialPlatform,
