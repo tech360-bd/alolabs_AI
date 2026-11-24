@@ -7,11 +7,15 @@ import { requireRole } from '@/lib/api-auth';
 import { checkEndpointLimit } from '@/lib/security/rate-limiter';
 import { writeAuditEvent } from '@/lib/audit-events';
 import { CompanyAIError, executeCompanyAIChat } from '@/lib/multi-tenant-ai/service';
+import {
+  appendSuperAdminTurn,
+  clearSuperAdminConversation,
+  getOrCreateSuperAdminConversation,
+  loadSuperAdminHistory,
+} from '@/lib/chat/super-admin-conversation-store';
 import type { AIRequest } from '@/lib/ai-router/types';
 
 export const dynamic = 'force-dynamic';
-
-const conversations = new Map<string, Array<{ role: 'user' | 'assistant'; content: string }>>();
 
 const SYSTEM_PROMPT = `You are the ALO Labs Super Admin command-center assistant. You may help plan and explain work, but this chat endpoint does not dispatch agents or execute operational actions. Never claim that tasks, broadcasts, CRM changes, security scans, or other real-world operations have been performed. Clearly distinguish recommendations from actions that require a separate approved workflow. Treat company data as confidential.`;
 
@@ -72,8 +76,18 @@ export async function POST(request: NextRequest) {
     if (!company) return NextResponse.json({ error: 'Target company not found' }, { status: 404 });
     if (company.status !== 'active') return NextResponse.json({ error: 'Target company is not active' }, { status: 403 });
 
-    const historyKey = `${actor.userId}:${company.id}:${parsed.data.sessionId}`;
-    const history = conversations.get(historyKey) ?? [];
+    // Durable history, scoped to this user + tenant. Replaces the previous
+    // module-level Map, which lost every restart and diverged between
+    // instances.
+    const conversation = await getOrCreateSuperAdminConversation({
+      userId: actor.userId,
+      companyId: company.id,
+      sessionId: parsed.data.sessionId,
+    });
+    const history = await loadSuperAdminHistory({
+      conversationId: conversation.id,
+      companyId: company.id,
+    });
     const contextPrefix = [
       `[Company scope: ${company.name}]`,
       parsed.data.targetDepartment ? `[Department: ${parsed.data.targetDepartment}]` : '',
@@ -104,11 +118,21 @@ export async function POST(request: NextRequest) {
       { profile: 'free_general', dataClassification: 'confidential' },
     );
 
-    conversations.set(historyKey, [
-      ...history.slice(-18),
-      { role: 'user' as const, content: `${contextPrefix}\n${parsed.data.message}` },
-      { role: 'assistant' as const, content: result.response.content },
-    ].slice(-20));
+    // Persist both turns. Best-effort by design: a storage hiccup must not
+    // discard a reply the operator already waited for.
+    const persistedUser = await appendSuperAdminTurn({
+      conversationId: conversation.id,
+      turn: { role: 'user', content: `${contextPrefix}\n${parsed.data.message}` },
+    });
+    const persistedReply = await appendSuperAdminTurn({
+      conversationId: conversation.id,
+      turn: {
+        role: 'assistant',
+        content: result.response.content,
+        model: result.response.model,
+        metadata: { requestId: result.requestId, provider: result.provider },
+      },
+    });
 
     const agents = await getAvailableAgents(company.id, parsed.data.targetDepartment);
     return NextResponse.json({
@@ -118,7 +142,13 @@ export async function POST(request: NextRequest) {
       provider: result.provider,
       model: result.response.model,
       company: { id: company.id, name: company.name, slug: company.slug },
+      // This endpoint has never executed a broadcast and still does not. It is
+      // reported from the actual guard result rather than as a bare literal, so
+      // a future implementation cannot silently leave the field stale.
+      broadcastRequested: parsed.data.broadcast,
       broadcastExecuted: false,
+      conversationId: conversation.id,
+      persisted: { userTurn: persistedUser, assistantTurn: persistedReply },
       agents,
       timestamp: new Date().toISOString(),
     });
@@ -138,10 +168,19 @@ export async function DELETE(request: NextRequest) {
   try { actor = await requireRole('super_admin'); }
   catch (error) { return authError(error) ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
   const sessionId = request.nextUrl.searchParams.get('sessionId') || 'default';
-  const suffix = `:${sessionId}`;
-  for (const key of conversations.keys()) {
-    if (key.startsWith(`${actor.userId}:`) && key.endsWith(suffix)) conversations.delete(key);
+  // Deletes only this user's turns for this session. The conversation row is
+  // retained so the fact that a conversation existed stays auditable.
+  const deleted = await clearSuperAdminConversation({
+    userId: actor.userId,
+    companyId: actor.companyId ?? '',
+    sessionId,
+  }).catch((error: unknown) => {
+    console.error('[super-chat] Clear failed:', error instanceof Error ? error.message : error);
+    return -1;
+  });
+  if (deleted < 0) {
+    return NextResponse.json({ error: 'Failed to clear conversation' }, { status: 500 });
   }
-  await writeAuditEvent({ actorUserId: actor.userId, action: 'super_admin.chat.clear', resource: 'super-chat', details: { sessionId } });
-  return NextResponse.json({ success: true, message: 'Conversation cleared' });
+  await writeAuditEvent({ actorUserId: actor.userId, action: 'super_admin.chat.clear', resource: 'super-chat', details: { sessionId, messagesDeleted: deleted } });
+  return NextResponse.json({ success: true, message: 'Conversation cleared', messagesDeleted: deleted });
 }

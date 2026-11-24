@@ -121,13 +121,19 @@ export interface DashboardNavGroup {
   items: DashboardNavItem[]
 }
 
-/** Default view shown after sign-in. */
-export const DEFAULT_DASHBOARD_VIEW = 'enterprise-overview'
+/**
+ * Default view shown after sign-in.
+ *
+ * The unified chat is the platform's primary entry point: a user should land on
+ * the conversational surface and not have to hunt through panels to start work.
+ */
+export const DEFAULT_DASHBOARD_VIEW = 'chat'
 
 export const DASHBOARD_NAV: DashboardNavGroup[] = [
   {
     label: "ALO Labs",
     items: [
+      { id: "chat", label: "AI Chat", icon: MessageSquare },
       { id: "strategic-command", label: "Strategic Command", icon: Rocket },
       { id: "master-roadmap", label: "Master Roadmap", icon: Calendar },
       { id: "system-architecture", label: "System Architecture", icon: Network },
@@ -453,6 +459,7 @@ export const DASHBOARD_NAV: DashboardNavGroup[] = [
 export type DashboardPanelProps = { onNavigate?: (view: string) => void }
 
 export const DASHBOARD_PANELS: Record<string, () => Promise<{ default: ComponentType<DashboardPanelProps> }>> = {
+  "chat": () => import('@/components/chat/unified-chat') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "voice-overview": () => import('@/components/voice/voice-overview') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "voice-numbers": () => import('@/components/voice/voice-numbers') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "voice-calls": () => import('@/components/voice/voice-calls') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,

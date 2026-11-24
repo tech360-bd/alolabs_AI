@@ -1,14 +1,21 @@
 import type { Metadata, Viewport } from 'next'
-import { HomeExperience } from '@/components/site/home-experience'
+import { AgentosLanding } from '@/components/agentos/agentos-landing'
 import { BRAND, publicSiteIcons } from '@/lib/brand/public'
 import './public-design.css'
-import './home.css'
+import './agentos-3d.css'
 
 /**
- * The public website. This is what a first-time visitor sees at
- * https://alolabs.net — the services we offer, how we deliver them, and contact.
- * The authenticated application lives at `/dashboard` and
- * is not reachable without a session.
+ * The public website — the AgentOS landing page. This is what a first-time
+ * visitor sees at https://alolabs.net: a 3D product surface built on the
+ * supplied brand artwork (orange #FC5400 / blue #00309C, sampled from the logo
+ * rather than chosen by hand).
+ *
+ * The previous marketing site is preserved and still mounted at `/site`
+ * (`HomeExperience`), and is also reachable from the internal brand panel, so
+ * nothing was deleted when this route changed.
+ *
+ * The authenticated application lives at `/dashboard` and is not reachable
+ * without a session.
  *
  * Previously this route mounted the dashboard shell directly, which is why the
  * private application was visible to anonymous visitors. The dashboard was also
@@ -37,5 +44,5 @@ export const metadata: Metadata = {
 }
 
 export default function HomePage() {
-  return <HomeExperience />
+  return <AgentosLanding />
 }
