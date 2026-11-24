@@ -17,6 +17,238 @@ import type { CoverageEntry } from './types';
 const CHECKED = '2026-10-26';
 
 export const LINK_COVERAGE: CoverageEntry[] = [
+  // Requested 2026-11-24: upstream availability checked via the GitHub API on
+  // 2026-11-24. Local evidence below is related capability, not upstream
+  // installation or feature parity. See REQUESTED_LINKS_AUDIT_2026-11-24.md.
+  {
+    id: 'anomalyco-browse', url: 'https://github.com/anomalyco/browse.git', kind: 'repository', category: 'Developer tooling',
+    upstream: 'MCP server + Chromium extension that lets AI agents drive a real browser.', verdict: 'gap',
+    claim: 'The Command Agent has fetch-based tools (web_search, wikipedia_summary, get_weather) and an MCP server registry exists, but no real-browser control tool and no browse MCP server is connected.',
+    evidence: [
+      { label: 'Command Agent tools', path: 'src/lib/command-agent/tools.ts', kind: 'library' },
+      { label: 'MCP servers route', path: 'src/app/api/mcp-servers/route.ts', kind: 'route' },
+    ],
+    gap: 'No browser automation tool, Chromium extension or browse MCP connection; agent web tasks are plain HTTP fetches. Needs consent/isolation review and an end-to-end browser task test.',
+    upstreamMeta: { stars: 1077, language: 'TypeScript', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'mynah', url: 'https://github.com/honwee/mynah.git', kind: 'repository', category: 'Media & creation',
+    upstream: 'Self-hosted realtime digital human (Go, one GPU, admin console, Apache-2.0).', verdict: 'gap',
+    claim: 'Avatar/voice generation routes exist with a consent gate and delegate to the media-generation service, which requires a configured provider; there is no realtime digital-human streaming engine here.',
+    evidence: [
+      { label: 'Avatar generation route', path: 'src/app/api/avatar-voice/generate-avatar/route.ts', kind: 'route' },
+      { label: 'Human avatar & voice page', path: 'src/components/pages/human-avatar-voice.tsx', kind: 'page' },
+    ],
+    gap: 'No Mynah deployment, GPU inference stack or realtime avatar stream; live avatar generation itself is unverified.',
+    upstreamMeta: { stars: 324, language: 'Go', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'vllm', url: 'https://github.com/vllm-project/vllm.git', kind: 'repository', category: 'AI & models',
+    upstream: 'High-throughput LLM inference and serving engine (Python, Apache-2.0).', verdict: 'gap',
+    claim: 'An OpenAI-compatible provider explicitly targets vLLM-style gateways and the provider registry names a local Ollama/vLLM gateway, but the bundled inference compose runs Ollama; no vLLM service, GPU deployment or live contract test exists here.',
+    evidence: [
+      { label: 'OpenAI-compatible provider (names vLLM)', path: 'src/lib/ai-router/openai-compatible-provider.ts', kind: 'library' },
+      { label: 'Provider registry (local gateway)', path: 'src/lib/ai-router/provider-registry.ts', kind: 'library' },
+      { label: 'Inference compose (Ollama, not vLLM)', path: 'docker-compose.inference.yml', kind: 'config' },
+    ],
+    gap: 'Add a vLLM deployment option on a GPU host, point the local gateway/provider config at it, and run live model contract tests.',
+    upstreamMeta: { stars: 97496, language: 'Python', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'openai-agents-js', url: 'https://github.com/openai/openai-agents-js.git', kind: 'repository', category: 'AI & models',
+    upstream: 'OpenAI framework for multi-agent workflows and voice agents (TypeScript, MIT). Requested twice; listed once.', verdict: 'in_kind',
+    claim: 'An agent runtime with a tool loop, a runs API and a voice orchestrator exists here as first-party code; the @openai/agents SDK is not a dependency and no upstream parity test exists.',
+    evidence: [
+      { label: 'Agent tool loop', path: 'src/lib/agent-runtime/tool-loop.ts', kind: 'library' },
+      { label: 'Runs API', path: 'src/app/api/runs/route.ts', kind: 'route' },
+      { label: 'Voice orchestrator', path: 'src/lib/voice/orchestrator.ts', kind: 'library' },
+      { label: 'Package manifest (no @openai/agents)', path: 'package.json', kind: 'config' },
+    ],
+    gap: 'No upstream SDK integration or feature-parity test; live provider execution remains NOT VERIFIED (see ALO_LABS_AI_ECOSYSTEM_MATRIX.md).',
+    upstreamMeta: { stars: 4029, language: 'TypeScript', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'openai-whisper', url: 'https://github.com/openai/whisper.git', kind: 'repository', category: 'Voice, calls & SMS',
+    upstream: 'OpenAI Whisper speech recognition model and Python inference code (MIT).', verdict: 'in_kind',
+    claim: 'Speech-to-text exists here as adapters: an OpenAI-compatible ASR engine using whisper model names (works with local Whisper servers) and a media transcription client. The upstream Python package and model weights are not vendored and no Whisper server is bundled.',
+    evidence: [
+      { label: 'ASR/TTS HTTP engine', path: 'src/lib/voice/speech-adapters/http-engine.ts', kind: 'library' },
+      { label: 'Media transcription client', path: 'src/lib/media-generation/transcribe.ts', kind: 'library' },
+      { label: 'Speech orchestrator tests', path: '__tests__/unit/lib/voice/speech-orchestrator.test.ts', kind: 'test' },
+    ],
+    gap: 'Deploy a Whisper-compatible ASR server (or vendor weights under their licence) and run a live transcription test; no provider-backed success produced here.',
+    upstreamMeta: { stars: 113428, language: 'Python', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'jasmin-sms', url: 'https://github.com/jookies/jasmin.git', kind: 'repository', category: 'Voice, calls & SMS',
+    upstream: 'Jasmin open-source SMS gateway (Python, SMPP/HTTP).', verdict: 'gap',
+    claim: 'The SMS route stores pending records and a tested httpSMS client exists, but no SMPP gateway is deployed and the route does not call any send adapter.',
+    evidence: [
+      { label: 'SMS route (pending records)', path: 'src/app/api/sms/route.ts', kind: 'route' },
+      { label: 'httpSMS client', path: 'src/lib/sms/httpsms-client.ts', kind: 'library' },
+    ],
+    gap: 'No Jasmin deployment, SMPP connector or carrier agreement; wire the route to a configured gateway and verify live delivery. GitHub licence detection is NOASSERTION; the LICENSE file carries Apache-2.0 text — review before use.',
+    upstreamMeta: { stars: 1220, language: 'Python', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'telnyx-api-profile', url: 'https://github.com/api-evangelist/telnyx.git', kind: 'repository', category: 'Voice, calls & SMS',
+    upstream: 'API Evangelist third-party profile of the Telnyx API surface (documentation, not Telnyx code).', verdict: 'reference',
+    claim: 'A replaceable telephony adapter interface exists with a simulated sandbox and honest not-connected failures; no Telnyx adapter is implemented. This upstream repo is an API-surface profile, not an SDK.',
+    evidence: [
+      { label: 'Telephony adapter interface', path: 'src/lib/voice/telephony/adapter.ts', kind: 'library' },
+      { label: 'Telephony registry', path: 'src/lib/voice/telephony/registry.ts', kind: 'library' },
+      { label: 'Telephony architecture', path: 'docs/TELEPHONY_ARCHITECTURE.md', kind: 'doc' },
+    ],
+    gap: 'If Telnyx is chosen: implement the adapter against the real API with credentials, webhooks and a live call test.',
+    upstreamMeta: { stars: 0, archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'vidslider-wp', url: 'https://github.com/MerlinStacks/VidSliderWP.git', kind: 'repository', category: 'Media & creation',
+    upstream: 'Reel It video slider WordPress plugin with WooCommerce product tagging (PHP, GPL-2.0).', verdict: 'not_applicable',
+    claim: 'Requires a WordPress/WooCommerce (PHP) runtime; this repository is a Next.js application with no WordPress target. Video management here is the video hub, not a storefront gallery plugin.',
+    evidence: [
+      { label: 'Video hub route', path: 'src/app/api/video-hub/route.ts', kind: 'route' },
+      { label: 'Package manifest (Next.js, no PHP)', path: 'package.json', kind: 'config' },
+    ],
+    upstreamMeta: { stars: 0, language: 'PHP', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'true-video-product-gallery', url: 'https://github.com/MerlinStacks/true-video-product-gallery.git', kind: 'repository', category: 'Media & creation',
+    upstream: 'WooCommerce product-gallery replacement with a video slider (YouTube, Vimeo, TikTok, Reels, self-hosted).', verdict: 'not_applicable',
+    claim: 'A WordPress/WooCommerce PHP plugin; no WordPress runtime or WooCommerce storefront exists here. GitHub detects no licence — terms must be clarified before any code reuse.',
+    evidence: [
+      { label: 'Video hub route', path: 'src/app/api/video-hub/route.ts', kind: 'route' },
+      { label: 'Package manifest (Next.js, no PHP)', path: 'package.json', kind: 'config' },
+    ],
+    upstreamMeta: { stars: 0, language: 'PHP', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'socaliseit', url: 'https://github.com/MerlinStacks/socaliseit.git', kind: 'repository', category: 'Social & publishing',
+    upstream: 'Social media management platform: multi-track Remotion video editing, unified publishing, AI captions, analytics, e-commerce sync (Next.js 16 + Prisma, MIT).', verdict: 'in_kind',
+    claim: 'This repo already publishes to eleven networks with per-network providers, OAuth, analytics and a video studio; the upstream application is not installed and no parity test exists.',
+    evidence: [
+      { label: 'Social provider registry', path: 'src/lib/social/index.ts', kind: 'library' },
+      { label: 'Publish route', path: 'src/app/api/social/publish/route.ts', kind: 'route' },
+      { label: 'Analytics route', path: 'src/app/api/social/analytics/route.ts', kind: 'route' },
+      { label: 'Video studio generate', path: 'src/app/api/video-studio/generate/route.ts', kind: 'route' },
+    ],
+    gap: 'No multi-track Remotion timeline editor and no Shopify/WooCommerce sync here; upstream code not imported.',
+    upstreamMeta: { stars: 32, language: 'TypeScript', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'teleport', url: 'https://github.com/gravitational/teleport.git', kind: 'repository', category: 'Monitoring & ops',
+    upstream: 'Infrastructure access platform (SSH/Kubernetes/apps) with identity-based access (Go, AGPL-3.0).', verdict: 'gap',
+    claim: 'Application-level auth, sessions and RBAC exist here; they secure this app, not infrastructure access. No Teleport deployment or access-proxy configuration exists in this repo.',
+    evidence: [
+      { label: 'Auth library', path: 'src/lib/auth.ts', kind: 'library' },
+      { label: 'Security policy', path: 'SECURITY.md', kind: 'doc' },
+    ],
+    gap: 'Infrastructure access (SSH/Kubernetes) is outside this app; deploying Teleport is an ops decision with AGPL-3.0 review, separate from app auth.',
+    upstreamMeta: { stars: 21139, language: 'Go', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'free-for-dev-mirror', url: 'https://github.com/jixserver/free-for-dev.git', kind: 'repository', category: 'Reference & content',
+    upstream: 'Free-tier SaaS/PaaS/IaaS list (free-for.dev content); last push 2024-08-15; GitHub reports no licence and does not flag it as a fork.', verdict: 'reference',
+    claim: 'A curated subset of the free-for.dev catalogue is already served by the free-resources route with tests; this copy is not vendored or synced and its content is older than the live list.',
+    evidence: [
+      { label: 'Curated free-tier catalogue', path: 'src/lib/free-resources.ts', kind: 'library' },
+      { label: 'Free resources route', path: 'src/app/api/free-resources/route.ts', kind: 'route' },
+      { label: 'Catalogue tests', path: '__tests__/unit/lib/free-resources.test.ts', kind: 'test' },
+    ],
+    gap: 'No automated sync against the upstream list; free-tier allowances are quoted as unverified and must be re-checked at the vendor.',
+    upstreamMeta: { stars: 5702, archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'anomalyco-phonecall', url: 'https://github.com/anomalyco/phonecall.git', kind: 'repository', category: 'Voice, calls & SMS',
+    upstream: 'Agent phone calls: Grok Voice + Twilio on Cloudflare, with CLI and MCP server (MIT).', verdict: 'in_kind',
+    claim: 'A voice call orchestrator, campaigns, metering and a telephony adapter registry exist here; the default adapter is explicitly simulated and real providers fail honestly until connected. No Twilio/Grok Voice bridge is deployed.',
+    evidence: [
+      { label: 'Voice orchestrator', path: 'src/lib/voice/orchestrator.ts', kind: 'library' },
+      { label: 'Telephony registry (sandbox default)', path: 'src/lib/voice/telephony/registry.ts', kind: 'library' },
+      { label: 'Telephony architecture', path: 'docs/TELEPHONY_ARCHITECTURE.md', kind: 'doc' },
+    ],
+    gap: 'No live PSTN provider, carrier credentials or real-call verification; upstream Cloudflare/Grok stack not installed.',
+    upstreamMeta: { stars: 12, language: 'TypeScript', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'nightmail', url: 'https://github.com/anomalyco/nightmail.git', kind: 'repository', category: 'Chat & messaging',
+    upstream: 'Nightmail email application (TypeScript, MIT).', verdict: 'in_kind',
+    claim: 'Email is a first-party subsystem here: SMTP send (nodemailer), a raw-socket IMAP reader, templates and tracking with API routes. The Nightmail application is not installed and no parity test exists.',
+    evidence: [
+      { label: 'SMTP client', path: 'src/lib/email/smtp.ts', kind: 'library' },
+      { label: 'IMAP client', path: 'src/lib/email/imap.ts', kind: 'library' },
+      { label: 'Inbox route', path: 'src/app/api/email/inbox/route.ts', kind: 'route' },
+      { label: 'Send route', path: 'src/app/api/email/send/route.ts', kind: 'route' },
+    ],
+    gap: 'Live SMTP/IMAP delivery against real accounts is configuration-dependent and not verified here; upstream client not imported.',
+    upstreamMeta: { stars: 48, language: 'TypeScript', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'phonecall-mint', url: 'https://github.com/Link2theWorld/phonecall-mint.git', kind: 'repository', category: 'Voice, calls & SMS',
+    upstream: 'Phone/FaceTime-style call UI for AI roleplay (SillyTavern extension + embeddable web component, MIT).', verdict: 'reference',
+    claim: 'Call management UI exists here (voice calls panel, call service); it is an operations console, not a consumer slide-to-answer call screen. The upstream component targets SillyTavern/embedded roleplay, not this console.',
+    evidence: [
+      { label: 'Voice calls panel', path: 'src/components/voice/voice-calls.tsx', kind: 'panel' },
+      { label: 'Call service', path: 'src/lib/voice/call-service.ts', kind: 'library' },
+    ],
+    gap: 'If a consumer-style incoming-call screen is wanted, design it against the existing call lifecycle; do not import the SillyTavern extension.',
+    upstreamMeta: { stars: 4, language: 'JavaScript', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'omniroute', url: 'https://github.com/cheaper-inference/OmniRoute.git', kind: 'repository', category: 'AI & models',
+    upstream: 'MIT AI gateway: one endpoint, hundreds of providers/models, quota-aware auto-fallback, token compression, MCP/A2A.', verdict: 'in_kind',
+    claim: 'A multi-provider router with fallback, a free-model catalogue and provider administration exist here as first-party code; no OmniRoute gateway is deployed or adapted and live routing is NOT VERIFIED.',
+    evidence: [
+      { label: 'Router index and fallback', path: 'src/lib/ai-router/index.ts', kind: 'library' },
+      { label: 'Free-model catalogue', path: 'src/lib/ai-router/free-models.ts', kind: 'library' },
+      { label: 'Provider catalogue', path: 'src/lib/ai-provider-catalog.ts', kind: 'library' },
+      { label: 'Model tiers', path: 'src/lib/ai-router/model-tiers.ts', kind: 'library' },
+    ],
+    gap: 'No OmniRoute deployment/adapter; upstream default branch is a release branch (release/v3.8.55) and the repo is ~3.9 GB — pin and review before any import.',
+    upstreamMeta: { stars: 90121, language: 'TypeScript', archived: false, checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'vllm-project-org', url: 'https://github.com/vllm-project', kind: 'repository', category: 'AI & models',
+    upstream: 'vLLM project organisation (inference engine and companion repositories).', verdict: 'reference',
+    claim: 'Organisation listing, not an installable artefact; the engine repo has its own row (vllm). A local OpenAI-compatible provider could target a vLLM server, but none is deployed.',
+    evidence: [
+      { label: 'OpenAI-compatible provider', path: 'src/lib/ai-router/openai-compatible-provider.ts', kind: 'library' },
+      { label: 'Inference compose (Ollama)', path: 'docker-compose.inference.yml', kind: 'config' },
+    ],
+    upstreamMeta: { checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'nuxt-org-repos', url: 'https://github.com/orgs/nuxt/repositories', kind: 'repository', category: 'Developer tooling',
+    upstream: 'Nuxt organisation repository listing (Vue/Nuxt framework and modules).', verdict: 'not_applicable',
+    claim: 'This application is Next.js 16 / React 19 (App Router); Nuxt is a different framework runtime (Vue) and no Nuxt package is a dependency. Rebuilding on Nuxt is out of scope for this repo.',
+    evidence: [
+      { label: 'Next.js config', path: 'next.config.ts', kind: 'config' },
+      { label: 'Package manifest (Next.js/React)', path: 'package.json', kind: 'config' },
+    ],
+    upstreamMeta: { checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'nuxt-scripts', url: 'https://scripts.nuxt.com/scripts', kind: 'site', category: 'Developer tooling',
+    upstream: '@nuxt/scripts: third-party script loading for the Nuxt runtime.', verdict: 'not_applicable',
+    claim: 'Targets Nuxt/Vue; this app is Next.js and does not depend on @nuxt/scripts. The site could not be fetched from this sandbox (GitHub/registry-only egress).',
+    evidence: [
+      { label: 'Package manifest (no @nuxt/scripts)', path: 'package.json', kind: 'config' },
+      { label: 'Next.js config', path: 'next.config.ts', kind: 'config' },
+    ],
+    upstreamMeta: { checkedAt: '2026-11-24' },
+  },
+  {
+    id: 'free-for-dev-site', url: 'https://free-for.dev/#/', kind: 'site', category: 'Reference & content',
+    upstream: 'The free-for.dev catalogue of free developer service tiers.', verdict: 'in_kind',
+    claim: 'A curated subset of this catalogue is implemented locally (free-resources module + API + tests), restricted to entries that map onto real capabilities; the full list is not vendored and the site itself could not be fetched from this sandbox.',
+    evidence: [
+      { label: 'Curated free-tier catalogue', path: 'src/lib/free-resources.ts', kind: 'library' },
+      { label: 'Free resources route', path: 'src/app/api/free-resources/route.ts', kind: 'route' },
+      { label: 'Catalogue tests', path: '__tests__/unit/lib/free-resources.test.ts', kind: 'test' },
+    ],
+    gap: 'No sync with the live list; allowances are marked unverified and carry vendor verify URLs.',
+    upstreamMeta: { checkedAt: '2026-11-24' },
+  },
   // Requested 2026-11-02: local evidence is not upstream installation or parity.
   {
     id: 'opensms', url: 'https://github.com/daslearning-org/OpenSMS.git', kind: 'repository', category: 'Voice, calls & SMS',

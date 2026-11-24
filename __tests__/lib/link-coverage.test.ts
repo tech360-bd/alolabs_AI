@@ -68,6 +68,27 @@ const EXPECTED_LINKS = [
   'github.com/graykode/toeicbert',
   'github.com/ioi-labs/molx',
   'github.com/cline/cline',
+  // Requested 2026-11-24 (GitHub API availability + local evidence audit).
+  'github.com/anomalyco/browse',
+  'github.com/honwee/mynah',
+  'github.com/vllm-project/vllm',
+  'github.com/openai/openai-agents-js',
+  'github.com/openai/whisper',
+  'github.com/jookies/jasmin',
+  'github.com/api-evangelist/telnyx',
+  'github.com/MerlinStacks/VidSliderWP',
+  'github.com/MerlinStacks/true-video-product-gallery',
+  'github.com/MerlinStacks/socaliseit',
+  'github.com/gravitational/teleport',
+  'github.com/jixserver/free-for-dev',
+  'github.com/anomalyco/phonecall',
+  'github.com/anomalyco/nightmail',
+  'github.com/Link2theWorld/phonecall-mint',
+  'github.com/cheaper-inference/OmniRoute',
+  'github.com/vllm-project',
+  'github.com/orgs/nuxt/repositories',
+  'scripts.nuxt.com/scripts',
+  'free-for.dev/#',
 ];
 
 function normalise(url: string): string {
