@@ -24,7 +24,10 @@ import {
   Cpu,
   Gauge,
   Layers,
+  Layers3,
+  Megaphone,
   Quote,
+  ServerCog,
   ShieldCheck,
   Sparkles,
   Users,
@@ -32,14 +35,11 @@ import {
   Zap,
 } from 'lucide-react'
 
-import {
-  AGENTOS_LOGO,
-  AGENTOS_CAPABILITIES,
-  PUBLIC_COMPANY,
-  SITE_DARK,
-  agentosStyle,
-} from '@/lib/brand/agentos-3d'
+import { AGENTOS_LOGO, AGENTOS_CAPABILITIES, SITE_DARK, agentosStyle } from '@/lib/brand/agentos-3d'
 import { SERVICE_GROUP_BLURB, SERVICE_GROUPS, SERVICE_LINES, SERVICE_STATE_LABEL } from '@/lib/brand/service-lines'
+import { BUSINESS_SOLUTIONS } from '@/lib/brand/solutions'
+import { SHOWCASE_PROJECTS, PROJECT_STATE_LABEL } from '@/lib/brand/projects'
+import { TrustSection } from './trust-section'
 import { OrbCore } from './orb-core'
 import { DarkFooter, DarkHeader } from './dark-chrome'
 
@@ -71,6 +71,44 @@ const SERVICE_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
 function ImageIcon({ size = 20 }: { size?: number }) {
   return <Sparkles size={size} />
 }
+
+/** Icons for the three solutions shown on the homepage. */
+
+/**
+ * The twelve solutions, grouped into four buyable families for the homepage.
+ *
+ * The homepage shows the families rather than twelve individual cards: twelve
+ * cards pushed the platform section two screens down, and a visitor deciding
+ * whether to keep reading needs the shape of the offer, not the whole catalogue.
+ * Each family links straight to its solution pages, so nothing is hidden behind
+ * another click-through of the hub.
+ */
+const HOMEPAGE_SOLUTION_FAMILIES = [
+  {
+    icon: Bot,
+    name: 'Intelligent systems',
+    line: 'Agents and orchestration that reason, act, and can be audited afterwards.',
+    slugs: ['custom-ai-agent-development', 'multi-agent-ai-systems', 'voice-ai-customer-support'],
+  },
+  {
+    icon: Code2,
+    name: 'Software engineering',
+    line: 'AI-native applications, web platforms and the business systems behind them.',
+    slugs: ['ai-software-development', 'website-web-application-development', 'enterprise-crm-portals'],
+  },
+  {
+    icon: Megaphone,
+    name: 'Growth',
+    line: 'Search visibility, content production and media — with a human accountable for every claim.',
+    slugs: ['ai-marketing-seo', 'ai-content-production', 'image-video-audio'],
+  },
+  {
+    icon: ServerCog,
+    name: 'Operations',
+    line: 'Process automation, integration and the cloud engineering that keeps it running.',
+    slugs: ['business-process-automation', 'api-system-integration', 'cloud-devops-engineering'],
+  },
+] as const
 
 /** Reveal-on-scroll that can never leave content invisible. */
 function useReveal() {
@@ -160,22 +198,26 @@ export function AgentosHome() {
         <section className="ag-hero" aria-labelledby="ag-title">
           <div className="ag-shell ag-hero-grid">
             <div>
-              <p className="ag-eyebrow">AI software · agents · automation</p>
+              <p className="ag-eyebrow">ALO Labs AgentOS · AI software · agents · automation</p>
               <h1 id="ag-title" className="ag-h1">
-                Intelligence that <span className="ag-h1-grad">builds</span>{' '}
-                <span className="ag-h1-warm">the future</span>.
+                The operating system for{' '}
+                <span className="ag-h1-grad">intelligent</span>{' '}
+                <span className="ag-h1-warm">agents</span>.
               </h1>
               <p className="ag-lead">
-                From intelligent AI agents to enterprise software and business automation, ALO Labs engineers
-                technology that turns ambitious ideas into real-world solutions.
+                Build smarter businesses with intelligent AI systems. ALO Labs engineers autonomous agents,
+                custom software, and business automation that turn ambitious ideas into real-world solutions.
               </p>
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 32 }}>
-                <Link href="/site/contact" className="ag-btn ag-btn-primary">
-                  Start your project <ArrowRight size={16} aria-hidden="true" />
+                <Link href="/site/platform-overview" className="ag-btn ag-btn-primary">
+                  Explore AI Platform <ArrowRight size={16} aria-hidden="true" />
                 </Link>
-                <Link href="/site/platform-overview" className="ag-btn ag-btn-ghost">
-                  Explore our AI platform
+                <Link href="/site/solutions" className="ag-btn ag-btn-ghost">
+                  Explore Our Services
+                </Link>
+                <Link href="/site/start-a-project" className="ag-btn ag-btn-ghost">
+                  Start a Project
                 </Link>
               </div>
 
@@ -199,6 +241,69 @@ export function AgentosHome() {
             <div className="ag-3d-scene">
               <OrbCore />
             </div>
+          </div>
+        </section>
+
+        {/* ── Business solutions ────────────────────────────────────────── */}
+        <section className="ag-section" id="solutions" aria-labelledby="ag-sol-title">
+          <div className="ag-shell">
+            <div className="ag-section-head ag-reveal">
+              <div className="ag-section-lead">
+                <p className="ag-eyebrow">Business solutions</p>
+                <h2 id="ag-sol-title" className="ag-h2">
+                  AI solutions that move your business{' '}
+                  <span className="ag-h1-warm">forward</span>.
+                </h2>
+                <p className="ag-lead">
+                  Twelve things you can buy from ALO Labs, each stating the problem it solves, exactly what you
+                  receive, how we deliver it — and what is genuinely available today.
+                </p>
+              </div>
+              <Link href="/site/solutions" className="ag-btn ag-btn-ghost" style={{ flexShrink: 0 }}>
+                All twelve solutions <ArrowRight size={15} aria-hidden="true" />
+              </Link>
+            </div>
+
+            <div className="ag-sol-grid ag-sol-grid-4">
+              {HOMEPAGE_SOLUTION_FAMILIES.map(({ name, slugs, line, icon: FamilyIcon }) => {
+                const items = slugs
+                  .map((slug) => BUSINESS_SOLUTIONS.find((b) => b.slug === slug))
+                  .filter((x): x is (typeof BUSINESS_SOLUTIONS)[number] => Boolean(x))
+                const live = items.filter((i) => i.state === 'live').length
+                return (
+                  <div key={name} className="ag-sol-card ag-reveal" style={{ cursor: 'default' }}>
+                    <div className="ag-sol-head">
+                      <span className="ag-sol-glyph" aria-hidden="true">
+                        <FamilyIcon size={18} />
+                      </span>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#7E90B4' }}>
+                        {items.length} solutions{live ? ` · ${live} live` : ''}
+                      </span>
+                    </div>
+                    <h3 className="ag-sol-title">{name}</h3>
+                    <p className="ag-sol-line">{line}</p>
+                    <ul className="ag-sol-links">
+                      {items.map((item) => (
+                        <li key={item.slug}>
+                          <Link href={`/site/solutions/${item.slug}`}>
+                            {item.name}
+                            <ArrowRight size={12} aria-hidden="true" />
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link href="/site/solutions" className="ag-sol-foot" style={{ textDecoration: 'none' }}>
+                      All twelve solutions <ArrowRight size={14} aria-hidden="true" />
+                    </Link>
+                  </div>
+                )
+              })}
+            </div>
+
+            <p className="ag-muted" style={{ margin: '18px 0 0', fontSize: '0.8rem', lineHeight: 1.6 }}>
+              Every solution page answers the same four questions, then states what is genuinely available today.
+              The labels are the same ones the platform page uses.
+            </p>
           </div>
         </section>
 
@@ -243,7 +348,7 @@ export function AgentosHome() {
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.85rem', color: '#8194B8' }}>{group.blurb}</p>
                 </div>
-                <div className="ag-svc-grid">
+                <div className="ag-svc-grid ag-svc-grid-4">
                   {group.lines.map((line) => {
                     const Icon = SERVICE_ICON[line.slug] ?? Sparkles
                     return (
@@ -333,6 +438,59 @@ export function AgentosHome() {
             </p>
           </div>
         </section>
+
+        {/* ── Verified work ─────────────────────────────────────────────── */}
+        <section className="ag-section" id="work" aria-labelledby="ag-work-title">
+          <div className="ag-shell">
+            <div className="ag-section-head ag-reveal">
+              <div className="ag-section-lead">
+                <p className="ag-eyebrow">Verified work</p>
+                <h2 id="ag-work-title" className="ag-h2">
+                  Work you can verify, not just admire.
+                </h2>
+                <p className="ag-lead">
+                  Three things we have actually shipped, with their architecture, their real limits and the
+                  evidence behind each claim. No borrowed logos, no invented clients, no unverifiable metrics.
+                </p>
+              </div>
+              <Link href="/site/projects" className="ag-btn ag-btn-ghost" style={{ flexShrink: 0 }}>
+                All case studies <ArrowRight size={15} aria-hidden="true" />
+              </Link>
+            </div>
+
+            <div className="ag-proj-grid">
+              {SHOWCASE_PROJECTS.map((project) => (
+                <Link key={project.slug} href={`/site/projects/${project.slug}`} className="ag-sol-card ag-reveal">
+                  <div className="ag-sol-head">
+                    <span className="ag-sol-glyph" aria-hidden="true">
+                      <Layers3 size={18} />
+                    </span>
+                    <span
+                      className={`ag-pill-state ag-pill-${project.state === 'live' ? 'delivered' : project.state === 'partial' ? 'available' : 'project'}`}
+                    >
+                      {PROJECT_STATE_LABEL[project.state]}
+                    </span>
+                  </div>
+                  <h3 className="ag-sol-title">{project.name}</h3>
+                  <p className="ag-sol-line">{project.summary.slice(0, 150)}…</p>
+                  <div className="ag-sol-tags">
+                    {project.stack.slice(0, 3).map((t) => (
+                      <span key={t} className="ag-tag">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="ag-sol-foot">
+                    Read the case study <ArrowRight size={14} aria-hidden="true" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Engineering you can trust ─────────────────────────────────── */}
+        <TrustSection compact />
 
         {/* ── Evidence / why us ─────────────────────────────────────────── */}
         <section className="ag-section" aria-labelledby="ag-ev-title">
@@ -493,19 +651,22 @@ export function AgentosHome() {
                 </div>
               </div>
               <h2 id="ag-cta-title" className="ag-h2" style={{ marginBottom: 14 }}>
-                Tell us what you are trying to build.
+                Tell us what you are trying to build — or fix.
               </h2>
               <p className="ag-lead" style={{ margin: '0 auto 30px', maxWidth: '56ch' }}>
                 A short description of the problem is enough to start. We reply within one business day with a real
                 response — not a sales sequence.
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-                <Link href="/site/contact" className="ag-btn ag-btn-primary">
-                  Start your project <ArrowRight size={16} aria-hidden="true" />
+                <Link href="/site/start-a-project" className="ag-btn ag-btn-primary">
+                  Start a Project <ArrowRight size={16} aria-hidden="true" />
                 </Link>
-                <a href={`mailto:${PUBLIC_COMPANY.email}`} className="ag-btn ag-btn-ghost">
-                  {PUBLIC_COMPANY.email}
-                </a>
+                <Link href="/site/request-a-solution" className="ag-btn ag-btn-ghost">
+                  Request an AI solution
+                </Link>
+                <Link href="/site/book-a-consultation" className="ag-btn ag-btn-ghost">
+                  Book a consultation
+                </Link>
               </div>
 
               <div

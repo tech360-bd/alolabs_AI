@@ -39,6 +39,30 @@ describe('public sitemap', () => {
     expect(urls).toContain('https://example.com/site/services')
   })
 
+  it('lists every business solution and case study exactly once', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://example.com'
+    const urls = sitemap().map((entry) => entry.url)
+    // Generated from the same data the pages render, so a listed slug cannot 404.
+    const solutionUrls = urls.filter((u) => u.includes('/site/solutions/'))
+    expect(solutionUrls).toHaveLength(12)
+    expect(new Set(solutionUrls).size).toBe(12)
+    expect(solutionUrls).toContain('https://example.com/site/solutions/custom-ai-agent-development')
+    const projectUrls = urls.filter((u) => u.includes('/site/projects/'))
+    expect(projectUrls).toHaveLength(3)
+    expect(projectUrls).toContain('https://example.com/site/projects/agentos')
+    // The two indexes are present as well.
+    expect(urls).toContain('https://example.com/site/solutions')
+    expect(urls).toContain('https://example.com/site/projects')
+  })
+
+  it('advertises the three conversion routes', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://example.com'
+    const urls = sitemap().map((entry) => entry.url)
+    expect(urls).toContain('https://example.com/site/start-a-project')
+    expect(urls).toContain('https://example.com/site/request-a-solution')
+    expect(urls).toContain('https://example.com/site/book-a-consultation')
+  })
+
   it('never advertises private or internal surfaces to search engines', () => {
     process.env.NEXT_PUBLIC_APP_URL = 'https://example.com'
     const urls = sitemap().map((entry) => entry.url)

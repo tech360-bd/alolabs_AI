@@ -66,18 +66,28 @@ export function websiteSchema() {
   }
 }
 
-/** A service as schema.org understands it. */
-export function serviceSchema(service: { name: string; tagline: string; slug: string }) {
+/**
+ * A service as schema.org understands it.
+ *
+ * `urlPath` exists because the same builder serves two different page families:
+ * service lines live at `/site/services/<slug>` and business solutions at
+ * `/site/solutions/<slug>`. Emitting the services URL for a solution would
+ * point structured data at the wrong page — the one failure mode a canonical
+ * URL must not have — so the path is a parameter, defaulting to the service
+ * route for every caller that predates it.
+ */
+export function serviceSchema(service: { name: string; tagline: string; slug: string; urlPath?: string }) {
+  const path = service.urlPath ?? `/site/services/${service.slug}`
   return {
     '@context': 'https://schema.org',
     '@type': 'Service',
     name: service.name,
     description: service.tagline,
-    url: absoluteUrl(`/site/services/${service.slug}`),
+    url: absoluteUrl(path),
     provider: { '@id': `${PUBLIC_ORIGIN}/#organization` },
     areaServed: PUBLIC_COMPANY.areaServed,
     serviceType: service.name,
-    mainEntityOfPage: absoluteUrl(`/site/services/${service.slug}`),
+    mainEntityOfPage: absoluteUrl(path),
   }
 }
 

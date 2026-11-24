@@ -94,6 +94,13 @@
   color: transparent;
 }
 
+/* Interior-page display headings use the brand display face; the homepage h1
+   stays on the body face because its weight is already carrying the contrast. */
+.ag-page .ag-h2 {
+  font-family: var(--ag-display);
+  letter-spacing: -0.03em;
+}
+
 .ag-h2 {
   margin: 0;
   font-size: clamp(1.85rem, 3.5vw, 3rem);
@@ -218,6 +225,9 @@
 
 @media (max-width: 960px) {
   .ag-hero-grid { grid-template-columns: 1fr; }
+  /* On one column the orb follows the copy; 380px keeps it a visual anchor
+     rather than a full screen of scroll before the first section. */
+  .ag-orb { max-width: 380px; }
 }
 
 /* 3D scene wrapper: real perspective, layers translate on Z. */
@@ -234,7 +244,11 @@
   position: relative;
   width: 100%;
   aspect-ratio: 1;
-  max-width: 560px;
+  /* 560px was taller than the hero copy column at 1440px, so the grid row grew
+     to match the orb and left ~200px of dead space under the stat chips.
+     Capping it at 460px keeps the orb a hero element rather than the layout
+     driver; it still fills the right column at narrower widths. */
+  max-width: 460px;
   margin-inline: auto;
   transform-style: preserve-3d;
 }
@@ -365,7 +379,10 @@
 /* ── Sections ─────────────────────────────────────────────────────────────── */
 
 .ag-section {
-  padding: clamp(56px, 7vw, 104px) 0;
+  /* Was clamp(56px, 7vw, 104px), which at 1440px produced 208px between adjacent
+     sections — enough to read as a rendering fault rather than breathing room.
+     72px at desktop keeps the bands distinct without the dead gaps. */
+  padding: clamp(48px, 5vw, 72px) 0;
 }
 
 .ag-section-head {
@@ -716,6 +733,12 @@
      interior pages resolved `width: var(--ag-shell)` to nothing and every
      section rendered flush against the left edge. */
   --ag-shell: min(1240px, calc(100vw - 48px));
+  /* Interior pages inherited the authenticated app's sans stack, because the
+     dark chrome never restated the typeface the homepage sets. Two registers
+     on one website read as two companies; this pins every dark page to the
+     brand body face (Inter) with the display face available for headings. */
+  --ag-body: var(--font-inter-brand, 'Inter', 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  --ag-display: var(--font-poppins, 'Poppins', 'Inter', ui-sans-serif, system-ui, sans-serif);
   position: relative;
   isolation: isolate;
   overflow-x: clip;
@@ -988,3 +1011,662 @@
   transition: top 0.18s ease;
 }
 .ag-skip:focus { top: 12px; }
+
+/* ============================================================================
+   Premium public-site components
+   ----------------------------------------------------------------------------
+   Added for the solutions hub, the solution/service/project detail pages and
+   the conversion flows. Everything here extends the primitives above (glass,
+   dual light, honest state pills) rather than inventing a second visual
+   language, and every grid collapses before it can overflow at 390px.
+   ========================================================================== */
+
+/* ── Section rhythm ───────────────────────────────────────────────────────── */
+
+.ag-section-tight { padding-block: clamp(34px, 4.4vw, 58px); }
+.ag-section-lead { max-width: 62ch; }
+.ag-section-lead .ag-lead { margin-top: 16px; }
+
+/* A hairline rule with a warm dot, used to separate major bands. */
+.ag-rule {
+  height: 1px;
+  border: 0;
+  margin: 0;
+  background: linear-gradient(90deg, rgba(252, 84, 0, 0.45), rgba(160, 195, 255, 0.16) 32%, rgba(160, 195, 255, 0));
+}
+
+/* ── Eyebrow variants ─────────────────────────────────────────────────────── */
+
+.ag-eyebrow-cool::before { background: linear-gradient(90deg, #2C6BE8, rgba(44, 107, 232, 0)); }
+.ag-eyebrow-quiet { color: #6E80A4; }
+
+/* ── Solution cards ───────────────────────────────────────────────────────── */
+
+.ag-sol-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+@media (max-width: 1180px) { .ag-sol-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px)  { .ag-sol-grid { grid-template-columns: 1fr; } }
+
+.ag-sol-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 22px 20px;
+  border-radius: var(--ag-radius);
+  text-decoration: none;
+  color: inherit;
+  background:
+    linear-gradient(168deg, rgba(255, 255, 255, 0.095) 0%, rgba(255, 255, 255, 0.028) 46%, rgba(255, 255, 255, 0.014) 100%);
+  border: 1px solid rgba(160, 195, 255, 0.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 26px 56px -34px rgba(0, 0, 0, 0.9);
+  transition: transform 0.3s cubic-bezier(.22,.9,.3,1), border-color 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+}
+/* Warm corner light — the same dual-light model as the orb. */
+.ag-sol-card::after {
+  content: '';
+  position: absolute;
+  inset: -50% 55% 55% -20%;
+  background: radial-gradient(circle at 30% 30%, rgba(252, 84, 0, 0.20), transparent 62%);
+  opacity: 0;
+  transition: opacity 0.34s ease;
+  pointer-events: none;
+}
+.ag-sol-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(160, 195, 255, 0.32);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 34px 70px -34px rgba(0, 0, 0, 0.95),
+    0 0 54px -26px rgba(44, 107, 232, 0.6);
+}
+.ag-sol-card:hover::after { opacity: 1; }
+.ag-sol-card:focus-visible { outline: 2px solid #9DBBFF; outline-offset: 3px; }
+
+.ag-sol-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ag-sol-glyph {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(150deg, rgba(44, 107, 232, 0.95), rgba(0, 24, 108, 0.95));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.36) inset,
+    0 -6px 14px -6px rgba(0, 0, 0, 0.75) inset,
+    0 10px 22px -12px rgba(0, 72, 192, 0.9);
+}
+
+.ag-sol-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.28;
+  color: #fff;
+}
+
+.ag-sol-line {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: #A9B9D8;
+}
+
+.ag-sol-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.ag-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: #9DBBFF;
+  background: rgba(44, 107, 232, 0.12);
+  border: 1px solid rgba(44, 107, 232, 0.26);
+}
+
+.ag-sol-foot {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid rgba(160, 195, 255, 0.10);
+  font-size: 0.79rem;
+  font-weight: 650;
+  color: #C9D9FF;
+}
+.ag-sol-card:hover .ag-sol-foot { color: #fff; }
+
+/* ── Group heading ────────────────────────────────────────────────────────── */
+
+.ag-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+.ag-group-name {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9DBBFF;
+}
+.ag-group-name[data-warm='true'] { color: var(--ag-orange); }
+.ag-group-blurb { margin: 0; font-size: 0.85rem; color: #8194B8; }
+
+/* ── Detail page: the four-question block ─────────────────────────────────── */
+
+.ag-qa {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+@media (max-width: 900px) { .ag-qa { grid-template-columns: 1fr; } }
+
+.ag-qa-block {
+  padding: 22px 22px 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(160, 195, 255, 0.12);
+}
+.ag-qa-block[data-tone='warm'] {
+  background: linear-gradient(150deg, rgba(252, 84, 0, 0.085), rgba(252, 84, 0, 0.02));
+  border-color: rgba(252, 84, 0, 0.22);
+}
+.ag-qa-q {
+  margin: 0 0 10px;
+  font-size: 0.69rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #8FA6CE;
+}
+.ag-qa-block[data-tone='warm'] .ag-qa-q { color: #FFB98F; }
+.ag-qa-a { margin: 0; font-size: 0.94rem; line-height: 1.68; color: #C3D0E8; }
+.ag-qa-a + .ag-qa-a { margin-top: 10px; }
+
+/* ── Numbered process list ────────────────────────────────────────────────── */
+
+.ag-steps { display: grid; gap: 0; counter-reset: agstep; }
+.ag-step {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(160, 195, 255, 0.09);
+}
+.ag-step:last-child { border-bottom: 0; }
+.ag-step-n {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #9DBBFF;
+  background: rgba(44, 107, 232, 0.14);
+  border: 1px solid rgba(44, 107, 232, 0.3);
+}
+.ag-step-body { margin: 0; font-size: 0.92rem; line-height: 1.62; color: #B7C5E0; }
+
+/* ── Principle / assurance grid ───────────────────────────────────────────── */
+
+.ag-assure-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 1100px) { .ag-assure-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px)  { .ag-assure-grid { grid-template-columns: 1fr; } }
+
+.ag-assure {
+  padding: 18px 18px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(160, 195, 255, 0.12);
+}
+.ag-assure-icon { color: #9DBBFF; margin-bottom: 10px; }
+.ag-assure-title {
+  margin: 0 0 6px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+.ag-assure-body { margin: 0; font-size: 0.8rem; line-height: 1.6; color: #93A2C2; }
+
+/* ── Workflow ribbon (delivery process) ───────────────────────────────────── */
+
+.ag-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex-wrap: wrap;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(160, 195, 255, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.014));
+}
+.ag-flow-step {
+  flex: 1 1 130px;
+  padding: 16px 14px 15px;
+  border-right: 1px solid rgba(160, 195, 255, 0.10);
+  min-width: 0;
+}
+.ag-flow-step:last-child { border-right: 0; }
+.ag-flow-n {
+  font-family: ui-monospace, monospace;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ag-orange);
+}
+.ag-flow-label {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.83rem;
+  font-weight: 680;
+  color: #EAF0FF;
+}
+
+/* ── Project showcase ─────────────────────────────────────────────────────── */
+
+.ag-proj-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+@media (max-width: 1100px) { .ag-proj-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px)  { .ag-proj-grid { grid-template-columns: 1fr; } }
+
+/* The mock product surface used where a real screenshot cannot be published.
+   It is drawn from the product's real structure and is labelled as a schematic,
+   never presented as a screenshot. */
+.ag-schematic {
+  position: relative;
+  border-radius: 13px;
+  overflow: hidden;
+  border: 1px solid rgba(160, 195, 255, 0.16);
+  background: linear-gradient(165deg, #0A1330 0%, #060B1C 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 20px 40px -26px rgba(0, 0, 0, 0.95);
+}
+.ag-schematic-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(160, 195, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+}
+.ag-schematic-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(160, 195, 255, 0.28); }
+.ag-schematic-title {
+  margin-left: 6px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  color: #6E80A4;
+}
+.ag-schematic-body { display: grid; grid-template-columns: 62px minmax(0, 1fr); min-height: 118px; }
+.ag-schematic-rail {
+  border-right: 1px solid rgba(160, 195, 255, 0.08);
+  padding: 9px 8px;
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  background: rgba(255, 255, 255, 0.015);
+}
+.ag-schematic-chip { height: 7px; border-radius: 3px; background: rgba(160, 195, 255, 0.16); }
+.ag-schematic-chip[data-active='true'] { background: linear-gradient(90deg, rgba(252, 84, 0, 0.9), rgba(252, 84, 0, 0.35)); }
+.ag-schematic-main { padding: 10px; display: grid; gap: 7px; align-content: start; }
+.ag-schematic-line { height: 8px; border-radius: 4px; background: rgba(160, 195, 255, 0.12); }
+.ag-schematic-line[data-w='72'] { width: 72%; }
+.ag-schematic-line[data-w='54'] { width: 54%; }
+.ag-schematic-line[data-w='86'] { width: 86%; }
+.ag-schematic-line[data-blue='true'] { background: rgba(44, 107, 232, 0.36); }
+.ag-schematic-caption {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.7rem;
+  color: #6E80A4;
+  line-height: 1.5;
+}
+
+/* ── Case study blocks ────────────────────────────────────────────────────── */
+
+.ag-case-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(20px, 3.4vw, 44px);
+  align-items: start;
+}
+@media (max-width: 940px) { .ag-case-head { grid-template-columns: 1fr; } }
+
+.ag-evidence {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ag-evidence li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.ag-evidence strong { display: block; font-size: 0.85rem; color: #D8F5E7; font-weight: 660; }
+.ag-evidence span { display: block; margin-top: 3px; font-size: 0.76rem; line-height: 1.55; color: #8FB8A8; }
+
+.ag-limits {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ag-limits li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  font-size: 0.84rem;
+  line-height: 1.58;
+  color: #D9C9A8;
+}
+
+/* ── Comparison / audit table (unpublished candidates) ────────────────────── */
+
+.ag-table-wrap { overflow-x: auto; border-radius: 14px; border: 1px solid rgba(160, 195, 255, 0.13); }
+.ag-audit-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; min-width: 620px; }
+.ag-audit-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8FA6CE;
+  background: rgba(255, 255, 255, 0.035);
+  border-bottom: 1px solid rgba(160, 195, 255, 0.12);
+}
+.ag-audit-table td {
+  padding: 13px 16px;
+  vertical-align: top;
+  color: #A9B9D8;
+  border-bottom: 1px solid rgba(160, 195, 255, 0.07);
+  line-height: 1.6;
+}
+.ag-audit-table tr:last-child td { border-bottom: 0; }
+.ag-audit-table td:first-child { color: #EAF0FF; font-weight: 640; white-space: nowrap; }
+
+/*
+ * Below 720px the three-column audit table cannot work: the "why we are not
+ * publishing this" column is the whole point of the table, and a horizontal
+ * scroller hid it off the right edge, leaving rows that looked empty. Stacking
+ * each row into a labelled block keeps the reasons readable without a scroll
+ * gesture nobody performs.
+ */
+@media (max-width: 720px) {
+  .ag-table-wrap { border: 0; border-radius: 0; overflow: visible; }
+  .ag-audit-table { min-width: 0; display: block; }
+  .ag-audit-table thead { display: none; }
+  .ag-audit-table tbody { display: grid; gap: 12px; }
+  .ag-audit-table tr {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid rgba(160, 195, 255, 0.13);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .ag-audit-table td {
+    display: block;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+  /* Name the column for each cell, since the header row is gone. */
+  .ag-audit-table td::before {
+    display: block;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #7E90B4;
+    margin-bottom: 3px;
+  }
+  .ag-audit-table td:nth-child(1)::before { content: 'Project'; }
+  .ag-audit-table td:nth-child(2)::before { content: 'Status'; }
+  .ag-audit-table td:nth-child(3)::before { content: 'Why not published'; }
+  .ag-audit-table td:first-child { white-space: normal; }
+}
+
+/* ── Conversion: option cards ─────────────────────────────────────────────── */
+
+.ag-paths {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 960px) { .ag-paths { grid-template-columns: 1fr; } }
+
+.ag-path {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px 22px 20px;
+  border-radius: 16px;
+  text-decoration: none;
+  color: inherit;
+  background: linear-gradient(168deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(160, 195, 255, 0.14);
+  transition: transform 0.28s cubic-bezier(.22,.9,.3,1), border-color 0.28s ease, background 0.28s ease;
+}
+.ag-path:hover {
+  transform: translateY(-3px);
+  border-color: rgba(252, 84, 0, 0.42);
+  background: linear-gradient(168deg, rgba(252, 84, 0, 0.10), rgba(255, 255, 255, 0.02));
+}
+.ag-path:focus-visible { outline: 2px solid #9DBBFF; outline-offset: 3px; }
+.ag-path-title { margin: 0; font-size: 1.02rem; font-weight: 700; color: #fff; letter-spacing: -0.012em; }
+.ag-path-body { margin: 0; font-size: 0.87rem; line-height: 1.62; color: #A9B9D8; }
+.ag-path-meta {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(160, 195, 255, 0.09);
+  font-size: 0.75rem;
+  color: #6E80A4;
+}
+
+/* ── Contact channel list ─────────────────────────────────────────────────── */
+
+.ag-channels { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.ag-channel {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(160, 195, 255, 0.12);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.ag-channel:hover { border-color: rgba(160, 195, 255, 0.3); background: rgba(255, 255, 255, 0.055); }
+.ag-channel-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: #9DBBFF;
+  background: rgba(44, 107, 232, 0.13);
+  border: 1px solid rgba(44, 107, 232, 0.24);
+}
+.ag-channel-label { font-size: 0.86rem; font-weight: 640; color: #EAF0FF; }
+.ag-channel-value { display: block; font-size: 0.78rem; color: #8FA6CE; margin-top: 1px; word-break: break-word; }
+
+/* ── Footer social row ────────────────────────────────────────────────────── */
+
+.ag-social {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+.ag-social a {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: #A9B9D8;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(160, 195, 255, 0.14);
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+.ag-social a:hover {
+  color: #fff;
+  border-color: rgba(160, 195, 255, 0.34);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+.ag-social a:focus-visible { outline: 2px solid #9DBBFF; outline-offset: 2px; }
+
+/* ── Footer: five column groups ───────────────────────────────────────────── */
+
+.ag-footer-grid-5 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) repeat(5, minmax(0, 1fr));
+  gap: 28px;
+}
+@media (max-width: 1180px) {
+  .ag-footer-grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .ag-footer-grid-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+}
+@media (max-width: 480px) {
+  .ag-footer-grid-5 { grid-template-columns: 1fr; }
+}
+
+/* ── Legal page typography ────────────────────────────────────────────────── */
+
+.ag-legal { max-width: 76ch; }
+.ag-legal h2 {
+  margin: 40px 0 12px;
+  font-size: 1.12rem;
+  font-weight: 720;
+  letter-spacing: -0.012em;
+  color: #fff;
+}
+.ag-legal h2:first-child { margin-top: 0; }
+.ag-legal p { margin: 0 0 12px; font-size: 0.94rem; line-height: 1.72; color: #B7C5E0; }
+.ag-legal ul { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 7px; }
+.ag-legal li { font-size: 0.93rem; line-height: 1.68; color: #B7C5E0; }
+.ag-legal a { color: #9DBBFF; text-decoration: underline; text-underline-offset: 2px; }
+.ag-legal strong { color: #EAF0FF; }
+.ag-legal-updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #6E80A4;
+  margin-bottom: 26px;
+}
+
+/* ── Motion safety ────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-sol-card:hover,
+  .ag-path:hover,
+  .ag-social a:hover { transform: none; }
+  .ag-sol-card,
+  .ag-path,
+  .ag-social a,
+  .ag-channel { transition: none !important; }
+  .ag-sol-card::after { transition: none; }
+}
+
+/* ── Homepage solution families ───────────────────────────────────────────── */
+
+.ag-sol-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1180px) { .ag-sol-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px)  { .ag-sol-grid-4 { grid-template-columns: 1fr; } }
+
+/* Compact link list inside a family card. The list is the point of the card,
+   so it gets its own rhythm rather than borrowing a paragraph style. */
+.ag-sol-links {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.ag-sol-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 560;
+  color: #B7C5E0;
+  text-decoration: none;
+  transition: color 0.16s ease, gap 0.16s ease;
+}
+.ag-sol-links a:hover { color: #fff; gap: 9px; }
+.ag-sol-links a:focus-visible { outline: 2px solid #9DBBFF; outline-offset: 2px; border-radius: 4px; }
+.ag-sol-links svg { color: #6E80A4; flex-shrink: 0; }
+.ag-sol-links a:hover svg { color: var(--ag-orange); }
+
+/* Keep the family cards from stretching into each other: the tallest card sets
+   the row height and the rest stay compact at the top. */
+.ag-sol-grid-4 .ag-sol-card { align-self: start; }
+
+/* ── Homepage services: one row per group ─────────────────────────────────── */
+
+/*
+ * Twelve service lines sit in three groups of four. A three-column grid turned
+ * each group into 3 + 1, so every group ended on an orphan card and the section
+ * read as six ragged rows instead of three deliberate ones. Four columns make
+ * each group exactly one row.
+ */
+.ag-svc-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1100px) { .ag-svc-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px)  { .ag-svc-grid-4 { grid-template-columns: 1fr; } }
