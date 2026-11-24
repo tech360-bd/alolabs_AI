@@ -10,6 +10,7 @@
  */
 
 import { render } from '@testing-library/react'
+import type { CSSProperties } from 'react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 /*
@@ -35,9 +36,18 @@ vi.mock('next/navigation', () => ({
 }))
 vi.mock('next/image', () => ({
   // next/image needs a configured loader; a plain img keeps the DOM assertable.
-  default: ({ priority: _priority, ...props }: Record<string, unknown>) => (
-    <img {...(props as never)} alt={(props.alt as string) ?? ''} />
-  ),
+  // The props are typed loosely on purpose — this is a stand-in for next/image,
+  // and `priority` is dropped rather than forwarded to the DOM.
+  default: ({ priority: _priority, ...props }: { priority?: boolean; [key: string]: unknown }) => {
+    const { src, alt, width, height, style } = props as {
+      src?: string
+      alt?: string
+      width?: number
+      height?: number
+      style?: CSSProperties
+    }
+    return <img src={src ?? ''} alt={alt ?? ''} width={width} height={height} style={style} />
+  },
 }))
 
 const { DarkHeader, DarkFooter } = await import('@/components/agentos/dark-chrome')
