@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'key field is required in FormData' }, { status: 400 })
     }
 
-    const buffer = await file.arrayBuffer()
+    const buffer = Buffer.from(await file.arrayBuffer())
     const contentType = file.type || 'application/octet-stream'
 
     const result = await putObject(key, buffer, contentType)

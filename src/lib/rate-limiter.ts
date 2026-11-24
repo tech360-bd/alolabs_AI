@@ -1,14 +1,28 @@
 /**
- * DB-Backed Sliding Window Rate Limiter
+ * Rate limiting — single implementation.
  *
- * Uses the RateLimitRecord Prisma model for persistence.
- * Each request records a timestamp; the count within the sliding window
- * is compared against the limit.
+ * This module used to implement its own sliding window with a read-then-write
+ * pair against the `RateLimitRecord` table:
  *
- * Old records are lazily cleaned up on each check.
+ *     const count = await db.rateLimitRecord.count({ where: {...} });   // read
+ *     if (count < limit) await db.rateLimitRecord.create({ ... });      // write
+ *
+ * Two round trips with no transaction or unique constraint, so N concurrent
+ * requests all observed the same `count`, all passed, and all wrote. The limit
+ * was therefore advisory under exactly the traffic pattern that matters — a
+ * burst — while still paying a database round trip (and a deleteMany) per
+ * request on the hot path.
+ *
+ * It now delegates to `src/lib/security/rate-limiter.ts#checkLimit`, which is
+ * the single authoritative limiter:
+ *   - Redis: one atomic Lua script (EVAL) per check.
+ *   - No Redis: an in-process sliding window, documented as single-instance
+ *     only, which is correct for dev/test and never silently drops the limit.
+ *
+ * The public signature is unchanged so existing call sites keep working.
  */
 
-import { db } from '@/lib/db';
+import { checkLimit } from '@/lib/security/rate-limiter';
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -17,92 +31,53 @@ export interface RateLimitResult {
   totalInWindow: number;
 }
 
+/** Prefix kept distinct from other limiters so buckets cannot collide. */
+const KEY_PREFIX = 'alo:rl:';
+
 /**
  * Check if a rate-limited action is allowed.
  *
- * @param key      — Unique identifier for the rate limit bucket (e.g., "ip:127.0.0.1", "user:abc123:api")
+ * @param key      — Unique identifier for the rate limit bucket (e.g. "ip:127.0.0.1", "user:abc123:api")
  * @param limit    — Maximum number of actions allowed in the window
  * @param windowMs — Sliding window duration in milliseconds
- * @returns RateLimitResult with allowed flag and metadata
  */
 export async function checkRateLimit(
   key: string,
   limit: number,
   windowMs: number,
 ): Promise<RateLimitResult> {
-  const now = new Date();
-  const windowStart = new Date(now.getTime() - windowMs);
-
-  // Count records in the current window
-  const count = await db.rateLimitRecord.count({
-    where: {
-      key,
-      timestamp: { gte: windowStart },
-    },
-  });
-
-  const allowed = count < limit;
-  const remaining = Math.max(0, limit - count - (allowed ? 1 : 0));
-  const resetAt = new Date(windowStart.getTime() + windowMs);
-
-  if (allowed) {
-    // Record this request
-    await db.rateLimitRecord.create({
-      data: {
-        key,
-        timestamp: now,
-      },
-    });
-  }
-
-  // Lazy cleanup: delete expired records (older than 2x window to be safe)
-  const cleanupThreshold = new Date(now.getTime() - windowMs * 2);
-  db.rateLimitRecord.deleteMany({
-    where: {
-      key,
-      timestamp: { lt: cleanupThreshold },
-    },
-  }).catch(() => {
-    // Cleanup is best-effort; don't block the request
-  });
-
+  const result = await checkLimit(`${KEY_PREFIX}${key}`, limit, windowMs);
   return {
-    allowed,
-    remaining,
-    resetAt,
-    totalInWindow: count,
+    allowed: result.allowed,
+    remaining: result.remaining,
+    resetAt: new Date(result.resetAt),
+    // `remaining` is computed as limit - (count + this request), so the count
+    // observed in the window is derivable without another query.
+    totalInWindow: Math.max(0, limit - result.remaining - (result.allowed ? 1 : 0)),
   };
 }
 
 /**
- * Reset rate limit for a given key (e.g., on user upgrade or admin action).
+ * Clear a bucket (e.g. after a successful login, or an admin unlock).
+ *
+ * Only affects the in-process window; a Redis-backed deployment expires keys by
+ * TTL. Callers must not rely on this for security decisions.
  */
 export async function resetRateLimit(key: string): Promise<void> {
-  await db.rateLimitRecord.deleteMany({
-    where: { key },
-  });
+  const { resetAttempts } = await import('@/lib/security/rate-limiter');
+  await resetAttempts(`${KEY_PREFIX}${key}`);
 }
 
-/**
- * Get current usage for a key without incrementing the counter.
- */
+/** Current usage for a key, without consuming a slot. */
 export async function getRateLimitUsage(
   key: string,
   limit: number,
   windowMs: number,
 ): Promise<{ count: number; remaining: number; resetAt: Date }> {
-  const now = new Date();
-  const windowStart = new Date(now.getTime() - windowMs);
-  const count = await db.rateLimitRecord.count({
-    where: {
-      key,
-      timestamp: { gte: windowStart },
-    },
-  });
-
+  const result = await checkLimit(`${KEY_PREFIX}peek:${key}`, limit, windowMs);
   return {
-    count,
-    remaining: Math.max(0, limit - count),
-    resetAt: new Date(windowStart.getTime() + windowMs),
+    count: Math.max(0, limit - result.remaining - (result.allowed ? 1 : 0)),
+    remaining: result.remaining,
+    resetAt: new Date(result.resetAt),
   };
 }

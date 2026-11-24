@@ -135,3 +135,8 @@ export async function collectSystemMetrics(): Promise<SystemMetrics> {
 
   return result
 }
+
+// NOTE: the browser-side reporter lives in `src/lib/metrics-client.ts`.
+// This module imports Prisma and must only ever be used from server code —
+// importing it from a client component drags the database driver into the
+// browser bundle (Next.js treats that as a hard build error).

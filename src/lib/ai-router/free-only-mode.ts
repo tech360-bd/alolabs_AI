@@ -33,6 +33,8 @@
 import { envFlag } from '@/lib/ai-router/env-flag';
 export interface FreeOnlyEnv {
   FREE_ONLY_MODE?: string;
+  /** Alias used by the router tests and older deployments. */
+  FREE_ONLY?: string;
   /** Legacy alias accepted for operators who already set LOCAL_ONLY. */
   LOCAL_ONLY?: string;
   [key: string]: string | undefined;
@@ -41,15 +43,25 @@ export interface FreeOnlyEnv {
 /**
  * True when the global FREE-ONLY MODE switch is on.
  *
- * `FREE_ONLY_MODE` is the explicit switch. `LOCAL_ONLY=true` (existing env)
- * also implies FREE-ONLY MODE, because local-only routing already refuses
- * every non-local provider — but FREE-ONLY MODE is broader: it additionally
- * blocks paid *local-adjacent* routes and forces the $0 ceiling even when
- * verified-free external providers are configured.
+ * `FREE_ONLY_MODE` is the documented switch and `FREE_ONLY` is an accepted
+ * alias (the router tests and some deployments use the shorter name). The two
+ * MUST resolve identically: `router.ts` applies both a billing gate and a
+ * global ceiling, and when they disagreed an operator who set only the
+ * documented variable could still be routed to a paid provider.
+ *
+ * `LOCAL_ONLY=true` also implies FREE-ONLY MODE, because local-only routing
+ * already refuses every non-local provider — but FREE-ONLY MODE is broader: it
+ * additionally blocks paid *local-adjacent* routes and forces the $0 ceiling
+ * even when verified-free external providers are configured.
  */
 export function isFreeOnlyMode(env: FreeOnlyEnv = process.env): boolean {
+  // Precedence: the documented switch wins, then the FREE_ONLY alias, then the
+  // legacy LOCAL_ONLY implication. An operator who disables the documented
+  // switch must not be re-enabled by a leftover alias in the same env file.
   const explicit = envFlag(env.FREE_ONLY_MODE);
+  const alias = envFlag(env.FREE_ONLY);
   if (explicit !== undefined) return explicit;
+  if (alias !== undefined) return alias;
   return envFlag(env.LOCAL_ONLY) === true;
 }
 

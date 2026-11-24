@@ -5,6 +5,7 @@
 
 import type { AgentSchedule, AgentTask, TaskPriority } from './types';
 import { getAgentStateManager } from './state';
+import { getEventBus } from '@/lib/event-bus';
 import type { AgentExecutionEngine } from './execution';
 
 // Simple cron parser (supports: * * * * *, every N minutes/hours)

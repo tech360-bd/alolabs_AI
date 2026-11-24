@@ -1014,8 +1014,16 @@ export class AIRouter {
     const localOnly = localOnlyEnabled();
     // FREE-ONLY MODE is a global ceiling above caller context. Even a caller
     // that sets allowPaid=true cannot reach a paid provider while it is on.
-    const freeOnlyMode = isFreeOnlyMode();
-    const freeOnly = this.isFreeOnlyMode();
+    //
+    // The billing gate and the ceiling MUST evaluate the same value: they were
+    // previously fed from different predicates (`isFreeOnlyMode()` for billing,
+    // `this.isFreeOnlyMode()` for the ceiling), so a Super Admin runtime
+    // override could lift one gate while the other stayed closed, and an
+    // operator setting only the documented env var left the paid path open.
+    // `this.isFreeOnlyMode()` honours the runtime override and the env, so it
+    // is the single source of truth for both.
+    const freeOnlyMode = this.isFreeOnlyMode();
+    const freeOnly = freeOnlyMode;
 
     return Array.from(this.providers.values()).filter((entry) => {
       const isLocal = entry.isLocal;

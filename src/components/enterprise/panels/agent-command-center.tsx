@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchApi } from '@/lib/api-client'
-import { metricsCollector } from '@/lib/metrics-collector' // ─── METRICS COLLECTOR IMPORT ───
+import { metricsCollector } from '@/lib/metrics-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

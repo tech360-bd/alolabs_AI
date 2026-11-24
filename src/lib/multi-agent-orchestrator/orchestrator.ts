@@ -450,7 +450,6 @@ export class MultiAgentOrchestrator {
           }
         }
       }
-      }
 
       if (changed) {
         if (task.steps.some((step) => step.status === 'failed')) {

@@ -55,6 +55,47 @@ function localPathFor(key: string): string {
   return path.join(LOCAL_STORAGE_DIR, sanitizeObjectKey(key));
 }
 
+/**
+ * Build a config from the environment. Returns null when the endpoint or
+ * credentials are absent, which `connectMinio` reports as "not configured"
+ * rather than silently pretending to be connected.
+ *
+ * MINIO_URL may include a scheme/port (`https://minio.local:9000`); the
+ * S3 client wants them split out. Plain `host:port` is also accepted.
+ */
+function getDefaultConfig(): MinioConfig | null {
+  const configured = process.env.MINIO_URL?.trim();
+  const accessKey = process.env.MINIO_ACCESS_KEY ?? process.env.S3_ACCESS_KEY;
+  const secretKey = process.env.MINIO_SECRET_KEY ?? process.env.S3_SECRET_KEY;
+
+  if (!configured || !accessKey || !secretKey) return null;
+
+  let endPoint = configured;
+  let port = 9000;
+  let useSSL = false;
+
+  try {
+    const withScheme = /^[a-z]+:\/\//i.test(configured) ? configured : `http://${configured}`;
+    const parsed = new URL(withScheme);
+    endPoint = parsed.hostname;
+    useSSL = parsed.protocol === 'https:';
+    if (parsed.port) port = Number.parseInt(parsed.port, 10);
+    else port = useSSL ? 443 : 80;
+  } catch {
+    return null;
+  }
+
+  return {
+    endPoint,
+    port,
+    accessKey,
+    secretKey,
+    useSSL,
+    region: process.env.MINIO_REGION?.trim() || process.env.S3_REGION?.trim() || 'us-east-1',
+    bucket: process.env.MINIO_BUCKET?.trim() || process.env.S3_BUCKET?.trim() || 'alolabs',
+  };
+}
+
 export async function connectMinio(cfg?: MinioConfig): Promise<{ success: boolean; error?: string; latencyMs?: number; version?: string }> {
   const startTime = Date.now();
 
@@ -144,10 +185,6 @@ export async function connectMinio(cfg?: MinioConfig): Promise<{ success: boolea
   }
 }
 
-export async function getMinioStatus(): Promise<{ connected: boolean; error?: string; latencyMs?: number; version?: string }> {
-  return { connected, error: connectionError, latencyMs: undefined, version: undefined };
-}
-
 export async function uploadObject(key: string, data: Buffer | string): Promise<void> {
   if (!connected || !minioClient) {
     // Fallback to local storage
@@ -157,7 +194,8 @@ export async function uploadObject(key: string, data: Buffer | string): Promise<
     return;
   }
 
-  await minioClient.putObject(config!.bucket, sanitizeObjectKey(key), data);
+  const body = typeof data === 'string' ? Buffer.from(data, 'utf8') : data;
+  await minioClient.putObject(config!.bucket, sanitizeObjectKey(key), body);
 }
 
 export async function downloadObject(key: string): Promise<Buffer> {
@@ -167,7 +205,7 @@ export async function downloadObject(key: string): Promise<Buffer> {
     return await readFile(localPath);
   }
 
-  return await minioClient.getObject(config!.bucket, sanitizeObjectKey(key));
+  return await minioClient.getObjectBuffer(config!.bucket, sanitizeObjectKey(key));
 }
 
 export async function deleteObject(key: string): Promise<void> {
@@ -178,25 +216,87 @@ export async function deleteObject(key: string): Promise<void> {
     return;
   }
 
-  await minioClient.deleteObject(config!.bucket, sanitizeObjectKey(key));
+  await minioClient.removeObject(config!.bucket, sanitizeObjectKey(key));
 }
 
-export async function listObjects(prefix?: string): Promise<string[]> {
+export async function listObjects(prefix?: string, limit?: number): Promise<string[]> {
+  const maxKeys = typeof limit === 'number' && limit > 0 ? Math.min(limit, 1000) : undefined;
+
   if (!connected || !minioClient) {
     // Fallback to local storage
     const dir = prefix ? path.join(LOCAL_STORAGE_DIR, prefix) : LOCAL_STORAGE_DIR;
     try {
       const files = await readdir(dir);
-      return files.map(f => path.join(prefix || '', f));
+      const keys = files.map(f => path.join(prefix || '', f));
+      return maxKeys ? keys.slice(0, maxKeys) : keys;
     } catch {
       return [];
     }
   }
 
-  const objects = await minioClient.listObjects(config!.bucket, prefix);
-  return objects.map(obj => obj.name);
+  const objects = await minioClient.listObjects(config!.bucket, {
+    ...(prefix ? { prefix } : {}),
+    ...(maxKeys ? { maxKeys } : {}),
+  });
+  return objects.map(obj => obj.key);
 }
 
 export async function getMinioStatus(): Promise<{ connected: boolean; error?: string; latencyMs?: number; version?: string }> {
-  return { connected, error: connectionError, latencyMs: undefined, version: undefined };
+  return { connected, error: connectionError ?? undefined, latencyMs: undefined, version: undefined };
+}
+
+/** Last connection error text, or null when healthy/never attempted. */
+export function getMinioError(): string | null {
+  return connectionError;
+}
+
+/** True when the S3 endpoint is currently connected (not the local fallback). */
+export function isMinioConnected(): boolean {
+  return connected && minioClient !== null;
+}
+
+/**
+ * Reachability probe used by /api/infra/ping.
+ *
+ * Opens a real request (listBuckets) rather than reporting the cached flag, so
+ * a stale "connected" state after a network partition is surfaced as a failure.
+ */
+export async function pingMinio(): Promise<{ success: boolean; latencyMs: number; error?: string }> {
+  const startedAt = Date.now();
+  if (!minioClient) {
+    return { success: false, latencyMs: 0, error: connectionError ?? 'MinIO is not connected' };
+  }
+  try {
+    await minioClient.listBuckets();
+    return { success: true, latencyMs: Date.now() - startedAt };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    connectionError = message;
+    return { success: false, latencyMs: Date.now() - startedAt, error: message };
+  }
+}
+
+/**
+ * Upload and report where the bytes actually landed.
+ *
+ * `/api/infra/minio/objects` surfaces `storageType` to the operator, so the
+ * local-filesystem fallback must never be reported as `minio`.
+ */
+export async function putObject(
+  key: string,
+  data: Buffer | string,
+  contentType?: string,
+): Promise<{ key: string; size: number; storageType: 'minio' | 'local' }> {
+  const safeKey = sanitizeObjectKey(key);
+  const body = typeof data === 'string' ? Buffer.from(data, 'utf8') : data;
+
+  if (!connected || !minioClient) {
+    const localPath = localPathFor(safeKey);
+    await mkdir(path.dirname(localPath), { recursive: true });
+    await writeFile(localPath, body);
+    return { key: safeKey, size: body.byteLength, storageType: 'local' };
+  }
+
+  await minioClient.putObject(config!.bucket, safeKey, body, contentType);
+  return { key: safeKey, size: body.byteLength, storageType: 'minio' };
 }

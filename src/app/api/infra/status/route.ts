@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { isPostgresConnected, getPostgresError } from '@/lib/postgres'
 import { isRedisConnected, getRedisError } from '@/lib/redis'
 import { isQdrantConnected, getQdrantError } from '@/lib/qdrant'
-import { getMinioStatus, getMinioError } from '@/lib/minio'
+import { isMinioConnected, getMinioError } from '@/lib/minio'
 import { requireRole } from '@/lib/api-auth'
 
 export async function GET(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       postgresql: { connected: isPostgresConnected(), error: getPostgresError() },
       redis: { connected: isRedisConnected(), error: getRedisError() },
       qdrant: { connected: isQdrantConnected(), error: getQdrantError() },
-      minio: { connected: getMinioStatus() === 'connected', error: getMinioError() },
+      minio: { connected: isMinioConnected(), error: getMinioError() },
     }
 
     // Ensure all 4 services exist
@@ -61,9 +61,8 @@ export async function GET(request: NextRequest) {
 
       // For minio, also check the specific fallback status
       if (type === 'minio') {
-        const minioStatus = getMinioStatus()
-        if (minioStatus === 'fallback') status = 'fallback'
-        if (minioStatus === 'connected') status = 'connected'
+        if (isMinioConnected()) status = 'connected'
+        else if (getMinioError()) status = 'fallback'
       }
 
       let config: { host: string; port: number } = { host: 'localhost', port: 0 }
