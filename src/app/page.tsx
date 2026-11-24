@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { AgentosLanding } from '@/components/agentos/agentos-landing'
+import { AgentosHome } from '@/components/agentos/agentos-home'
 import { BRAND, publicSiteIcons } from '@/lib/brand/public'
 import './public-design.css'
 import './agentos-3d.css'
@@ -27,22 +27,48 @@ export const viewport: Viewport = { themeColor: BRAND.blue }
 
 export const metadata: Metadata = {
   icons: publicSiteIcons,
-  title: 'ALO Labs — Global AI & Software Technology Company',
+  title: 'ALO Labs — AI Software, Intelligent Agents & Automation',
   description:
-    'ALO Labs designs and builds software, AI-powered solutions and connected digital platforms that help businesses work smarter, scale confidently and create better experiences.',
+    'ALO Labs engineers AI-native software, intelligent agents and business automation — from conversational systems to enterprise platforms. Built to run in production.',
+  keywords: [
+    'ALO Labs',
+    'AI software development',
+    'AI agents',
+    'multi-agent systems',
+    'business process automation',
+    'Bangla voice AI',
+    'enterprise CRM',
+    'AI software Bangladesh',
+  ],
   alternates: {
     canonical: 'https://www.alolabs.net/',
   },
   openGraph: {
-    title: 'ALO Labs — Global AI & Software Technology Company',
+    title: 'ALO Labs — AI Software, Intelligent Agents & Automation',
     description:
-      'Software, AI-powered solutions and connected digital platforms — designed and built for businesses that take technology seriously.',
+      'Intelligence that builds the future: AI agents, enterprise software and automation engineered to turn ambitious ideas into working systems.',
     siteName: 'ALO Labs',
     url: 'https://www.alolabs.net/',
-    images: ['/studio/icon-512.png'],
+    type: 'website',
+    locale: 'en_US',
+    images: [
+      {
+        url: '/brand/alo-agentos-badge.webp',
+        width: 1254,
+        height: 1254,
+        alt: 'ALO Labs — AI Agent Operating System',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ALO Labs — AI Software, Intelligent Agents & Automation',
+    description:
+      'AI agents, enterprise software and automation engineered to turn ambitious ideas into working systems.',
+    images: ['/brand/alo-agentos-badge.webp'],
   },
 }
 
 export default function HomePage() {
-  return <AgentosLanding />
+  return <AgentosHome />
 }

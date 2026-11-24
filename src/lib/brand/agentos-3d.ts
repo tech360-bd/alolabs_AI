@@ -160,3 +160,56 @@ export const AGENTOS_DEPARTMENTS = [
   'General Intelligence', 'Software Engineering', 'Quality & Security',
   'Business & Marketing', 'Creative Production', 'Automation & Ops',
 ] as const
+
+/**
+ * ── Public marketing surface ────────────────────────────────────────────────
+ *
+ * The public site has three palettes that must not be confused:
+ *
+ *   src/lib/brand/tokens.ts        invoices, letterhead, print — DO NOT TOUCH
+ *   src/lib/brand/public.ts        the authenticated app and the light /site chrome
+ *   this block                     the dark marketing surface at /
+ *
+ * Values below extend the logo-sampled set above with the supporting surfaces a
+ * dark cinematic layout needs. They are additive: no existing token is
+ * redefined, so nothing that already renders changes colour.
+ */
+export const SITE_DARK = {
+  /** Page ground: near-black navy, so the orange and blue read as light. */
+  ground: '#04070F',
+  groundRaised: '#070C1A',
+  groundDeep: '#02040A',
+  /** Hairline borders on dark glass. */
+  hairline: 'rgba(160, 195, 255, 0.14)',
+  hairlineStrong: 'rgba(160, 195, 255, 0.26)',
+  /** Body text on dark. Chosen for >= 4.5:1 on `ground`. */
+  body: '#B7C5E0',
+  bodyMuted: '#93A2C2',
+  heading: '#FFFFFF',
+  /** Semantic states used by capability badges. */
+  live: '#6EE7B7',
+  liveBg: 'rgba(16, 185, 129, 0.13)',
+  liveBorder: 'rgba(16, 185, 129, 0.34)',
+  partial: '#FCD34D',
+  partialBg: 'rgba(245, 158, 11, 0.13)',
+  partialBorder: 'rgba(245, 158, 11, 0.34)',
+  planned: '#93A2C2',
+  plannedBg: 'rgba(148, 163, 184, 0.10)',
+  plannedBorder: 'rgba(148, 163, 184, 0.28)',
+} as const
+
+/** Canonical public origin, used by canonical URLs, JSON-LD and the sitemap. */
+export const PUBLIC_ORIGIN = 'https://www.alolabs.net'
+
+/** Company facts that appear in structured data and the footer. */
+export const PUBLIC_COMPANY = {
+  name: 'ALO Labs',
+  legalName: 'ALO Labs',
+  url: PUBLIC_ORIGIN,
+  email: 'info@alolabs.net',
+  description:
+    'ALO Labs builds AI-native software, intelligent agents and business automation — engineering technology that turns ambitious ideas into working systems.',
+  areaServed: 'Worldwide',
+  /** Bangladesh base, stated the same way on the contact page. */
+  addressCountry: 'BD',
+} as const

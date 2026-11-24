@@ -594,7 +594,7 @@ export function OrbCore({ className = '' }: { className?: string }) {
   }, [])
 
   return (
-    <div className={`ag-orb ${className}`} aria-hidden="true">
+    <div className={`ag-orb ${className}`} aria-hidden="true" data-webgl={webglFailed ? 'failed' : 'ok'}>
       {/* CSS fallback / underlay — shown when WebGL cannot start. The canvas is
           always mounted (the renderer needs a live element); on failure it is
           revealed as empty and the fallback underneath carries the visual. */}
