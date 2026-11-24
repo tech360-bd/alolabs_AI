@@ -13,14 +13,56 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Check, ChevronRight, Loader2, Menu, X } from 'lucide-react'
+import {
+  ArrowRight,
+  Check,
+  ChevronRight,
+  Facebook,
+  Instagram,
+  Loader2,
+  Menu,
+  Users2,
+  X,
+  Youtube,
+} from 'lucide-react'
 
-import { AGENTOS_LOGO, agentosStyle } from '@/lib/brand/agentos-3d'
+import { AGENTOS_LOGO, PUBLIC_COMPANY, agentosStyle } from '@/lib/brand/agentos-3d'
+import { publishedSocialLinks, type SocialNetwork } from '@/lib/brand/social'
 import { apiFetch } from '@/lib/api-client'
+
+/**
+ * Icon per network. Lucide has no Pinterest glyph, so that one is drawn inline
+ * rather than approximated with a lookalike from another brand.
+ */
+const SOCIAL_ICON: Record<
+  SocialNetwork,
+  React.ComponentType<{ size?: number; 'aria-hidden'?: boolean | 'true' | 'false' }>
+> = {
+  facebook: Facebook,
+  facebookCommunity: Users2,
+  instagram: Instagram,
+  youtube: Youtube,
+  pinterest: function PinterestGlyph({ size = 16 }) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+        <path d="M12 2C6.48 2 2 6.48 2 12c0 4.24 2.64 7.86 6.36 9.32-.09-.79-.17-2.01.03-2.87.19-.79 1.2-5.06 1.2-5.06s-.31-.61-.31-1.52c0-1.43.83-2.49 1.86-2.49.88 0 1.3.66 1.3 1.45 0 .88-.56 2.2-.85 3.42-.24 1.02.51 1.85 1.52 1.85 1.82 0 3.22-1.92 3.22-4.69 0-2.45-1.76-4.17-4.28-4.17-2.91 0-4.62 2.19-4.62 4.45 0 .88.34 1.83.76 2.34.08.1.09.19.07.29-.08.32-.25 1.02-.28 1.16-.05.19-.16.23-.36.14-1.34-.62-2.18-2.58-2.18-4.15 0-3.38 2.46-6.48 7.08-6.48 3.72 0 6.61 2.65 6.61 6.19 0 3.69-2.33 6.66-5.56 6.66-1.09 0-2.11-.57-2.46-1.24l-.67 2.55c-.24.93-.89 2.1-1.33 2.81.99.31 2.05.47 3.15.47 5.52 0 10-4.48 10-10S17.52 2 12 2z" />
+      </svg>
+    )
+  },
+}
 
 /* ── Navigation ────────────────────────────────────────────────────────────── */
 
+/**
+ * Primary navigation.
+ *
+ * Solutions sits first because it is the buying view — a visitor arriving from
+ * search wants to know what they can purchase before they care how it is
+ * engineered. Services, Work and Process are the evidence that the claim is
+ * real, so they follow directly behind it.
+ */
 const NAV = [
+  { href: '/site/solutions', label: 'Solutions' },
   { href: '/site/services', label: 'Services' },
   { href: '/site/platform-overview', label: 'Platform' },
   { href: '/site/projects', label: 'Work' },
@@ -233,50 +275,70 @@ export function DarkHeader() {
 
 /* ── Footer ────────────────────────────────────────────────────────────────── */
 
+/**
+ * Footer navigation.
+ *
+ * Six column groups, matching the brief: Company, Services, AgentOS, Projects,
+ * Resources, plus the legal pair on its own row. Every label here must resolve
+ * to a real public page — `__tests__/unit/lib/footer-links.test.ts` checks each
+ * href against the routes that exist, so a nav entry cannot quietly 404.
+ */
 const FOOTER_GROUPS = [
-  {
-    title: 'Services',
-    links: [
-      { href: '/site/services', label: 'All services' },
-      { href: '/site/services/ai-agent-development', label: 'AI agents' },
-      { href: '/site/services/multi-agent-systems', label: 'Multi-agent systems' },
-      { href: '/site/services/business-process-automation', label: 'Automation' },
-      { href: '/site/services/cloud-devops-engineering', label: 'Cloud & DevOps' },
-    ],
-  },
   {
     title: 'Company',
     links: [
-      { href: '/site/about', label: 'About' },
-      { href: '/site/projects', label: 'Work' },
+      { href: '/site/about', label: 'About ALO Labs' },
       { href: '/site/how-we-work', label: 'How we work' },
       { href: '/site/careers', label: 'Careers' },
       { href: '/site/contact', label: 'Contact' },
     ],
   },
   {
-    title: 'Platform',
+    title: 'Services',
     links: [
-      { href: '/site/platform-overview', label: 'AgentOS overview' },
-      { href: '/site/platform-overview#capabilities', label: 'Capabilities' },
-      { href: '/site/platform-overview#architecture', label: 'Architecture' },
-      { href: '/login', label: 'Client login' },
+      { href: '/site/solutions', label: 'All solutions' },
+      { href: '/site/services', label: 'All service lines' },
+      { href: '/site/services/ai-agent-development', label: 'AI agent development' },
+      { href: '/site/services/multi-agent-systems', label: 'Multi-agent systems' },
+      { href: '/site/services/business-process-automation', label: 'Process automation' },
     ],
   },
   {
-    title: 'Legal',
+    title: 'AgentOS',
     links: [
+      { href: '/site/platform-overview', label: 'Platform overview' },
+      { href: '/site/platform-overview#capabilities', label: 'Capabilities' },
+      { href: '/site/platform-overview#architecture', label: 'Architecture' },
+      { href: '/site/services/cloud-devops-engineering', label: 'Cloud & DevOps' },
+    ],
+  },
+  {
+    title: 'Projects',
+    links: [
+      { href: '/site/projects', label: 'All projects' },
+      { href: '/site/projects/agentos', label: 'AgentOS platform' },
+      { href: '/site/projects/client-portal', label: 'Client portal' },
+      { href: '/site/projects/public-website', label: 'This website' },
+    ],
+  },
+  {
+    title: 'Resources',
+    links: [
+      { href: '/site/how-we-work', label: 'Delivery process' },
+      { href: '/site/contact', label: 'Start a project' },
+      { href: '/login', label: 'Client login' },
       { href: '/site/privacy', label: 'Privacy policy' },
-      { href: '/site/terms', label: 'Terms of service' },
     ],
   },
 ] as const
 
 export function DarkFooter() {
+  const social = publishedSocialLinks()
+
   return (
     <footer style={{ borderTop: '1px solid rgba(160,195,255,0.11)', padding: '52px 0 34px', marginTop: 40 }}>
       <div className="ag-shell">
-        <div className="ag-footer-grid">
+        <div className="ag-footer-grid-5">
           <div>
             <Link
               href="/"
@@ -288,14 +350,43 @@ export function DarkFooter() {
               </span>
             </Link>
             <p style={{ margin: 0, maxWidth: '34ch', fontSize: '0.86rem', lineHeight: 1.65, color: '#8194B8' }}>
-              AI-native software, intelligent agents and business automation — engineered to run in production.
+              AI-native software, intelligent agents and business automation — engineered to run in
+              production.
             </p>
             <a
-              href="mailto:info@alolabs.net"
+              href={`mailto:${PUBLIC_COMPANY.email}`}
               style={{ display: 'inline-block', marginTop: 14, fontSize: '0.86rem', color: '#9DBBFF', textDecoration: 'none' }}
             >
-              info@alolabs.net
+              {PUBLIC_COMPANY.email}
             </a>
+
+            {/*
+              Social icons render only for channels the owner has confirmed. The
+              registry in src/lib/brand/social.ts currently publishes none,
+              because no ALO Labs profile is recorded anywhere in this
+              repository — and a footer link to a stranger's page would be the
+              exact fabrication the rest of this site refuses. When a channel is
+              verified, flip its flag and the icon appears here automatically.
+            */}
+            {social.length > 0 ? (
+              <div className="ag-social" aria-label="ALO Labs on social media">
+                {social.map((link) => {
+                  const Icon = SOCIAL_ICON[link.network]
+                  return (
+                    <a
+                      key={link.network}
+                      href={link.href}
+                      aria-label={link.label}
+                      title={link.label}
+                      target="_blank"
+                      rel="noopener noreferrer me"
+                    >
+                      <Icon size={16} aria-hidden="true" />
+                    </a>
+                  )
+                })}
+              </div>
+            ) : null}
           </div>
 
           {FOOTER_GROUPS.map((group) => (
@@ -329,7 +420,7 @@ export function DarkFooter() {
           style={{
             display: 'flex',
             flexWrap: 'wrap',
-            gap: 14,
+            gap: 16,
             justifyContent: 'space-between',
             alignItems: 'center',
             marginTop: 40,
@@ -340,23 +431,24 @@ export function DarkFooter() {
           }}
         >
           <span>© {new Date().getFullYear()} ALO Labs. All rights reserved.</span>
+          <nav aria-label="Legal" style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+            <Link href="/site/privacy" className="ag-footer-link">
+              Privacy Policy
+            </Link>
+            <Link href="/site/terms" className="ag-footer-link">
+              Terms of Service
+            </Link>
+            <Link href="/site/contact" className="ag-footer-link">
+              Contact
+            </Link>
+          </nav>
           <span>AgentOS — AI Agent Operating System.</span>
         </div>
       </div>
       <style>{`
-        .ag-footer-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
-          gap: 32px;
-        }
-        @media (max-width: 900px) {
-          .ag-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 560px) {
-          .ag-footer-grid { grid-template-columns: 1fr; gap: 26px; }
-        }
         .ag-footer-link { color: #A9B9D8; text-decoration: none; font-size: 0.86rem; }
         .ag-footer-link:hover { color: #fff; text-decoration: underline; }
+        .ag-footer-link:focus-visible { outline: 2px solid #9DBBFF; outline-offset: 2px; }
       `}</style>
     </footer>
   )

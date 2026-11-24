@@ -200,9 +200,25 @@ export const SELF_CHROMED_PAGES: readonly string[] = [
   '/site/services',
   '/site/platform-overview',
   '/site/contact',
+  // Rebuilt as dark pages carrying their own header and footer.
+  '/site/solutions',
+  '/site/projects',
+  // The conversion flows. Each is its own conversion page with a dark header,
+  // not a section of the light publication.
+  '/site/start-a-project',
+  '/site/request-a-solution',
+  '/site/book-a-consultation',
 ];
 
-/** True when the path renders its own header and footer. */
+/**
+ * True when the path renders its own header and footer.
+ *
+ * `/site/platform-overview` is the awkward case: it must be self-chromed, but
+ * `/site/platform` (an internal engineering reference) shares its prefix and
+ * must never be treated as a public page. `under()` matches a path boundary, so
+ * `/site/platform` is not under `/site/platform-overview` — the internal page
+ * stays on the shared chrome and behind authentication either way.
+ */
 export function isSelfChromePage(pathname: string): boolean {
   return SELF_CHROMED_PAGES.some((prefix) => under(pathname, prefix));
 }
