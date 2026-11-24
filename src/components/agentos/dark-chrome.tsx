@@ -105,6 +105,17 @@ export function DarkHeader() {
     setOpen(false)
   }, [pathname])
 
+  // Lock background scrolling while the menu sheet is open, otherwise a drag
+  // inside the panel scrolls the page behind it on touch devices.
+  useEffect(() => {
+    if (!open) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -131,6 +142,10 @@ export function DarkHeader() {
           position: 'sticky',
           top: 0,
           zIndex: 60,
+          // zIndex alone does not lift the bar above the panel once the panel is
+          // a fixed overlay, so the bar gets its own stacking context. This is
+          // what keeps the logo and the close button on top of the menu.
+          isolation: 'isolate',
           backdropFilter: scrolled ? 'blur(18px) saturate(1.2)' : 'none',
           background: scrolled ? 'rgba(4,7,15,0.82)' : 'transparent',
           borderBottom: scrolled ? '1px solid rgba(160,195,255,0.12)' : '1px solid transparent',
@@ -184,7 +199,7 @@ export function DarkHeader() {
                 </Link>
               )
             })}
-            <Link href="/site/contact" className="ag-btn ag-btn-primary" style={{ padding: '10px 20px', marginLeft: 12 }}>
+            <Link href="/site/start-a-project" className="ag-btn ag-btn-primary" style={{ padding: '10px 20px', marginLeft: 12 }}>
               Start a project <ArrowRight size={15} />
             </Link>
           </nav>
@@ -211,7 +226,7 @@ export function DarkHeader() {
                 </Link>
               ))}
               <Link
-                href="/site/contact"
+                href="/site/start-a-project"
                 className="ag-btn ag-btn-primary"
                 style={{ marginTop: 10, justifyContent: 'center' }}
               >
@@ -247,10 +262,32 @@ export function DarkHeader() {
           }
           .ag-nav-item:hover { color: #fff; background: rgba(255,255,255,0.05); }
           .ag-nav-item[data-active='true'] { color: #fff; background: rgba(44,107,232,0.16); }
+          /*
+           * The panel used to be an in-flow block below the bar, so it pushed the
+           * page down and its own top edge covered the logo — leaving the close
+           * button sitting on the brand mark. As a fixed sheet anchored under the
+           * 70px bar it reads as a menu, not as page content, and the logo stays
+           * visible (and tappable) at all times.
+           */
           .ag-mobile-panel {
+            position: fixed;
+            top: 70px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
             border-top: 1px solid rgba(160,195,255,0.10);
-            background: rgba(4,7,15,0.97);
+            background: rgba(4,7,15,0.985);
             backdrop-filter: blur(18px);
+            animation: ag-sheet-in .18s ease-out;
+          }
+          @keyframes ag-sheet-in {
+            from { opacity: 0; transform: translateY(-6px); }
+            to   { opacity: 1; transform: none; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .ag-mobile-panel { animation: none; }
           }
           .ag-mobile-link {
             display: flex;
@@ -325,7 +362,7 @@ const FOOTER_GROUPS = [
     title: 'Resources',
     links: [
       { href: '/site/how-we-work', label: 'Delivery process' },
-      { href: '/site/contact', label: 'Start a project' },
+      { href: '/site/start-a-project', label: 'Start a project' },
       { href: '/login', label: 'Client login' },
       { href: '/site/privacy', label: 'Privacy policy' },
     ],

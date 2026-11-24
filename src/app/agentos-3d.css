@@ -1429,6 +1429,48 @@
 .ag-audit-table tr:last-child td { border-bottom: 0; }
 .ag-audit-table td:first-child { color: #EAF0FF; font-weight: 640; white-space: nowrap; }
 
+/*
+ * Below 720px the three-column audit table cannot work: the "why we are not
+ * publishing this" column is the whole point of the table, and a horizontal
+ * scroller hid it off the right edge, leaving rows that looked empty. Stacking
+ * each row into a labelled block keeps the reasons readable without a scroll
+ * gesture nobody performs.
+ */
+@media (max-width: 720px) {
+  .ag-table-wrap { border: 0; border-radius: 0; overflow: visible; }
+  .ag-audit-table { min-width: 0; display: block; }
+  .ag-audit-table thead { display: none; }
+  .ag-audit-table tbody { display: grid; gap: 12px; }
+  .ag-audit-table tr {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid rgba(160, 195, 255, 0.13);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .ag-audit-table td {
+    display: block;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+  /* Name the column for each cell, since the header row is gone. */
+  .ag-audit-table td::before {
+    display: block;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #7E90B4;
+    margin-bottom: 3px;
+  }
+  .ag-audit-table td:nth-child(1)::before { content: 'Project'; }
+  .ag-audit-table td:nth-child(2)::before { content: 'Status'; }
+  .ag-audit-table td:nth-child(3)::before { content: 'Why not published'; }
+  .ag-audit-table td:first-child { white-space: normal; }
+}
+
 /* ── Conversion: option cards ─────────────────────────────────────────────── */
 
 .ag-paths {
