@@ -185,6 +185,28 @@ export function isClientPagePath(pathname: string): boolean {
  */
 const STATIC_ASSET_EXTENSIONS = /\.(?:svg|png|jpe?g|webp|avif|gif|ico|css|js|mjs|map|json|txt|xml|woff2?|ttf|otf|mp4|webm|mp3|wav|pdf)$/i;
 
+/**
+ * Public pages that render their own document chrome.
+ *
+ * The root layout wraps every route in the shared header/footer used by the
+ * authenticated app, and /site/layout.tsx adds the light publication chrome.
+ * The dark marketing pages bring their own header and footer, so they are marked
+ * here and the proxy skips those shared wrappers for them. Without this the
+ * services index rendered two navigation bars stacked on top of each other.
+ *
+ * These paths are public, so nothing is being exposed by listing them.
+ */
+export const SELF_CHROMED_PAGES: readonly string[] = [
+  '/site/services',
+  '/site/platform-overview',
+  '/site/contact',
+];
+
+/** True when the path renders its own header and footer. */
+export function isSelfChromePage(pathname: string): boolean {
+  return SELF_CHROMED_PAGES.some((prefix) => under(pathname, prefix));
+}
+
 /** True when the path is a static asset file, never a page. */
 export function isStaticAssetPath(pathname: string): boolean {
   return STATIC_ASSET_EXTENSIONS.test(pathname);

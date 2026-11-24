@@ -26,6 +26,19 @@ describe('public sitemap', () => {
     expect(new Set(urls).size).toBe(urls.length)
   })
 
+  it('lists every public service page exactly once', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://example.com'
+    const urls = sitemap().map((entry) => entry.url)
+    expect(urls).toContain('https://example.com/site/platform-overview')
+    // One page per service line, generated from SERVICE_LINES.
+    const serviceUrls = urls.filter((u) => u.includes('/site/services/'))
+    expect(serviceUrls).toHaveLength(12)
+    expect(new Set(serviceUrls).size).toBe(12)
+    expect(serviceUrls).toContain('https://example.com/site/services/ai-agent-development')
+    // The slug-less index is also present.
+    expect(urls).toContain('https://example.com/site/services')
+  })
+
   it('never advertises private or internal surfaces to search engines', () => {
     process.env.NEXT_PUBLIC_APP_URL = 'https://example.com'
     const urls = sitemap().map((entry) => entry.url)

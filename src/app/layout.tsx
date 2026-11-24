@@ -2,12 +2,15 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { jsonLd, organizationSchema, websiteSchema } from '@/lib/seo/structured-data'
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: '#0066CC',
 }
+
+const siteGraph = jsonLd([organizationSchema(), websiteSchema()])
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.alolabs.net'),
@@ -56,6 +59,10 @@ export default function RootLayout({
       >
         <div className="min-h-screen flex flex-col">
           <ServiceWorkerRegistration />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: siteGraph }}
+          />
           <script dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark')}catch(e){}})()`
           }} />

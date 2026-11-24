@@ -267,16 +267,24 @@
 
 /* CSS fallback: shown when WebGL is unavailable. Deliberately a convincing
    sphere rather than an empty box, but it never pretends to be the renderer. */
-/* Fallback sits behind the canvas: on a working device the orb covers it
-   almost entirely, and if GL never initialises it is the whole visual. */
+/* The fallback is only the visual when WebGL failed. While the canvas is
+   drawing, showing it underneath is wrong: its orbit rings are drawn on a
+   rotateX(68deg) plane, so their corners extended past the orb box and caused
+   horizontal overflow at narrow widths. */
+.ag-orb {
+  /* Nothing inside the orb may widen the page. */
+  overflow: hidden;
+}
 .ag-orb-fallback {
   position: absolute;
   inset: 0;
-  display: grid;
+  display: none;
   place-items: center;
   border-radius: 50%;
   z-index: 1;
-  opacity: 0.9;
+}
+.ag-orb[data-webgl='failed'] .ag-orb-fallback {
+  display: grid;
 }
 .ag-orb-fallback-core {
   width: 62%;
@@ -327,6 +335,17 @@
   border: 1px solid rgba(160, 195, 255, 0.13);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.10) inset, 0 12px 26px -18px rgba(0, 0, 0, 0.9);
 }
+/* Three-up on desktop, one-up on phones. Declared in CSS rather than inline,
+   because an inline grid-template-columns overrode the mobile rule and clipped
+   the chip labels at 390px. */
+.ag-chips-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 520px;
+}
+@media (max-width: 640px) {
+  .ag-chips-3 { grid-template-columns: 1fr; max-width: none; }
+}
+
 .ag-chip-value {
   font-size: 1.42rem;
   font-weight: 800;
@@ -681,3 +700,291 @@
     transform: translate3d(0, 0, 0);
   }
 }
+
+/* ============================================================================
+   Shared dark-site components
+   ----------------------------------------------------------------------------
+   Added for the multi-page public site. These reuse the tokens and primitives
+   above (glass, depth, dual-light) so a service page and the homepage read as
+   one publication rather than two designs.
+   ========================================================================== */
+
+/* ── Interior page shell ──────────────────────────────────────────────────── */
+
+.ag-page {
+  /* The shell width had only ever been declared on the homepage root, so
+     interior pages resolved `width: var(--ag-shell)` to nothing and every
+     section rendered flush against the left edge. */
+  --ag-shell: min(1240px, calc(100vw - 48px));
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  min-height: 100vh;
+  background:
+    radial-gradient(1100px 620px at 82% -6%, rgba(0, 72, 192, 0.30) 0%, rgba(0, 24, 108, 0) 62%),
+    radial-gradient(820px 520px at 4% 6%, rgba(252, 84, 0, 0.13) 0%, rgba(252, 84, 0, 0) 58%),
+    linear-gradient(178deg, #050A18 0%, #070F26 38%, #04070F 100%);
+  color: #EAF0FF;
+  font-family: var(--ag-body, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Interior hero: shallower than the homepage hero. */
+.ag-page-hero {
+  padding: clamp(48px, 6vw, 88px) 0 clamp(30px, 4vw, 56px);
+}
+
+.ag-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+  color: #8194B8;
+}
+.ag-crumbs li { display: inline-flex; align-items: center; gap: 8px; }
+.ag-crumbs a { color: #A9B9D8; text-decoration: none; }
+.ag-crumbs a:hover { color: #fff; text-decoration: underline; }
+.ag-crumbs [aria-current='page'] { color: #6E80A4; }
+
+/* ── Service index cards ──────────────────────────────────────────────────── */
+
+.ag-svc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+@media (max-width: 1100px) { .ag-svc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px)  { .ag-svc-grid { grid-template-columns: 1fr; } }
+
+/* Explicit column-count variants. Class-based rather than inline so the media
+   queries above still win on narrow screens. */
+.ag-svc-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ag-svc-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1100px) {
+  .ag-svc-grid-3, .ag-svc-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .ag-svc-grid-3, .ag-svc-grid-2 { grid-template-columns: 1fr; }
+}
+
+.ag-svc-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 22px 20px;
+  border-radius: 18px;
+  background: linear-gradient(168deg, rgba(255, 255, 255, 0.085) 0%, rgba(255, 255, 255, 0.028) 46%, rgba(255, 255, 255, 0.015) 100%);
+  border: 1px solid rgba(160, 195, 255, 0.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 26px 56px -30px rgba(0, 0, 0, 0.9);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.28s cubic-bezier(.22,.9,.3,1), border-color 0.28s ease, box-shadow 0.28s ease;
+}
+.ag-svc-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(160, 195, 255, 0.32);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 36px 72px -32px rgba(0, 0, 0, 0.95),
+    0 0 56px -24px rgba(44, 107, 232, 0.5);
+}
+.ag-svc-card:focus-visible { outline: 2px solid #9DBBFF; outline-offset: 3px; }
+
+.ag-svc-name {
+  margin: 0 0 8px;
+  font-size: 1.06rem;
+  font-weight: 720;
+  letter-spacing: -0.015em;
+  color: #fff;
+}
+.ag-svc-tagline { margin: 0 0 16px; font-size: 0.9rem; line-height: 1.55; color: #A9B9D8; flex: 1; }
+.ag-svc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(160, 195, 255, 0.10);
+  font-size: 0.8rem;
+  font-weight: 620;
+  color: #9DBBFF;
+}
+
+/* ── State pill (shares the capability-card language) ─────────────────────── */
+
+.ag-pill-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ag-pill-state::before {
+  content: '';
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+.ag-pill-delivered { color: #6EE7B7; background: rgba(16, 185, 129, 0.13); border: 1px solid rgba(16, 185, 129, 0.34); }
+.ag-pill-available { color: #FCD34D; background: rgba(245, 158, 11, 0.13); border: 1px solid rgba(245, 158, 11, 0.34); }
+.ag-pill-project   { color: #93A2C2; background: rgba(148, 163, 184, 0.10); border: 1px solid rgba(148, 163, 184, 0.28); }
+
+/* ── Two-column content grid ──────────────────────────────────────────────── */
+
+.ag-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: start;
+}
+@media (max-width: 900px) { .ag-split { grid-template-columns: 1fr; } }
+
+/* Definition list used for deliverables / stack / outcomes. */
+.ag-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 11px; }
+.ag-list li {
+  position: relative;
+  padding-left: 26px;
+  font-size: 0.93rem;
+  line-height: 1.55;
+  color: #B7C5E0;
+}
+.ag-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.52em;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(252, 84, 0, 0.85);
+  box-shadow: 0 0 10px rgba(252, 84, 0, 0.45);
+}
+.ag-list-cool li::before { border-color: rgba(44, 107, 232, 0.9); box-shadow: 0 0 10px rgba(44, 107, 232, 0.5); }
+
+/* Technology chips. */
+.ag-chips-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.ag-chip-tech {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #C7D6F2;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(160, 195, 255, 0.14);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Callout used for honest state notes. */
+.ag-note {
+  display: flex;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: rgba(44, 107, 232, 0.10);
+  border: 1px solid rgba(160, 195, 255, 0.20);
+  font-size: 0.87rem;
+  line-height: 1.6;
+  color: #C3D1EA;
+}
+.ag-note-warm { background: rgba(252, 84, 0, 0.09); border-color: rgba(252, 84, 0, 0.26); }
+
+/* ── Dark form controls (shared by every public form) ─────────────────────── */
+
+.ag-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #93A2C2;
+}
+.ag-input,
+.ag-select,
+.ag-textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(160, 195, 255, 0.20);
+  background: rgba(255, 255, 255, 0.045);
+  padding: 11px 13px;
+  font-size: 0.9rem;
+  color: #EAF0FF;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.ag-input::placeholder,
+.ag-textarea::placeholder { color: #6E80A4; }
+.ag-input:focus,
+.ag-select:focus,
+.ag-textarea:focus {
+  border-color: rgba(157, 187, 255, 0.7);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 3px rgba(44, 107, 232, 0.28);
+}
+.ag-select option { background: #0A1228; color: #EAF0FF; }
+.ag-textarea { resize: vertical; min-height: 118px; }
+
+/* Inline validation + submit state, never colour-only. */
+.ag-form-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  color: #FCA5A5;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.34);
+}
+.ag-form-ok {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  font-size: 0.87rem;
+  line-height: 1.55;
+  color: #A7F3D0;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.38);
+}
+
+/* Screen-reader-only utility. */
+.ag-sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link — keyboard users reach the content without tabbing the whole nav. */
+.ag-skip {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  z-index: 200;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #FC5400;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: top 0.18s ease;
+}
+.ag-skip:focus { top: 12px; }
