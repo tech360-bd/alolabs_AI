@@ -1,0 +1,683 @@
+/* ============================================================================
+   ALO Labs AgentOS — 3D landing surface
+   ----------------------------------------------------------------------------
+   Colours come from src/lib/brand/agentos-3d.ts, which samples the supplied
+   logo artwork. Nothing here hardcodes a new brand hue.
+
+   The 3D language is built from four primitives, used consistently so the page
+   reads as one system rather than a pile of effects:
+     1. perspective() scenes with real translateZ layers
+     2. translucent glass panels with specular edge + inner shadow
+     3. a warm/cool dual-light model (orange rim, blue key)
+     4. depth-scaled motion that respects prefers-reduced-motion
+   ========================================================================== */
+
+.agentos {
+  --ag-radius: 20px;
+  --ag-shell: min(1240px, calc(100vw - 48px));
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  background:
+    radial-gradient(1200px 700px at 78% -8%, rgba(0, 72, 192, 0.42) 0%, rgba(0, 24, 108, 0) 62%),
+    radial-gradient(900px 620px at 8% 12%, rgba(252, 84, 0, 0.16) 0%, rgba(252, 84, 0, 0) 58%),
+    radial-gradient(1100px 800px at 50% 108%, rgba(0, 48, 156, 0.34) 0%, rgba(0, 11, 51, 0) 64%),
+    linear-gradient(178deg, #050A18 0%, #070F26 34%, #050A1C 68%, #03060F 100%);
+  color: #EAF0FF;
+  font-family: var(--ag-body, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Fine grain + a faint grid give the dark ground texture so gradients do not
+   band on wide displays. */
+.agentos::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background-image:
+    linear-gradient(rgba(120, 170, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 170, 255, 0.05) 1px, transparent 1px);
+  background-size: 64px 64px, 64px 64px;
+  mask-image: radial-gradient(circle at 50% 22%, #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at 50% 22%, #000 0%, transparent 72%);
+}
+
+.agentos > * { position: relative; z-index: 1; }
+
+.ag-shell {
+  width: var(--ag-shell);
+  margin-inline: auto;
+}
+
+/* ── Typography ───────────────────────────────────────────────────────────── */
+
+.ag-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #9DBBFF;
+}
+.ag-eyebrow::before {
+  content: '';
+  width: 26px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--ag-orange), rgba(252, 84, 0, 0));
+}
+
+.ag-h1 {
+  margin: 0;
+  font-size: clamp(2.7rem, 6.4vw, 5.1rem);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  color: #fff;
+  text-wrap: balance;
+}
+.ag-h1-grad {
+  background: var(--ag-grad-headline);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ag-h1-warm {
+  background: var(--ag-grad-headline-warm);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ag-h2 {
+  margin: 0;
+  font-size: clamp(1.85rem, 3.5vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.028em;
+  font-weight: 780;
+  color: #fff;
+  text-wrap: balance;
+}
+
+.ag-lead {
+  margin: 22px 0 0;
+  max-width: 60ch;
+  font-size: clamp(1rem, 1.35vw, 1.16rem);
+  line-height: 1.66;
+  color: #B4C2DE;
+}
+
+.ag-muted { color: #93A2C2; }
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+.ag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 24px;
+  border-radius: 999px;
+  font-size: 0.94rem;
+  font-weight: 650;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform 0.22s cubic-bezier(.22,.9,.3,1), box-shadow 0.22s ease, background 0.22s ease;
+  will-change: transform;
+}
+.ag-btn:focus-visible {
+  outline: 2px solid #9DBBFF;
+  outline-offset: 3px;
+}
+
+.ag-btn-primary {
+  color: #fff;
+  background: var(--ag-grad-orange);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.34) inset,
+    0 10px 24px -8px rgba(252, 84, 0, 0.62),
+    0 2px 6px rgba(0, 0, 0, 0.34);
+}
+.ag-btn-primary:hover {
+  transform: translateY(-2px) scale(1.012);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.42) inset,
+    0 18px 38px -10px rgba(252, 84, 0, 0.72),
+    0 4px 10px rgba(0, 0, 0, 0.36);
+}
+
+.ag-btn-ghost {
+  color: #DCE7FF;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(160, 195, 255, 0.24);
+  backdrop-filter: blur(10px);
+}
+.ag-btn-ghost:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(160, 195, 255, 0.40);
+}
+
+/* ── Glass panel: the core 3D surface ─────────────────────────────────────── */
+
+.ag-glass {
+  position: relative;
+  border-radius: var(--ag-radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.085) 0%, rgba(255, 255, 255, 0.028) 44%, rgba(255, 255, 255, 0.014) 100%);
+  border: 1px solid rgba(160, 195, 255, 0.16);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.34) inset,
+    0 28px 60px -28px rgba(0, 0, 0, 0.85),
+    0 10px 24px -14px rgba(0, 24, 108, 0.62);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  overflow: hidden;
+}
+
+/* Top specular edge — what makes glass read as glass rather than a grey box. */
+.ag-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Diagonal sheen sweep. */
+.ag-glass::after {
+  content: '';
+  position: absolute;
+  inset: -40% -60%;
+  background: var(--ag-grad-sheen);
+  opacity: 0.06;
+  transform: rotate(-14deg);
+  pointer-events: none;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+
+.ag-hero {
+  position: relative;
+  padding: clamp(58px, 8vw, 108px) 0 clamp(46px, 6vw, 84px);
+}
+
+.ag-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+  gap: clamp(24px, 4vw, 64px);
+  align-items: center;
+}
+
+@media (max-width: 960px) {
+  .ag-hero-grid { grid-template-columns: 1fr; }
+}
+
+/* 3D scene wrapper: real perspective, layers translate on Z. */
+.ag-3d-scene {
+  position: relative;
+  perspective: 1200px;
+  perspective-origin: 50% 45%;
+  transform-style: preserve-3d;
+}
+
+/* ── The orb ──────────────────────────────────────────────────────────────── */
+
+.ag-orb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 560px;
+  margin-inline: auto;
+  transform-style: preserve-3d;
+}
+
+/* The canvas is transparent where nothing was drawn, so it sits above the
+   fallback without hiding it; once GL reports a failure the fallback becomes
+   the visual and the (necessarily blank) canvas is removed from the stack. */
+.ag-orb-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 2;
+}
+.ag-orb-canvas[data-webgl='failed'] {
+  display: none;
+}
+
+/* Glow pool behind the orb. */
+.ag-orb::before {
+  content: '';
+  position: absolute;
+  inset: 6% 6% 10%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 36%, rgba(44, 107, 232, 0.55) 0%, rgba(0, 48, 156, 0.18) 46%, transparent 72%);
+  filter: blur(38px);
+  z-index: -1;
+}
+
+/* CSS fallback: shown when WebGL is unavailable. Deliberately a convincing
+   sphere rather than an empty box, but it never pretends to be the renderer. */
+/* Fallback sits behind the canvas: on a working device the orb covers it
+   almost entirely, and if GL never initialises it is the whole visual. */
+.ag-orb-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  z-index: 1;
+  opacity: 0.9;
+}
+.ag-orb-fallback-core {
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--ag-grad-orb);
+  box-shadow:
+    inset -18px -24px 60px rgba(0, 8, 32, 0.9),
+    inset 14px 16px 44px rgba(120, 170, 255, 0.34),
+    0 0 90px rgba(0, 72, 192, 0.5),
+    0 0 34px rgba(252, 84, 0, 0.28);
+}
+.ag-orb-fallback-ring {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  border: 1px solid rgba(160, 195, 255, 0.30);
+  transform: rotateX(68deg);
+}
+.ag-orb-fallback-ring-a { animation: ag-spin 22s linear infinite; }
+.ag-orb-fallback-ring-b {
+  inset: 4%;
+  border-color: rgba(252, 84, 0, 0.28);
+  animation: ag-spin 30s linear infinite reverse;
+}
+
+@keyframes ag-spin {
+  to { transform: rotateX(68deg) rotateZ(360deg); }
+}
+
+/* ── Floating stat chips around the hero ──────────────────────────────────── */
+
+.ag-chips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 34px;
+  max-width: 470px;
+}
+
+.ag-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(160, 195, 255, 0.13);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.10) inset, 0 12px 26px -18px rgba(0, 0, 0, 0.9);
+}
+.ag-chip-value {
+  font-size: 1.42rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.ag-chip-label {
+  font-size: 0.74rem;
+  line-height: 1.25;
+  color: #8FA2C4;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────────── */
+
+.ag-section {
+  padding: clamp(56px, 7vw, 104px) 0;
+}
+
+.ag-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: clamp(30px, 4vw, 54px);
+  flex-wrap: wrap;
+}
+
+/* ── Capability cards with true 3D tilt ───────────────────────────────────── */
+
+/* Fixed column counts rather than auto-fit: six capabilities read as 3x2, and
+   auto-fit would lay them out 4 + 2 on a 1440px display. */
+.ag-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  perspective: 1400px;
+}
+@media (max-width: 1100px) {
+  .ag-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .ag-cards { grid-template-columns: 1fr; }
+}
+
+.ag-card {
+  position: relative;
+  border-radius: var(--ag-radius);
+  padding: 26px 24px 24px;
+  background:
+    linear-gradient(168deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 42%, rgba(255, 255, 255, 0.015) 100%);
+  border: 1px solid rgba(160, 195, 255, 0.16);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 -18px 40px -30px rgba(0, 0, 0, 0.9) inset,
+    0 30px 64px -34px rgba(0, 0, 0, 0.92);
+  transform-style: preserve-3d;
+  transition: transform 0.32s cubic-bezier(.22,.9,.3,1), border-color 0.32s ease, box-shadow 0.32s ease;
+  will-change: transform;
+  height: 100%;
+}
+
+.ag-card:hover {
+  transform: translate3d(0, -6px, 26px) rotateX(1.6deg);
+  border-color: rgba(160, 195, 255, 0.34);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.24) inset,
+    0 40px 80px -36px rgba(0, 0, 0, 0.95),
+    0 0 60px -22px rgba(44, 107, 232, 0.55);
+}
+
+/* Icon plinth: a small raised 3D tile. */
+.ag-card-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  margin-bottom: 18px;
+  color: #fff;
+  background: linear-gradient(150deg, rgba(44, 107, 232, 0.95), rgba(0, 24, 108, 0.95));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.40) inset,
+    0 -6px 14px -6px rgba(0, 0, 0, 0.8) inset,
+    0 12px 24px -12px rgba(0, 72, 192, 0.85);
+  transform: translateZ(30px);
+}
+
+.ag-card-title {
+  margin: 0 0 8px;
+  font-size: 1.12rem;
+  font-weight: 720;
+  letter-spacing: -0.014em;
+  color: #fff;
+  transform: translateZ(18px);
+}
+
+.ag-card-blurb {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.62;
+  color: #A9B9D8;
+  transform: translateZ(10px);
+}
+
+.ag-card-detail {
+  margin: 14px 0 0;
+  padding-top: 13px;
+  border-top: 1px solid rgba(160, 195, 255, 0.10);
+  font-size: 0.79rem;
+  line-height: 1.5;
+  color: #8194B8;
+}
+
+/* Honest capability state badge. */
+.ag-state {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 0.61rem;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+}
+.ag-state::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+.ag-state-live {
+  color: #6EE7B7;
+  background: rgba(16, 185, 129, 0.13);
+  border: 1px solid rgba(16, 185, 129, 0.34);
+}
+.ag-state-partial {
+  color: #FCD34D;
+  background: rgba(245, 158, 11, 0.13);
+  border: 1px solid rgba(245, 158, 11, 0.34);
+}
+.ag-state-planned {
+  color: #93A2C2;
+  background: rgba(148, 163, 184, 0.10);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+/* ── Architecture stack (layered 3D planes) ───────────────────────────────── */
+
+.ag-stack {
+  position: relative;
+  perspective: 1600px;
+  display: grid;
+  gap: 14px;
+  padding: 10px 0;
+}
+
+.ag-plane {
+  position: relative;
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+  padding: 20px 26px;
+  border-radius: 16px;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.022));
+  border: 1px solid rgba(160, 195, 255, 0.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 24px 48px -28px rgba(0, 0, 0, 0.9);
+  transform: rotateX(2.4deg);
+  transition: transform 0.34s cubic-bezier(.22,.9,.3,1), border-color 0.34s ease;
+}
+.ag-plane:hover {
+  transform: rotateX(0deg) translateZ(16px);
+  border-color: rgba(160, 195, 255, 0.32);
+}
+
+/* Depth marker: a lit edge on the left of each plane, warm for the top
+   layers and cool for the base — the same two-tone as the logo ring. */
+.ag-plane::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--ag-grad-orange);
+  box-shadow: 0 0 14px rgba(252, 84, 0, 0.7);
+}
+.ag-plane[data-tone='cool']::before {
+  background: var(--ag-grad-blue);
+  box-shadow: 0 0 14px rgba(0, 72, 192, 0.75);
+}
+
+.ag-plane-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8FA2C4;
+}
+.ag-plane-body {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #C3D1EA;
+}
+.ag-plane-body strong { color: #fff; font-weight: 680; }
+
+@media (max-width: 720px) {
+  .ag-plane { grid-template-columns: 1fr; gap: 8px; }
+}
+
+/* ── Logo showcase ────────────────────────────────────────────────────────── */
+
+.ag-logo-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: clamp(28px, 5vw, 56px);
+  perspective: 1000px;
+}
+
+.ag-logo-frame {
+  position: relative;
+  width: min(400px, 74vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  padding: 10px;
+  background: conic-gradient(from 210deg, #FC5400 0deg, #FF8A3D 70deg, #0048C0 175deg, #00309C 250deg, #00186C 320deg, #FC5400 360deg);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+    0 40px 90px -34px rgba(0, 0, 0, 0.95),
+    0 0 90px -26px rgba(0, 72, 192, 0.72),
+    0 0 54px -30px rgba(252, 84, 0, 0.8);
+  transform: rotateX(7deg) rotateY(-6deg);
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(.22,.9,.3,1);
+  animation: ag-float 9s ease-in-out infinite;
+}
+.ag-logo-stage:hover .ag-logo-frame {
+  transform: rotateX(0deg) rotateY(0deg) scale(1.02);
+}
+.ag-logo-frame img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: block;
+  object-fit: cover;
+  background: #fff;
+}
+
+@keyframes ag-float {
+  0%, 100% { transform: rotateX(7deg) rotateY(-6deg) translateY(0); }
+  50%      { transform: rotateX(4deg) rotateY(2deg) translateY(-12px); }
+}
+
+/* ── Department pills ─────────────────────────────────────────────────────── */
+
+.ag-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ag-pill {
+  padding: 9px 17px;
+  border-radius: 999px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: #C7D6F2;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(160, 195, 255, 0.16);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.ag-pill:hover {
+  transform: translateY(-2px);
+  background: rgba(44, 107, 232, 0.14);
+  border-color: rgba(160, 195, 255, 0.34);
+  color: #fff;
+}
+
+/* ── CTA band ─────────────────────────────────────────────────────────────── */
+
+.ag-cta {
+  position: relative;
+  border-radius: 26px;
+  padding: clamp(34px, 5vw, 62px);
+  text-align: center;
+  overflow: hidden;
+  background:
+    radial-gradient(700px 320px at 50% 0%, rgba(252, 84, 0, 0.24) 0%, transparent 68%),
+    linear-gradient(160deg, rgba(0, 72, 192, 0.30) 0%, rgba(0, 24, 108, 0.42) 60%, rgba(0, 11, 51, 0.55) 100%);
+  border: 1px solid rgba(160, 195, 255, 0.22);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 44px 96px -44px rgba(0, 0, 0, 0.95),
+    0 0 100px -40px rgba(0, 72, 192, 0.7);
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .agentos { --ag-shell: calc(100vw - 32px); }
+  .ag-chips { grid-template-columns: 1fr; }
+  .ag-card { padding: 22px 20px; }
+  .ag-card:hover { transform: none; }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-logo-frame,
+  .ag-orb-fallback-ring {
+    animation: none !important;
+  }
+  .ag-card,
+  .ag-plane,
+  .ag-btn,
+  .ag-logo-frame {
+    transition: none !important;
+  }
+  .ag-card:hover,
+  .ag-plane:hover {
+    transform: none;
+  }
+}
+
+/* Scroll-reveal is opt-in decoration, never a precondition for reading the
+   page: the hidden state only applies once JS has marked the root as ready
+   ([data-reveal='armed']). If scripting fails, the observer never arms, or the
+   bundle errors, every element simply renders at full opacity. */
+@media (prefers-reduced-motion: no-preference) {
+  .ag-reveal {
+    transition: opacity 0.7s cubic-bezier(.22,.9,.3,1), transform 0.7s cubic-bezier(.22,.9,.3,1);
+  }
+  .agentos[data-reveal='armed'] .ag-reveal:not(.is-in) {
+    opacity: 0;
+    transform: translate3d(0, 22px, -40px);
+  }
+  .ag-reveal.is-in {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}

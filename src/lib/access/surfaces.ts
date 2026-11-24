@@ -174,7 +174,26 @@ export function isClientPagePath(pathname: string): boolean {
   return under(pathname, CLIENT_PAGE_PREFIX);
 }
 
+/**
+ * File extensions that identify a static asset rather than a page.
+ *
+ * `/brand` is an authenticated page group (the brand book), but public assets
+ * are also served from `/brand/...` — favicons, the OG image and the logo files
+ * under `/brand/*.svg|png`. Without this exemption the auth guard answers an
+ * <img src="/brand/alo-icon.svg"> with a redirect to /login, so the corporate
+ * mark and every favicon silently break for anonymous visitors.
+ */
+const STATIC_ASSET_EXTENSIONS = /\.(?:svg|png|jpe?g|webp|avif|gif|ico|css|js|mjs|map|json|txt|xml|woff2?|ttf|otf|mp4|webm|mp3|wav|pdf)$/i;
+
+/** True when the path is a static asset file, never a page. */
+export function isStaticAssetPath(pathname: string): boolean {
+  return STATIC_ASSET_EXTENSIONS.test(pathname);
+}
+
 export function isInternalPagePath(pathname: string): boolean {
+  // An asset request is not a page request, even when it shares a prefix with
+  // a private page group.
+  if (isStaticAssetPath(pathname)) return false;
   return INTERNAL_PAGE_PREFIXES.some((prefix) => under(pathname, prefix));
 }
 
