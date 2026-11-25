@@ -1,0 +1,33 @@
+{
+  "mautic/mautic": {
+    "file": "LICENSE.txt",
+    "bytes": 38326,
+    "head": "Mautic - Open source marketing automation software |  | Copyright 2014 by the contributors | "
+  },
+  "twentyhq/twenty": {
+    "file": "LICENSE",
+    "bytes": 39965,
+    "head": " | This project is mostly licensed under the GNU Affero General Public License v3.0 (AGPLv3) as described below, with two qualifications: |  | 1. Certain files are licensed under a commercial license. These files are clearly marked with the following comment at the top of the file: /* @license Enter"
+  },
+  "n8n-io/n8n": {
+    "file": "LICENSE.md",
+    "bytes": 4445,
+    "head": "# License |  | Portions of this software are licensed as follows: | "
+  },
+  "PostHog/posthog": {
+    "file": "LICENSE",
+    "bytes": 1563,
+    "head": "Copyright (c) 2020-2026 PostHog Inc. |  | Portions of this software are licensed as follows: | "
+  },
+  "chatwoot/chatwoot": {
+    "file": "LICENSE",
+    "bytes": 1581,
+    "head": "Copyright (c) 2017-2026 Chatwoot Inc. |  | Portions of this software are licensed as follows: | "
+  },
+  "growthbook/growthbook": {
+    "file": "LICENSE",
+    "bytes": 1716,
+    "head": "Copyright (c) 2025 GrowthBook, Inc. |  | Portions of this software are licensed as follows: | "
+  },
+  "ALwrity/ALwrity": null
+}

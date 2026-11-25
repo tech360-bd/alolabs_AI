@@ -1,0 +1,34 @@
+{
+  "mautic/mautic": {
+    "Affero": true,
+    "GNU General Public License": true,
+    "GPLv3": true,
+    "Apache": true,
+    "free of charge": true
+  },
+  "twentyhq/twenty": {
+    "MIT License": true,
+    "Enterprise": true,
+    "Affero": true,
+    "AGPL": true,
+    "GNU General Public License": true,
+    "GPLv3": true,
+    "free of charge": true
+  },
+  "n8n-io/n8n": {
+    "Sustainable Use": true,
+    "Enterprise": true,
+    "free of charge": true
+  },
+  "PostHog/posthog": {
+    "free of charge": true
+  },
+  "chatwoot/chatwoot": {
+    "Enterprise": true,
+    "free of charge": true
+  },
+  "growthbook/growthbook": {
+    "Enterprise": true,
+    "free of charge": true
+  }
+}
