@@ -45,6 +45,16 @@ async function signIn(page) {
   await page.waitForURL('**/dashboard');
 }
 
+/**
+ * The browser context's cookie is httpOnly, so API assertions from the test use
+ * the same bearer token the application itself places in the session cookie.
+ */
+async function authHeaders(ctx) {
+  const cookie = (await ctx.cookies()).find((entry) => entry.name === 'session-token');
+  assert.ok(cookie?.value, 'signed-in session cookie is present');
+  return { authorization: `Bearer ${cookie.value}` };
+}
+
 async function openResearch(page) {
   await page.goto('/dashboard?view=command-agent');
   await page.getByRole('heading', { name: /Commanding Center/ }).waitFor();
@@ -140,7 +150,7 @@ test('research evidence is measured, saved, and recovered after reload', async (
   await shot(page, 'research-evidence');
 
   // The saved finding is company-scoped and readable through the API.
-  const saved = await ctx.request.get('/api/research/analyze');
+  const saved = await ctx.request.get('/api/research/analyze', { headers: await authHeaders(ctx) });
   assert.equal(saved.status(), 200);
   const savedJson = await saved.json();
   assert.ok(Array.isArray(savedJson.reports) && savedJson.reports.length >= 1);
@@ -201,7 +211,10 @@ test('a failed command run is streamed honestly and its timeline is retrievable'
   assert.equal(frames.some((frame) => frame.type === 'final'), false, 'a failed run has no final frame');
   assert.equal(frames.filter((frame) => frame.type === 'error').length, 1);
 
-  const fetched = await ctx.request.get(`/api/command-agent/runs/${encodeURIComponent(runFrame.runId)}`);
+  const fetched = await ctx.request.get(
+    `/api/command-agent/runs/${encodeURIComponent(runFrame.runId)}`,
+    { headers: await authHeaders(ctx) },
+  );
   assert.equal(fetched.status(), 200);
   const stored = await fetched.json();
   assert.equal(stored.run.status, 'failed');
