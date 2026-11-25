@@ -124,6 +124,13 @@ export interface CommandAgentInput {
   departmentId?: string | null;
   /** Optional advisory skill slugs; quarantined/unknown slugs are rejected. */
   skillSlugs?: string[];
+  /**
+   * 'read' (default): read-only tools only — the historic behaviour.
+   * 'supervisor': additionally exposes the mutation registry (provider
+   * switching, site content, site doctor, self-healing). Only meaningful
+   * when role === 'super_admin'; executeSupervisorTool refuses anyone else.
+   */
+  mode?: 'read' | 'supervisor';
   /** Real-time event sink used by the streaming endpoint. */
   onEvent?: (event: CommandRunEvent) => void;
 }
@@ -175,6 +182,7 @@ function parseArgs(raw: string): Record<string, unknown> {
 
 export async function runCommandAgent(input: CommandAgentInput): Promise<CommandAgentResult> {
   const profile: CommandAgentProfile = input.profile ?? 'free_general';
+  const supervisor = input.mode === 'supervisor' && input.role === 'super_admin';
   const startedAt = Date.now();
   const collector = createEventCollector(input.onEvent);
 
@@ -206,7 +214,7 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
     historyTurns: storedHistory.length,
   });
 
-  const tools = allToolSchemas();
+  const tools = allToolSchemas(supervisor);
   const permissions = internalPermissions();
   const skillPack = await buildAgentSkillPrompt(input.message, {
     limit: 3,
@@ -288,7 +296,18 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
       let ok = false;
 
       const external = getCommandTool(name);
-      if (external) {
+      const supervisorTool = supervisor ? getSupervisorTool(name) : undefined;
+      if (supervisorTool) {
+        // Mutation path: full gate inside executeSupervisorTool
+        // (super_admin only, confirmation, audit ledger, verbatim verdict).
+        const executed = await executeSupervisorTool(
+          { userId: input.userId, role: input.role, companyId: input.companyId },
+          name,
+          args,
+        );
+        ok = executed.ok;
+        output = executed.output.slice(0, MAX_TOOL_OUTPUT);
+      } else if (external) {
         const governance = await enforceGovernance({
           action: `Command agent external tool ${name}`,
           actionClass: commandToolActionClass(name),

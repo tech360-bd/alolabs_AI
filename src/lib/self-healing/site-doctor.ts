@@ -182,7 +182,7 @@ export async function getSiteDoctorStatus(): Promise<{
   totals: { healthy: number; degraded: number; unreachable: number; escalated: number };
 }> {
   const targets = configuredTargets();
-  const perTarget = await Promise.all(targets.map(async (target) => {
+  const perTarget: Array<{ target: string; lastStatus: ProbeStatus | 'unknown'; lastAt: string | null; lastDetail: string | null }> = await Promise.all(targets.map(async (target: string) => {
     const last = await db.siteDoctorProbe.findFirst({
       where: { target },
       orderBy: { createdAt: 'desc' },

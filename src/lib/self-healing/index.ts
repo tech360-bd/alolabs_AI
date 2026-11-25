@@ -18,6 +18,8 @@ interface RecoveryAttempt {
   maxAttempts: number;
   status: 'pending' | 'in_progress' | 'success' | 'failed' | 'escalated';
   error?: string;
+  /** Who requested it (Super Admin supervisor tool) — recorded in the event. */
+  actorUserId?: string;
   startedAt?: Date;
   completedAt?: Date;
   createdAt: Date;
@@ -60,6 +62,7 @@ export class SelfHealingEngine {
       maxAttempts: 3,
       status: 'pending',
       error: params.error,
+      ...(params.actorUserId ? { actorUserId: params.actorUserId } : {}),
       createdAt: new Date(),
     };
 
@@ -134,7 +137,7 @@ export class SelfHealingEngine {
         data: {
           recoveryId: id, targetId: attempt.targetId,
           strategy: attempt.strategy, status: attempt.status,
-          requestedBy: params.actorUserId ?? 'self-healing-monitor',
+          requestedBy: attempt.actorUserId ?? 'self-healing-monitor',
         },
         priority: 'normal',
         timestamp: new Date(),

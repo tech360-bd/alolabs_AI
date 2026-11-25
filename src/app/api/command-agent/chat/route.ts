@@ -78,7 +78,6 @@ export async function POST(request: NextRequest) {
         requestedSkills: parsed.data.skillSlugs ?? [],
         messageLength: parsed.data.message.length,
         actorRole: actor.role,
-        mode: actor.role === 'super_admin' ? parsed.data.mode : 'read',
       },
     });
 
