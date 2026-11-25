@@ -52,7 +52,15 @@ async function signIn(page) {
  */
 async function apiGet(page, path) {
   return page.evaluate(async (url) => {
-    const response = await fetch(url, { headers: { accept: 'application/json' } });
+    // The app authenticates API calls with the bearer token the login flow puts
+    // in localStorage; the httpOnly cookie only guards page navigation.
+    const token = localStorage.getItem('alo_token') || localStorage.getItem('token');
+    const response = await fetch(url, {
+      headers: {
+        accept: 'application/json',
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+    });
     let body = null;
     try {
       body = await response.json();
