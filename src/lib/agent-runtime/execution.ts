@@ -26,6 +26,11 @@ import {
 } from './pipeline';
 import { getEventBus } from '@/lib/event-bus';
 import { validateInput, validateOutput } from '@/lib/ai-security/validator';
+import {
+  enforceAgentExecution,
+  GovernanceApprovalRequiredError,
+  GovernanceBlockedError,
+} from '@/lib/governance';
 
 // ─── Shared routing policy ──────────────────────────────────────────
 
@@ -234,6 +239,19 @@ export class AgentExecutionEngine {
     approvalId?: string;
     approvedBy?: string;
   }): Promise<AgentTask> {
+    // Central governance gate. Emergency stop, read-only mode, tenant boundary
+    // and policy are evaluated before the agent is looked up, queued, or any
+    // model tokens are spent.
+    const governance = await enforceAgentExecution({
+      companyId: params.companyId,
+      userId: params.userId,
+      agentId: params.agentId,
+      task: params.task,
+      surface: 'customer_workspace',
+    });
+    if (governance.outcome === 'deny') throw new GovernanceBlockedError(governance);
+    if (governance.outcome === 'require_approval') throw new GovernanceApprovalRequiredError(governance);
+
     const agent = await db.agent.findFirst({
       where: {
         agentId: params.agentId,

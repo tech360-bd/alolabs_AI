@@ -28,7 +28,14 @@ import type { EnterpriseView } from '../types'
 
 interface TraceStep { step: number; tool: string; args: Record<string, unknown>; ok: boolean; durationMs: number; output: string }
 interface SkillUsage { slug: string; title: string; source: string; license: string; truncated: boolean }
-interface ChatReply { success: boolean; response: string; provider: string; model: string; profile: string; steps: number; trace: TraceStep[]; images: string[]; skillsUsed?: SkillUsage[]; skillsRejected?: Array<{ slug: string; reason: string }>; company: { name: string } }
+interface CommandApproval { tool: string; approvalId: string | null; approvers: string[]; reason: string }
+interface CommandRouting { attempts: number; fallbackUsed: boolean; switches: number; providers: string[] }
+interface ChatReply {
+  success: boolean; response: string; provider: string; model: string; profile: string;
+  steps: number; trace: TraceStep[]; images: string[];
+  status?: string; statusDetail?: string; approvals?: CommandApproval[]; persisted?: boolean; routing?: CommandRouting;
+  skillsUsed?: SkillUsage[]; skillsRejected?: Array<{ slug: string; reason: string }>; company: { name: string }
+}
 interface FreeModel { id: string; name: string; strength: string; capabilities: string[]; contextLength?: number }
 interface FreeProvider { id: string; label: string; providerKind: string; baseUrl: string; getKeyUrl: string; envVar?: string; apiKeyRequired: boolean; cardRequired: boolean; local: boolean; freeAllowance: string; notes: string; models: FreeModel[] }
 interface FreeService { name: string; category: string; description: string; freeAllowance: string; url: string; apiKeyRequired: boolean; agentTool?: string }
@@ -50,7 +57,42 @@ interface Catalog {
   setupSteps: string[]
   disclaimer: string
 }
-interface Message { role: 'user' | 'assistant' | 'error'; content: string; provider?: string; model?: string; profile?: string; trace?: TraceStep[]; images?: string[]; skillsUsed?: SkillUsage[]; skillsRejected?: Array<{ slug: string; reason: string }> }
+interface Message {
+  role: 'user' | 'assistant' | 'error'; content: string; provider?: string; model?: string; profile?: string;
+  trace?: TraceStep[]; images?: string[]; skillsUsed?: SkillUsage[]; skillsRejected?: Array<{ slug: string; reason: string }>;
+  status?: string; statusDetail?: string; approvals?: CommandApproval[]; persisted?: boolean; routing?: CommandRouting;
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  partially_completed: 'bg-amber-50 text-amber-800 border-amber-200',
+  waiting_for_approval: 'bg-[#FC5400]/10 text-[#B23A00] border-[#FC5400]/30',
+  failed: 'bg-red-50 text-red-700 border-red-200',
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const style = STATUS_STYLES[status] ?? 'bg-slate-50 text-slate-600 border-slate-200'
+  return <Badge variant="outline" className={`px-1.5 py-0 text-[10px] ${style}`}>{status.replace(/_/g, ' ')}</Badge>
+}
+
+function ApprovalNotice({ approvals }: { approvals: CommandApproval[] }) {
+  if (approvals.length === 0) return null
+  return (
+    <div className="mt-2 rounded-lg border border-[#FC5400]/30 bg-[#FC5400]/5 p-2 text-[11px] text-[#172033]">
+      <p className="font-semibold text-[#B23A00]">Human approval required before this step runs</p>
+      <ul className="mt-1 space-y-0.5">
+        {approvals.map((approval, index) => (
+          <li key={`${approval.tool}-${index}`}>
+            <span className="font-mono">{approval.tool}</span>
+            {approval.approvalId ? <> · approval <span className="font-mono">{approval.approvalId}</span></> : ' · approval could not be created'}
+            {approval.approvers.length > 0 && <> · approvers: {approval.approvers.join(', ')}</>}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1 text-[#667085]">Open the Approvals panel, approve the request, then send the command again.</p>
+    </div>
+  )
+}
 
 const PROFILES = [
   { id: 'free_general', label: 'Free · General' },
@@ -104,7 +146,21 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
   const [profile, setProfile] = useState<string>('free_general')
   const [model, setModel] = useState('')
   const [sending, setSending] = useState(false)
-  const [sessionId] = useState(() => `cmd-${Date.now().toString(36)}`)
+  // Stable per-browser session so a reload resumes the durable transcript
+  // instead of silently starting over with a new random id.
+  const [sessionId] = useState(() => {
+    if (typeof window === 'undefined') return 'cmd-default'
+    try {
+      const existing = window.localStorage.getItem('alolabs.commandSession')
+      if (existing) return existing
+      const created = `cmd-${Date.now().toString(36)}`
+      window.localStorage.setItem('alolabs.commandSession', created)
+      return created
+    } catch {
+      return `cmd-${Date.now().toString(36)}`
+    }
+  })
+  const [historyState, setHistoryState] = useState<'loading' | 'durable' | 'unavailable'>('loading')
   const [modelFilter, setModelFilter] = useState('')
   const [skillFilter, setSkillFilter] = useState('')
   const [skillStatusFilter, setSkillStatusFilter] = useState<'all' | 'advisory' | 'quarantined'>('advisory')
@@ -121,6 +177,40 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
   }, [])
 
   useEffect(() => { void loadCatalog() }, [loadCatalog])
+
+  // Restore the durable transcript on mount. `durable: false` means storage could
+  // not be read — the UI says so rather than implying the chat was empty.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const history = await fetchApi<{ durable: boolean; messages: Array<{ role: string; content: string; model?: string | null; metadata?: Record<string, unknown> }> }>(
+          `/api/command-agent/chat?sessionId=${encodeURIComponent(sessionId)}`,
+        )
+        if (cancelled) return
+        setHistoryState(history.durable ? 'durable' : 'unavailable')
+        if (!history.messages?.length) return
+        const restored: Message[] = history.messages.map((turn) => {
+          const meta = (turn.metadata ?? {}) as Record<string, unknown>
+          const routing = meta.routing as CommandRouting | undefined
+          return {
+            role: turn.role === 'user' ? 'user' : 'assistant',
+            content: turn.content,
+            ...(turn.model ? { model: turn.model } : {}),
+            ...(typeof meta.provider === 'string' ? { provider: meta.provider } : {}),
+            ...(typeof meta.status === 'string' ? { status: meta.status } : {}),
+            ...(Array.isArray(meta.approvals) ? { approvals: meta.approvals as CommandApproval[] } : {}),
+            ...(routing ? { routing } : {}),
+            ...(Array.isArray(meta.trace) ? { trace: meta.trace as TraceStep[] } : {}),
+          }
+        })
+        setMessages(restored)
+      } catch {
+        if (!cancelled) setHistoryState('unavailable')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [sessionId])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, sending])
 
   const send = useCallback(async (text?: string) => {
@@ -137,6 +227,7 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
       setMessages((prev) => [...prev, {
         role: 'assistant', content: reply.response, provider: reply.provider, model: reply.model,
         profile: reply.profile, trace: reply.trace, images: reply.images, skillsUsed: reply.skillsUsed ?? [], skillsRejected: reply.skillsRejected ?? [],
+        status: reply.status, statusDetail: reply.statusDetail, approvals: reply.approvals ?? [], persisted: reply.persisted, routing: reply.routing,
       }])
     } catch (error) {
       let detail = error instanceof Error ? error.message : 'Request failed'
@@ -255,6 +346,11 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
               </div>
             </CardHeader>
             <CardContent className="flex min-h-0 flex-1 flex-col gap-3 pt-0">
+              {historyState === 'unavailable' && (
+                <p className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800">
+                  Conversation storage is unavailable — this chat will not be restored after a reload. Replies are unaffected.
+                </p>
+              )}
               <ScrollArea className="min-h-[320px] flex-1 rounded-xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/40">
                 <div className="space-y-3">
                   {messages.map((msg, i) => (
@@ -272,9 +368,26 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
                         {msg.skillsRejected && msg.skillsRejected.length > 0 && (
                           <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">Skills not used (quarantined/unknown): {msg.skillsRejected.map((skill) => skill.slug).join(', ')}</p>
                         )}
+                        {msg.approvals && msg.approvals.length > 0 && <ApprovalNotice approvals={msg.approvals} />}
                         {msg.trace && msg.trace.length > 0 && <ToolTrace trace={msg.trace} />}
+                        {msg.status && (
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <StatusBadge status={msg.status} />
+                            {msg.statusDetail && <span className="text-[11px] text-[#667085]">{msg.statusDetail}</span>}
+                          </div>
+                        )}
                         {(msg.provider || msg.model) && (
-                          <p className="mt-2 text-[11px] text-slate-400">{msg.provider} · <span className="font-mono">{msg.model}</span> · {msg.profile} · $0 route</p>
+                          <p className="mt-2 text-[11px] text-[#667085]">
+                            {msg.provider} · <span className="font-mono">{msg.model}</span> · {msg.profile} · $0 free-tier route
+                            {msg.routing && (
+                              <> · {msg.routing.attempts} provider attempt{msg.routing.attempts === 1 ? '' : 's'}
+                                {msg.routing.fallbackUsed ? ` · failover used (${msg.routing.providers.join(' → ')})` : ' · no failover needed'}
+                              </>
+                            )}
+                          </p>
+                        )}
+                        {msg.persisted === false && (
+                          <p className="mt-1 text-[11px] text-amber-700">This turn was not saved to history (storage unavailable).</p>
                         )}
                       </div>
                     </div>

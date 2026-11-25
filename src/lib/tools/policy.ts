@@ -7,8 +7,11 @@
  *   1. the tool must exist in the registry;
  *   2. the agent must list it in `allowedTools`;
  *   3. the agent must not list it in `forbiddenTools` (forbidden wins);
- *   4. approval-required tools remain blocked until approval validation is implemented.
- * A caller-supplied approval ID alone is not proof of a human decision.
+ *   4. approval-required tools remain blocked unless the caller supplies a
+ *      *verified* approval (`verifiedApproval: true`), which is only ever set by
+ *      `src/lib/governance/runtime.ts` after the approval row has been checked
+ *      for status, tenant, binding, expiry and reviewer role. A caller-supplied
+ *      approval ID alone is not proof of a human decision.
  *
  * `*` and prefix wildcards are deliberately NOT supported: a workforce of 2,000
  * agents should not be able to inherit a blanket grant by accident.
@@ -42,10 +45,17 @@ export interface AgentToolPermissions {
   forbiddenTools: unknown;
 }
 
+export interface ToolApprovalEvidence {
+  /** Id supplied by the caller; never trusted on its own. */
+  approvalId?: string | null;
+  /** Set only by the governance runtime after full binding verification. */
+  verifiedApproval?: boolean;
+}
+
 export function authoriseTool(
   tool: Pick<ToolDefinition, 'name' | 'risk' | 'requiresApproval'> | undefined,
   permissions: AgentToolPermissions,
-  _options: { approvalId?: string | null } = {},
+  options: ToolApprovalEvidence = {},
 ): ToolAuthorisation {
   if (!tool) {
     return { allowed: false, reason: 'Tool is not registered' };
@@ -60,10 +70,14 @@ export function authoriseTool(
   if (!allowed.includes(tool.name)) {
     return { allowed: false, reason: `Tool "${tool.name}" is not in this agent's allowed tools` };
   }
-  // An ID has not been checked for status, tenant, action, arguments, expiry or
-  // replay. Until that binding exists, never allow privileged execution.
   if (tool.risk === 'high' || tool.requiresApproval) {
-    return { allowed: false, reason: `Tool "${tool.name}" is blocked: verified human approval enforcement is unavailable` };
+    if (options.verifiedApproval === true && options.approvalId) {
+      return { allowed: true, reason: 'Allowed with a verified, bound human approval' };
+    }
+    return {
+      allowed: false,
+      reason: `Tool "${tool.name}" is blocked: a verified approval bound to this exact action is required`,
+    };
   }
 
   return { allowed: true, reason: 'Allowed' };

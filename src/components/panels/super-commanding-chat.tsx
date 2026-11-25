@@ -5,7 +5,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   Send, Crown, Radio, Loader2, Check, CheckCheck,
   Users, Zap, Shield, BarChart3, ArrowRightLeft, Trash2, Sparkles,
-  MessageSquare, Target, Building2, Bot,
+  MessageSquare, Target, Building2, Bot, ShieldAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,6 +61,7 @@ const AGENT_BG_COLORS = [
 ]
 
 export default function SuperCommandingChat() {
+  const setView = useAppStore((state) => state.setView)
   const token = useAppStore((state) => state.token)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -234,7 +235,7 @@ export default function SuperCommandingChat() {
               <h2 className="text-sm font-bold text-[#1E293B]">Super Commanding Center</h2>
               <div className="flex items-center gap-1.5">
                 <span className="status-dot status-dot-active alo-pulse" style={{ width: 6, height: 6 }} />
-                <span className="text-[11px] text-[#94A3B8]">{agentCount != null ? `${agentCount.toLocaleString()} agents online` : 'AI workforce online'} · {companies.filter((c) => c.crmConnected).length} CRMs connected</span>
+                <span className="text-[11px] text-[#94A3B8]">{agentCount != null ? `${agentCount.toLocaleString()} agents registered` : 'Workforce ready'} · {companies.filter((c) => c.crmConnected).length} CRMs connected</span>
               </div>
             </div>
           </div>
@@ -281,6 +282,22 @@ export default function SuperCommandingChat() {
             </Button>
           </div>
         </div>
+      </div>
+
+      {/* This chat is intentionally advice-only. Saying so, with a way to the
+          acting agent, is the difference between a boundary and a surprise. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-[#FC5400]/25 bg-[#FC5400]/5 px-4 py-2 text-[11px] text-[#172033]">
+        <ShieldAlert className="h-3.5 w-3.5 text-[#FC5400]" />
+        <span>
+          <strong>Advice only:</strong> this console does not dispatch agents or change data. Tool execution, approvals and real provider traces are in the Commanding Center.
+        </span>
+        <button
+          type="button"
+          onClick={() => setView('command-agent')}
+          className="ml-auto rounded-md border border-[#FC5400]/40 px-2 py-0.5 font-semibold text-[#B23A00] hover:bg-[#FC5400]/10"
+        >
+          Open Commanding Center →
+        </button>
       </div>
 
       {/* Messages Area */}
