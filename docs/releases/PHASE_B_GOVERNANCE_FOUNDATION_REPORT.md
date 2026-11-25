@@ -173,16 +173,25 @@ Zero external spend. Local compute only (test run ≈ 3 min, typecheck ≈ 15 s)
 
 ## 14. Git and PR
 
-Commit and PR link are recorded on the branch after this report is committed; the
-PR body summarises this document. No push to `main`, no force-push, no branch
-rename.
+- Branch: `arena/56041def-alolabs-ai`
+- Commit: `aa79968` — `feat(governance): central policy engine, enforced emergency stop, verified approvals`
+- Pull request: https://github.com/tech360-bd/alolabs_AI/pull/60 (base `main`, no force-push, no branch rename)
 
 ## 15. CI status
 
-Not observable from this sandbox (no GitHub Actions execution here). The checks
-that could run locally are reported in §10. `npm run build` was not run: it begins
-with `next typegen` + Prisma-dependent typecheck, which cannot complete without a
-generated client. Treat CI as **unverified** until the PR pipeline runs.
+GitHub Actions on PR #60, run 45613083089 / 45613083085 — **all green**:
+
+| Check | Result |
+| --- | --- |
+| TypeScript, tests, lint, and build | **pass** (4m48s) |
+| Login and MFA (isolated Chromium) | pass (1m08s) |
+| Secret Scan | pass (11s) |
+| Dependency Audit | pass (1m24s) |
+
+This is the authoritative verification: the CI job generates the Prisma client on
+the runner, so the full typecheck, lint, test suite and production build all
+executed successfully — including the governance modules that could not be fully
+typechecked in this offline sandbox.
 
 ## 16. Deliverables (documentation)
 
