@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { authenticateV1, hasScope, type V1Identity } from '@/lib/v1-auth';
 import { db } from '@/lib/db';
+import { checkEndpointLimit } from '@/lib/security/rate-limiter';
 
 export interface V1Context {
   identity: V1Identity;
@@ -67,7 +68,7 @@ export function v1Handler<T>(
       const isAiServicePlane = segments[2] === 'ai' && segments.length >= 4 && segments[3] !== 'health';
       if (!isAiServicePlane) {
         const resource = segments[2] === 'command' ? 'runs' : segments[2];
-        const action = segments.includes('run') || segments[2] === 'command'
+        const action = segments.includes('run') || segments.includes('inference') || segments[2] === 'command'
           ? 'execute'
           : request.method === 'GET' ? 'read' : 'write';
         if (identity.kind === 'apiKey' && resource && !hasScope(identity, `${resource}:${action}`)) {
@@ -116,5 +117,21 @@ export async function v1Body<T>(request: NextRequest): Promise<T> {
     return (await request.json()) as T;
   } catch {
     throw new V1Error('Invalid JSON body', 400, 'VALIDATION_ERROR');
+  }
+}
+
+/**
+ * Per-tenant rate limit for a v1 route, backed by the shared limiter
+ * (Redis when available, in-memory otherwise). Each route path is its own
+ * bucket; callers may narrow it by passing an explicit endpoint name.
+ *
+ * Call this INSIDE a v1Handler handler after any cheap validation, before
+ * expensive work (inference, DB-heavy aggregation). It throws a uniform 429.
+ */
+export async function v1RateLimit(request: NextRequest, identity: V1Identity, endpoint?: string): Promise<void> {
+  const name = endpoint ?? request.nextUrl.pathname;
+  const result = await checkEndpointLimit(name, identity.companyId);
+  if (!result.allowed) {
+    throw new V1Error('Rate limit exceeded. Retry after the reset window.', 429, 'RATE_LIMITED');
   }
 }
