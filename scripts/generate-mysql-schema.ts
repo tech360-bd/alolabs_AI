@@ -155,3 +155,29 @@ for (const line of lines) {
 
 fs.writeFileSync(mysqlSchemaPath, processedLines.join('\n'));
 console.log('Successfully generated prisma/schema.mysql.prisma');
+
+// ─── DDL variant for `prisma db push` ───────────────────────────────────────
+//
+// MySQL 8 refuses a literal DEFAULT on TEXT-family columns ("BLOB, TEXT,
+// GEOMETRY or JSON column can't have a default value"), and this schema has
+// many `String @db.LongText @default("...")` fields. The canonical schema
+// above keeps those defaults — the Prisma client generated from it applies
+// them client-side on every `create()` — but a raw `prisma db push` of the
+// canonical file cannot succeed.
+//
+// So we also emit `schema.mysql.push.prisma`: identical to the canonical
+// schema except that `@default(...)` is stripped from TEXT-family lines.
+// `prisma db push` uses THIS file for DDL only; the client always comes from
+// the canonical schema, so runtime defaulting is unchanged. Anyone pushing
+// to a real database (CI or production) must push this variant, not the
+// canonical schema, or the next push will see drift and try to re-add the
+// TEXT defaults.
+const pushSchemaPath = path.join(path.dirname(mysqlSchemaPath), 'schema.mysql.push.prisma');
+const pushLines = processedLines.map((line) =>
+  /@db\.(LongText|MediumText|TinyText|Text)/.test(line)
+    ? line.replace(/\s*@default\((?:"[^"]*"|'[^']*'|[^)\s]*)\)/, '')
+    : line,
+);
+fs.writeFileSync(pushSchemaPath, pushLines.join('\n'));
+console.log('Successfully generated prisma/schema.mysql.push.prisma (DDL variant without TEXT defaults)');
+

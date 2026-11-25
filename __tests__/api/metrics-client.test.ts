@@ -31,7 +31,12 @@ vi.mock('@/lib/rate-limiter', () => ({
 }));
 
 // `NextResponse` is both a namespace with `.json` and a constructible class in
-// the real module; provide a class that also carries the static helper.
+// the real module; one factory must provide both shapes. (There used to be two
+// vi.mock('next/server') factories here — the first one exposed a plain object
+// that is not constructible, and which of the two won was not deterministic
+// under full-suite parallel load, failing exactly the two tests that call
+// `new NextResponse(null, { status: 204 })` with "NextResponse is not a
+// constructor". Keep exactly ONE factory.)
 vi.mock('next/server', () => {
   class NextResponseStub {
     status: number | undefined;
