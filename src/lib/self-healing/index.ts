@@ -47,6 +47,8 @@ export class SelfHealingEngine {
     targetType: 'agent' | 'service' | 'queue' | 'workflow';
     strategy?: 'retry' | 'restart' | 'rollback' | 'escalate';
     error?: string;
+    /** Who requested it (Super Admin supervisor tool) — recorded in the event. */
+    actorUserId?: string;
   }): Promise<RecoveryAttempt> {
     const id = `recovery_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const attempt: RecoveryAttempt = {
@@ -132,6 +134,7 @@ export class SelfHealingEngine {
         data: {
           recoveryId: id, targetId: attempt.targetId,
           strategy: attempt.strategy, status: attempt.status,
+          requestedBy: params.actorUserId ?? 'self-healing-monitor',
         },
         priority: 'normal',
         timestamp: new Date(),

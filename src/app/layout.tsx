@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import SiteAnnouncementBar from "@/components/site/announcement-bar";
 import { jsonLd, organizationSchema, websiteSchema } from '@/lib/seo/structured-data'
 
 export const viewport: Viewport = {
@@ -59,6 +60,7 @@ export default function RootLayout({
       >
         <div className="min-h-screen flex flex-col">
           <ServiceWorkerRegistration />
+          <SiteAnnouncementBar />
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: siteGraph }}
