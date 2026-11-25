@@ -9,6 +9,11 @@
 import { db } from '@/lib/db';
 import { authoriseTool, parseToolList } from './policy';
 import { getTool } from './registry';
+import {
+  actionClassForTool,
+  enforceGovernance,
+  verifyToolApproval,
+} from '@/lib/governance';
 import type { ToolContext, ToolExecutionResult } from './types';
 
 const DEFAULT_TIMEOUT_MS = 20_000;
@@ -79,9 +84,57 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolExec
     return record({ ok: false, output: '', error: `Unknown tool "${options.toolName}"`, blocked: true, blockReason: 'not-registered' });
   }
 
-  const decision = authoriseTool(tool, options.permissions ?? { allowedTools: [], forbiddenTools: [] }, { approvalId: options.approvalId });
+  const permissions = options.permissions ?? { allowedTools: [], forbiddenTools: [] };
+  const actionClass = actionClassForTool(tool);
+
+  // 1. Central governance gate: tenant boundary, emergency controls, policy.
+  const governance = await enforceGovernance({
+    action: `Execute tool ${tool.name}`,
+    actionClass,
+    resource: `tool:${tool.name}`,
+    companyId: options.context.companyId,
+    callerCompanyId: options.context.companyId,
+    actor: {
+      userId: options.context.userId ?? null,
+      role: 'standard_user',
+      companyId: options.context.companyId,
+      agentId: options.context.agentId ?? null,
+    },
+    surface: 'internal_job',
+  });
+  if (governance.outcome !== 'allow') {
+    const reason = `Governance ${governance.outcome === 'deny' ? 'denied' : 'paused'} this call: ${governance.explanation}`;
+    return record({ ok: false, output: '', error: reason, blocked: true, blockReason: reason });
+  }
+
+  // 2. Verify a supplied approval against this exact action before the tool
+  //    policy will consider it. Verification is server-side and fail-closed.
+  let verifiedApproval = false;
+  let approvalFailure = '';
+  if (tool.risk === 'high' || tool.requiresApproval) {
+    if (!options.approvalId) {
+      approvalFailure = 'This tool requires a verified human approval, and no approval id was supplied.';
+    } else {
+      const approval = await verifyToolApproval({
+        approvalId: options.approvalId,
+        companyId: options.context.companyId,
+        toolName: tool.name,
+        args: options.args,
+        actionClass,
+        allowedApproverRoles: ['super_admin', 'admin', 'organization_owner', 'project_manager'],
+      });
+      verifiedApproval = approval.verified;
+      if (!approval.verified) approvalFailure = approval.reason;
+    }
+  }
+
+  const decision = authoriseTool(tool, permissions, {
+    approvalId: options.approvalId,
+    verifiedApproval,
+  });
   if (!decision.allowed) {
-    return record({ ok: false, output: '', error: decision.reason, blocked: true, blockReason: decision.reason });
+    const reason = approvalFailure ? `${decision.reason} ${approvalFailure}` : decision.reason;
+    return record({ ok: false, output: '', error: reason, blocked: true, blockReason: reason });
   }
 
   try {

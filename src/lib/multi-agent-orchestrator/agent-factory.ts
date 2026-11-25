@@ -67,32 +67,42 @@ export class AgentFactory {
   /**
    * Create a temporary agent from a spec.
    */
-  async createAgent(spec: AgentFactorySpec): Promise<{
+  async createAgent(
+    spec: AgentFactorySpec,
+    /** Owning tenant. Required: an agent that belongs to nobody is not safe. */
+    scope: { companyId: string },
+  ): Promise<{
     id: string;
     agentId: string;
     name: string;
     type: string;
     expiresAt: Date;
   }> {
+    if (!scope?.companyId) throw new Error('companyId is required to create an agent');
     // Validate spec
     const validationError = validateSpec(spec);
     if (validationError) {
       throw new Error(validationError);
     }
 
-    // Check department exists
+    // Check the department exists and, when it is tenant-owned, that the
+    // caller's organisation owns it. Platform-catalogue departments have a null
+    // companyId; ownership then lives on the created agent row.
     const department = await db.department.findUnique({
       where: { id: spec.departmentId },
+      select: { id: true, name: true, companyId: true },
     });
     if (!department) {
       throw new Error(`Department ${spec.departmentId} not found`);
     }
+    if (department.companyId && department.companyId !== scope.companyId) {
+      throw new Error('Department belongs to a different company');
+    }
 
-    // Check temporary agent limit for company
-    // We use the department as a proxy for the company context
+    // Temporary agent limit is per tenant, not per department-as-proxy.
     const tempAgentCount = await db.agent.count({
       where: {
-        departmentId: spec.departmentId,
+        companyId: scope.companyId,
         type: 'temporary',
         status: 'active',
       },
@@ -139,13 +149,14 @@ export class AgentFactory {
         }),
         status: 'active',
         version: 1,
+        companyId: scope.companyId,
       },
     });
 
     // Assign permissions
     if (spec.permissions.length > 0) {
       await Promise.all(
-        spec.permissions.map((perm) =>
+        spec.permissions.map((perm: string) =>
           db.agentPermission.create({
             data: {
               agentId: agent.id,
@@ -163,7 +174,7 @@ export class AgentFactory {
         id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         type: 'agent.created',
         source: 'agent-factory',
-        companyId: 'default-company',
+        companyId: scope.companyId,
         data: {
           agentId,
           agentDbId: agent.id,
@@ -195,6 +206,7 @@ export class AgentFactory {
    */
   async cloneAgent(
     sourceAgentId: string,
+    scope: { companyId: string },
     overrides?: Partial<AgentFactorySpec>,
   ): Promise<{
     id: string;
@@ -203,12 +215,17 @@ export class AgentFactory {
     type: string;
     expiresAt: Date;
   }> {
-    const sourceAgent = await db.agent.findUnique({
-      where: { agentId: sourceAgentId },
+    // A clone may only inherit from an agent the caller's tenant can actually
+    // see; otherwise cloning would copy another tenant's tool grants.
+    const sourceAgent = await db.agent.findFirst({
+      where: {
+        agentId: sourceAgentId,
+        OR: [{ companyId: scope.companyId }, { agentCompanyAccess: { some: { companyId: scope.companyId } } }],
+      },
     });
 
     if (!sourceAgent) {
-      throw new Error(`Source agent ${sourceAgentId} not found`);
+      throw new Error(`Source agent ${sourceAgentId} not found for this company`);
     }
 
     // Get source agent permissions
@@ -227,7 +244,7 @@ export class AgentFactory {
       memoryProfile: overrides?.memoryProfile ?? 'standard',
       modelPolicy: overrides?.modelPolicy ?? 'balanced',
       allowedProviders: overrides?.allowedProviders ?? [],
-      permissions: overrides?.permissions ?? sourcePermissions.map((p) => p.resourceId),
+      permissions: overrides?.permissions ?? sourcePermissions.map((p: { resourceId: string }) => p.resourceId),
       budgetLimit: overrides?.budgetLimit ?? 10,
       expirationMinutes: overrides?.expirationMinutes,
       outputSchema: overrides?.outputSchema ?? JSON.parse(sourceAgent.outputSchema || '{}'),
@@ -235,7 +252,7 @@ export class AgentFactory {
       triggers: overrides?.triggers,
     };
 
-    return this.createAgent(spec);
+    return this.createAgent(spec, scope);
   }
 
   /**
@@ -324,7 +341,7 @@ export class AgentFactory {
       allowedSkills: JSON.parse(agent.allowedSkills || '[]'),
       allowedTools: JSON.parse(agent.allowedTools || '[]'),
       outputSchema: JSON.parse(agent.outputSchema || '{}'),
-      permissions: agent.permissions.map((p) => ({
+      permissions: agent.permissions.map((p: { resourceId: string; accessLevel: string }) => ({
         resourceId: p.resourceId,
         accessLevel: p.accessLevel,
       })),

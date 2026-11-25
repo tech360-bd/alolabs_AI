@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { resetGovernanceStateCache } from '@/lib/governance/runtime';
 
 const EMERGENCY_KEYS = [
   { key: 'emergency_stop_communication', label: 'Stop All External Communication' },
@@ -85,6 +86,10 @@ export async function POST(request: NextRequest) {
         metadata: JSON.stringify({ action, enabled }),
       },
     })
+
+    // An emergency toggle must take effect immediately, not after the
+    // governance state cache expires.
+    resetGovernanceStateCache()
 
     return NextResponse.json({ success: true, action, enabled })
   } catch (error) {

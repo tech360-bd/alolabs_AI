@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole } from '@/lib/api-auth';
+import { resetGovernanceStateCache } from '@/lib/governance/runtime';
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
           type: 'json',
         },
       });
+      resetGovernanceStateCache();
       return NextResponse.json({ success: true, message: 'All emergency stops activated' });
     }
 
@@ -70,6 +72,8 @@ export async function POST(request: NextRequest) {
         details: JSON.stringify({ action }),
       },
     });
+
+    resetGovernanceStateCache();
 
     return NextResponse.json({ success: true, action, active: !!activate });
   } catch (error: unknown) {

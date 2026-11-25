@@ -19,6 +19,8 @@ import { executeCompanyAIChat, CompanyAIError } from '@/lib/multi-tenant-ai/serv
 import type { ModelRoutingProfile } from '@/lib/multi-tenant-ai/policy';
 import type { AIMessage, AITool } from '@/lib/ai-router/types';
 import { executeTool } from '@/lib/tools/execute';
+import { enforceGovernance } from '@/lib/governance';
+import type { ActionClass } from '@/lib/governance';
 import { listToolDefinitions, toolSchemasFor } from '@/lib/tools/registry';
 import { commandToolSchemas, getCommandTool } from './tools';
 import { buildAgentSkillPrompt } from '@/lib/agent-skills';
@@ -29,6 +31,17 @@ export const COMMAND_AGENT_PROFILES = [
 export type CommandAgentProfile = (typeof COMMAND_AGENT_PROFILES)[number];
 
 const MAX_STEPS = 6;
+
+/**
+ * Map the free external tools onto the governance taxonomy. These handlers have
+ * no approval gate (they are read-only or media generation), but they must still
+ * obey the emergency controls and the audit trail — previously they bypassed
+ * both entirely.
+ */
+function commandToolActionClass(name: string): ActionClass {
+  return name === 'generate_image' ? 'media.generate' : 'read.public';
+}
+
 const MAX_HISTORY = 20;
 const MAX_TOOL_OUTPUT = 8_000;
 
@@ -186,6 +199,26 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
 
       const external = getCommandTool(name);
       if (external) {
+        const governance = await enforceGovernance({
+          action: `Command agent external tool ${name}`,
+          actionClass: commandToolActionClass(name),
+          resource: `command-tool:${name}`,
+          companyId: input.companyId,
+          callerCompanyId: input.companyId,
+          actor: {
+            userId: input.userId,
+            role: 'standard_user',
+            companyId: input.companyId,
+            agentId: 'command-agent',
+          },
+          surface: input.role === 'super_admin' || input.role === 'admin' ? 'super_admin' : 'customer_workspace',
+        });
+        if (governance.outcome !== 'allow') {
+          output = `Tool "${name}" was blocked by governance (${governance.outcome}): ${governance.explanation}`;
+          trace.push({ step, tool: name, args, ok: false, durationMs: Date.now() - startedAt, output: output.slice(0, 2_000) });
+          messages.push({ role: 'tool', toolCallId: call.id, name, content: output });
+          continue;
+        }
         try {
           const value = await external.run(args);
           output = (typeof value === 'string' ? value : JSON.stringify(value)).slice(0, MAX_TOOL_OUTPUT);
