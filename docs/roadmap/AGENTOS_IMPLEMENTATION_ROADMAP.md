@@ -54,16 +54,26 @@ and covered by tests. CRM writes and a real deployment pipeline do not exist as
 governed operations yet (deploy POST is a 501 stub), so Phase B stays 🟨 rather
 than being declared complete.
 
-## Phase C — Unified orchestration ⬜
+## Phase C — Unified orchestration 🟨
 
-- Capability diff (registry vs requirement) with an explicit "missing specialist"
-  result; no invention.
-- Project-aware memory and run state (project cockpit).
-- Handoff contracts between agents with typed artifacts.
-- Execution tracing UI from real `RunEvent` rows.
-- Retry/failure recovery surfaced as `partially_completed`, never as success.
+| Work item | Status | Evidence |
+| --- | --- | --- |
+| **C1**: durable Commanding Center transcript (survives restart, tenant-scoped) | ✅ | `src/lib/chat/command-session-store.ts`, 12 tests |
+| **C1**: honest run status vocabulary + approval pause surfaced with a real approval id | ✅ | `src/lib/command-agent/status.ts`, agent test `waiting_for_approval` |
+| **C1**: routing evidence (attempts, failover, providers) returned, persisted and rendered | ✅ | `/api/command-agent/chat` + panel + tests |
+| **C1**: architecture diagrams, API architecture, self-healing stage table | ✅ | `docs/architecture/SUPER_ADMIN_AI_COMMAND_CENTER.md` |
+| **C2**: streamed run events / execution timeline bound to real `AgentRun`/audit rows | ⬜ | next |
+| **C2**: agent-team assignment from chat (existing orchestrator) | ⬜ | next |
+| Capability diff (registry vs requirement) with an explicit "missing specialist" result | ⬜ | no invention — must query the real registry |
+| Project-aware memory and run state (project cockpit) | ⬜ | `Conversation`/memory scopes exist; cockpit UI does not |
+| Handoff contracts between agents with typed artifacts | ⬜ | orchestrator exists; typed handoff contract not implemented |
+| Retry/failure recovery surfaced as `partially_completed`, never as success | 🟨 | command agent already does; orchestrator runs do not yet expose the same vocabulary |
 
 Prerequisite: B2 complete. Estimated 2–3 focused PRs.
+
+**Honest limit:** the Commanding Center cannot yet modify code or the website. Its tools
+are read-only; the coding/deploy loop arrives in Phase E after the browser and sandbox
+foundations of Phase D.
 
 ## Phase D — Browser and research ⛔→⬜
 

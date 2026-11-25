@@ -12,6 +12,7 @@ import {
   COMMAND_AGENT_PROFILES,
   type CommandAgentProfile,
 } from '@/lib/command-agent/agent';
+import { findCommandConversation, loadCommandTurns } from '@/lib/chat/command-session-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -115,6 +116,11 @@ export async function POST(request: NextRequest) {
       provider: result.provider,
       model: result.model,
       profile: result.profile,
+      status: result.status,
+      statusDetail: result.statusDetail,
+      approvals: result.approvals,
+      persisted: result.persisted,
+      routing: result.routing,
       steps: result.steps,
       trace: result.trace,
       images: result.images,
@@ -143,6 +149,50 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * GET /api/command-agent/chat?sessionId=… — durable transcript.
+ *
+ * The Commanding Center reloads this on mount so history survives a restart.
+ * Scoped by user + tenant in the query; a guessed id cannot cross either.
+ */
+export async function GET(request: NextRequest) {
+  let actor: AuthenticatedUser;
+  try { actor = await requireAuth(); }
+  catch (error) { return authFailure(error) ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
+  if (actor.role !== 'super_admin' && !canManageCompany(actor)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const sessionId = request.nextUrl.searchParams.get('sessionId') || 'default';
+  try {
+    const company = await resolveCompany(actor, request.nextUrl.searchParams.get('targetCompany'));
+    if (!company) return NextResponse.json({ error: 'Target company not found or not accessible' }, { status: 404 });
+
+    const conversation = await findCommandConversation({
+      userId: actor.userId,
+      companyId: company.id,
+      sessionId,
+    });
+    const messages = conversation
+      ? await loadCommandTurns({ conversationId: conversation.id, companyId: company.id })
+      : [];
+
+    return NextResponse.json({
+      success: true,
+      sessionId,
+      company: { id: company.id, name: company.name, slug: company.slug },
+      // `durable: false` means history could not be read — not that it is empty.
+      durable: Boolean(conversation),
+      messages,
+    });
+  } catch (error) {
+    const response = authFailure(error);
+    if (response) return response;
+    console.error('[Command Agent] history read failed:', error);
+    return NextResponse.json({ error: 'Failed to load history', durable: false, messages: [] }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   let actor: AuthenticatedUser;
   try { actor = await requireAuth(); }
@@ -151,7 +201,23 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const sessionId = request.nextUrl.searchParams.get('sessionId') || 'default';
-  const cleared = clearCommandSessions(actor.userId, sessionId);
-  await writeAuditEvent({ actorUserId: actor.userId, action: 'command_agent.chat.clear', resource: 'command-agent', details: { sessionId, cleared } });
-  return NextResponse.json({ success: true, message: 'Conversation cleared', cleared });
+  try {
+    const company = await resolveCompany(actor, request.nextUrl.searchParams.get('targetCompany'));
+    if (!company) return NextResponse.json({ error: 'Target company not found or not accessible' }, { status: 404 });
+
+    const cleared = await clearCommandSessions({ userId: actor.userId, companyId: company.id, sessionId });
+    await writeAuditEvent({
+      actorUserId: actor.userId,
+      companyId: company.id,
+      action: 'command_agent.chat.clear',
+      resource: 'command-agent',
+      details: { sessionId, cleared },
+    });
+    return NextResponse.json({ success: true, message: 'Conversation cleared', cleared });
+  } catch (error) {
+    const response = authFailure(error);
+    if (response) return response;
+    console.error('[Command Agent] clear failed:', error);
+    return NextResponse.json({ error: 'Failed to clear conversation' }, { status: 500 });
+  }
 }
