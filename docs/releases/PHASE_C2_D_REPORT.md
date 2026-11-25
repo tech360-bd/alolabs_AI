@@ -13,6 +13,7 @@
 - The agent could search (`web_search`, Wikipedia, Hacker News) but **could not open a page**. The link-coverage registry said so explicitly: “nothing here fetches a page”.
 - There was a reusable SSRF guard (`src/lib/webhooks/ssrf-guard.ts`) and a governance engine, but no robots.txt handling, no per-hop redirect checks for research, no citation/evidence structure, and no tenant-scoped place to store a finding.
 - Repository state note: PR #60 had already merged and GitHub deleted the remote session branch. The working copy was recovered by fetching `main` and rebuilding the branch on the merged commit (`5dcc45c`) — **no force-push, no history rewrite**. Earlier-phase work was preserved by the merge.
+- Later, `main` (PR #62) was merged into this branch remotely; that merge **dropped** the Phase C1 durable transcript and the new Phase C2 event wiring in `agent.ts`, and `main` itself carried five type-gate regressions. Both were repaired in `f638594`/`f961669` (§4, §15) rather than papered over.
 
 ## 2. What already worked and was preserved
 
@@ -49,6 +50,8 @@
 - `src/components/enterprise/panels/command-agent-center.tsx` — streaming send with NDJSON parser, single plain-JSON fallback when the stream route is absent, live timeline, reloadable timeline, run id display.
 - `src/lib/link-coverage/registry.ts` — molx claim corrected: a single-page analyser exists; there is still no crawler.
 - `src/app/api/v1/models/inference/route.ts` — **unrelated main-branch regression** fixed (TS4104 on a readonly tuple cast) because the gate blocked every PR.
+- `src/lib/self-healing/index.ts`, `src/lib/site-content.ts`, `src/lib/self-healing/site-doctor.ts`, `__tests__/unit/{supervisor-tools,site-doctor}.test.ts` — **main-branch gate regressions** fixed (out-of-scope `params`, nullable compound-unique lookup, lost status union, untyped audit mocks).
+- `src/lib/command-agent/agent.ts` + `src/app/api/command-agent/{chat,stream}/route.ts` — after the remote `main` merge dropped the supervisor wiring, the verified C1+C2 versions were restored and supervisor mode (`mode: 'read' | 'supervisor'`, super_admin only) was re-applied to both routes.
 - Docs: `docs/architecture/SUPER_ADMIN_AI_COMMAND_CENTER.md` §10–§11, roadmap Phase C/D.
 
 **New routes**
@@ -153,6 +156,9 @@ $0. No provider API keys were used, no paid route was enabled, no external billi
 - `28087cf` — fix: type the `/api/v1/models/inference` profile enum from the readonly routing tuple (main-branch TS4104 regression).
 - `01e308f` — fix: align gateway/stream test mocks with the real `CompanyAIError` and limiter signatures.
 - `2d33004` — docs: this report (first version), committed after CI evidence existed.
+- `965dd1c` — docs: record the verified run for `2d33004` (after rebasing onto the remote merge; no force-push).
+- `f638594` — fix: restore C1+C2 agent + supervisor wiring after the `main` merge, and repair three main gate regressions.
+- `f961669` — fix: type two main-branch audit mocks (rest args).
 - A final docs-only commit updates §14–§15 with the run below; its own checks are visible on PR #63.
 
 ## 15. CI status
@@ -163,6 +169,11 @@ $0. No provider API keys were used, no paid route was enabled, no external billi
 | [45668415056](https://github.com/tech360-bd/alolabs_AI/actions/runs/45668415056) — after the v1 fix | ❌ TypeScript gate: two test-signature errors (`CompanyAIError` arity, spread of `unknown[]`) |
 | [45668689127](https://github.com/tech360-bd/alolabs_AI/actions/runs/45668689127) — commit `01e308f` | ✅ **4/4 pass** — TypeScript/tests/lint/build 4m53s, Login+MFA 1m12s, Secret Scan 11s, Dependency Audit 1m13s |
 | [45669680450](https://github.com/tech360-bd/alolabs_AI/actions/runs/45669680450) — commit `2d33004` (code + report) | ✅ **4/4 pass** — TypeScript/tests/lint/build 4m55s, Login+MFA 1m12s, Secret Scan 11s, Dependency Audit 1m22s |
+| [45670571429](https://github.com/tech360-bd/alolabs_AI/actions/runs/45670571429) — remote `main` merge `c4c5d89` | ❌ TypeScript gate: the merge dropped supervisor wiring (`supervisor` undefined, `mode` not in the input) **and** three main-branch regressions (`params`, nullable compound unique, site-doctor union) |
+| [45671221032](https://github.com/tech360-bd/alolabs_AI/actions/runs/45671221032) — commit `f638594` (repair) | ❌ TypeScript gate: two main-branch test mocks typed as zero-arg (`supervisor-tools`, `site-doctor`) |
+| [45671559351](https://github.com/tech360-bd/alolabs_AI/actions/runs/45671559351) — commit `f961669` | ✅ **4/4 pass** — TypeScript/tests/lint/build 3m57s, Login+MFA 1m07s, Secret Scan 11s, Dependency Audit 1m13s |
+
+All five failures were real type/merge errors; none was retried as a “flake” and no gate was weakened.
 
 Both failures were real type errors, not flakes; they were fixed rather than bypassed. (The C1-era Chromium flake did not recur.)
 
