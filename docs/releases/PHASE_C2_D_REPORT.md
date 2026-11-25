@@ -295,3 +295,28 @@ out).
 - Whole-repo `npx vitest run` is **not** usable in this sandbox: `better-sqlite3`
   was installed without native scripts and `.prisma/client` is absent, so 28
   files fail for environmental reasons. CI is the gate of record.
+
+## 20. C1/C2 regression matrix against PR #62
+
+PR #62 (super-admin console) merged as `8e0e0d0`; PR #63 merged as `9fcbf39`.
+Each C1/C2 behaviour below was re-checked on the merged tree. "CI" means the
+`TypeScript, tests, lint, and build` job of run
+[45689044002](https://github.com/tech360-bd/alolabs_AI/actions/runs/45689044002),
+which runs the whole suite; the browser column is the new Chromium suite.
+
+| Behaviour (phase) | Evidence on merged `main` | Status |
+| --- | --- | --- |
+| Supervisor wiring survives the merge — no `undefined` supervisor, `mode` accepted (C1) | `__tests__/unit/supervisor-tools.test.ts`, `__tests__/api/command-agent.test.ts`; CI | ✅ no regression |
+| Command run is created, checksummed and scoped to the tenant (C2) | `__tests__/unit/command-run-store.test.ts` (7) — null on creation failure, cross-tenant finalisation refused, SHA-256 of stored body, 200-event trim, non-run artifacts rejected | ✅ |
+| Run timeline is retrievable after reload (C2) | `__tests__/api/command-agent-runs.test.ts`; **browser test 3** reads `status: failed` + `run_started`/`error` from `GET /api/command-agent/runs/{id}` | ✅ (fixed in #65: the panel previously lost `runId`) |
+| Stream frames are honest: `run` after `run_started`, `error` without `final` on failure (C2) | `__tests__/api/command-agent-stream.test.ts` (4); browser test 3 asserts exactly one `error` frame and no `final` | ✅ |
+| The stream is reachable by a real signed-in browser (C2) | **browser test 3** — this is where the missing `Authorization` header surfaced | ❌ → ✅ fixed in #65 |
+| Research is SSRF-safe, robots-aware, redirect-capped (D) | `__tests__/unit/public-page.test.ts` (11); browser test 2 (`127.0.0.1:9` refused, "only ports 80 and 443") | ✅ |
+| Research evidence is measured, saved and re-listed per company (D) | `__tests__/api/research-analyze.test.ts` (6); **browser test 1** (HTTP 200 · public, SHA-256, `http_fetch`, `Saved to this company only`, present after reload) | ✅ |
+| Research writes an audit record before any network call (D) | `research.analyze.request` / `research.report.save`; API test asserts the deny path performs no fetch | ✅ added in #65 |
+| Governance (`read.public`) still denies before the fetch (C1/D) | `__tests__/api/research-analyze.test.ts`; GLOB-EXTERNAL-001 unchanged | ✅ |
+| Existing super-admin console from #62 is untouched | whole-suite CI job green on the final commit | ✅ |
+
+No C1 behaviour was removed or weakened to make C2/D pass; the only behavioural
+changes are additive (audit rows, `runId`/`eventCount` metadata, the stream's
+auth header).
