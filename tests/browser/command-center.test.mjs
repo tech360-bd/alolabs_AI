@@ -128,7 +128,7 @@ test('research evidence is measured, saved, and recovered after reload', async (
   if (!(await saveToggle.isChecked())) await saveToggle.check();
   await page.getByRole('button', { name: /^Analyse$/ }).click();
 
-  await page.getByText('Evidence', { exact: true }).first().waitFor();
+  await page.getByText('Final URL', { exact: true }).waitFor();
   const evidence = await page.getByText(/HTTP 200 · public/).first().textContent();
   assert.match(String(evidence), /HTTP 200 · public/);
 
@@ -151,6 +151,7 @@ test('research evidence is measured, saved, and recovered after reload', async (
   // Reload: the stored finding must still be there (persistence, not state).
   await page.reload();
   await page.getByRole('tab', { name: /Research & Verify/ }).click();
+  await page.getByText('Stored findings', { exact: true }).waitFor();
   await page.getByText(/example\.com/).first().waitFor();
   // Hydration/dev-server warnings are not defects; runtime exceptions are.
   assert.deepEqual(

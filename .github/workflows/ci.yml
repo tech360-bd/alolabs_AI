@@ -223,7 +223,18 @@ jobs:
           fi
       - run: npm test --prefix tests/browser
       - name: Commanding Center timeline and research evidence (real Chromium)
-        run: npm run test:command-center --prefix tests/browser
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:command-center --prefix tests/browser 2>&1 | tee /tmp/command-center-browser.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            mkdir -p tests/browser/artifacts
+            cp /tmp/command-center-browser.log tests/browser/artifacts/command-center-browser.log
+            detail=$(tail -c 3000 /tmp/command-center-browser.log | tr '\n' ' ' | cut -c1-3000)
+            echo "::error title=Commanding Center browser test failed::$detail"
+            exit "$status"
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
