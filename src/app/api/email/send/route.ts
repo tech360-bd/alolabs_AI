@@ -6,6 +6,7 @@ import { SMTPEmailService } from '@/lib/email/smtp';
 import { EmailTrackingService } from '@/lib/email/tracking';
 import { recordTrackingEvent } from '@/lib/email/tracking-store';
 import type { SMTPConfig, EmailMessage, EmailAttachment } from '@/lib/email/types';
+import { approvalIdFromRequest, enforceHttpGovernance, resolveUserCompanyId } from '@/lib/governance/http';
 import * as crypto from 'crypto';
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -87,6 +88,43 @@ export async function POST(request: NextRequest) {
     if (!account) {
       return NextResponse.json({ error: 'Email account not found' }, { status: 404 });
     }
+
+    // Outbound email is an external communication (high risk): it requires a
+    // verified, bound approval from an organisation owner/project manager.
+    const companyId = await resolveUserCompanyId(session.userId, request.headers.get('x-company-id'));
+    if (!companyId) {
+      return NextResponse.json(
+        {
+          error: 'Sending mail requires a single, verified organisation context. Send x-company-id when you belong to more than one organisation.',
+          code: 'NO_ORGANISATION_CONTEXT',
+        },
+        { status: 403 },
+      );
+    }
+
+    const gate = await enforceHttpGovernance({
+      companyId,
+      userId: session.userId,
+      platformRole: session.role,
+      action: 'Send outbound email',
+      actionClass: 'external.communicate',
+      resource: `email:${accountId}`,
+      // The body itself is hashed: the approval is bound to these exact contents
+      // without storing the message text in the approval record.
+      payload: {
+        accountId,
+        to,
+        cc,
+        bcc,
+        subject,
+        bodyHash: crypto.createHash('sha256').update(String(html || text || '')).digest('hex'),
+        attachments: Array.isArray(attachments)
+          ? attachments.map((a: { filename?: string }) => a.filename ?? '')
+          : [],
+      },
+      approvalId: approvalIdFromRequest(request, body),
+    });
+    if (!gate.allowed) return gate.response;
 
     const smtpConfig: SMTPConfig = {
       host: account.smtp.host,

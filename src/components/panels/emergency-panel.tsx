@@ -11,6 +11,8 @@ import {
   Ban,
   AlertTriangle,
   Loader2,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +38,14 @@ interface EmergencyToggle {
   label: string
   enabled: boolean
   updatedAt: string | null
+}
+
+interface GovernanceStatus {
+  executionSuspended: boolean
+  stateReliable: boolean
+  capturedAt: string
+  role: string
+  message: string
 }
 
 interface ActivityEntry {
@@ -70,16 +80,23 @@ const toggleDescriptions: Record<string, string> = {
 export default function EmergencyPanel() {
   const [toggles, setToggles] = useState<EmergencyToggle[]>([])
   const [activity, setActivity] = useState<ActivityEntry[]>([])
+  const [governance, setGovernance] = useState<GovernanceStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<string | null>(null)
   const [confirmGlobal, setConfirmGlobal] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/emergency')
+      const [res, govRes] = await Promise.all([
+        apiFetch('/api/emergency'),
+        apiFetch('/api/governance/status'),
+      ])
       const data = await res.json()
       setToggles(data.toggles || [])
       setActivity(data.activity || [])
+      if (govRes.ok) {
+        setGovernance(await govRes.json())
+      }
     } catch {
       toast.error('Error', { description: 'Failed to load emergency state' })
     } finally {
@@ -170,6 +187,42 @@ export default function EmergencyPanel() {
         <h2 className="text-2xl font-bold text-[#1E293B]">Emergency Controls</h2>
         <p className="text-sm text-[#64748B] mt-1">Critical system controls for emergency situations. Use with extreme caution.</p>
       </div>
+
+      {/* Enforcement status: these switches are only trustworthy if the engine
+          can actually read them. When it cannot, high-impact actions are denied. */}
+      <Card className={governance && !governance.stateReliable ? 'border-amber-300 bg-amber-50/40' : 'border-[#E2E8F0]'}>
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className={`rounded-xl p-2 ${governance?.stateReliable ? 'bg-emerald-50' : 'bg-amber-100'}`}>
+              {governance?.stateReliable
+                ? <ShieldCheck className="h-6 w-6 text-emerald-600" />
+                : <ShieldAlert className="h-6 w-6 text-amber-600" />}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[#172033]">
+                {governance === null
+                  ? 'Governance status unavailable'
+                  : governance.stateReliable
+                    ? 'Enforcement active'
+                    : 'Enforcement degraded — high-risk actions blocked'}
+              </p>
+              <p className="text-xs text-[#667085]">
+                {governance?.message ?? 'The central policy engine could not be reached from this panel.'}
+                {' '}Publishing, outbound email, production deploys and database restores require a bound, single-use approval.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {governance?.executionSuspended && <Badge variant="destructive">Execution suspended</Badge>}
+            <Badge variant="outline">{governance?.stateReliable ? 'Policy engine: live' : 'Policy engine: unverified'}</Badge>
+            {governance?.capturedAt && (
+              <span className="text-[11px] text-[#667085]">
+                checked {new Date(governance.capturedAt).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Global Emergency Button */}
       <Card className={`border-2 ${globalEnabled ? 'border-red-500 bg-red-50/50' : 'border-[#E2E8F0]'}`}>

@@ -318,3 +318,23 @@ scheduleJob(
     return { cleaned: deleted.count, timestamp: new Date().toISOString() };
   },
 );
+
+// Temporary agents carry a declared expiry, but nothing enforced it: an expired
+// agent kept `active` status, its tool grants and its permissions indefinitely.
+// This hourly sweep archives them (never deletes) with an audit event each.
+scheduleJob(
+  'temporary-agent-cleanup',
+  '0 * * * *',
+  async () => {
+    const { getAgentFactory } = await import('./multi-agent-orchestrator/agent-factory');
+    const result = await getAgentFactory().archiveExpiredAgents();
+    await (await import('./db')).db.metric.create({
+      data: {
+        name: 'governance-temporary-agents-archived',
+        value: result.archived,
+        labels: JSON.stringify({ scanned: result.scanned, skipped: result.skipped }),
+      },
+    }).catch(() => {});
+    return { ...result, timestamp: new Date().toISOString() };
+  },
+);

@@ -25,8 +25,45 @@ vi.mock('@/lib/multi-tenant-ai/service', () => ({
 vi.mock('@/lib/tools/execute', () => ({
   executeTool: vi.fn(async () => ({ toolName: 'calculate', ok: true, output: '{"result":4}', durationMs: 1 })),
 }));
-// The real registry imports the Prisma client at module load; keep unit tests DB-free.
-vi.mock('@/lib/db', () => ({ db: {} }));
+// The real registry imports the Prisma client at module load, so the database is
+// replaced with a small in-memory double. This lets the tests exercise durable
+// history and persistence reporting instead of silently swallowing failures.
+const dbState = vi.hoisted(() => ({
+  conversations: [] as Array<Record<string, unknown>>,
+  messages: [] as Array<Record<string, unknown>>,
+  seq: 0,
+}));
+
+vi.mock('@/lib/db', () => ({
+  db: {
+    conversation: {
+      findFirst: async ({ where }: { where: { userId: string; companyId: string; title: string } }) =>
+        dbState.conversations.find(
+          (row) =>
+            row.userId === where.userId &&
+            row.companyId === where.companyId &&
+            row.title === where.title &&
+            row.status !== 'archived',
+        ) ?? null,
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const row = { id: `conv_${++dbState.seq}`, status: 'active', ...data };
+        dbState.conversations.push(row);
+        return { id: row.id };
+      },
+    },
+    conversationMessage: {
+      findMany: async ({ where, take }: { where: { conversationId: string }; take?: number }) =>
+        dbState.messages
+          .filter((message) => message.conversationId === where.conversationId)
+          .slice(-(take ?? 20))
+          .reverse(),
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        dbState.messages.push({ id: `msg_${++dbState.seq}`, createdAt: new Date(), ...data });
+        return { id: String(dbState.seq) };
+      },
+    },
+  },
+}));
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -170,12 +207,63 @@ describe('Command Agent loop', () => {
     expect(result.trace[0].ok).toBe(true);
     expect(result.trace[0].output).toContain('Asia/Dhaka');
     expect(result.requestIds).toEqual(['req_1', 'req_2']);
+    expect(result.status).toBe('completed');
+    expect(result.persisted).toBe(true);
+    expect(result.routing.providers).toEqual(['groq']);
+    // Both turns are durable, so a reload shows the same conversation.
+    expect(dbState.messages.map((message) => message.role)).toEqual(['user', 'agent']);
     // The second gateway call must carry the tool result back to the model.
     const secondMessages = (chatMock.mock.calls[1][1] as { messages: Array<{ role: string }> }).messages;
     expect(secondMessages.some((m) => m.role === 'tool')).toBe(true);
     // Tools were offered to the model.
     const firstRequest = chatMock.mock.calls[0][1] as { tools: Array<{ function: { name: string } }> };
     expect(firstRequest.tools.map((t) => t.function.name)).toContain('get_weather');
+  });
+
+  it('reports waiting_for_approval and the approval id when a tool is paused', async () => {
+    const { executeTool } = await import('@/lib/tools/execute');
+    vi.mocked(executeTool).mockResolvedValueOnce({
+      toolName: 'calculate',
+      ok: false,
+      output: '',
+      blocked: true,
+      blockReason: 'Governance requires approval.',
+      approvalId: 'apr-9',
+      durationMs: 1,
+    });
+
+    chatMock
+      .mockResolvedValueOnce({
+        requestId: 'req_a1', provider: 'groq', attempts: 1, fallbackUsed: false,
+        response: {
+          id: 'a1', content: '', model: 'qwen/qwen3-32b',
+          usage: { promptTokens: 5, completionTokens: 2, totalTokens: 7 },
+          finishReason: 'tool-calls', latencyMs: 5,
+          toolCalls: [{ id: 'call_a', type: 'function', function: { name: 'calculate', arguments: '{"expression":"1+1"}' } }],
+        },
+      })
+      .mockResolvedValueOnce({
+        requestId: 'req_a2', provider: 'groq', attempts: 2, fallbackUsed: true,
+        response: {
+          id: 'a2', content: 'I need approval before that calculation runs.', model: 'qwen/qwen3-32b',
+          usage: { promptTokens: 9, completionTokens: 4, totalTokens: 13 },
+          finishReason: 'stop', latencyMs: 5,
+        },
+      });
+
+    const { runCommandAgent } = await import('@/lib/command-agent/agent');
+    const result = await runCommandAgent({
+      companyId: 'company_1', userId: 'user_1', role: 'super_admin',
+      companyName: 'ALO Labs', message: 'Calculate something sensitive', sessionId: 'approval-session',
+    });
+
+    expect(result.status).toBe('waiting_for_approval');
+    expect(result.approvals).toEqual([
+      expect.objectContaining({ tool: 'calculate', approvalId: 'apr-9' }),
+    ]);
+    expect(result.routing.attempts).toBe(3);
+    expect(result.routing.fallbackUsed).toBe(true);
+    expect(result.statusDetail).toMatch(/waiting for approval/i);
   });
 
   it('injects advisory skill guidance and rejects quarantined skills without granting tools', async () => {

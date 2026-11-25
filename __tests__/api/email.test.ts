@@ -57,6 +57,32 @@ vi.mock('@/lib/auth', () => ({
   verifySessionToken: vi.fn().mockResolvedValue({ userId: 'user-1', role: 'admin' }),
 }));
 
+// The route is governed (Phase B2). These tests cover mail transport, so the
+// gate is stubbed to "allow" by default; one test flips it to prove the block.
+const governance = vi.hoisted(() => ({ allow: true }));
+
+vi.mock('@/lib/governance/http', () => ({
+  enforceHttpGovernance: vi.fn(async () =>
+    governance.allow
+      ? { allowed: true, decision: {}, approvalId: null }
+      : {
+          allowed: false,
+          decision: {},
+          approvalId: 'apr-1',
+          response: {
+            status: 403,
+            json: async () => ({
+              code: 'GOVERNANCE_APPROVAL_REQUIRED',
+              approvalId: 'apr-1',
+              requiredApprovers: ['organization_owner', 'project_manager'],
+            }),
+          },
+        },
+  ),
+  approvalIdFromRequest: () => null,
+  resolveUserCompanyId: async () => 'company-a',
+}));
+
 vi.mock('@/lib/email/smtp', () => ({
   SMTPEmailService: vi.fn().mockImplementation(function(this: any) {
     this.send = vi.fn().mockResolvedValue({ success: true, messageId: '<msg-123@alolabs.ai>' });
@@ -179,6 +205,35 @@ import { POST as SEND_POST } from '@/app/api/email/send/route';
 describe('POST /api/email/send', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    governance.allow = true;
+  });
+
+  it('blocks an unapproved outbound message with an approval request', async () => {
+    governance.allow = false;
+    mockSettingsFindUnique.mockResolvedValue({
+      value: JSON.stringify({
+        id: 'acc-1',
+        email: 'work@example.com',
+        smtp: { host: 'smtp.gmail.com', port: 465, secure: true },
+        auth: { user: 'work@example.com', pass: 'secret' },
+      }),
+    });
+
+    const req = new MockNextRequest(
+      'http://localhost/api/email/send',
+      {
+        accountId: 'acc-1',
+        to: ['recipient@example.com'],
+        subject: 'Hello World',
+        html: '<p>Test email body</p>',
+      },
+      { authorization: 'Bearer token' },
+    );
+    const response = await SEND_POST(req as any);
+    expect(response.status).toBe(403);
+    const data = await response.json();
+    expect(data.code).toBe('GOVERNANCE_APPROVAL_REQUIRED');
+    expect(data.approvalId).toBe('apr-1');
   });
 
   it('should return 401 without auth', async () => {

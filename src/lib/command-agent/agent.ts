@@ -19,10 +19,24 @@ import { executeCompanyAIChat, CompanyAIError } from '@/lib/multi-tenant-ai/serv
 import type { ModelRoutingProfile } from '@/lib/multi-tenant-ai/policy';
 import type { AIMessage, AITool } from '@/lib/ai-router/types';
 import { executeTool } from '@/lib/tools/execute';
+import { enforceGovernance } from '@/lib/governance';
+import type { ActionClass } from '@/lib/governance';
 import { listToolDefinitions, toolSchemasFor } from '@/lib/tools/registry';
 import { commandToolSchemas, getCommandTool } from './tools';
 import { executeSupervisorTool, getSupervisorTool, supervisorToolSchemas } from './supervisor-tools';
 import { buildAgentSkillPrompt } from '@/lib/agent-skills';
+import {
+  appendCommandTurn,
+  clearCommandConversation,
+  getOrCreateCommandConversation,
+  loadCommandTurns,
+} from '@/lib/chat/command-session-store';
+import {
+  deriveCommandStatus,
+  describeCommandStatus,
+  type CommandApproval,
+  type CommandStatus,
+} from './status';
 
 export const COMMAND_AGENT_PROFILES = [
   'free_general', 'free_coding', 'free_reasoning', 'local_general', 'local_fast',
@@ -30,6 +44,17 @@ export const COMMAND_AGENT_PROFILES = [
 export type CommandAgentProfile = (typeof COMMAND_AGENT_PROFILES)[number];
 
 const MAX_STEPS = 6;
+
+/**
+ * Map the free external tools onto the governance taxonomy. These handlers have
+ * no approval gate (they are read-only or media generation), but they must still
+ * obey the emergency controls and the audit trail — previously they bypassed
+ * both entirely.
+ */
+function commandToolActionClass(name: string): ActionClass {
+  return name === 'generate_image' ? 'media.generate' : 'read.public';
+}
+
 const MAX_HISTORY = 20;
 const MAX_TOOL_OUTPUT = 8_000;
 
@@ -43,11 +68,30 @@ export interface CommandTraceStep {
   output: string;
 }
 
+export interface CommandRoutingReport {
+  /** Provider attempts across every model call in this run. */
+  attempts: number;
+  /** True when the gateway switched provider for at least one call. */
+  fallbackUsed: boolean;
+  /** Number of model calls that required a switch. */
+  switches: number;
+  /** Distinct providers actually used, in first-use order. */
+  providers: string[];
+}
+
 export interface CommandAgentResult {
   content: string;
   provider: string;
   model: string;
   profile: CommandAgentProfile;
+  status: CommandStatus;
+  /** Plain-language expansion of `status`; never softens it. */
+  statusDetail: string;
+  /** Steps paused for a human decision (bound approvals). */
+  approvals: CommandApproval[];
+  /** Whether the turn was written to durable storage. */
+  persisted: boolean;
+  routing: CommandRoutingReport;
   steps: number;
   trace: CommandTraceStep[];
   /** Image URLs produced by generate_image, for direct rendering. */
@@ -80,17 +124,13 @@ export interface CommandAgentInput {
   mode?: 'read' | 'supervisor';
 }
 
-const sessions = new Map<string, Array<{ role: 'user' | 'assistant'; content: string }>>();
-
-export function clearCommandSessions(userId: string, sessionId: string): number {
-  let cleared = 0;
-  for (const key of sessions.keys()) {
-    if (key.startsWith(`${userId}:`) && key.endsWith(`:${sessionId}`)) {
-      sessions.delete(key);
-      cleared += 1;
-    }
-  }
-  return cleared;
+/** Clear a session's durable transcript (messages only; the row is kept). */
+export async function clearCommandSessions(params: {
+  userId: string;
+  companyId: string;
+  sessionId: string;
+}): Promise<number> {
+  return clearCommandConversation(params);
 }
 
 function systemPrompt(companyName: string, role: string, skillGuidance = '', supervisor = false): string {
@@ -150,6 +190,8 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
   const trace: CommandTraceStep[] = [];
   const images: string[] = [];
   const requestIds: string[] = [];
+  const approvals: CommandApproval[] = [];
+  const routing: CommandRoutingReport = { attempts: 0, fallbackUsed: false, switches: 0, providers: [] };
   let provider = '';
   let model = '';
   let finalContent = '';
@@ -167,6 +209,14 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
       { profile: profile as ModelRoutingProfile, dataClassification: 'confidential' },
     );
     requestIds.push(result.requestId);
+    routing.attempts += Number.isFinite(result.attempts) ? result.attempts : 1;
+    if (result.fallbackUsed) {
+      routing.fallbackUsed = true;
+      routing.switches += 1;
+    }
+    if (result.provider && !routing.providers.includes(result.provider)) {
+      routing.providers.push(result.provider);
+    }
     provider = result.provider;
     model = result.response.model;
     const toolCalls = result.response.toolCalls ?? [];
@@ -233,6 +283,14 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
           permissions,
         });
         ok = executed.ok;
+        if (executed.approvalId) {
+          approvals.push({
+            tool: name,
+            approvalId: executed.approvalId,
+            approvers: [],
+            reason: executed.blockReason ?? 'A human approval is required before this tool can run.',
+          });
+        }
         output = (executed.output || executed.error || 'Tool returned no output.').slice(0, MAX_TOOL_OUTPUT);
       }
 
@@ -241,17 +299,49 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
     }
   }
 
-  sessions.set(historyKey, [
-    ...history.slice(-(MAX_HISTORY - 2)),
-    { role: 'user' as const, content: input.message },
-    { role: 'assistant' as const, content: finalContent },
-  ].slice(-MAX_HISTORY));
+  if (!finalContent.trim()) {
+    finalContent = 'The run produced no answer. Check the tool trace above and the configured free model routes.';
+  }
+
+  const runStatus = deriveCommandStatus({ content: finalContent, trace, approvals });
+
+  // Persist both turns with the evidence a reviewer needs later. A failure here
+  // does not fail the reply, but it is reported instead of hidden.
+  let persisted = false;
+  if (conversation) {
+    const userSaved = await appendCommandTurn({
+      conversationId: conversation.id,
+      turn: { role: 'user', content: input.message, metadata: { profile } },
+    });
+    const assistantSaved = await appendCommandTurn({
+      conversationId: conversation.id,
+      turn: {
+        role: 'assistant',
+        content: finalContent,
+        model,
+        metadata: {
+          provider,
+          profile,
+          status: runStatus,
+          routing: { attempts: routing.attempts, fallbackUsed: routing.fallbackUsed, providers: routing.providers },
+          approvals,
+          trace: trace.map((step) => ({ step: step.step, tool: step.tool, ok: step.ok, durationMs: step.durationMs })),
+        },
+      },
+    });
+    persisted = userSaved && assistantSaved;
+  }
 
   return {
     content: finalContent,
     provider,
     model,
     profile,
+    status: runStatus,
+    statusDetail: describeCommandStatus(runStatus),
+    approvals,
+    persisted,
+    routing,
     steps: trace.length,
     trace,
     images,
