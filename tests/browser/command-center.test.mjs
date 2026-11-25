@@ -46,13 +46,21 @@ async function signIn(page) {
 }
 
 /**
- * The browser context's cookie is httpOnly, so API assertions from the test use
- * the same bearer token the application itself places in the session cookie.
+ * Call the app's own JSON API from inside the signed-in page. This uses exactly
+ * the cookie jar and origin the UI uses — no synthetic credentials, no second
+ * auth path that could behave differently.
  */
-async function authHeaders(ctx) {
-  const cookie = (await ctx.cookies()).find((entry) => entry.name === 'session-token');
-  assert.ok(cookie?.value, 'signed-in session cookie is present');
-  return { authorization: `Bearer ${cookie.value}` };
+async function apiGet(page, path) {
+  return page.evaluate(async (url) => {
+    const response = await fetch(url, { headers: { accept: 'application/json' } });
+    let body = null;
+    try {
+      body = await response.json();
+    } catch {
+      body = null;
+    }
+    return { status: response.status, body };
+  }, path);
 }
 
 async function openResearch(page) {
@@ -150,11 +158,10 @@ test('research evidence is measured, saved, and recovered after reload', async (
   await shot(page, 'research-evidence');
 
   // The saved finding is company-scoped and readable through the API.
-  const saved = await ctx.request.get('/api/research/analyze', { headers: await authHeaders(ctx) });
-  assert.equal(saved.status(), 200);
-  const savedJson = await saved.json();
-  assert.ok(Array.isArray(savedJson.reports) && savedJson.reports.length >= 1);
-  const report = savedJson.reports.find((entry) => String(entry.finalUrl).includes('example.com'));
+  const saved = await apiGet(page, '/api/research/analyze');
+  assert.equal(saved.status, 200);
+  assert.ok(Array.isArray(saved.body?.reports) && saved.body.reports.length >= 1);
+  const report = saved.body.reports.find((entry) => String(entry.finalUrl).includes('example.com'));
   assert.ok(report, 'saved report is listed for this company');
   assert.equal(report.sha256.length, 64);
 
@@ -211,14 +218,10 @@ test('a failed command run is streamed honestly and its timeline is retrievable'
   assert.equal(frames.some((frame) => frame.type === 'final'), false, 'a failed run has no final frame');
   assert.equal(frames.filter((frame) => frame.type === 'error').length, 1);
 
-  const fetched = await ctx.request.get(
-    `/api/command-agent/runs/${encodeURIComponent(runFrame.runId)}`,
-    { headers: await authHeaders(ctx) },
-  );
-  assert.equal(fetched.status(), 200);
-  const stored = await fetched.json();
-  assert.equal(stored.run.status, 'failed');
-  const eventTypes = stored.run.events.map((event) => event.type);
+  const fetched = await apiGet(page, `/api/command-agent/runs/${encodeURIComponent(runFrame.runId)}`);
+  assert.equal(fetched.status, 200);
+  assert.equal(fetched.body?.run?.status, 'failed');
+  const eventTypes = fetched.body.run.events.map((event) => event.type);
   assert.ok(eventTypes.includes('run_started'));
   assert.ok(eventTypes.includes('error'));
   await shot(page, 'command-run-failure');
