@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { AboutPage } from '@/components/site/pages/about'
+import { AboutDarkPage } from '@/components/agentos/company-pages'
 
 export const metadata: Metadata = {
   title: 'About — ALO Labs',
@@ -19,5 +19,5 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <AboutPage />
+  return <AboutDarkPage />
 }

@@ -114,12 +114,32 @@ describe('dark footer', () => {
     expect(container.querySelector('a[href="/site/terms"]')).toBeTruthy()
   })
 
-  it('renders no social icons while no channel is verified', () => {
+  it('renders one icon link per verified destination, with distinct labels', () => {
     const { container } = render(<DarkFooter />)
-    // Guessing a handle would point the footer at somebody else's account, so
-    // an empty row is the correct output until one is confirmed.
-    const socials = container.querySelectorAll('a[aria-label*="on Facebook"], a[aria-label*="on Instagram"], a[aria-label*="on YouTube"], a[aria-label*="on Pinterest"]')
-    expect(socials).toHaveLength(0)
+    const socials = [...container.querySelectorAll('[aria-label="ALO Labs on social media"] a')]
+    // Six confirmed destinations: Facebook page, community group, share link,
+    // Instagram, YouTube, Pinterest.
+    expect(socials).toHaveLength(6)
+    // Icon-only links must be named, and the three Facebook entries must be
+    // distinguishable — a screen-reader user hears three different labels.
+    const labels = socials.map((a) => a.getAttribute('aria-label') ?? '')
+    for (const l of labels) expect(l.length).toBeGreaterThan(6)
+    expect(new Set(labels).size).toBe(6)
+    expect(labels.filter((l) => l.toLowerCase().includes('facebook'))).toHaveLength(3)
+  })
+
+  it('opens social links safely in a new tab without leaking the referrer', () => {
+    const { container } = render(<DarkFooter />)
+    const socials = [...container.querySelectorAll('[aria-label="ALO Labs on social media"] a')]
+    for (const a of socials) {
+      expect(a.getAttribute('target')).toBe('_blank')
+      // noopener blocks tabnabbing; noreferrer drops the referrer.
+      const rel = a.getAttribute('rel') ?? ''
+      expect(rel).toContain('noopener')
+      expect(rel).toContain('noreferrer')
+      // Every published destination must be https.
+      expect(a.getAttribute('href')?.startsWith('https://')).toBe(true)
+    }
   })
 
   it('links to the conversion routes from the footer', () => {

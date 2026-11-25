@@ -106,6 +106,16 @@ docs/discovery/*.json
 uploads/
 __pycache__/
 
+# Python virtualenvs. Only .tts-venv/ was covered, so a venv created under
+# services/ (for example `python3 -m venv services/engineering-worker/.venv`)
+# was untracked-but-committable: a single `git add -A` would have put tens of
+# thousands of third-party files into the repository.
+.venv/
+*/.venv/
+**/.venv/
+venv/
+*/venv/
+
 # Local SQLite databases created by `next dev` / local test runs.
 # Only db/ was covered before, so a root-level dev.db could be committed by
 # accident — it holds local session rows and must never enter the repo.

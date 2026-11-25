@@ -261,8 +261,30 @@ function csv(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Normalise an Ollama endpoint to the **API root**.
+ *
+ * Two different Ollama surfaces share one host and operators routinely use
+ * either spelling in `.env`:
+ *
+ *   - the native API at `/api/*` (what {@link OllamaProvider} speaks), and
+ *   - the OpenAI-compatible shim at `/v1/*`.
+ *
+ * The provider appends `/api/tags` and `/api/chat` to this value, so an
+ * endpoint copied from an OpenAI-style block (`OLLAMA_BASE_URL=http://host:11434/v1`)
+ * used to become `http://host:11434/v1/api/tags` — a 404. The resulting
+ * "Ollama is not reachable" made the provider fail to register, which left the
+ * router with no authorized route and surfaced to users as
+ * `AI_DEFERRED / AUTHORIZED_ROUTE_FAILED` at HTTP 503. The endpoint was fine;
+ * only the suffix was wrong.
+ *
+ * Strip a trailing `/v1` (and any trailing slash) so both spellings resolve to
+ * the same root. Query strings and deeper paths are left untouched — an
+ * operator fronting Ollama with a proxy path prefix still gets what they wrote.
+ */
 function normaliseOllamaEndpoint(value: string): string {
-  return /^https?:\/\//i.test(value) ? value : `http://${value}`;
+  const withScheme = /^https?:\/\//i.test(value) ? value : `http://${value}`;
+  return withScheme.replace(/\/+$/, '').replace(/\/v1$/i, '');
 }
 
 /**
