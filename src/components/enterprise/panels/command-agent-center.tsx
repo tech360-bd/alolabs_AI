@@ -22,7 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { fetchApi } from '@/lib/api-client'
+import { fetchApi, getAuthToken } from '@/lib/api-client'
 import ResearchVerification from './research-verification'
 import type { EnterpriseView } from '../types'
 
@@ -354,9 +354,16 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
     try {
       let reply: ChatReply
       let events: RunEvent[] = []
+      // The edge proxy authenticates every private /api/* call from the
+      // Authorization header; a bare fetch() here was rejected with 401 before
+      // the stream handler ever ran. Use the same bearer token as fetchApi.
+      const token = getAuthToken()
       const response = await fetch('/api/command-agent/stream', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
         body: payload,
       })
 
