@@ -1,15 +1,18 @@
 /**
  * Command Agent tools — free, no-key external services + tool schemas.
  *
- * Security posture (matches `src/lib/tools`): every handler talks to a fixed,
- * allow-listed host. The model can only supply *query text* (city, topic,
- * prompt) — never a URL — so there is no SSRF surface. All calls are GET,
- * time-boxed, and size-capped. Internal tenant tools (knowledge, CRM, …)
- * continue to run through `executeTool` and are recorded in ToolRun; these
- * external calls are recorded in the agent trace returned to the operator.
+ * Security posture (matches `src/lib/tools`): every service handler talks only to
+ * a fixed, allow-listed host and the model supplies *query text* (city, topic,
+ * prompt) — never a URL — so there is no SSRF surface. `analyze_public_page` is
+ * the one handler that accepts a URL, and it runs the full research policy first
+ * (robots.txt, per-hop SSRF checks, byte/time caps, no auth or CAPTCHA bypass).
+ * All calls are GET, time-boxed, and size-capped. Internal tenant tools
+ * (knowledge, CRM, …) continue to run through `executeTool` and are recorded in
+ * ToolRun; these external calls are recorded in the agent trace.
  */
 
 import type { AITool } from '@/lib/ai-router/types';
+import { analyzePublicPage, summariseAnalysis } from '@/lib/research/public-page';
 
 const TIMEOUT_MS = 12_000;
 const MAX_TEXT = 6_000;
@@ -218,6 +221,15 @@ export interface CommandTool {
   run: (args: Record<string, unknown>) => Promise<unknown>;
 }
 
+// ─── analyze_public_page ─────────────────────────────────────────────────────
+
+export async function analyzePublicPageTool(args: Record<string, unknown>): Promise<unknown> {
+  const url = clamp(args.url, 2_048);
+  if (!url) throw new Error('url is required');
+  const analysis = await analyzePublicPage(url);
+  return summariseAnalysis(analysis);
+}
+
 export const COMMAND_TOOLS: readonly CommandTool[] = [
   {
     name: 'get_weather',
@@ -236,6 +248,12 @@ export const COMMAND_TOOLS: readonly CommandTool[] = [
     description: 'Search the web for current facts (Tavily free tier when configured, otherwise DuckDuckGo Instant Answers).',
     parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'], additionalProperties: false },
     run: webSearch,
+  },
+  {
+    name: 'analyze_public_page',
+    description: 'Fetch and analyse a PUBLIC web page (HTTP only, obeys robots.txt, no login/CAPTCHA/paywall bypass, no JavaScript execution). Returns measured facts, issues and a citation with status, byte count and SHA-256.',
+    parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'], additionalProperties: false },
+    run: analyzePublicPageTool,
   },
   {
     name: 'hackernews_top',

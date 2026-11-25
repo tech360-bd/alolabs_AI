@@ -2,7 +2,7 @@ import { authFailure } from '@/lib/api/route-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { requireAuth, canManageCompany, type AuthenticatedUser } from '@/lib/api-auth';
+import { requireAuth, type AuthenticatedUser } from '@/lib/api-auth';
 import { checkEndpointLimit } from '@/lib/security/rate-limiter';
 import { writeAuditEvent } from '@/lib/audit-events';
 import {
@@ -13,6 +13,7 @@ import {
   type CommandAgentProfile,
 } from '@/lib/command-agent/agent';
 import { findCommandConversation, loadCommandTurns } from '@/lib/chat/command-session-store';
+import { canUseCommandAgent, resolveCommandCompany } from '@/lib/command-agent/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,36 +38,12 @@ const BodySchema = z.object({
   skillSlugs: z.array(z.string().trim().min(1).max(160)).max(5).optional(),
 }).strict();
 
-type CompanyRow = { id: string; name: string; slug: string; status: string };
-
-async function resolveCompany(actor: AuthenticatedUser, target: string | null | undefined): Promise<CompanyRow | null> {
-  if (actor.role === 'super_admin') {
-    if (target) {
-      return db.company.findFirst({
-        where: { OR: [{ id: target }, { slug: target }] },
-        select: { id: true, name: true, slug: true, status: true },
-      });
-    }
-    if (actor.companyId) {
-      const selected = await db.company.findUnique({ where: { id: actor.companyId }, select: { id: true, name: true, slug: true, status: true } });
-      if (selected) return selected;
-    }
-    return db.company.findUnique({ where: { slug: 'alo-labs' }, select: { id: true, name: true, slug: true, status: true } });
-  }
-  // Company admins: their own company only — a foreign target is refused.
-  if (!actor.companyId || !canManageCompany(actor)) return null;
-  const own = await db.company.findUnique({ where: { id: actor.companyId }, select: { id: true, name: true, slug: true, status: true } });
-  if (!own) return null;
-  if (target && target !== own.id && target !== own.slug) return null;
-  return own;
-}
-
 export async function POST(request: NextRequest) {
   let actor: AuthenticatedUser;
   try { actor = await requireAuth(); }
   catch (error) { return authFailure(error) ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
 
-  if (actor.role !== 'super_admin' && !canManageCompany(actor)) {
+  if (!canUseCommandAgent(actor)) {
     return NextResponse.json({ error: 'Command Agent requires Super Admin or company Admin access' }, { status: 403 });
   }
 
@@ -79,7 +56,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   try {
-    const company = await resolveCompany(actor, parsed.data.targetCompany);
+    const company = await resolveCommandCompany(actor, parsed.data.targetCompany);
     if (!company) return NextResponse.json({ error: 'Target company not found or not accessible' }, { status: 404 });
     if (company.status !== 'active') return NextResponse.json({ error: 'Target company is not active' }, { status: 403 });
 
@@ -120,6 +97,8 @@ export async function POST(request: NextRequest) {
       statusDetail: result.statusDetail,
       approvals: result.approvals,
       persisted: result.persisted,
+      runId: result.runId,
+      eventCount: result.eventCount,
       routing: result.routing,
       steps: result.steps,
       trace: result.trace,
@@ -159,13 +138,13 @@ export async function GET(request: NextRequest) {
   let actor: AuthenticatedUser;
   try { actor = await requireAuth(); }
   catch (error) { return authFailure(error) ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
-  if (actor.role !== 'super_admin' && !canManageCompany(actor)) {
+  if (!canUseCommandAgent(actor)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const sessionId = request.nextUrl.searchParams.get('sessionId') || 'default';
   try {
-    const company = await resolveCompany(actor, request.nextUrl.searchParams.get('targetCompany'));
+    const company = await resolveCommandCompany(actor, request.nextUrl.searchParams.get('targetCompany'));
     if (!company) return NextResponse.json({ error: 'Target company not found or not accessible' }, { status: 404 });
 
     const conversation = await findCommandConversation({
@@ -197,12 +176,12 @@ export async function DELETE(request: NextRequest) {
   let actor: AuthenticatedUser;
   try { actor = await requireAuth(); }
   catch (error) { return authFailure(error) ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
-  if (actor.role !== 'super_admin' && !canManageCompany(actor)) {
+  if (!canUseCommandAgent(actor)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const sessionId = request.nextUrl.searchParams.get('sessionId') || 'default';
   try {
-    const company = await resolveCompany(actor, request.nextUrl.searchParams.get('targetCompany'));
+    const company = await resolveCommandCompany(actor, request.nextUrl.searchParams.get('targetCompany'));
     if (!company) return NextResponse.json({ error: 'Target company not found or not accessible' }, { status: 404 });
 
     const cleared = await clearCommandSessions({ userId: actor.userId, companyId: company.id, sessionId });

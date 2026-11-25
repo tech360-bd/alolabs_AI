@@ -36,6 +36,12 @@ import {
   type CommandApproval,
   type CommandStatus,
 } from './status';
+import {
+  createEventCollector,
+  finishCommandRun,
+  startCommandRun,
+  type CommandRunEvent,
+} from './run-store';
 
 export const COMMAND_AGENT_PROFILES = [
   'free_general', 'free_coding', 'free_reasoning', 'local_general', 'local_fast',
@@ -90,6 +96,9 @@ export interface CommandAgentResult {
   approvals: CommandApproval[];
   /** Whether the turn was written to durable storage. */
   persisted: boolean;
+  /** Run id for the stored timeline (`null` when storage is unavailable). */
+  runId: string | null;
+  eventCount: number;
   routing: CommandRoutingReport;
   steps: number;
   trace: CommandTraceStep[];
@@ -114,6 +123,8 @@ export interface CommandAgentInput {
   departmentId?: string | null;
   /** Optional advisory skill slugs; quarantined/unknown slugs are rejected. */
   skillSlugs?: string[];
+  /** Real-time event sink used by the streaming endpoint. */
+  onEvent?: (event: CommandRunEvent) => void;
 }
 
 /** Clear a session's durable transcript (messages only; the row is kept). */
@@ -161,6 +172,8 @@ function parseArgs(raw: string): Record<string, unknown> {
 
 export async function runCommandAgent(input: CommandAgentInput): Promise<CommandAgentResult> {
   const profile: CommandAgentProfile = input.profile ?? 'free_general';
+  const startedAt = Date.now();
+  const collector = createEventCollector(input.onEvent);
 
   // Durable history, scoped to this user + tenant. A storage failure returns an
   // empty transcript and is reported through `persisted: false` — never faked.
@@ -173,6 +186,22 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
     ? await loadCommandTurns({ conversationId: conversation.id, companyId: input.companyId, limit: MAX_HISTORY })
     : [];
   const history = storedHistory.map((turn) => ({ role: turn.role, content: turn.content }));
+
+  const run = await startCommandRun({
+    companyId: input.companyId,
+    userId: input.userId,
+    sessionId: input.sessionId,
+    profile,
+    messageChars: input.message.length,
+  });
+  const runId = run?.id ?? null;
+  collector.emit('run_started', {
+    runId,
+    sessionId: input.sessionId,
+    profile,
+    messageChars: input.message.length,
+    historyTurns: storedHistory.length,
+  });
 
   const tools = allToolSchemas();
   const permissions = internalPermissions();
@@ -196,6 +225,7 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
   let model = '';
   let finalContent = '';
 
+  try {
   for (let step = 1; step <= MAX_STEPS; step += 1) {
     const result = await executeCompanyAIChat(
       { companyId: input.companyId, userId: input.userId, role: input.role },
@@ -220,6 +250,15 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
     provider = result.provider;
     model = result.response.model;
     const toolCalls = result.response.toolCalls ?? [];
+    collector.emit('model', {
+      step,
+      provider: result.provider,
+      model: result.response.model,
+      attempts: result.attempts,
+      fallbackUsed: result.fallbackUsed,
+      toolCalls: toolCalls.length,
+      contentChars: (result.response.content ?? '').length,
+    });
 
     if (toolCalls.length === 0) {
       finalContent = result.response.content;
@@ -268,6 +307,11 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
             approvers: [...governance.requiredApprovers],
             reason: governance.explanation,
           });
+          collector.emit('approval', {
+            tool: name,
+            approvalId: null,
+            approvers: [...governance.requiredApprovers],
+          });
         }
         if (governance.outcome !== 'allow') {
           output = `Tool "${name}" was blocked by governance (${governance.outcome}): ${governance.explanation}`;
@@ -307,13 +351,43 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
             approvers: [],
             reason: executed.blockReason ?? 'A human approval is required before this tool can run.',
           });
+          collector.emit('approval', { tool: name, approvalId: executed.approvalId, approvers: [] });
         }
         output = (executed.output || executed.error || 'Tool returned no output.').slice(0, MAX_TOOL_OUTPUT);
       }
 
-      trace.push({ step, tool: name, args, ok, durationMs: Date.now() - startedAt, output: output.slice(0, 2_000) });
+      const durationMs = Date.now() - startedAt;
+      trace.push({ step, tool: name, args, ok, durationMs, output: output.slice(0, 2_000) });
+      collector.emit('tool', {
+        step,
+        tool: name,
+        ok,
+        durationMs,
+        approvalId: approvals.find((approval) => approval.tool === name)?.approvalId ?? null,
+        outputPreview: output.slice(0, 400),
+      });
       messages.push({ role: 'tool', toolCallId: call.id, name, content: output });
     }
+  }
+  } catch (error) {
+    collector.emit('error', {
+      message: error instanceof Error ? error.message : String(error),
+      provider,
+      model,
+    });
+    if (runId) {
+      await finishCommandRun({
+        runId,
+        companyId: input.companyId,
+        status: 'failed',
+        events: collector.events,
+        provider,
+        model,
+        durationMs: Date.now() - startedAt,
+        summary: { error: error instanceof Error ? error.message.slice(0, 500) : 'unknown error' },
+      });
+    }
+    throw error;
   }
 
   if (!finalContent.trim()) {
@@ -321,6 +395,14 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
   }
 
   const runStatus = deriveCommandStatus({ content: finalContent, trace, approvals });
+  collector.emit('final', {
+    status: runStatus,
+    provider,
+    model,
+    contentChars: finalContent.length,
+    approvals: approvals.length,
+    steps: trace.length,
+  });
 
   // Persist both turns with the evidence a reviewer needs later. A failure here
   // does not fail the reply, but it is reported instead of hidden.
@@ -349,12 +431,33 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
     persisted = userSaved && assistantSaved;
   }
 
+  if (runId) {
+    await finishCommandRun({
+      runId,
+      companyId: input.companyId,
+      status: runStatus === 'waiting_for_approval' ? 'waiting_for_approval' : runStatus,
+      events: collector.events,
+      provider,
+      model,
+      durationMs: Date.now() - startedAt,
+      summary: {
+        persisted,
+        approvals: approvals.length,
+        failedSteps: trace.filter((step) => !step.ok).length,
+        attempts: routing.attempts,
+        fallbackUsed: routing.fallbackUsed,
+      },
+    });
+  }
+
   return {
     content: finalContent,
     provider,
     model,
     profile,
     status: runStatus,
+    runId,
+    eventCount: collector.events.length,
     statusDetail: describeCommandStatus(runStatus),
     approvals,
     persisted,

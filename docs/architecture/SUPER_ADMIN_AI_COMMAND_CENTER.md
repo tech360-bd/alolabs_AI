@@ -204,11 +204,11 @@ Recommended integration pattern for an external app:
 
 | # | Gap | Status |
 | --- | --- | --- |
-| 1 | Streaming/token-level output | ⬜ (status + trace are returned today, not streamed) |
-| 2 | Right-rail execution timeline bound to a run id | ⬜ |
+| 1 | Streaming/token-level output | 🟨 execution events stream over NDJSON; model tokens are **not** streamed (the gateway is not a streaming API) |
+| 2 | Right-rail execution timeline bound to a run id | ✅ Phase C2 (`/api/command-agent/runs/[id]`, panel timeline) |
 | 3 | Diff preview + changed-file view | ⬜ |
 | 4 | Write/deploy/repo tools from chat | ⬜ Phase E |
-| 5 | Headless browser verification | ⬜ Phase D |
+| 5 | Headless browser verification | ⬜ Phase D tier 2 (tier 1 is HTTP-fetch verification only) |
 | 6 | Sandboxed code execution | ⬜ Phase E |
 | 7 | OpenAPI document + SDK | ⬜ |
 | 8 | Agent-team assignment from chat | 🟨 orchestrator exists; not wired to this panel |
@@ -221,3 +221,110 @@ Recommended integration pattern for an external app:
 - The Commanding Center is not the customer workspace: company admins see only their own tenant.
 - Every consequential step passes the governance engine; emergency stops are enforced at the tool boundary, not in the UI.
 - No credentials are ever returned to the panel; provider keys are sealed server-side (`src/lib/ai-router/provider-admin.ts`) and only fingerprint/`hasApiKey` are exposed.
+
+## 10. Command runs: timeline, streaming, persistence (Phase C2)
+
+A chat turn is now a **run** with an identity that outlives the request.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Operator
+  participant S as /api/command-agent/stream
+  participant A as Command Agent
+  participant R as run-store (Artifact json)
+  participant DB as Conversation/Approval/Audit
+
+  U->>S: POST {message, sessionId, profile} (NDJSON request)
+  S->>S: auth + rate limit + audit(command_agent.stream.request)
+  S->>A: runCommandAgent(..., onEvent)
+  A->>R: startCommandRun → runId (artifact)
+  A-->>S: run_started
+  S-->>U: {"type":"event"} + {"type":"run","runId"}
+  loop tool-calling steps
+    A->>A: gateway attempt(s)
+    A-->>S: model {provider, model, attempts, fallbackUsed}
+    A->>A: tool call (governance gate)
+    A-->>S: tool {tool, ok, durationMs}
+    A-->>S: approval {tool, approvers} (when paused)
+  end
+  A->>R: finishCommandRun(status, events, provider, model, sha256)
+  A-->>S: final {status, runId, eventCount, routing, approvals}
+  S-->>U: terminal frame
+  Note over U,R: After reload, GET /api/command-agent/runs/{runId} returns the same events
+```
+
+### Event contract
+
+| Event | Emitted when | Key data |
+| --- | --- | --- |
+| `run_started` | run row created (or `runId: null` if storage failed) | `runId`, `sessionId`, `profile`, `historyTurns` |
+| `model` | one gateway loop step returned | `step`, `provider`, `model`, `attempts`, `fallbackUsed`, `toolCalls` |
+| `tool` | one tool call finished | `step`, `tool`, `ok`, `durationMs`, `approvalId`, `outputPreview` |
+| `approval` | a step paused for a human, or an approval id was created/consumed | `tool`, `approvalId`, `approvers` |
+| `final` | terminal status derived | `status`, `provider`, `model`, `contentChars`, `steps` |
+| `error` | the run failed (storage still finalises it as `failed`) | `message`, `provider`, `model` |
+
+### Wire format
+
+`POST /api/command-agent/stream` returns `application/x-ndjson`, one JSON object per line:
+
+```
+{"type":"event","event":{seq,at,type,data}}
+{"type":"run","runId":"…"}
+{"type":"final","result":{…same fields as POST /api/command-agent/chat…}}
+{"type":"error","error":"…","code":"…","hint":"…"}
+```
+
+It is deliberately **not** SSE: the request body carries the command, so a single streaming
+POST is simpler and avoids putting prompts in URLs. A failed run ends with `error`, never a
+fabricated `final`. If the deployment lacks the route (404/405), the panel falls back to the
+plain JSON endpoint and shows no timeline rather than inventing one.
+
+### Storage
+
+| Concern | Decision |
+| --- | --- |
+| Table | `Artifact` (`type='json'`, `metadata.kind='command_run'`) — no migration |
+| Why not `AgentRun` | requires an `Agent` FK; a command run is not a workforce agent |
+| Why not `AgentExecution` | requires an `AgentInstance`; none exists for command runs |
+| Tenant safety | every read/update is `where: { id, companyId }`; `getCommandRun` also rejects other artifact kinds |
+| Size bounds | last 200 events, 4 000 chars per event payload, checksum over the stored body |
+| Failure mode | `startCommandRun` returns `null` and `finishCommandRun` returns `false`; the command still runs, `persisted`/`runId` tell the truth |
+
+## 11. Research and verification (Phase D, tier 1)
+
+`src/lib/research/public-page.ts` is a **public HTTP analyser**, not a browser.
+
+```mermaid
+flowchart LR
+  U[URL] --> V[validate: http(s), no creds, ports 80/443]
+  V --> G1[governance: read.public<br/>emergency stops apply]
+  G1 --> R[robots.txt for ALOLabsResearchBot]
+  R -->|disallow| STOP[restricted result, no page fetch]
+  R -->|allow| S1[SSRF check]
+  S1 --> F[fetch, manual redirects ≤3,<br/>10 s, 512 KB cap]
+  F -->|3xx| S1
+  F --> X[extract: title, meta, headings,<br/>links, images, forms, scripts, stack, issues]
+  X --> E[evidence: final URL, status,<br/>fetchedAt, bytes, sha256, citations]
+  E --> A[Artifact kind=research_report<br/>company-scoped]
+```
+
+Rules encoded in code (and tests):
+
+- `robots.txt` is fetched first; a disallow returns a restricted result and **never fetches the page**.
+  A 5xx/unreachable robots.txt is treated as disallow (fail closed); 404/410 means "no rules".
+- Every redirect hop is re-validated with `checkSsrf` (IPv4/IPv6/private-range blocklist).
+- Credentials in the URL, non-HTTP schemes and non-80/443 ports are rejected before any fetch.
+- 401/403/429, unsupported content types, CAPTCHA/login/paywall markers are returned as
+  `access.restricted` + `signals`; nothing tries to defeat them.
+- No JavaScript is executed. `javascriptRendered: false` is part of the response, and the UI
+  labels verification as `http_fetch` so a JS-only page is never reported as verified content.
+- Findings are saved only on request, only under the caller's company (`Artifact`,
+  `metadata.kind='research_report'`, SHA-256 of the stored body).
+
+Surfaces: `POST/GET /api/research/analyze`, `GET /api/research/reports/[id]`, the
+`analyze_public_page` agent tool, and the Commanding Center → Research & Verify tab.
+
+**Still missing (tier 2):** a rendered-DOM browser worker (console errors, screenshots),
+`ResearchSource`/`ResearchFinding` models with confidence/expiry, and crawling.

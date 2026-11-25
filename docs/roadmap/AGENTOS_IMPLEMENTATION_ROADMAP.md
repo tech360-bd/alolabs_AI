@@ -62,7 +62,7 @@ than being declared complete.
 | **C1**: honest run status vocabulary + approval pause surfaced with a real approval id | ✅ | `src/lib/command-agent/status.ts`, agent test `waiting_for_approval` |
 | **C1**: routing evidence (attempts, failover, providers) returned, persisted and rendered | ✅ | `/api/command-agent/chat` + panel + tests |
 | **C1**: architecture diagrams, API architecture, self-healing stage table | ✅ | `docs/architecture/SUPER_ADMIN_AI_COMMAND_CENTER.md` |
-| **C2**: streamed run events / execution timeline bound to real `AgentRun`/audit rows | ⬜ | next |
+| **C2**: streamed run events / execution timeline bound to a persisted run identity | ✅ | `/api/command-agent/stream`, `/api/command-agent/runs/[id]`, `src/lib/command-agent/run-store.ts` (Artifact-based, no migration), 18+4 tests |
 | **C2**: agent-team assignment from chat (existing orchestrator) | ⬜ | next |
 | Capability diff (registry vs requirement) with an explicit "missing specialist" result | ⬜ | no invention — must query the real registry |
 | Project-aware memory and run state (project cockpit) | ⬜ | `Conversation`/memory scopes exist; cockpit UI does not |
@@ -75,15 +75,20 @@ Prerequisite: B2 complete. Estimated 2–3 focused PRs.
 are read-only; the coding/deploy loop arrives in Phase E after the browser and sandbox
 foundations of Phase D.
 
-## Phase D — Browser and research ⛔→⬜
+## Phase D — Browser and research 🟨 (tier 1 delivered)
 
-Blocked on: an isolated browser worker service (not an in-process Playwright).
+Tier 1 is shipped; the rendered-DOM browser worker is still blocked on an isolated service.
 
-- Tier-1 SSRF-guarded fetch with robots policy and budgets.
-- Tier-2 browser worker: rendered DOM, console, screenshots; sanitised artifacts.
-- `ResearchSource` / `ResearchFinding` with confidence, verifiedAt, expiresAt.
-- Untrusted-content rule test: a page cannot change a governance decision.
-- Citation requirement in every research answer.
+- ✅ Tier-1 SSRF-guarded fetch with robots policy, per-hop redirect checks, 10 s / 512 KB budgets
+  (`src/lib/research/public-page.ts`, 12 tests).
+- ⬜ Tier-2 browser worker: rendered DOM, console, screenshots; sanitised artifacts.
+- 🟨 `ResearchSource` / `ResearchFinding` semantics are carried today by `Artifact`
+  (`metadata.kind='research_report'`) with URL, status, `fetchedAt`, SHA-256 and citations;
+  dedicated models with confidence/expiry are not built.
+- ✅ Governance runs **before** the fetch, so page content never reaches a governance decision;
+  the untrusted-content rule is structural, not a prompt instruction.
+- ✅ Citation requirement: `analyze_public_page` returns a citation with status, time, bytes and hash;
+  the UI shows it, and restricted pages produce no citation.
 
 ## Phase E — Customer project connections ⛔→⬜
 

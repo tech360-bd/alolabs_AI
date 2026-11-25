@@ -14,6 +14,7 @@ import {
   Terminal, Send, Loader2, Trash2, Wrench, CheckCircle2, XCircle, Sparkles,
   CloudSun, BookOpen, Search, Image as ImageIcon, Calculator, Database, Newspaper,
   ExternalLink, KeyRound, Cpu, Layers, ListChecks, Zap, ShieldCheck, Clock,
+  Activity, History, ChevronDown, Globe,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { fetchApi } from '@/lib/api-client'
+import ResearchVerification from './research-verification'
 import type { EnterpriseView } from '../types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -30,11 +32,13 @@ interface TraceStep { step: number; tool: string; args: Record<string, unknown>;
 interface SkillUsage { slug: string; title: string; source: string; license: string; truncated: boolean }
 interface CommandApproval { tool: string; approvalId: string | null; approvers: string[]; reason: string }
 interface CommandRouting { attempts: number; fallbackUsed: boolean; switches: number; providers: string[] }
+interface RunEvent { seq: number; at: string; type: 'run_started' | 'model' | 'tool' | 'approval' | 'final' | 'error' | string; data: Record<string, unknown> }
 interface ChatReply {
   success: boolean; response: string; provider: string; model: string; profile: string;
   steps: number; trace: TraceStep[]; images: string[];
   status?: string; statusDetail?: string; approvals?: CommandApproval[]; persisted?: boolean; routing?: CommandRouting;
-  skillsUsed?: SkillUsage[]; skillsRejected?: Array<{ slug: string; reason: string }>; company: { name: string }
+  skillsUsed?: SkillUsage[]; skillsRejected?: Array<{ slug: string; reason: string }>; company: { name: string };
+  runId?: string | null; eventCount?: number;
 }
 interface FreeModel { id: string; name: string; strength: string; capabilities: string[]; contextLength?: number }
 interface FreeProvider { id: string; label: string; providerKind: string; baseUrl: string; getKeyUrl: string; envVar?: string; apiKeyRequired: boolean; cardRequired: boolean; local: boolean; freeAllowance: string; notes: string; models: FreeModel[] }
@@ -61,6 +65,7 @@ interface Message {
   role: 'user' | 'assistant' | 'error'; content: string; provider?: string; model?: string; profile?: string;
   trace?: TraceStep[]; images?: string[]; skillsUsed?: SkillUsage[]; skillsRejected?: Array<{ slug: string; reason: string }>;
   status?: string; statusDetail?: string; approvals?: CommandApproval[]; persisted?: boolean; routing?: CommandRouting;
+  runId?: string | null; events?: RunEvent[]; eventCount?: number;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -90,6 +95,75 @@ function ApprovalNotice({ approvals }: { approvals: CommandApproval[] }) {
         ))}
       </ul>
       <p className="mt-1 text-[#667085]">Open the Approvals panel, approve the request, then send the command again.</p>
+    </div>
+  )
+}
+
+function eventSummary(event: RunEvent): string {
+  const data = event.data ?? {}
+  const text = (value: unknown) => (typeof value === 'string' || typeof value === 'number' ? String(value) : '')
+  switch (event.type) {
+    case 'run_started':
+      return [text(data.profile), `${text(data.historyTurns)} history turn(s)`].filter(Boolean).join(' · ')
+    case 'model':
+      return [text(data.provider), text(data.model), text(data.attempts) ? `${text(data.attempts)} attempt(s)` : '', data.fallbackUsed ? 'fallback' : ''].filter(Boolean).join(' · ')
+    case 'tool':
+      return [`${text(data.tool)}${data.ok === false ? ' · failed' : ''}`, text(data.durationMs) ? `${text(data.durationMs)}ms` : ''].filter(Boolean).join(' · ')
+    case 'approval':
+      return `${text(data.tool)} · human approval required`
+    case 'final':
+      return [text(data.status), text(data.contentChars) ? `${text(data.contentChars)} chars` : ''].filter(Boolean).join(' · ')
+    case 'error':
+      return text(data.message).slice(0, 160)
+    default:
+      return ''
+  }
+}
+
+const RUN_EVENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  run_started: Zap, model: Cpu, tool: Wrench, approval: ShieldCheck, final: CheckCircle2, error: XCircle,
+}
+
+/** Execution timeline: the same events live, then the same events from storage. */
+function RunTimeline({ events, runId, live = false, onLoadStored }: {
+  events: RunEvent[]; runId?: string | null; live?: boolean; onLoadStored?: () => void;
+}) {
+  const [open, setOpen] = useState<number | null>(null)
+  if (events.length === 0) return null
+  const first = new Date(events[0]?.at ?? Date.now()).getTime()
+  return (
+    <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50/60 p-2 dark:border-slate-700 dark:bg-slate-800/40">
+      <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wide text-slate-500">
+        <Activity className={`h-3 w-3 ${live ? 'animate-pulse text-[#FC5400]' : 'text-slate-400'}`} />
+        <span>{live ? 'Live execution' : 'Execution timeline'}</span>
+        <span className="text-slate-400">{events.length} event(s)</span>
+        {runId && <span className="font-mono normal-case tracking-normal text-slate-400">run {runId.slice(0, 12)}…</span>}
+        {!live && runId && onLoadStored && (
+          <button onClick={onLoadStored} className="ml-auto inline-flex items-center gap-1 rounded px-1 py-0.5 normal-case tracking-normal text-[#00309C] hover:underline dark:text-blue-300">
+            <History className="h-3 w-3" /> Load stored timeline
+          </button>
+        )}
+      </div>
+      <ol className="space-y-0.5">
+        {events.map((event, index) => {
+          const Icon = RUN_EVENT_ICONS[event.type] ?? Activity
+          const offset = Math.max(0, new Date(event.at).getTime() - first)
+          return (
+            <li key={`${event.seq}-${index}`} className="rounded text-[11px] text-slate-600 dark:text-slate-300">
+              <button onClick={() => setOpen(open === index ? null : index)} className="flex w-full items-center gap-2 px-1 py-0.5 text-left hover:bg-white/60 dark:hover:bg-slate-700/40">
+                <span className="w-8 shrink-0 font-mono text-[10px] text-slate-400">+{Math.round(offset / 100) / 10}s</span>
+                <Icon className={`h-3 w-3 shrink-0 ${event.type === 'error' ? 'text-red-500' : event.type === 'approval' ? 'text-[#FC5400]' : event.type === 'final' ? 'text-emerald-500' : 'text-slate-400'}`} />
+                <span className="font-mono text-[10px] uppercase tracking-wide text-slate-500">{event.type.replace(/_/g, ' ')}</span>
+                <span className="min-w-0 flex-1 truncate">{eventSummary(event)}</span>
+                <ChevronDown className={`h-3 w-3 shrink-0 text-slate-300 transition ${open === index ? 'rotate-180' : ''}`} />
+              </button>
+              {open === index && (
+                <pre className="max-h-48 overflow-auto whitespace-pre-wrap border-t border-slate-200 px-2 py-1 font-mono text-[10px] text-slate-500 dark:border-slate-700">{JSON.stringify(event.data, null, 2)}</pre>
+              )}
+            </li>
+          )
+        })}
+      </ol>
     </div>
   )
 }
@@ -161,6 +235,8 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
     }
   })
   const [historyState, setHistoryState] = useState<'loading' | 'durable' | 'unavailable'>('loading')
+  const [liveEvents, setLiveEvents] = useState<RunEvent[]>([])
+  const [liveRunId, setLiveRunId] = useState<string | null>(null)
   const [modelFilter, setModelFilter] = useState('')
   const [skillFilter, setSkillFilter] = useState('')
   const [skillStatusFilter, setSkillStatusFilter] = useState<'all' | 'advisory' | 'quarantined'>('advisory')
@@ -213,21 +289,92 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
   }, [sessionId])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, sending])
 
+  /**
+   * Send a command through the streaming endpoint.
+   *
+   * The response is NDJSON: run/event/final/error frames. Events are rendered as
+   * they arrive; the `final` frame is the terminal result. If the deployment does
+   * not expose the stream route (404/405), the request falls back to the plain
+   * JSON endpoint once — the timeline is then absent, not invented.
+   */
   const send = useCallback(async (text?: string) => {
     const message = (text ?? input).trim()
     if (!message || sending) return
     setInput('')
     setSending(true)
+    setLiveEvents([])
+    setLiveRunId(null)
     setMessages((prev) => [...prev, { role: 'user', content: message }])
+
+    const payload = JSON.stringify({ message, sessionId, profile, ...(model.trim() ? { model: model.trim() } : {}) })
+
+    const readStream = async (response: Response) => {
+      if (!response.body) throw new Error('This browser cannot read a streaming response.')
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      const events: RunEvent[] = []
+      let buffer = ''
+      let reply: ChatReply | null = null
+      let runId: string | null = null
+
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        let newline = buffer.indexOf('\n')
+        while (newline >= 0) {
+          const line = buffer.slice(0, newline).trim()
+          buffer = buffer.slice(newline + 1)
+          newline = buffer.indexOf('\n')
+          if (!line) continue
+          let frame: { type?: string; event?: RunEvent; result?: ChatReply; runId?: string | null; error?: string; hint?: string }
+          try { frame = JSON.parse(line) } catch { continue }
+          if (frame.type === 'event' && frame.event) {
+            events.push(frame.event)
+            setLiveEvents([...events])
+          } else if (frame.type === 'run') {
+            runId = frame.runId ?? null
+            setLiveRunId(runId)
+          } else if (frame.type === 'final' && frame.result) {
+            reply = { ...frame.result, success: true }
+          } else if (frame.type === 'error') {
+            throw new Error(frame.hint ? `${frame.error ?? 'Command failed'}\n\n${frame.hint}` : (frame.error ?? 'Command failed'))
+          }
+        }
+      }
+      if (!reply) throw new Error('The stream ended before a result arrived. Check the stored run timeline before retrying.')
+      if (!reply.runId) reply.runId = runId
+      return { reply, events }
+    }
+
     try {
-      const reply = await fetchApi<ChatReply>('/api/command-agent/chat', {
+      let reply: ChatReply
+      let events: RunEvent[] = []
+      const response = await fetch('/api/command-agent/stream', {
         method: 'POST',
-        body: JSON.stringify({ message, sessionId, profile, ...(model.trim() ? { model: model.trim() } : {}) }),
+        headers: { 'content-type': 'application/json' },
+        body: payload,
       })
+
+      if (response.status === 404 || response.status === 405) {
+        // Older deployment without the stream route: plain JSON fallback.
+        reply = await fetchApi<ChatReply>('/api/command-agent/chat', { method: 'POST', body: payload })
+      } else if (!response.ok) {
+        const detail = await response.text()
+        let parsed: { error?: string } | null = null
+        try { parsed = JSON.parse(detail) as { error?: string } } catch { /* keep raw */ }
+        throw new Error(parsed?.error ?? detail ?? `Request failed with HTTP ${response.status}`)
+      } else {
+        const streamed = await readStream(response)
+        reply = streamed.reply
+        events = streamed.events
+      }
+
       setMessages((prev) => [...prev, {
         role: 'assistant', content: reply.response, provider: reply.provider, model: reply.model,
         profile: reply.profile, trace: reply.trace, images: reply.images, skillsUsed: reply.skillsUsed ?? [], skillsRejected: reply.skillsRejected ?? [],
         status: reply.status, statusDetail: reply.statusDetail, approvals: reply.approvals ?? [], persisted: reply.persisted, routing: reply.routing,
+        runId: reply.runId ?? liveRunId, events, eventCount: reply.eventCount ?? events.length,
       }])
     } catch (error) {
       let detail = error instanceof Error ? error.message : 'Request failed'
@@ -238,8 +385,22 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
       setMessages((prev) => [...prev, { role: 'error', content: detail }])
     } finally {
       setSending(false)
+      setLiveEvents([])
+      setLiveRunId(null)
     }
-  }, [input, sending, sessionId, profile, model])
+  }, [input, sending, sessionId, profile, model, liveRunId])
+
+  /** Re-read a run's stored timeline after reload. */
+  const loadStoredRun = useCallback(async (runId: string) => {
+    try {
+      const stored = await fetchApi<{ run?: { events?: RunEvent[] } }>(`/api/command-agent/runs/${encodeURIComponent(runId)}`)
+      const events = Array.isArray(stored.run?.events) ? stored.run.events : []
+      if (events.length === 0) return
+      setMessages((prev) => prev.map((entry) => (entry.runId === runId ? { ...entry, events } : entry)))
+    } catch {
+      // The bubble keeps its live events; a failed re-read is not reported as success.
+    }
+  }, [])
 
   const clear = useCallback(async () => {
     setMessages([])
@@ -316,6 +477,7 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
           <TabsTrigger value="models"><Layers className="mr-1.5 h-3.5 w-3.5" /> Free Models</TabsTrigger>
           <TabsTrigger value="services"><Wrench className="mr-1.5 h-3.5 w-3.5" /> Free Services &amp; Tools</TabsTrigger>
           <TabsTrigger value="skills"><BookOpen className="mr-1.5 h-3.5 w-3.5" /> Skills ({catalog?.skillStats.advisory ?? 0})</TabsTrigger>
+          <TabsTrigger value="research"><Globe className="mr-1.5 h-3.5 w-3.5" /> Research &amp; Verify</TabsTrigger>
           <TabsTrigger value="setup"><ListChecks className="mr-1.5 h-3.5 w-3.5" /> $0 Setup</TabsTrigger>
         </TabsList>
 
@@ -369,6 +531,13 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
                           <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">Skills not used (quarantined/unknown): {msg.skillsRejected.map((skill) => skill.slug).join(', ')}</p>
                         )}
                         {msg.approvals && msg.approvals.length > 0 && <ApprovalNotice approvals={msg.approvals} />}
+                        {msg.events && msg.events.length > 0 && (
+                          <RunTimeline
+                            events={msg.events}
+                            runId={msg.runId ?? null}
+                            onLoadStored={() => { if (msg.runId) void loadStoredRun(msg.runId) }}
+                          />
+                        )}
                         {msg.trace && msg.trace.length > 0 && <ToolTrace trace={msg.trace} />}
                         {msg.status && (
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -393,7 +562,12 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
                     </div>
                   ))}
                   {sending && (
-                    <div className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Agent is thinking / calling tools…</div>
+                    <div className="max-w-[85%]">
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Agent is thinking / calling tools…
+                      </div>
+                      {liveEvents.length > 0 && <RunTimeline events={liveEvents} runId={liveRunId} live />}
+                    </div>
                   )}
                   <div ref={bottomRef} />
                 </div>
@@ -520,6 +694,10 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
             ))}
           </div>
           {filteredSkills.length === 0 && <p className="text-sm text-slate-500">No skills match your filter.</p>}
+        </TabsContent>
+
+        <TabsContent value="research" className="mt-3 min-h-0 flex-1 overflow-y-auto">
+          <ResearchVerification />
         </TabsContent>
 
         <TabsContent value="setup" className="mt-3 min-h-0 flex-1 overflow-y-auto">
