@@ -203,6 +203,11 @@ export const SELF_CHROMED_PAGES: readonly string[] = [
   // Rebuilt as dark pages carrying their own header and footer.
   '/site/solutions',
   '/site/projects',
+  // Company pages, rebuilt on the dark AgentOS system so the header a visitor
+  // clicks from does not lead to a different-looking site.
+  '/site/about',
+  '/site/how-we-work',
+  '/site/careers',
   // The conversion flows. Each is its own conversion page with a dark header,
   // not a section of the light publication.
   '/site/start-a-project',

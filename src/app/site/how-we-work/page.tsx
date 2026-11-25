@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
-import { HowWeWorkPage } from '@/components/site/pages/how-we-work'
-import { EngagementPage } from '@/components/site/pages/engagement'
+import { HowWeWorkDarkPage } from '@/components/agentos/company-pages'
 
 export const metadata: Metadata = {
   title: 'How We Work — ALO Labs',
@@ -20,10 +19,5 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return (
-    <>
-      <HowWeWorkPage />
-      <EngagementPage />
-    </>
-  )
+  return <HowWeWorkDarkPage />
 }

@@ -21,6 +21,10 @@ describe('isSelfChromePage', () => {
     '/site/start-a-project',
     '/site/request-a-solution',
     '/site/book-a-consultation',
+    // Company pages, rebuilt on the dark AgentOS system.
+    '/site/about',
+    '/site/how-we-work',
+    '/site/careers',
   ])('treats %s as carrying its own chrome', (path) => {
     expect(isSelfChromePage(path)).toBe(true)
   })
@@ -34,9 +38,6 @@ describe('isSelfChromePage', () => {
   })
 
   it('leaves the other /site pages on the shared chrome', () => {
-    expect(isSelfChromePage('/site/about')).toBe(false)
-    expect(isSelfChromePage('/site/careers')).toBe(false)
-    expect(isSelfChromePage('/site/how-we-work')).toBe(false)
     expect(isSelfChromePage('/site/privacy')).toBe(false)
     expect(isSelfChromePage('/site/terms')).toBe(false)
     expect(isSelfChromePage('/')).toBe(false)

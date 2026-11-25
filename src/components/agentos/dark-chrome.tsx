@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Facebook,
   Instagram,
+  Link2,
   Loader2,
   Menu,
   Users2,
@@ -27,7 +28,7 @@ import {
 } from 'lucide-react'
 
 import { AGENTOS_LOGO, PUBLIC_COMPANY, agentosStyle } from '@/lib/brand/agentos-3d'
-import { publishedSocialLinks, type SocialNetwork } from '@/lib/brand/social'
+import { publishedSocialLinks, type SocialIconName } from '@/lib/brand/social'
 import { apiFetch } from '@/lib/api-client'
 
 /**
@@ -35,11 +36,14 @@ import { apiFetch } from '@/lib/api-client'
  * rather than approximated with a lookalike from another brand.
  */
 const SOCIAL_ICON: Record<
-  SocialNetwork,
+  SocialIconName,
   React.ComponentType<{ size?: number; 'aria-hidden'?: boolean | 'true' | 'false' }>
 > = {
   facebook: Facebook,
   facebookCommunity: Users2,
+  // Distinct glyph: a share link is a distinct destination from the page, and
+  // two identical "f" icons in a row read as a rendering bug.
+  facebookShare: Link2,
   instagram: Instagram,
   youtube: Youtube,
   pinterest: function PinterestGlyph({ size = 16 }) {
@@ -398,20 +402,20 @@ export function DarkFooter() {
             </a>
 
             {/*
-              Social icons render only for channels the owner has confirmed. The
-              registry in src/lib/brand/social.ts currently publishes none,
-              because no ALO Labs profile is recorded anywhere in this
-              repository — and a footer link to a stranger's page would be the
-              exact fabrication the rest of this site refuses. When a channel is
-              verified, flip its flag and the icon appears here automatically.
+              Social icons render only for channels the owner has confirmed.
+              src/lib/brand/social.ts holds the registry; anything unverified is
+              filtered out before it reaches this loop, so a guessed URL can
+              never appear here. Keyed by `id`, not `network`, because there are
+              three Facebook destinations and duplicate React keys would silently
+              drop icons.
             */}
             {social.length > 0 ? (
               <div className="ag-social" aria-label="ALO Labs on social media">
                 {social.map((link) => {
-                  const Icon = SOCIAL_ICON[link.network]
+                  const Icon = SOCIAL_ICON[link.icon]
                   return (
                     <a
-                      key={link.network}
+                      key={link.id}
                       href={link.href}
                       aria-label={link.label}
                       title={link.label}

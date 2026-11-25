@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { CareersPage } from '@/components/site/pages/careers'
+import { CareersDarkPage } from '@/components/agentos/company-pages'
 
 export const metadata: Metadata = {
   title: 'Careers — ALO Labs',
@@ -18,5 +18,5 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <CareersPage />
+  return <CareersDarkPage />
 }
