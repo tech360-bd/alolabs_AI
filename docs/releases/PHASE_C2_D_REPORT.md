@@ -152,7 +152,8 @@ $0. No provider API keys were used, no paid route was enabled, no external billi
 - `a09c248` — feature: run-store, streaming, access module, research module, routes, UI, tests, docs.
 - `28087cf` — fix: type the `/api/v1/models/inference` profile enum from the readonly routing tuple (main-branch TS4104 regression).
 - `01e308f` — fix: align gateway/stream test mocks with the real `CompanyAIError` and limiter signatures.
-- This report is committed separately after CI evidence existed.
+- `2d33004` — docs: this report (first version), committed after CI evidence existed.
+- A final docs-only commit updates §14–§15 with the run below; its own checks are visible on PR #63.
 
 ## 15. CI status
 
@@ -161,6 +162,7 @@ $0. No provider API keys were used, no paid route was enabled, no external billi
 | [45667954129](https://github.com/tech360-bd/alolabs_AI/actions/runs/45667954129) — first push | ❌ TypeScript gate: TS4104 in `src/app/api/v1/models/inference/route.ts` (pre-existing on `main`) |
 | [45668415056](https://github.com/tech360-bd/alolabs_AI/actions/runs/45668415056) — after the v1 fix | ❌ TypeScript gate: two test-signature errors (`CompanyAIError` arity, spread of `unknown[]`) |
 | [45668689127](https://github.com/tech360-bd/alolabs_AI/actions/runs/45668689127) — commit `01e308f` | ✅ **4/4 pass** — TypeScript/tests/lint/build 4m53s, Login+MFA 1m12s, Secret Scan 11s, Dependency Audit 1m13s |
+| [45669680450](https://github.com/tech360-bd/alolabs_AI/actions/runs/45669680450) — commit `2d33004` (code + report) | ✅ **4/4 pass** — TypeScript/tests/lint/build 4m55s, Login+MFA 1m12s, Secret Scan 11s, Dependency Audit 1m22s |
 
 Both failures were real type errors, not flakes; they were fixed rather than bypassed. (The C1-era Chromium flake did not recur.)
 
