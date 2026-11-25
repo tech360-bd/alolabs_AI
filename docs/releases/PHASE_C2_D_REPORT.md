@@ -197,3 +197,126 @@ Both failures were real type errors, not flakes; they were fixed rather than byp
 2. Phase C2 remainder: agent-team assignment from chat, project-aware memory, typed handoff contracts.
 3. Phase E: authorized repository connection, read-only source analysis, diff preview (deploy remains a 501 until separately authorized).
 4. Housekeeping: `CommandRun` migration once approved; artifact retention policy; approve-and-continue for paused runs.
+
+## 19. Post-merge verification (addendum, 2026-11-25)
+
+PR #63 was merged into `main` as `9fcbf39`. This addendum records what was then
+verified on the merged code, what was broken, and what is still unproven. It
+supersedes §11 and the "not browser-verified" limitation in §17.
+
+### 19.1 `main` was red, and is fixed
+
+`main` at `9fcbf39` failed its own gate: `__tests__/api/metrics-client.test.ts`
+declared `vi.mock('next/server')` twice, so `NextResponse` was `undefined`
+(`TypeError: NextResponse is not a constructor`). The duplicate mock is removed
+in PR #65 and the gate is green again.
+
+### 19.2 A real product bug, found by the browser test
+
+The Commanding Center sent its stream request with a bare `fetch()`:
+
+```ts
+await fetch('/api/command-agent/stream', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+```
+
+The edge proxy (`src/proxy.ts`) rejects **every** private `/api/*` request that
+does not carry an `Authorization: Bearer …` header, and it only mirrors the
+session cookie for the social-OAuth callback. The stream was therefore answered
+with `401` before the handler ran, and no command run was ever persisted — the
+panel showed an error bubble. The request now sends the same bearer token as
+`fetchApi` (`getAuthToken()`), so the streaming timeline, run persistence and run
+retrieval work end to end. This was invisible to unit tests, which call the route
+handler directly and never traverse the proxy.
+
+### 19.3 Gaps closed after the merge
+
+| Gap from this report | Close |
+| --- | --- |
+| Run id/event count not carried into the restored turn | Assistant turn metadata now stores `runId` and `eventCount`; history restore re-attaches them, so an accordion can fetch the stored timeline after reload. |
+| Research analysis could reach the network without an audit record | `research.analyze.request` is written **before** the fetch; `research.report.save` on save. If the audit write fails the fetch does not happen; `require_approval` → `409`. |
+| Stream could not be aborted | `request.signal` listener stops forwarding. (The upstream provider call is not cancelled; that is stated, not simulated.) |
+| No browser evidence | §11 is replaced by the suite below. |
+
+### 19.4 Browser evidence (real Chromium, real `next dev`, disposable SQLite)
+
+`tests/browser/command-center.test.mjs` runs in the existing "Login and MFA
+(isolated Chromium)" CI job: it creates a fresh SQLite database, seeds a
+throwaway admin, starts `next dev` on a free port and drives Chromium.
+
+1. **Research evidence is measured, saved and recovered.** `http://example.com`
+   → the evidence panel shows `HTTP 200 · public`, a 64-hex SHA-256, the final
+   URL, `Verification level: http_fetch` and `Saved to this company only`; after
+   a full reload the report is still listed by `GET /api/research/analyze`.
+2. **A prohibited destination is refused with an explanation.**
+   `http://127.0.0.1:9/admin` → "Analysis failed" plus "only ports 80 and 443".
+3. **A failed run is streamed honestly.** With no provider authorised the run
+   fails: exactly one `error` frame, **no** `final` frame, and the `run` frame
+   announces a run id whose stored timeline (`GET /api/command-agent/runs/{id}`)
+   reads back `status: failed` with `run_started` + `error`.
+
+Screenshots are uploaded as the `command-center-browser-evidence` artifact
+(487 KB, retained 14 days) on every run. The CI step also emits a check
+annotation with the head/tail of its log when it fails, so a red run is
+diagnosable from the annotations API alone.
+
+### 19.5 CI status for the post-merge work (PR #65)
+
+| Run | Result |
+| --- | --- |
+| [45681412402](https://github.com/tech360-bd/alolabs_AI/actions/runs/45681412402) | ❌ Login+MFA: the pre-existing browser suite ran first and failed; the new step was skipped, so its own result was invisible |
+| [45682252976](https://github.com/tech360-bd/alolabs_AI/actions/runs/45682252976) | ✅ TypeScript/tests/lint/build 3m36s — `main`'s red is cleared; ❌ Login+MFA (older suite) |
+| [45683285702](https://github.com/tech360-bd/alolabs_AI/actions/runs/45683285702) | ❌ new step ran and reported: `401 !== 200` (proxy/auth and test-assertion issues, four iterations) |
+| [45688299871](https://github.com/tech360-bd/alolabs_AI/actions/runs/45688299871) | ✅ **all checks pass** — TypeScript/tests/lint/build 4m07s, Login+MFA **incl. the Commanding Center suite** 1m45s, Secret Scan 9s, Dependency Audit 1m12s |
+
+The earlier failure of the *pre-existing* browser suite on this branch did not
+reproduce from the "authenticated stream" commit onward; the runs that failed at
+it were failing at the new step instead (it was misdiagnosed because the failing
+step's annotation only reported an exit code until the reporting step was split
+out).
+
+### 19.6 Still NOT VERIFIED
+
+- **Production deployment.** No deploy job ran and no deployment evidence
+  exists. Nothing in this addendum says the feature is deployed.
+- **Token streaming.** Only execution-event streaming exists; no model tokens
+  are streamed and nothing claims they are.
+- **Rendered-DOM worker / crawler.** Research is still one URL, `http_fetch`
+  only; JS-only pages are reported as such.
+- **Dedicated `CommandRun` / `ResearchSource` models.** Runs and reports are
+  still `Artifact` rows; no migration was added.
+- **Retention policy** for run/research artifacts, and **approve-and-continue**
+  (a paused run still cannot be resumed from the stream).
+
+### 19.7 Local verification
+
+- ESLint clean on every touched file.
+- Focused Vitest: 10 files / 78 tests pass (`command-agent`, `command-agent-runs`,
+  `research-analyze`, `metrics-client`, and their neighbours).
+- Whole-repo `npx vitest run` is **not** usable in this sandbox: `better-sqlite3`
+  was installed without native scripts and `.prisma/client` is absent, so 28
+  files fail for environmental reasons. CI is the gate of record.
+
+## 20. C1/C2 regression matrix against PR #62
+
+PR #62 (super-admin console) merged as `8e0e0d0`; PR #63 merged as `9fcbf39`.
+Each C1/C2 behaviour below was re-checked on the merged tree. "CI" means the
+`TypeScript, tests, lint, and build` job of run
+[45689044002](https://github.com/tech360-bd/alolabs_AI/actions/runs/45689044002),
+which runs the whole suite; the browser column is the new Chromium suite.
+
+| Behaviour (phase) | Evidence on merged `main` | Status |
+| --- | --- | --- |
+| Supervisor wiring survives the merge — no `undefined` supervisor, `mode` accepted (C1) | `__tests__/unit/supervisor-tools.test.ts`, `__tests__/api/command-agent.test.ts`; CI | ✅ no regression |
+| Command run is created, checksummed and scoped to the tenant (C2) | `__tests__/unit/command-run-store.test.ts` (7) — null on creation failure, cross-tenant finalisation refused, SHA-256 of stored body, 200-event trim, non-run artifacts rejected | ✅ |
+| Run timeline is retrievable after reload (C2) | `__tests__/api/command-agent-runs.test.ts`; **browser test 3** reads `status: failed` + `run_started`/`error` from `GET /api/command-agent/runs/{id}` | ✅ (fixed in #65: the panel previously lost `runId`) |
+| Stream frames are honest: `run` after `run_started`, `error` without `final` on failure (C2) | `__tests__/api/command-agent-stream.test.ts` (4); browser test 3 asserts exactly one `error` frame and no `final` | ✅ |
+| The stream is reachable by a real signed-in browser (C2) | **browser test 3** — this is where the missing `Authorization` header surfaced | ❌ → ✅ fixed in #65 |
+| Research is SSRF-safe, robots-aware, redirect-capped (D) | `__tests__/unit/public-page.test.ts` (11); browser test 2 (`127.0.0.1:9` refused, "only ports 80 and 443") | ✅ |
+| Research evidence is measured, saved and re-listed per company (D) | `__tests__/api/research-analyze.test.ts` (6); **browser test 1** (HTTP 200 · public, SHA-256, `http_fetch`, `Saved to this company only`, present after reload) | ✅ |
+| Research writes an audit record before any network call (D) | `research.analyze.request` / `research.report.save`; API test asserts the deny path performs no fetch | ✅ added in #65 |
+| Governance (`read.public`) still denies before the fetch (C1/D) | `__tests__/api/research-analyze.test.ts`; GLOB-EXTERNAL-001 unchanged | ✅ |
+| Existing super-admin console from #62 is untouched | whole-suite CI job green on the final commit | ✅ |
+
+No C1 behaviour was removed or weakened to make C2/D pass; the only behavioural
+changes are additive (audit rows, `runId`/`eventCount` metadata, the stream's
+auth header).

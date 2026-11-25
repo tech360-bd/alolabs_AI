@@ -4,6 +4,7 @@ import { requireCompanyAuth } from '@/lib/api-auth';
 import { authFailure } from '@/lib/api/route-errors';
 import { checkEndpointLimit } from '@/lib/security/rate-limiter';
 import { enforceGovernance } from '@/lib/governance/runtime';
+import { writeAuditEvent } from '@/lib/audit-events';
 import { analyzePublicPage, validateResearchUrl } from '@/lib/research/public-page';
 import { listResearchReports, saveResearchReport } from '@/lib/research/research-store';
 
@@ -81,6 +82,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Every research request is attributable to an actor and a tenant before the
+    // first outbound byte leaves the server.
+    try {
+      await writeAuditEvent({
+        actorUserId: actor.userId,
+        companyId: actor.companyId,
+        action: 'research.analyze.request',
+        resource: 'research',
+        details: { url: validated.url, save: parsed.data.save, actorRole: actor.role },
+      });
+    } catch (error) {
+      console.error('[Research] request audit failed:', error);
+      return NextResponse.json({ error: 'Could not record the research request in the audit trail' }, { status: 500 });
+    }
+
     let analysis;
     try {
       analysis = await analyzePublicPage(validated.url);
@@ -98,6 +114,28 @@ export async function POST(request: NextRequest) {
         analysis,
         note: parsed.data.note ?? null,
       });
+      try {
+        await writeAuditEvent({
+          actorUserId: actor.userId,
+          companyId: actor.companyId,
+          action: 'research.report.save',
+          resource: 'research',
+          details: {
+            artifactId: saved.id,
+            finalUrl: analysis.finalUrl,
+            status: analysis.status,
+            sha256: analysis.sha256,
+          },
+        });
+      } catch (error) {
+        // The report exists; reporting the audit failure is better than claiming
+        // the request was fully recorded.
+        console.error('[Research] save audit failed:', error);
+        return NextResponse.json(
+          { error: 'Report saved but the audit event could not be recorded', saved },
+          { status: 500 },
+        );
+      }
     }
 
     return NextResponse.json({

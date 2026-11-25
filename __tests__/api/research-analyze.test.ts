@@ -13,6 +13,8 @@ vi.mock('@/lib/api-auth', () => ({
   requireCompanyAuth: (...args: unknown[]) => requireCompanyAuthMock(...args),
 }));
 vi.mock('@/lib/security/rate-limiter', () => ({ checkEndpointLimit: vi.fn(async () => ({ allowed: true })) }));
+const auditMock = vi.fn(async (..._args: unknown[]) => undefined);
+vi.mock('@/lib/audit-events', () => ({ writeAuditEvent: (...args: unknown[]) => auditMock(...args) }));
 const governanceMock = vi.fn();
 vi.mock('@/lib/governance/runtime', () => ({
   enforceGovernance: (...args: unknown[]) => governanceMock(...(args as [])),
@@ -77,6 +79,45 @@ describe('POST /api/research/analyze', () => {
       note: 'competitor pricing',
     }));
     expect(governanceMock).toHaveBeenCalledWith(expect.objectContaining({ actionClass: 'read.public', companyId: 'co_own' }));
+  });
+
+  it('records the request in the audit trail before fetching', async () => {
+    await post({ url: 'https://alolabs.net/' });
+    expect(auditMock).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'research.analyze.request',
+      actorUserId: 'u1',
+      companyId: 'co_own',
+      details: expect.objectContaining({ url: 'https://alolabs.net/' }),
+    }));
+  });
+
+  it('refuses to fetch when the request cannot be audited', async () => {
+    auditMock.mockRejectedValueOnce(new Error('audit down'));
+    const response = await post({ url: 'https://alolabs.net/' });
+    expect(response.status).toBe(500);
+    expect(analyzeMock).not.toHaveBeenCalled();
+  });
+
+  it('records the save with the artifact id and evidence hash', async () => {
+    await post({ url: 'https://alolabs.net/', save: true });
+    expect(auditMock).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'research.report.save',
+      companyId: 'co_own',
+      details: expect.objectContaining({ artifactId: 'art_research_1', sha256: 'f'.repeat(64) }),
+    }));
+  });
+
+  it('requires approval instead of fetching when governance says so', async () => {
+    governanceMock.mockResolvedValue({
+      outcome: 'require_approval',
+      explanation: 'Research on this host needs a human',
+      requiredApprovers: ['owner'],
+    });
+    const response = await post({ url: 'https://alolabs.net/' });
+    expect(response.status).toBe(409);
+    const json = await response.json() as { approvers: string[] };
+    expect(json.approvers).toEqual(['owner']);
+    expect(analyzeMock).not.toHaveBeenCalled();
   });
 
   it('does not save unless asked', async () => {

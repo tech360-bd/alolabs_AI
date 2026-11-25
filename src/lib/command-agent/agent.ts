@@ -444,6 +444,10 @@ export async function runCommandAgent(input: CommandAgentInput): Promise<Command
           provider,
           profile,
           status: runStatus,
+          // Stored with the turn so a reload can offer the persisted timeline
+          // instead of losing the run identity with the HTTP response.
+          runId,
+          eventCount: collector.events.length,
           routing: { attempts: routing.attempts, fallbackUsed: routing.fallbackUsed, providers: routing.providers },
           approvals,
           trace: trace.map((step) => ({ step: step.step, tool: step.tool, ok: step.ok, durationMs: step.durationMs })),

@@ -222,3 +222,30 @@ jobs:
             npx playwright install --with-deps chromium
           fi
       - run: npm test --prefix tests/browser
+      - name: Commanding Center timeline and research evidence (real Chromium)
+        id: command_center_browser
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:command-center --prefix tests/browser 2>&1 | tee /tmp/command-center-browser.log
+      - name: Surface browser-test failure as a check annotation
+        if: steps.command_center_browser.outcome != 'success'
+        shell: bash
+        run: |
+          mkdir -p tests/browser/artifacts
+          [ -f /tmp/command-center-browser.log ] && cp /tmp/command-center-browser.log tests/browser/artifacts/command-center-browser.log
+          {
+            grep -a 'RUN_API' /tmp/command-center-browser.log 2>/dev/null || true
+            echo ' --- tail --- '
+            tail -c 7000 /tmp/command-center-browser.log 2>/dev/null || true
+          } > /tmp/command-center-detail.txt
+          echo "::error title=Commanding Center browser test failed::$(tr '\n' ' ' < /tmp/command-center-detail.txt | cut -c1-9000)"
+          exit 1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: command-center-browser-evidence
+          path: tests/browser/artifacts
+          if-no-files-found: ignore
+          retention-days: 14
