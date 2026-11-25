@@ -991,13 +991,14 @@ export const LINK_COVERAGE: CoverageEntry[] = [
     upstream: 'Self-hosted Firecrawl alternative: scrape, search, batch-process and LLM-enrich web content over an HTTP API (Go, 24 stars).',
     verdict: 'gap',
     claim:
-      'Ingestion and retrieval exist (RAG ingest of supplied text/URLs, a research hub), but there is no crawler: nothing here fetches a page, follows links, or converts HTML to markdown.',
+      'Ingestion and retrieval exist (RAG ingest of supplied text/URLs, a research hub). Phase D added a single-page public analyser (robots-aware, SSRF-guarded HTTP fetch, capped), but there is no crawler: it does not follow links, batch-process sites, or convert pages to markdown.',
     evidence: [
+      { label: 'Public page analyser', path: 'src/lib/research/public-page.ts', kind: 'library' },
+      { label: 'Research API', path: 'src/app/api/research/analyze/route.ts', kind: 'route' },
       { label: 'RAG ingest route', path: 'src/app/api/rag/ingest/route.ts', kind: 'route' },
-      { label: 'Research hub route', path: 'src/app/api/research-hub/route.ts', kind: 'route' },
       { label: 'RAG engine', path: 'src/lib/rag-engine.ts', kind: 'library' },
     ],
-    gap: 'Needs a fetch→clean→markdown step (with robots/rate limits and SSRF protection) in front of /api/rag/ingest.',
+    gap: 'Needs a crawl/batch layer (link following, markdown conversion, per-host budgets) in front of /api/rag/ingest; rendered-DOM capture is still Phase D tier 2.',
     upstreamMeta: { stars: 24, language: 'Go', archived: false, checkedAt: CHECKED },
   },
   {

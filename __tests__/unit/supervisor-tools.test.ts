@@ -18,7 +18,7 @@ import { fakeDb } from '../helpers/fake-db';
 
 vi.mock('@/lib/db', () => ({ db: fakeDb.db }));
 
-const auditMock = vi.fn(async () => undefined);
+const auditMock = vi.fn(async (..._args: unknown[]) => undefined);
 vi.mock('@/lib/audit-events', () => ({
   writeAuditEvent: (...args: unknown[]) => auditMock(...args),
 }));

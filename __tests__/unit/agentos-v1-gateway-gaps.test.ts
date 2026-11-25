@@ -6,7 +6,7 @@ vi.mock('@/lib/db', () => ({ db: fakeDb.db }));
 vi.mock('@/lib/auth', () => ({ verifySessionToken: vi.fn(async () => ({ userId: 'u1' })) }));
 // Rate limiting is covered by its own lib tests; keep gateway tests
 // deterministic by allowing each case to choose the limiter outcome.
-const checkEndpointLimitMock = vi.fn(async () => ({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000, limit: 100 }));
+const checkEndpointLimitMock = vi.fn(async (..._args: unknown[]) => ({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000, limit: 100 }));
 vi.mock('@/lib/security/rate-limiter', () => ({ checkEndpointLimit: (...args: unknown[]) => checkEndpointLimitMock(...args) }));
 vi.mock('next/server', () => ({
   NextResponse: {

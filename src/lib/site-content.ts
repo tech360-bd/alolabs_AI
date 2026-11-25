@@ -26,10 +26,11 @@ export async function readSiteContentBlock<T>(options: {
   const { page, blockKey, fallback } = options;
   const companyId = options.companyId ?? null;
   try {
-    const row = await db.siteContentBlock.findUnique({
-      where: {
-        companyId_page_blockKey: { companyId, page, blockKey },
-      },
+    // `companyId` is nullable, and Prisma's compound-unique lookup does not
+    // accept null, so the read is a findFirst with an explicit null match.
+    const row = await db.siteContentBlock.findFirst({
+      where: { companyId, page, blockKey },
+      orderBy: { version: 'desc' },
     });
     if (!row) return { value: fallback, source: 'default', version: null };
     try {
