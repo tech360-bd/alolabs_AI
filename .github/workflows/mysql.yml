@@ -167,10 +167,16 @@ jobs:
         run: bash tests/reliability/mysql-restore.sh
 
       - name: Initialize complete schema on the disposable MySQL service
+        # `prisma db push` runs against the generated DDL variant
+        # (schema.mysql.push.prisma), not the canonical schema: MySQL 8 refuses
+        # a literal DEFAULT on TEXT-family columns, and the canonical schema
+        # intentionally keeps those defaults for the Prisma client (which
+        # applies them client-side). The client itself is generated from the
+        # canonical schema.mysql.prisma above — never from this DDL variant.
         run: |
           set -euo pipefail
           node -e 'const u=new URL(process.env.DATABASE_URL); if (u.protocol!=="mysql:" || u.hostname!=="127.0.0.1" || u.port!=="3306" || u.pathname!=="/alolabs_test") process.exit(1)'
-          if ! bunx prisma db push --schema=prisma/schema.mysql.prisma --skip-generate > /tmp/schema-init.log 2>&1; then
+          if ! bunx prisma db push --schema=prisma/schema.mysql.push.prisma --skip-generate > /tmp/schema-init.log 2>&1; then
             codes=$(grep -Eo 'P[0-9]{4}|Error code: [0-9]+' /tmp/schema-init.log | sort -u | tr '\n' ' ' || true)
             reason=unclassified
             for category in 'key was too long' 'row size too large' 'key specification without a key length' 'cannot have a default value' 'cannot be used in a key specification' 'would be lost' 'data loss' 'permission denied' 'duplicate key' "can't have a default value" 'identifier name' 'foreign key constraint' 'invalid default value' 'is too long' 'unknown argument' 'index column size too large' 'syntax error' ; do
@@ -179,6 +185,10 @@ jobs:
             echo "::error title=Disposable schema initialization failed::Category: $reason; Prisma/MySQL codes: ${codes:-not reported}"
             exit 1
           fi
+          # The disposable database must match the DDL variant exactly; the
+          # canonical schema is client-source only. Refuse silent drift.
+          grep -Eq 'provider *= *"mysql"' prisma/schema.mysql.push.prisma \
+            || { echo 'schema.mysql.push.prisma is not a MySQL datasource'; exit 1; }
       - name: Build standalone with the MySQL client
         env:
           SKIP_PAID_SERVICES: 'true'
