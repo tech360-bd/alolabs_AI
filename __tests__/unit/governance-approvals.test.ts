@@ -136,6 +136,11 @@ const {
 } = await import('@/lib/governance/approvals');
 const { enforceHttpGovernance } = await import('@/lib/governance/http');
 
+/** The `NextResponse` double carries a plain object body; narrow it safely. */
+function bodyOf(response: { body: unknown }): Record<string, unknown> {
+  return response.body as Record<string, unknown>;
+}
+
 const EMAIL_PAYLOAD = {
   accountId: 'acc-1',
   to: ['customer@example.com'],
@@ -422,7 +427,7 @@ describe('HTTP governance gate', () => {
     expect(result.allowed).toBe(false);
     if (result.allowed) return;
     expect(result.response.status).toBe(403);
-    const body = result.response.body as Record<string, unknown>;
+    const body = bodyOf(result.response);
     expect(body.code).toBe('GOVERNANCE_APPROVAL_REQUIRED');
     expect(typeof body.approvalId).toBe('string');
     expect(result.approvalId).toBe(body.approvalId);
@@ -442,7 +447,7 @@ describe('HTTP governance gate', () => {
     expect(replay.allowed).toBe(false);
     if (replay.allowed) return;
     expect(replay.response.status).toBe(409);
-    expect((replay.response.body as Record<string, unknown>).code).toBe('APPROVAL_CONSUMPTION_FAILED');
+    expect(bodyOf(replay.response).code).toBe('APPROVAL_CONSUMPTION_FAILED');
   });
 
   it('refuses an approval bound to different content', async () => {
@@ -455,7 +460,7 @@ describe('HTTP governance gate', () => {
     });
     expect(result.allowed).toBe(false);
     if (result.allowed) return;
-    const body = result.response.body as Record<string, unknown>;
+    const body = bodyOf(result.response);
     expect(body.code).toBe('GOVERNANCE_APPROVAL_REQUIRED');
     expect(String(body.error)).toMatch(/not valid/i);
     // A replay of the original approval is still possible for the original payload.
@@ -472,7 +477,7 @@ describe('HTTP governance gate', () => {
     expect(result.allowed).toBe(false);
     if (result.allowed) return;
     expect(result.response.status).toBe(403);
-    const body = result.response.body as Record<string, unknown>;
+    const body = bodyOf(result.response);
     expect(body.code).toBe('GOVERNANCE_DENIED');
     expect(result.approvalId).toBeNull();
     expect(state.approvals).toHaveLength(0);
