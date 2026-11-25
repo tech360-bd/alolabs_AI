@@ -18,7 +18,10 @@ if (process.env.NODE_ENV !== 'test') {
         'production React build or the production datasource policy.',
     );
   }
-  process.env.NODE_ENV = 'test';
+  // Next.js types `NODE_ENV` as readonly (`next/types/global.d.ts`), because a
+  // Next build must not mutate it. A test run is the one place where the value
+  // has to be normalised, so write through a mutable view of the same object.
+  (process.env as Record<string, string | undefined>).NODE_ENV = 'test';
 }
 
 export default defineConfig({

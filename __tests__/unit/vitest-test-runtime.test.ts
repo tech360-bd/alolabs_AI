@@ -30,7 +30,9 @@ describe('vitest runtime isolation', () => {
 
   it('pins NODE_ENV=test in the config, before the config exports anything', () => {
     const exportIndex = config.indexOf('export default defineConfig');
-    const pinIndex = config.indexOf("process.env.NODE_ENV = 'test'");
+    // Matches both `process.env.NODE_ENV = 'test'` and the readonly-cast form
+    // `(process.env as ...).NODE_ENV = 'test'`.
+    const pinIndex = config.search(/NODE_ENV\s*=\s*'test'/);
 
     expect(pinIndex).toBeGreaterThan(-1);
     expect(exportIndex).toBeGreaterThan(-1);
