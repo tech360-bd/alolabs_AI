@@ -23,9 +23,16 @@
 import { z } from 'zod';
 import { v1Handler, v1Body, v1RateLimit, V1Error } from '@/lib/v1';
 import { executeCompanyAIChat, CompanyAIError } from '@/lib/multi-tenant-ai/service';
-import { MODEL_ROUTING_PROFILES } from '@/lib/multi-tenant-ai/policy';
+import { MODEL_ROUTING_PROFILES, type ModelRoutingProfile } from '@/lib/multi-tenant-ai/policy';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * `MODEL_ROUTING_PROFILES` is `as const` (readonly); `z.enum` needs a mutable
+ * tuple. Spreading keeps the single source of truth instead of duplicating the
+ * profile list here.
+ */
+const PROFILE_VALUES = [...MODEL_ROUTING_PROFILES] as [ModelRoutingProfile, ...ModelRoutingProfile[]];
 
 const MessageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant']),
@@ -36,7 +43,7 @@ const InferenceSchema = z.object({
   messages: z.array(MessageSchema).min(1).max(100),
   /** Optional hint; the routing profile decides which providers are eligible. */
   model: z.string().trim().max(200).optional(),
-  profile: z.enum(MODEL_ROUTING_PROFILES as [string, ...string[]]).default('free_general'),
+  profile: z.enum(PROFILE_VALUES).default('free_general'),
   maxTokens: z.number().int().min(1).max(32_768).optional(),
   /** Caller-supplied idempotency key; replays return the original outcome. */
   idempotencyKey: z.string().trim().min(8).max(200).optional(),
