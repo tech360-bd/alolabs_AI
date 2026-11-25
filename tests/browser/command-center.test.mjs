@@ -227,7 +227,11 @@ test('a failed command run is streamed honestly and its timeline is retrievable'
   assert.equal(frames.filter((frame) => frame.type === 'error').length, 1);
 
   const fetched = await apiGet(page, `/api/command-agent/runs/${encodeURIComponent(runFrame.runId)}`);
-  assert.equal(fetched.status, 200);
+  assert.equal(
+    fetched.status,
+    200,
+    `run ${JSON.stringify(runFrame.runId)} -> ${fetched.status} ${JSON.stringify(fetched.body)}`,
+  );
   assert.equal(fetched.body?.run?.status, 'failed');
   const eventTypes = fetched.body.run.events.map((event) => event.type);
   assert.ok(eventTypes.includes('run_started'));
