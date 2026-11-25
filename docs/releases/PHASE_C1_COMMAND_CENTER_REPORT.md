@@ -115,11 +115,30 @@ Result: **37 passed / 4 files** (0 failed) at the time of writing; exact totals 
 
 ## 14. Commit and PR
 
-Pending at first draft; final hashes are recorded here after push, in the same PR [#60](https://github.com/tech360-bd/alolabs_AI/pull/60).
+- `395e572` — feat(command-center): durable sessions, honest statuses, approval pause and routing evidence
+- `335a1ff` — feat(command-center): state the advice-only boundary and link to the acting console
+- Pull request: [#60](https://github.com/tech360-bd/alolabs_AI/pull/60)
 
 ## 15. CI status
 
-Pending on push. CI generates the Prisma client and is the authoritative type/lint/test/build result. No green status is claimed in advance.
+Verified green on `335a1ff` (run
+[45641254761](https://github.com/tech360-bd/alolabs_AI/actions/runs/45641254761)):
+
+| Check | Result | Duration |
+| --- | --- | --- |
+| TypeScript, tests, lint, and build | **pass** | 4m56s |
+| Login and MFA (isolated Chromium) | **pass** | 1m11s |
+| Secret Scan | **pass** | 12s |
+| Dependency Audit | **pass** | 1m16s |
+
+**Recorded flake, not hidden:** the first run after `395e572` failed the isolated
+Chromium job with no test annotation and no downloadable log surface. Rerunning the
+failed job passed in 56s, and the full run on `335a1ff` passed normally. Phase C1 does
+not touch authentication, login or MFA code, and the job has been green on every other
+run in this PR.
+
+CI generates the Prisma client, so this is the authoritative type-check, lint, full
+test suite and production build result.
 
 ## 16. Deployment status
 
