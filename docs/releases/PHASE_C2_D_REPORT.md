@@ -1,0 +1,186 @@
+# Phase C2 + D — Run timelines that survive reload, and research that shows its evidence
+
+**Status:** implemented, CI green on PR [#63](https://github.com/tech360-bd/alolabs_AI/pull/63), not merged, not deployed.
+**Date:** 2026-11-25.
+**Scope:** Command Agent run identity + streaming + timeline (Phase C2); public-page research and HTTP-level verification (Phase D tier 1).
+
+---
+
+## 1. Before state
+
+- Phase C1 had a durable transcript and an honest status vocabulary, but **a turn was not a run**: there was no run id, no stored event timeline, and no way to re-read what happened after a reload.
+- The panel rendered `steps/trace` only if the final JSON response arrived. A long or failed run showed nothing until it ended, and a failed run left no trace at all.
+- The agent could search (`web_search`, Wikipedia, Hacker News) but **could not open a page**. The link-coverage registry said so explicitly: “nothing here fetches a page”.
+- There was a reusable SSRF guard (`src/lib/webhooks/ssrf-guard.ts`) and a governance engine, but no robots.txt handling, no per-hop redirect checks for research, no citation/evidence structure, and no tenant-scoped place to store a finding.
+- Repository state note: PR #60 had already merged and GitHub deleted the remote session branch. The working copy was recovered by fetching `main` and rebuilding the branch on the merged commit (`5dcc45c`) — **no force-push, no history rewrite**. Earlier-phase work was preserved by the merge.
+
+## 2. What already worked and was preserved
+
+- `runCommandAgent` loop, free-only routing, failover evidence (`attempts`, `fallbackUsed`, `providers`), status derivation, approval pauses with real approval ids (`CompanyAIError` failure path unchanged).
+- Tenant isolation in the chat route (super_admin / company admin only) — now shared by every Commanding Center route through `src/lib/command-agent/access.ts`.
+- Existing tests (13 agent, 7 API, status/session-store suites) — all still passing.
+
+## 3. Gaps addressed
+
+| Gap | Resolution |
+| --- | --- |
+| No run identity / no timeline | `run-store.ts`: `startCommandRun`, `finishCommandRun`, `getCommandRun`, bounded event collector |
+| No live progress | `POST /api/command-agent/stream` (NDJSON: `event`, `run`, `final`, `error`) |
+| No post-reload retrieval | `GET /api/command-agent/runs/[id]`, tenant-scoped, artifact-kind-checked |
+| Read-only web tools, no page analysis | `src/lib/research/public-page.ts` + `analyze_public_page` tool |
+| No citation/evidence record | Evidence block (final URL, status, `fetchedAt`, bytes, SHA-256, citations) + `access.signals` |
+| No stored research memory | `Artifact` (`metadata.kind='research_report'`), opt-in, company-scoped |
+| Duplicated tenant/auth logic across routes | `access.ts` used by chat, stream, runs |
+
+## 4. Changes made
+
+**New libraries**
+
+- `src/lib/command-agent/run-store.ts` — run lifecycle over `Artifact` (`type='json'`, `metadata.kind='command_run'`), 200-event bound, 4 000-char payload cap, SHA-256 of stored body, `createEventCollector` that never lets a broken consumer break a run.
+- `src/lib/command-agent/access.ts` — `canUseCommandAgent`, `resolveCommandCompany` (super_admin may target a company; company admins only their own).
+- `src/lib/research/public-page.ts` — URL validation, robots.txt parser (longest-match, `*`/`$` wildcards), HTML extraction, capped fetch loop with per-hop `checkSsrf`, evidence assembly.
+- `src/lib/research/research-store.ts` — save/list/get research reports as tenant-scoped artifacts.
+
+**Changed**
+
+- `src/lib/command-agent/agent.ts` — emits `run_started`/`model`/`tool`/`approval`/`final`/`error`; finalises as `failed` on exceptions and rethrows; returns `runId`/`eventCount`; accepts `onEvent`.
+- `src/lib/command-agent/tools.ts` — registers `analyze_public_page`.
+- `src/app/api/command-agent/chat/route.ts` — uses shared access rules; returns `runId`/`eventCount`.
+- `src/components/enterprise/panels/command-agent-center.tsx` — streaming send with NDJSON parser, single plain-JSON fallback when the stream route is absent, live timeline, reloadable timeline, run id display.
+- `src/lib/link-coverage/registry.ts` — molx claim corrected: a single-page analyser exists; there is still no crawler.
+- `src/app/api/v1/models/inference/route.ts` — **unrelated main-branch regression** fixed (TS4104 on a readonly tuple cast) because the gate blocked every PR.
+- Docs: `docs/architecture/SUPER_ADMIN_AI_COMMAND_CENTER.md` §10–§11, roadmap Phase C/D.
+
+**New routes**
+
+- `POST /api/command-agent/stream`
+- `GET /api/command-agent/runs/[id]`
+- `GET|POST /api/research/analyze`
+- `GET /api/research/reports/[id]`
+
+**New UI**
+
+- `src/components/enterprise/panels/research-verification.tsx`, mounted as the **Research & Verify** tab.
+
+## 5. Agents and departments used
+
+- Command Agent (the product surface under test) — no live model call was required for tests; the router was mocked in unit/API tests.
+- No department agents, no workforce runs, and no background jobs were started for this phase.
+
+## 6. Tools and providers used
+
+- **Zero paid providers, zero live provider calls.** Tests stub the gateway and `fetch`.
+- `npm install --ignore-scripts`, `vitest`, `eslint`, `tsc`, `npm run verify:links`, `gh` CLI.
+- Prisma client generation is unavailable in this sandbox (`binaries.prisma.sh` unreachable), so CI is the type/build authority.
+
+## 7. Integrations required
+
+- None new. No new secrets, no OAuth, no external accounts.
+- Research uses plain HTTP with an identifying user agent (`ALOLabsResearchBot/1.0`), no API keys.
+
+## 8. Files and APIs changed
+
+`git diff --stat 5dcc45c..01e308f` (feature commits): 22 files, +2 913 / −60.
+
+New API contracts:
+
+```
+POST /api/command-agent/stream            (NDJSON)
+  request:  {message, sessionId, profile, model?, targetCompany?, skillSlugs?}
+  response: {"type":"event","event":{seq,at,type,data}}
+            {"type":"run","runId":"…"}
+            {"type":"final","result":{…chat fields, runId, eventCount}}
+            {"type":"error","error":"…","code":"…","hint":"…"}
+
+GET  /api/command-agent/runs/{id}         {success, run:{status,events,…}, company}
+POST /api/research/analyze                {url, save?, note?} → {analysis, saved, verification}
+GET  /api/research/analyze                {reports:[…]}
+GET  /api/research/reports/{id}           {report:{analysis,…}}
+```
+
+## 9. Database and migration impact
+
+**No migration.** Both phases reuse `Artifact`:
+
+- command run → `type='json'`, `metadata.kind='command_run'`;
+- research finding → `type='json'`, `metadata.kind='research_report'`.
+
+`AgentRun` needs an `Agent` FK and `AgentExecution` needs an `AgentInstance`; inventing parent rows was rejected. `RagDocument` needs a collection, so it was rejected for findings too. A dedicated `CommandRun` / `ResearchSource` migration remains a follow-up, not a hidden requirement.
+
+## 10. Tests actually run
+
+| Command | Result |
+| --- | --- |
+| `vitest run __tests__/unit/command-run-store.test.ts` | 7 passed |
+| `vitest run __tests__/unit/public-page.test.ts` | 11 passed |
+| `vitest run __tests__/api/command-agent-stream.test.ts` | 4 passed |
+| `vitest run __tests__/api/research-analyze.test.ts` | 6 passed |
+| focused command suite (8 files incl. agent, API, status, session store, governance) | 65 passed |
+| `npx eslint` on every changed file | clean |
+| `npm run verify:links` | 233/233 evidence paths found, 0 missing |
+| `npx tsc --noEmit` (local) | 0 errors in changed files; repo-wide run blocked by the ungenerated Prisma client |
+| CI: TypeScript hard gate, tests, lint, Next build | **pass** (run [45668689127](https://github.com/tech360-bd/alolabs_AI/actions/runs/45668689127)) |
+
+The new tests cover, specifically:
+
+- run creation failure returns `null` (command still runs), cross-tenant finalisation refused, checksum equals SHA-256 of stored body, 220 events trimmed to 200, non-run artifacts rejected, thrown event sink ignored.
+- robots disallow performs **no page fetch**; SSRF block rejects; redirect recorded as final URL with SSRF re-check; 403 becomes restricted evidence with no citation; 512 KB cap enforced; wildcard/tie robots rules; HTML extraction (title/description/lang/canonical/alt/links/stack/issues).
+- stream frames: `run` follows `run_started`, failed run has `error` and no `final`, 401/403 before the agent is called, invalid profile rejected.
+- research: body company cannot override tenant, governance deny prevents the fetch, private/file URLs rejected without fetching, SSRF block → 403, report listing scoped to caller's company.
+
+## 11. Browser evidence
+
+**None.** The Research & Verify tab and the streaming timeline were **not exercised in a browser** in this environment; there is no headless Chromium in the app runtime and the CI Chromium job covers login/MFA only. Claims in this report are limited to unit/API tests, ESLint, link verification and the CI type/build gate.
+
+## 12. Security findings
+
+- `checkSsrf` runs for `robots.txt` and again on **every** redirect hop; redirects are `manual`, capped at 3.
+- URLs with credentials, non-HTTP(S) schemes, or ports other than 80/443 are rejected before any network call.
+- Robots-disallowed paths are not fetched at all; 5xx/unreachable `robots.txt` fails closed, 404/410 allows.
+- 401/403/429, CAPTCHA, login-wall, paywall and JS-required markers are surfaced as `signals`; nothing attempts to bypass them.
+- Governance (`read.public`) runs **before** the fetch, so page content can never influence a governance decision.
+- Tenant safety: research saves use the session's `companyId` only; run reads require both `id` **and** `companyId`, and reject artifacts whose `kind` is not `command_run`.
+- Residual risks: research has only the endpoint rate limiter (no per-host budget/backoff table); artifact rows accumulate without retention policy (a pre-existing artifact concern); `analyze_public_page` can be prompted to hit arbitrary public hosts within budget.
+
+## 13. Cost
+
+$0. No provider API keys were used, no paid route was enabled, no external billing surface was touched.
+
+## 14. Commit and PR
+
+- PR [#63](https://github.com/tech360-bd/alolabs_AI/pull/63) — base `main`, head `arena/56041def-alolabs-ai`, not merged.
+- `a09c248` — feature: run-store, streaming, access module, research module, routes, UI, tests, docs.
+- `28087cf` — fix: type the `/api/v1/models/inference` profile enum from the readonly routing tuple (main-branch TS4104 regression).
+- `01e308f` — fix: align gateway/stream test mocks with the real `CompanyAIError` and limiter signatures.
+- This report is committed separately after CI evidence existed.
+
+## 15. CI status
+
+| Run / check | Result |
+| --- | --- |
+| [45667954129](https://github.com/tech360-bd/alolabs_AI/actions/runs/45667954129) — first push | ❌ TypeScript gate: TS4104 in `src/app/api/v1/models/inference/route.ts` (pre-existing on `main`) |
+| [45668415056](https://github.com/tech360-bd/alolabs_AI/actions/runs/45668415056) — after the v1 fix | ❌ TypeScript gate: two test-signature errors (`CompanyAIError` arity, spread of `unknown[]`) |
+| [45668689127](https://github.com/tech360-bd/alolabs_AI/actions/runs/45668689127) — commit `01e308f` | ✅ **4/4 pass** — TypeScript/tests/lint/build 4m53s, Login+MFA 1m12s, Secret Scan 11s, Dependency Audit 1m13s |
+
+Both failures were real type errors, not flakes; they were fixed rather than bypassed. (The C1-era Chromium flake did not recur.)
+
+## 16. Deployment status
+
+**Not deployed.** No production action was taken; merging PR #63 is a separate decision. The new routes are additive, use no migration, and require no environment variables.
+
+## 17. Limitations
+
+- **No token streaming.** The panel streams execution events; the first `model` event arrives when a provider has answered. The code and UI do not pretend otherwise.
+- **Not a browser.** No JavaScript execution, no rendered DOM, no screenshots. JS-only pages can look empty and are reported as such (`javascriptRendered: false`).
+- **No crawler.** One URL per analysis; no link following or batch processing.
+- **Interim storage.** Run and research records are `Artifact` rows; dedicated models (`CommandRun`, `ResearchSource`/`ResearchFinding` with confidence/expiry) are still missing.
+- **UI not browser-verified** (see §11).
+- **Approval continuation** still requires resending the command with the approval id; the stream cannot be resumed after a pause.
+- **Retention:** no pruning policy for run/research artifacts.
+
+## 18. Next phase
+
+1. Phase D tier 2: isolated browser worker (rendered DOM, console, screenshots), sanitised artifacts, per-host budgets, `ResearchSource`/`ResearchFinding` with confidence and expiry.
+2. Phase C2 remainder: agent-team assignment from chat, project-aware memory, typed handoff contracts.
+3. Phase E: authorized repository connection, read-only source analysis, diff preview (deploy remains a 501 until separately authorized).
+4. Housekeeping: `CommandRun` migration once approved; artifact retention policy; approve-and-continue for paused runs.
