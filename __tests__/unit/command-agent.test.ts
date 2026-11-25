@@ -31,6 +31,7 @@ vi.mock('@/lib/tools/execute', () => ({
 const dbState = vi.hoisted(() => ({
   conversations: [] as Array<Record<string, unknown>>,
   messages: [] as Array<Record<string, unknown>>,
+  artifacts: [] as Array<Record<string, unknown>>,
   seq: 0,
 }));
 
@@ -49,6 +50,28 @@ vi.mock('@/lib/db', () => ({
         const row = { id: `conv_${++dbState.seq}`, status: 'active', ...data };
         dbState.conversations.push(row);
         return { id: row.id };
+      },
+    },
+    artifact: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const row = {
+          id: `art_${++dbState.seq}`,
+          createdAt: new Date('2026-11-25T10:00:00Z'),
+          updatedAt: new Date('2026-11-25T10:00:00Z'),
+          ...data,
+        };
+        dbState.artifacts.push(row);
+        return { id: row.id };
+      },
+      findFirst: async ({ where }: { where: { id?: string; companyId?: string } }) =>
+        dbState.artifacts.find(
+          (row) => (!where.id || row.id === where.id) && (!where.companyId || row.companyId === where.companyId),
+        ) ?? null,
+      updateMany: async ({ where, data }: { where: { id: string; companyId: string }; data: Record<string, unknown> }) => {
+        const row = dbState.artifacts.find((candidate) => candidate.id === where.id && candidate.companyId === where.companyId);
+        if (!row) return { count: 0 };
+        Object.assign(row, data);
+        return { count: 1 };
       },
     },
     conversationMessage: {
@@ -212,6 +235,22 @@ describe('Command Agent loop', () => {
     expect(result.routing.providers).toEqual(['groq']);
     // Both turns are durable, so a reload shows the same conversation.
     expect(dbState.messages.map((message) => message.role)).toEqual(['user', 'agent']);
+
+    // C2: the run is a real, tenant-scoped artifact, and the transcript keeps
+    // its id so a reload can offer the persisted timeline.
+    expect(result.runId).toMatch(/^art_\d+$/);
+    expect(result.eventCount).toBeGreaterThanOrEqual(3);
+    const runRow = dbState.artifacts.find((row) => row.id === result.runId);
+    expect(runRow?.companyId).toBe('company_1');
+    const runBody = JSON.parse(String(runRow?.content)) as { status: string; events: Array<{ type: string }> };
+    expect(runBody.status).toBe('completed');
+    expect(runBody.events.map((event) => event.type)).toEqual(
+      expect.arrayContaining(['run_started', 'model', 'tool', 'final']),
+    );
+    const assistantRow = dbState.messages.find((message) => message.role === 'agent');
+    const assistantMeta = JSON.parse(String(assistantRow?.metadata ?? '{}')) as Record<string, unknown>;
+    expect(assistantMeta.runId).toBe(result.runId);
+    expect(assistantMeta.eventCount).toBe(result.eventCount);
     // The second gateway call must carry the tool result back to the model.
     const secondMessages = (chatMock.mock.calls[1][1] as { messages: Array<{ role: string }> }).messages;
     expect(secondMessages.some((m) => m.role === 'tool')).toBe(true);

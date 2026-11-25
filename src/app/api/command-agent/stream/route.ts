@@ -108,6 +108,12 @@ export async function POST(request: NextRequest) {
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
       let closed = false;
+      // A disconnected client must not keep a dead response open. The run keeps
+      // executing so its timeline is still persisted and finalised; only
+      // forwarding stops. Cancellation of the upstream model call is not
+      // implemented (the gateway has no abort surface) and is not claimed.
+      const onAbort = () => { closed = true; };
+      request.signal.addEventListener('abort', onAbort, { once: true });
       const send = (payload: Record<string, unknown>) => {
         if (closed) return;
         try {
@@ -182,6 +188,7 @@ export async function POST(request: NextRequest) {
         }
       } finally {
         closed = true;
+        request.signal.removeEventListener('abort', onAbort);
         try {
           controller.close();
         } catch {

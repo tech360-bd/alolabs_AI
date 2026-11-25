@@ -30,18 +30,6 @@ vi.mock('@/lib/rate-limiter', () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
 }));
 
-vi.mock('next/server', () => ({
-  NextResponse: {
-    json: (data: unknown, init?: { status?: number }) => ({
-      status: init?.status ?? 200,
-      json: async () => data,
-      data,
-    }),
-  },
-  // The route returns `new NextResponse(null, { status: 204 })` for dropped beacons.
-  NextResponseCtor: class {},
-}));
-
 // `NextResponse` is both a namespace with `.json` and a constructible class in
 // the real module; provide a class that also carries the static helper.
 vi.mock('next/server', () => {

@@ -129,14 +129,16 @@ function RunTimeline({ events, runId, live = false, onLoadStored }: {
   events: RunEvent[]; runId?: string | null; live?: boolean; onLoadStored?: () => void;
 }) {
   const [open, setOpen] = useState<number | null>(null)
-  if (events.length === 0) return null
+  // A restored turn has a run id before its events are fetched; show the handle
+  // so the persisted timeline is one click away instead of silently missing.
+  if (events.length === 0 && !runId) return null
   const first = new Date(events[0]?.at ?? Date.now()).getTime()
   return (
     <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50/60 p-2 dark:border-slate-700 dark:bg-slate-800/40">
       <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wide text-slate-500">
         <Activity className={`h-3 w-3 ${live ? 'animate-pulse text-[#FC5400]' : 'text-slate-400'}`} />
         <span>{live ? 'Live execution' : 'Execution timeline'}</span>
-        <span className="text-slate-400">{events.length} event(s)</span>
+        <span className="text-slate-400">{events.length > 0 ? `${events.length} event(s)` : 'stored timeline'}</span>
         {runId && <span className="font-mono normal-case tracking-normal text-slate-400">run {runId.slice(0, 12)}…</span>}
         {!live && runId && onLoadStored && (
           <button onClick={onLoadStored} className="ml-auto inline-flex items-center gap-1 rounded px-1 py-0.5 normal-case tracking-normal text-[#00309C] hover:underline dark:text-blue-300">
@@ -278,6 +280,8 @@ export default function CommandAgentCenter({ onNavigate }: { onNavigate?: (view:
             ...(Array.isArray(meta.approvals) ? { approvals: meta.approvals as CommandApproval[] } : {}),
             ...(routing ? { routing } : {}),
             ...(Array.isArray(meta.trace) ? { trace: meta.trace as TraceStep[] } : {}),
+            ...(typeof meta.runId === 'string' ? { runId: meta.runId } : {}),
+            ...(typeof meta.eventCount === 'number' ? { eventCount: meta.eventCount } : {}),
           }
         })
         setMessages(restored)
