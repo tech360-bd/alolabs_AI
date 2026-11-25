@@ -236,11 +236,11 @@ jobs:
           mkdir -p tests/browser/artifacts
           [ -f /tmp/command-center-browser.log ] && cp /tmp/command-center-browser.log tests/browser/artifacts/command-center-browser.log
           {
-            head -c 1200 /tmp/command-center-browser.log 2>/dev/null || true
+            grep -a 'RUN_API' /tmp/command-center-browser.log 2>/dev/null || true
             echo ' --- tail --- '
-            tail -c 2500 /tmp/command-center-browser.log 2>/dev/null || true
+            tail -c 7000 /tmp/command-center-browser.log 2>/dev/null || true
           } > /tmp/command-center-detail.txt
-          echo "::error title=Commanding Center browser test failed::$(tr '\n' ' ' < /tmp/command-center-detail.txt | cut -c1-3500)"
+          echo "::error title=Commanding Center browser test failed::$(tr '\n' ' ' < /tmp/command-center-detail.txt | cut -c1-9000)"
           exit 1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
