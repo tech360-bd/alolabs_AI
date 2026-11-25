@@ -46,6 +46,8 @@
 | `__tests__/unit/command-session-store.test.ts` *(new)* | 12 cases: identity, tenant isolation, column-level query filter, role mapping, metadata resilience, failure reporting, scoped clear |
 | `__tests__/unit/command-status.test.ts` *(new)* | 7 cases: every status path, partial-vs-complete, closed vocabulary |
 | `__tests__/unit/command-agent.test.ts` | Replaced the empty DB mock with an in-memory conversation double; asserts durable turns, `completed`, routing; new `waiting_for_approval` test that yields a real approval id and failover evidence |
+| `src/components/panels/super-commanding-chat.tsx` | The advice-only Super Admin chat now says so explicitly and links to the acting Commanding Center; "agents online" corrected to "agents registered" (the count is registration, not liveness) |
+| `src/store/app.ts` | Added the `command-agent` view to `ViewType` so the boundary banner can navigate to it in a typed way |
 | `docs/architecture/SUPER_ADMIN_AI_COMMAND_CENTER.md` | Rewritten with verified status, component/sequence/failover diagrams (Mermaid), status table, omni-routing facts, self-healing stage table, API architecture, updated gap list |
 | `docs/roadmap/AGENTOS_IMPLEMENTATION_ROADMAP.md` | Phase C1 items marked with evidence; remaining gaps kept open |
 
@@ -68,6 +70,7 @@ None new. Persistence uses the existing database; routing uses the existing gate
 - Changed contract (additive): `POST /api/command-agent/chat` now returns `status`, `statusDetail`, `approvals`, `persisted`, `routing`.
 - `DELETE /api/command-agent/chat` now requires a resolvable company and writes an audit event with `companyId`.
 - UI: `command-agent` panel restores history and renders status/approvals/routing.
+- UI: the default `super-admin` chat now carries an explicit advice-only boundary and a link to the acting panel.
 
 ## 9. Database and migration impact
 

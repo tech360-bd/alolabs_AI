@@ -10,6 +10,7 @@ export type ViewType =
   | 'super-command'
   | 'crm-connections'
   | 'command-center'
+  | 'command-agent'
   | 'companies'
   | 'departments'
   | 'agents-registry'
