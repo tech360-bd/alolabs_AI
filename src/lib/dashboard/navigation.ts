@@ -95,6 +95,7 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Store,
   Target,
   TrendingUp,
@@ -242,6 +243,7 @@ export const DASHBOARD_NAV: DashboardNavGroup[] = [
   {
     label: "Command",
     items: [
+      { id: "super-admin-console", label: "Super Admin Console", icon: Sparkles },
       { id: "super-admin", label: "Command Chat", icon: Crown },
       { id: "web-crm", label: "CRM Dashboard", icon: LayoutDashboard },
       { id: "command-center", label: "Command Center", icon: LayoutDashboard },
@@ -598,6 +600,7 @@ export const DASHBOARD_PANELS: Record<string, () => Promise<{ default: Component
   "strategic-command": () => import('@/components/enterprise/panels/strategic-command') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "study-academic": () => import('@/components/pages/study-academic') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "super-admin": () => import('@/components/panels/super-commanding-chat') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "super-admin-console": () => import('@/components/enterprise/panels/super-admin-console') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "super-admin-ai": () => import('@/components/enterprise/panels/super-admin-ai-control-plane') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "model-control-center": () => import('@/components/enterprise/panels/model-control-center') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "super-command": () => import('@/components/panels/super-admin-command-center') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,

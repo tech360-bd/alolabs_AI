@@ -5044,3 +5044,40 @@ model VoiceBenchmark {
   @@index([companyId, task, language])
   @@index([engine, createdAt])
 }
+
+// ─── Super Admin Console (natural-language operations + self-healing) ────────
+
+/// DB-backed website content block, editable through the audited Super Admin
+/// supervisor tool `set_site_content`. Public site pages read these with a
+/// code-default fallback, so a missing row can never break a page.
+model SiteContentBlock {
+  id        String   @id @default(cuid())
+  companyId String?
+  page      String   // e.g. "home", "about"
+  blockKey  String   // e.g. "hero.headline"
+  content   String   // JSON payload rendered by the page
+  version   Int      @default(1)
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, page, blockKey])
+  @@index([page])
+}
+
+/// Immutable probe history of the site doctor (internet-facing self-healing).
+/// One row per attempt — repairs are recorded as additional probes, never
+/// overwriting the original result.
+model SiteDoctorProbe {
+  id         String   @id @default(cuid())
+  target     String
+  status     String   // healthy | degraded | unreachable
+  httpStatus Int?
+  latencyMs  Int?
+  detail     String?
+  attempt    Int      @default(1) // 1 = first probe, 2 = repair retry
+  escalated  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([target, createdAt])
+}
