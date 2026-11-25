@@ -18,7 +18,7 @@ import { localProviderNames } from '@/lib/ai-router/model-tiers';
  */
 
 function ollamaEndpointFor(value: string): string | undefined {
-  const specs = providersFromEnvironment({ OLLAMA_BASE_URL: value } as NodeJS.ProcessEnv);
+  const specs = providersFromEnvironment({ OLLAMA_BASE_URL: value } as unknown as NodeJS.ProcessEnv);
   const spec = specs.find((candidate) => candidate.name === 'ollama');
   if (!spec) return undefined;
   // `endpoint` is private in the provider; read it the way the provider itself
@@ -55,7 +55,7 @@ describe('Ollama endpoint normalisation', () => {
   });
 
   it('still registers when OLLAMA_HOST is used instead of OLLAMA_BASE_URL', () => {
-    const specs = providersFromEnvironment({ OLLAMA_HOST: 'http://localhost:11434/v1' } as NodeJS.ProcessEnv);
+    const specs = providersFromEnvironment({ OLLAMA_HOST: 'http://localhost:11434/v1' } as unknown as NodeJS.ProcessEnv);
     const spec = specs.find((candidate) => candidate.name === 'ollama');
     expect(spec).toBeDefined();
     expect((spec!.create() as unknown as { endpoint?: string }).endpoint).toBe('http://localhost:11434');
@@ -66,10 +66,10 @@ describe('Ollama endpoint normalisation', () => {
     // disagreed with provider-registry the provider would register but be
     // excluded from routing as "external", which is the same outage with a
     // different error message.
-    expect(localProviderNames({ OLLAMA_BASE_URL: 'http://localhost:11434/v1' } as NodeJS.ProcessEnv)).toContain(
+    expect(localProviderNames({ OLLAMA_BASE_URL: 'http://localhost:11434/v1' } as unknown as NodeJS.ProcessEnv)).toContain(
       'ollama',
     );
-    expect(localProviderNames({ OLLAMA_BASE_URL: 'http://localhost:11434' } as NodeJS.ProcessEnv)).toContain('ollama');
+    expect(localProviderNames({ OLLAMA_BASE_URL: 'http://localhost:11434' } as unknown as NodeJS.ProcessEnv)).toContain('ollama');
   });
 
   it('never registers a non-local Ollama endpoint', () => {
