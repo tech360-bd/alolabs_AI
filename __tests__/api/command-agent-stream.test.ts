@@ -29,7 +29,7 @@ vi.mock('@/lib/audit-events', () => ({ writeAuditEvent: vi.fn(async () => undefi
 const runMock = vi.fn();
 vi.mock('@/lib/command-agent/agent', () => {
   class CompanyAIError extends Error {
-    constructor(message: string, public code: string, public requestId?: string) {
+    constructor(message: string, public status: number, public code: string, public requestId?: string) {
       super(message);
     }
   }
@@ -86,7 +86,7 @@ describe('POST /api/command-agent/stream', () => {
 
   it('ends a failed run with an error frame instead of a final frame', async () => {
     const { CompanyAIError } = await import('@/lib/command-agent/agent');
-    runMock.mockRejectedValue(new CompanyAIError('No free provider authorised', 'NO_FREE_PROVIDER', 'req_9'));
+    runMock.mockRejectedValue(new CompanyAIError('No free provider authorised', 503, 'NO_FREE_PROVIDER', 'req_9'));
     const response = await post({ message: 'hello' });
     const parsed = frames(await response.text());
 
