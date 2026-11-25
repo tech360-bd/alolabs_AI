@@ -34,6 +34,12 @@ const BodySchema = z.object({
   model: z.string().trim().max(300).optional(),
   targetCompany: z.string().trim().max(191).optional().nullable(),
   skillSlugs: z.array(z.string().trim().min(1).max(160)).max(5).optional(),
+  /**
+   * 'read' (default) keeps the agent strictly read-only. 'supervisor' exposes
+   * the mutation registry — but only for the platform super_admin; the route
+   * downgrades the mode for anyone else, so a company admin can never opt in.
+   */
+  mode: z.enum(['read', 'supervisor']).default('read'),
 }).strict();
 
 type CompanyRow = { id: string; name: string; slug: string; status: string };
@@ -94,6 +100,7 @@ export async function POST(request: NextRequest) {
         requestedSkills: parsed.data.skillSlugs ?? [],
         messageLength: parsed.data.message.length,
         actorRole: actor.role,
+        mode: actor.role === 'super_admin' ? parsed.data.mode : 'read',
       },
     });
 
@@ -105,6 +112,7 @@ export async function POST(request: NextRequest) {
       message: parsed.data.message,
       sessionId: parsed.data.sessionId,
       profile: parsed.data.profile as CommandAgentProfile,
+      mode: actor.role === 'super_admin' ? parsed.data.mode : 'read',
       ...(parsed.data.model ? { model: parsed.data.model } : {}),
       ...(parsed.data.skillSlugs?.length ? { skillSlugs: parsed.data.skillSlugs } : {}),
     });
