@@ -36,6 +36,27 @@ export {
 export type { EvaluateOptions } from './engine';
 
 export {
+  approvalDigest,
+  approvalTypeForAction,
+  consumeApproval,
+  createBoundApproval,
+  DEFAULT_APPROVAL_TTL_MINUTES,
+  defaultApproversFor,
+  extractApprovalId,
+  isApprovalConsumed,
+  MAX_APPROVAL_TTL_MINUTES,
+  resolveReviewerRole,
+  verifyBoundApproval,
+} from './approvals';
+export type {
+  ConsumeApprovalResult,
+  CreateBoundApprovalInput,
+  CreatedApproval,
+  VerifiedApproval,
+  VerifyBoundApprovalInput,
+} from './approvals';
+
+export {
   assertGovernance,
   actionClassForTool,
   EMERGENCY_KEYS,

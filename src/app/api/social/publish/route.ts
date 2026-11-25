@@ -6,6 +6,7 @@ import { canManageSocial } from '@/lib/social/credentials';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifySessionToken } from '@/lib/auth';
+import { approvalIdFromRequest, enforceHttpGovernance, resolveUserCompanyId } from '@/lib/governance/http';
 import type { SocialPlatform } from '@/lib/social/types';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -318,6 +319,38 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    // Publishing (immediately or on a schedule) is consequential external
+    // content: it requires a verified, bound approval. A scheduled post is the
+    // same decision as an immediate one — the platform will publish it later.
+    const companyId = await resolveUserCompanyId(session.userId, authHeader.get('x-company-id'));
+    if (!companyId) {
+      return NextResponse.json(
+        {
+          error: 'Publishing requires a single, verified organisation context. Send x-company-id when you belong to more than one organisation.',
+          code: 'NO_ORGANISATION_CONTEXT',
+        },
+        { status: 403 },
+      );
+    }
+
+    const gate = await enforceHttpGovernance({
+      companyId,
+      userId: session.userId,
+      platformRole: session.role,
+      action: 'Publish social content',
+      actionClass: 'content.publish',
+      resource: `social:${body.platforms.slice().sort().join(',')}`,
+      payload: {
+        content: body.content,
+        platforms: body.platforms,
+        mediaUrls: body.mediaUrls ?? [],
+        mediaType: body.mediaType ?? null,
+        scheduledAt: body.scheduledAt ?? null,
+      },
+      approvalId: approvalIdFromRequest(request, body),
+    });
+    if (!gate.allowed) return gate.response;
 
     // Validate all platforms are publishable
     for (const p of body.platforms) {

@@ -42,5 +42,7 @@ export interface ToolExecutionResult {
   error?: string;
   blocked?: boolean;
   blockReason?: string;
+  /** Present when the call was paused because a human approval is required. */
+  approvalId?: string | null;
   durationMs: number;
 }

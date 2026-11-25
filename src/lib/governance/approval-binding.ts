@@ -13,9 +13,9 @@
  * allowed to approve it. Anything else fails closed.
  *
  * Replay: the digest binds the arguments, so replaying an approval cannot
- * authorise a *different* payload. Single-use consumption additionally requires
- * a persistence marker; that is tracked as GAP-004 in the roadmap rather than
- * pretended to be solved here.
+ * authorise a *different* payload. Single use is enforced separately by
+ * `consumeApproval()`, which writes a `consumedAt` marker using an atomic
+ * compare-and-set on `requestJson` (GAP-004 closed in Phase B2).
  */
 
 import { createHash } from 'node:crypto';

@@ -11,6 +11,7 @@ import { DatabaseManager } from '@/lib/db-adapters/manager';
 import { readFile, stat } from 'fs/promises';
 import { join, resolve } from 'path';
 import { s3BackupClientFromEnv } from '@/lib/s3/client';
+import { approvalIdFromRequest, enforceHttpGovernance } from '@/lib/governance/http';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -19,6 +20,9 @@ interface RestoreRequest {
   adapterName?: string;
   storage?: 'local' | 's3';
   verifyOnly?: boolean;
+  /** Explicit operator confirmations required before a destructive restore. */
+  confirm?: { backupTaken?: boolean; rollbackPlan?: boolean };
+  approvalId?: string;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -256,6 +260,38 @@ export async function POST(request: Request) {
         preview: validation.preview,
       });
     }
+
+    // A restore overwrites live data: it is destructive. Governance requires a
+    // bound approval *and* explicit evidence that the current state was backed up
+    // and that a rollback path exists. `verifyOnly` above stays a safe read.
+    const companyId = user.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        {
+          error: 'A destructive restore requires an organisation-scoped super_admin. Verify the backup with verifyOnly, then restore from an organisation context.',
+          code: 'NO_ORGANISATION_CONTEXT',
+        },
+        { status: 403 },
+      );
+    }
+
+    const gate = await enforceHttpGovernance({
+      companyId,
+      userId: user.userId,
+      platformRole: user.role,
+      companyRole: user.companyRole,
+      action: 'Restore database from backup',
+      actionClass: 'data.delete',
+      resource: `database:${adapterName}`,
+      payload: { filename, adapterName, storage },
+      evidence: {
+        backupTaken: body.confirm?.backupTaken === true,
+        rollbackPlan: body.confirm?.rollbackPlan === true,
+      },
+      approvalId: approvalIdFromRequest(request, body),
+      surface: 'customer_workspace',
+    });
+    if (!gate.allowed) return gate.response;
 
     // Execute restore
     const startTime = Date.now();

@@ -90,7 +90,7 @@ SQLite binding in this sandbox), not assertion failures in product logic — see
 | Autonomous coding engine (branch, diff, PR, CI) | **Missing** | No repository checkout, sandbox executor, diff or PR code found. `SEC-SHELL-001` blocks unsandboxed execution by design |
 | Connector marketplace | Partial | `src/lib/integrations/` registry + `IntegrationCredential`, `/api/integrations`, `/api/marketplace`; connector families cover content/CRM/media/messaging. No OAuth broker, revocation audit or health dashboard verified |
 | Billing, quotas, usage metering | Implemented | `Subscription`, `SubscriptionPlan`, `Invoice`, `Payment`, `UsageLog`, `TokenBudget`, `CompanyBudget`, `ModelUsageRecord`; `/api/billing`, `/api/dashboard/usage`; `docs/FREE_TIER_OPERATIONS.md` |
-| Approvals (persisted) | Implemented | `Approval` model, `/api/approvals` (GET/PUT with tenant + role checks), `resolveRunApproval` resumption; `approval-engine/` is a **second, in-memory** implementation (see GAP-002) |
+| Approvals (persisted) | Implemented | `Approval` model, `/api/approvals` (GET/PUT with tenant + role checks), `resolveRunApproval` resumption; bound approvals are created by `src/lib/governance/approvals.ts`; the in-memory duplicate was deleted (GAP-002) |
 | Audit trail | Implemented | `AuditEvent`, `AuditLog`, `SecurityEvent`, `BlockedAction`, `PaymentGuardLog`; `src/lib/audit-events.ts` (redacting, append-only) |
 | Emergency stop | **Broken before this phase, now Implemented** | Flags were written but never enforced; two consoles used different key namespaces. Now read by `src/lib/governance/runtime.ts` and enforced in tool, command-agent and agent-execution paths |
 | Backups / restore / DR | Implemented | `src/lib/backups/`, `BackupRecord`, `RecoveryRun`, `DisasterRecoveryConfig`; `scripts/backup.sh`, `restore.sh`, `rollback.sh`; integration tests (env-failing here) |
@@ -135,9 +135,9 @@ run with real credentials, which this session did not have.
 | ID | Gap | Severity | Evidence | Phase |
 | --- | --- | --- | --- | --- |
 | GAP-001 | Emergency stop unenforced / dual key namespaces | Critical — **fixed** | `src/lib/governance/runtime.ts`, tests | B (done) |
-| GAP-002 | `approval-engine/` is a second in-memory approval implementation that cannot survive a restart and is not the `Approval` table | High | `src/lib/approval-engine/index.ts` (`Map` storage) | B2 |
-| GAP-003 | No governance gate on routes that perform their own external actions (deploy, email send, social, CRM writes) | High | route inspection (§2 of governance doc) | B2 |
-| GAP-004 | Approvals are not single-use (replay of the same bound payload is possible) | Moderate | `approval-binding.ts` header note | B3 |
+| GAP-002 | ~~`approval-engine/` is a second in-memory approval implementation~~ **Fixed in B2**: in-memory store deleted; only the pure risk→action mapping (`types.ts`) remains | High | — | B2 ✅ |
+| GAP-003 | No governance gate on routes that perform their own external actions. **Mostly fixed in B2**: email send (`external.communicate`), social publish (`content.publish`) and database restore (`data.delete` + evidence) now gate. CRM writes remain ungated; `POST /api/deploy` is a 501 stub with nothing to gate. | High | route inspection (§2 of governance doc) | B2 🟨 |
+| GAP-004 | ~~Approvals are not single-use~~ **Fixed in B2**: `consumeApproval()` writes a `consumedAt` marker with a compare-and-set on `requestJson`; a replay returns 409 | Moderate | — | B2 ✅ |
 | GAP-005 | `ProjectDiscovery` / `CapabilityAssessment` models are unused; no website or repo discovery | High (blocks Phase E) | schema vs `grep` results | E |
 | GAP-006 | No browser automation / research subsystem | High (blocks Phase D) | no Playwright in app deps | D |
 | GAP-007 | No GitHub/GitLab connection, so no authorised repository access | Critical for coding claims | no code | E |

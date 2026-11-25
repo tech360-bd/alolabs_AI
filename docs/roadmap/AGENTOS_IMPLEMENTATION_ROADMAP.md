@@ -35,18 +35,24 @@ no repository/browser/sandbox/public-chat capability.
 | Decision audit | ✅ | `runtime.ts` → `writeAuditEvent`; audited denials and degraded allowances |
 | Dynamic-agent hardening (tenant stamping, tool allowlist, role gate) | ✅ | `agent-factory-guard.ts`, route, 9 tests |
 | Governance API (catalogue, dry run, status) | ✅ | `/api/governance/{policies,evaluate,status}` |
-| **B2**: gate remaining external-action routes (deploy, email, social, CRM writes) | ⬜ | Plan: add `enforceGovernance` at each handler with the right action class |
-| **B2**: gate queue handlers and cron jobs | ⬜ | Add a `GovernanceJobContext` to the job registry |
-| **B2**: create bound approvals when a decision is `require_approval` | ⬜ | Write `Approval.requestJson.binding`; add a UI approval card |
-| **B2**: consolidate `approval-engine/` into the `Approval` table | ⬜ | Remove the in-memory duplicate (GAP-002) |
+| **B2**: gate external-action routes — email send, social publish, database restore | ✅ | `src/lib/governance/http.ts` + each handler; `governance-approvals.test.ts` (22) |
+| **B2**: CRM writes | ⬜ | Route inspection: `/api/crm/*` still uses route-local role checks only |
+| **B2**: gate queue handlers and cron jobs | 🟨 | Temporary-agent sweep is scheduled and audited; generic per-job `GovernanceJobContext` still missing |
+| **B2**: create bound approvals when a decision is `require_approval` | ✅ | `src/lib/governance/approvals.ts`, `POST /api/governance/approvals`; tool path creates the bound approval and returns its id |
+| **B2**: consolidate `approval-engine/` into the `Approval` table | ✅ | In-memory store deleted (GAP-002); only the pure risk→action mapping remains |
+| **B2**: single-use approval consumption | ✅ | `consumeApproval()` compare-and-set on `requestJson` (GAP-004) |
+| **B2**: archive expired temporary agents | ✅ | `temporary-agent-cleanup` hourly cron + `archiveExpiredAgents()` (bounded, audited) |
 | **B3**: tenant policy overrides + staged rollout | ⬜ | Needs `GovernancePolicyOverride` model (more restrictive only) |
-| **B3**: single-use approval consumption | ⬜ | Persist a consumption marker (GAP-004) |
-| **B3**: archive expired temporary agents | ⬜ | Scheduled job using `expiresAt` |
-| **B3**: delete redundant emergency route or map it to canonical keys | ⬜ | One console, one namespace |
+| **B3**: delete redundant emergency route or map it to canonical keys | ⬜ | One console, one namespace; both key namespaces are already honoured by the engine |
 
 Exit criteria for Phase B: every route that can send, publish, deploy, delete,
 change privileges or spend money calls the engine; a test proves each one denies
 without approval.
+
+B2 status: send, publish, destructive restore and privileged tool calls are gated
+and covered by tests. CRM writes and a real deployment pipeline do not exist as
+governed operations yet (deploy POST is a 501 stub), so Phase B stays 🟨 rather
+than being declared complete.
 
 ## Phase C — Unified orchestration ⬜
 

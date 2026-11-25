@@ -13,7 +13,7 @@ Before this change, ALO Labs AgentOS had *fragments* of policy:
 | --- | --- | --- |
 | Tool authorisation | `src/lib/tools/policy.ts` | Whether an agent may call a registered tool |
 | Provider routing policy | `src/lib/multi-tenant-ai/policy.ts` | Whether a model/provider may be used |
-| Approval routing (in-memory) | `src/lib/approval-engine/` | Which risk level needs review |
+| Approval routing (legacy types only) | `src/lib/approval-engine/types.ts` | Risk → required-action mapping used by `/api/approval-engine`; the in-memory store was deleted in B2 (GAP-002) |
 | Emergency toggles | `src/app/api/emergency/route.ts` | Wrote flags to `Settings` |
 | Ad-hoc guards | many routes | SSRF, rate limits, role checks |
 
@@ -57,31 +57,40 @@ GovernanceDecision { allow | require_approval | deny, violations, evidence, appr
 | `src/lib/governance/types.ts` | Vocabulary: risk levels, action classes, policy shape, decision shape |
 | `src/lib/governance/catalog.ts` | The 20 code-defined policies (`POLICY_CATALOG`, `POLICY_CATALOG_VERSION`) |
 | `src/lib/governance/engine.ts` | Evaluation, precedence, integrity validation |
-| `src/lib/governance/approval-binding.ts` | Canonical payload digests and approval verification |
-| `src/lib/governance/runtime.ts` | Emergency state, audit persistence, approval lookup, agent gate |
+| `src/lib/governance/approval-binding.ts` | Canonical payload digests and pure binding verification |
+| `src/lib/governance/approvals.ts` | Bound-approval creation, reviewer-role resolution, single-use consumption, approver defaults |
+| `src/lib/governance/http.ts` | Route-level gate: verify → enforce → consume-or-create, returns a ready `NextResponse` |
+| `src/lib/governance/runtime.ts` | Emergency state, audit persistence, agent gate, tool-approval lookup |
 | `src/lib/governance/index.ts` | Public surface |
 
 ### Enforced today
 
 | Execution path | File | Gate |
 | --- | --- | --- |
-| Internal tool calls | `src/lib/tools/execute.ts` | `enforceGovernance()` before authorisation, plus verified-approval lookup for privileged tools |
+| Internal tool calls | `src/lib/tools/execute.ts` | Approval verified **before** policy (so a valid approval can satisfy it), policy gate, then atomic single-use consumption before the tool runs |
 | Command agent external tools | `src/lib/command-agent/agent.ts` | Per-call governance (previously bypassed ToolRun **and** all policy) |
 | Agent execution | `src/lib/agent-runtime/execution.ts` | Gate before agent lookup, queueing or any model spend |
 | Policy inspection | `GET /api/governance/policies` | Super Admin / Admin, read-only |
 | Policy dry run | `POST /api/governance/evaluate` | Super Admin / Admin, never executes |
 | Workspace status | `GET /api/governance/status` | Any authenticated user: is execution suspended? |
+| Outbound email | `POST /api/email/send` | `external.communicate`; approval bound to account, recipients, subject and a SHA-256 of the body |
+| Social publishing (immediate + scheduled) | `POST /api/social/publish` | `content.publish`; approval bound to the exact content, platforms and schedule |
+| Database restore | `POST /api/db/restore` | `data.delete` + `backupTaken`/`rollbackPlan` evidence + approval; `verifyOnly` stays a safe read |
+| Approval request | `POST /api/governance/approvals` | Creates a bound approval (owner/admin/manager or platform admin); payload digest only |
+| Approval review | `PUT /api/approvals` | Existing tenant-checked review; the engine re-checks the reviewer's role at execution time |
 
 ### Not yet enforced (honest gaps)
 
-- API routes that perform their own external actions (`/api/deploy`, `/api/email/send`,
-  `/api/social/*`, `/api/crm/*`) do not call the engine yet. Phase B2 work.
-- Queue handlers and cron jobs (`src/lib/cron-jobs.ts`, `src/lib/job-queue.ts`)
-  are not gated per job.
-- The `Approval` workflow does not yet *create* bound approvals (with
-  `requestJson.binding`) when a policy returns `require_approval`. Until it does,
-  privileged tools stay blocked — which is the safe direction.
-- Organisation/project policy overrides are not stored in the database. See §7.
+- `/api/crm/*` writes still rely on their own role checks; they are not routed
+  through the engine (GAP-003 remains partially open).
+- Queue handlers and cron jobs have no per-job governance context. A job that
+  calls a governed tool is covered by that tool's gate, but the job entry point
+  itself is not classified.
+- `POST /api/deploy` is a `501` stub: there is no deployment automation to gate.
+  When it is implemented it must use `deploy.production` and the full evidence set.
+- Organisation/project policy overrides are not stored in the database (§7).
+- Only Super Admin/Admin can review platform-level approvals today; there is no
+  bulk-approval UI. The approvals panel lists and resolves individual requests.
 
 ---
 
@@ -193,7 +202,42 @@ allowance is always audited so fail-open is never silent.
 
 ---
 
-## 7. Policy change process
+## 7. Approval lifecycle (Phase B2)
+
+```
+action requested
+   ↓
+verify supplied approval (tenant, action, resource, payload digest, expiry, reviewer role)
+   ↓                                   ↘ invalid → treated as absent, reason surfaced
+policy engine (approvalVerified is evidence, not a bypass)
+   ↓
+deny → 403 GOVERNANCE_DENIED (no approval offered)
+   ↓
+require_approval → create bound approval → 403 GOVERNANCE_APPROVAL_REQUIRED {approvalId}
+   ↓
+reviewer approves via PUT /api/approvals?action=approve
+   ↓
+caller retries with `x-approval-id` (or `approvalId` in the body)
+   ↓
+verify again → atomic consume (compare-and-set on requestJson) → execute
+```
+
+Guarantees:
+
+| Property | How it is enforced |
+| --- | --- |
+| Wrong tenant | `findFirst({ id, companyId })`; cross-tenant ids read as "not found" |
+| Wrong action / resource | Binding compares `actionClass` and `resource` |
+| Changed payload | SHA-256 of canonical JSON; message bodies are never persisted |
+| Expired | `expiresAt` checked at approval and again at execution |
+| Reviewer may not approve | Reviewer role resolved server-side from tenant membership (platform `super_admin` override); `User.role` is not trusted when a membership exists |
+| Replay | `consumedAt` marker written with a compare-and-set; a second use returns `APPROVAL_CONSUMPTION_FAILED` (409) |
+| Concurrent execution | Only one writer's `updateMany` matches the original `requestJson` |
+| Audit | `governance.approval.requested` and `governance.approval.consumed`; approval creation fails closed if the audit write fails |
+
+Approval TTL defaults to 60 minutes and is capped at 24 hours.
+
+## 8. Policy change process
 
 Policies are code. There is no API that mutates the catalogue, because an agent
 (or an administrator under social engineering) must not be able to rewrite the
@@ -221,33 +265,41 @@ migration impact is zero.
 
 ---
 
-## 8. Verification
+## 9. Verification
 
 | Test file | Cases | Proves |
 | --- | --- | --- |
 | `__tests__/unit/governance-policy-engine.test.ts` | 42 | Every policy outcome, precedence, evidence gates, emergency modes, degraded mode, tenant/project invariants, catalogue integrity |
 | `__tests__/unit/governance-runtime.test.ts` | 18 | Both emergency key namespaces, caching, audit on deny only, degraded audit, approval binding (tenant, expiry, status, payload tampering, reviewer role, legacy approvals) |
+| `__tests__/unit/governance-approvals.test.ts` | 22 | Bound-approval creation, body-not-stored, TTL cap, audit failure, reviewer-role precedence, payload tampering, cross-tenant, expiry, pending, single-use consumption + compare-and-set loss, HTTP gate (`GOVERNANCE_DENIED` vs `GOVERNANCE_APPROVAL_REQUIRED` vs allow → replay 409), approver/type mapping |
 | `__tests__/unit/lib/tool-policy.test.ts` | existing | Approval id alone still cannot authorise a privileged tool |
 
 Run:
 
 ```bash
-npx vitest run __tests__/unit/governance-policy-engine.test.ts __tests__/unit/governance-runtime.test.ts
+npx vitest run __tests__/unit/governance-policy-engine.test.ts \
+  __tests__/unit/governance-runtime.test.ts \
+  __tests__/unit/governance-approvals.test.ts
 ```
 
-There is no browser evidence for this phase: the engine is server-side. A UI
-panel for the catalogue (Super Admin → Governance Policies) is **planned** and was
-deliberately not shipped ahead of the enforcement it would display.
+There is no browser evidence for this phase. The Super Admin → Emergency panel now
+shows enforcement status (live vs unverified) from `GET /api/governance/status`; that
+panel was not executed in a browser in this phase, so it is claimed as a code change,
+not as a verified screen.
 
 ---
 
-## 9. What this phase does *not* claim
+## 10. What this phase does *not* claim
 
 - It does not claim every external action is governed yet (§2, "not yet enforced").
+- It does not claim the UI approval review was exercised end-to-end in a browser.
 - It does not claim sandboxed code execution exists; `SEC-SHELL-001` blocks
   unsandboxed execution precisely because no verified sandbox executor is wired.
-- It does not claim approval replay is impossible. The payload digest binds
-  arguments, so replay cannot authorise a *different* call, but single-use
-  consumption needs a persistence marker (GAP-004).
+- It does not claim replay is impossible in every failure mode. The payload digest
+  binds arguments and a `consumedAt` compare-and-set makes an approval single-use;
+  if the database itself is unavailable the call fails closed, but no distributed
+  lock exists across separate database primaries.
+- It does not claim CRM writes, job entry points or a deployment pipeline are gated:
+  they are not (§2).
 - It does not claim production verification. All evidence here is source and
   unit-test evidence from this repository.

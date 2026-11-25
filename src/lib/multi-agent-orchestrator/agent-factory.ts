@@ -7,6 +7,7 @@
 import { db } from '@/lib/db';
 import { getEventBus } from '@/lib/event-bus';
 import type { AgentFactorySpec } from './types';
+import { writeAuditEvent } from '@/lib/audit-events';
 
 const MAX_TEMP_AGENTS_PER_COMPANY = 100;
 const DEFAULT_EXPIRATION_MINUTES = 60;
@@ -353,41 +354,65 @@ export class AgentFactory {
   }
 
   /**
-   * Archive all expired temporary agents.
-   * Should be called periodically.
+   * Archive expired temporary agents.
+   *
+   * Expiry was previously advisory: a temporary agent kept `active` status (and
+   * therefore its tool grants) forever unless a human archived it. The sweep is
+   * bounded, tenant-safe (it only touches temporary agents) and audited, so it
+   * can run from the scheduler without unbounded table scans.
    */
-  async archiveExpiredAgents(): Promise<number> {
-    const now = new Date();
-    let archivedCount = 0;
-
-    // Find all active temporary agents
+  async archiveExpiredAgents(
+    now: Date = new Date(),
+    limit = 200,
+  ): Promise<{ archived: number; scanned: number; skipped: number }> {
     const tempAgents = await db.agent.findMany({
-      where: {
-        type: 'temporary',
-        status: 'active',
-      },
+      where: { type: 'temporary', status: 'active' },
+      take: Math.min(Math.max(1, limit), 500),
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, agentId: true, name: true, companyId: true, productivityRules: true },
     });
+
+    let archived = 0;
+    let skipped = 0;
 
     for (const agent of tempAgents) {
       let expiresAt: string | null = null;
       try {
-        const rules = JSON.parse(agent.productivityRules);
-        expiresAt = rules.expiresAt ?? null;
+        const rules: unknown = JSON.parse(agent.productivityRules);
+        if (rules && typeof rules === 'object' && !Array.isArray(rules)) {
+          const value = (rules as Record<string, unknown>).expiresAt;
+          if (typeof value === 'string') expiresAt = value;
+        }
       } catch {
+        // Corrupt rules cannot prove the agent is live: skip.
+        skipped += 1;
         continue;
       }
 
-      if (expiresAt && new Date(expiresAt) < now) {
-        try {
-          await this.archiveAgent(agent.id);
-          archivedCount++;
-        } catch {
-          // Continue archiving others
-        }
+      const expiry = expiresAt ? new Date(expiresAt) : null;
+      if (!expiry || Number.isNaN(expiry.getTime()) || expiry.getTime() > now.getTime()) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        await this.archiveAgent(agent.id);
+        archived += 1;
+        await writeAuditEvent({
+          actorUserId: null,
+          companyId: agent.companyId,
+          action: 'agent.temporary.archive',
+          resource: 'agent',
+          resourceId: agent.id,
+          details: { agentId: agent.agentId, name: agent.name, expiresAt: expiry.toISOString(), reason: 'expired' },
+        });
+      } catch (error) {
+        skipped += 1;
+        console.error('[agent-factory] failed to archive expired agent', agent.id, error);
       }
     }
 
-    return archivedCount;
+    return { archived, scanned: tempAgents.length, skipped };
   }
 }
 

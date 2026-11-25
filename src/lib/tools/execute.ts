@@ -11,9 +11,13 @@ import { authoriseTool, parseToolList } from './policy';
 import { getTool } from './registry';
 import {
   actionClassForTool,
+  consumeApproval,
+  createBoundApproval,
+  defaultApproversFor,
   enforceGovernance,
   verifyToolApproval,
 } from '@/lib/governance';
+import type { ApproverRole } from '@/lib/governance';
 import type { ToolContext, ToolExecutionResult } from './types';
 
 const DEFAULT_TIMEOUT_MS = 20_000;
@@ -86,8 +90,27 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolExec
 
   const permissions = options.permissions ?? { allowedTools: [], forbiddenTools: [] };
   const actionClass = actionClassForTool(tool);
+  const privileged = tool.risk === 'high' || tool.requiresApproval;
 
-  // 1. Central governance gate: tenant boundary, emergency controls, policy.
+  // 1. Verify a supplied approval *before* evaluating policy. A verified approval
+  //    is evidence the engine can accept; an unverified id is ignored. (Phase B
+  //    evaluated policy first, so a valid approval could never satisfy it.)
+  let verifiedApproval = false;
+  let approvalFailure = '';
+  if (privileged && options.approvalId) {
+    const approval = await verifyToolApproval({
+      approvalId: options.approvalId,
+      companyId: options.context.companyId,
+      toolName: tool.name,
+      args: options.args,
+      actionClass,
+      allowedApproverRoles: defaultApproversFor(actionClass),
+    });
+    verifiedApproval = approval.verified;
+    if (!approval.verified) approvalFailure = approval.reason;
+  }
+
+  // 2. Central governance gate: tenant boundary, emergency controls, policy.
   const governance = await enforceGovernance({
     action: `Execute tool ${tool.name}`,
     actionClass,
@@ -101,31 +124,54 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolExec
       agentId: options.context.agentId ?? null,
     },
     surface: 'internal_job',
+    evidence: verifiedApproval ? { approvalVerified: true, approvalId: options.approvalId ?? null } : undefined,
   });
-  if (governance.outcome !== 'allow') {
-    const reason = `Governance ${governance.outcome === 'deny' ? 'denied' : 'paused'} this call: ${governance.explanation}`;
+
+  if (governance.outcome === 'deny') {
+    const reason = `Governance denied this call: ${governance.explanation}`;
     return record({ ok: false, output: '', error: reason, blocked: true, blockReason: reason });
   }
 
-  // 2. Verify a supplied approval against this exact action before the tool
-  //    policy will consider it. Verification is server-side and fail-closed.
-  let verifiedApproval = false;
-  let approvalFailure = '';
-  if (tool.risk === 'high' || tool.requiresApproval) {
-    if (!options.approvalId) {
-      approvalFailure = 'This tool requires a verified human approval, and no approval id was supplied.';
-    } else {
-      const approval = await verifyToolApproval({
-        approvalId: options.approvalId,
+  if (governance.outcome === 'require_approval' && !verifiedApproval) {
+    // Create a bound approval so a human can authorise this *exact* call, then
+    // return the id. The caller retries with it; nothing executes meanwhile.
+    const approvers = (governance.requiredApprovers.length
+      ? governance.requiredApprovers
+      : defaultApproversFor(actionClass)) as ApproverRole[];
+    let createdId: string | null = null;
+    let createError = '';
+    try {
+      const created = await createBoundApproval({
         companyId: options.context.companyId,
-        toolName: tool.name,
-        args: options.args,
+        requestedBy: options.context.userId ?? null,
         actionClass,
-        allowedApproverRoles: ['super_admin', 'admin', 'organization_owner', 'project_manager'],
+        action: `Execute tool ${tool.name}`,
+        resource: `tool:${tool.name}`,
+        payload: { tool: tool.name, args: options.args },
+        riskLevel: governance.riskLevel,
+        requiredApprovers: approvers,
+        description: governance.explanation.slice(0, 1000),
+        metadata: { agentId: options.context.agentId ?? null, decisionId: governance.decisionId },
       });
-      verifiedApproval = approval.verified;
-      if (!approval.verified) approvalFailure = approval.reason;
+      createdId = created.id;
+    } catch (error) {
+      createError = error instanceof Error ? error.message : 'Approval could not be created.';
     }
+
+    const reason = approvalFailure
+      ? `Governance requires approval: ${approvalFailure}`
+      : createdId
+        ? `Governance requires approval. Approval ${createdId} was requested; retry with approvalId=${createdId} once it is approved.`
+        : `Governance requires approval, but the approval request could not be created. ${createError}`;
+
+    return record({
+      ok: false,
+      output: '',
+      error: reason,
+      blocked: true,
+      blockReason: reason,
+      approvalId: createdId,
+    });
   }
 
   const decision = authoriseTool(tool, permissions, {
@@ -135,6 +181,16 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolExec
   if (!decision.allowed) {
     const reason = approvalFailure ? `${decision.reason} ${approvalFailure}` : decision.reason;
     return record({ ok: false, output: '', error: reason, blocked: true, blockReason: reason });
+  }
+
+  // 3. A privileged call consumes its approval atomically before executing, so
+  //    two concurrent runs cannot both use the same human decision (GAP-004).
+  if (privileged && verifiedApproval && options.approvalId) {
+    const consumption = await consumeApproval(options.approvalId, options.context.companyId, options.context.userId ?? null);
+    if (!consumption.consumed) {
+      const reason = `Approval could not be consumed: ${consumption.reason}`;
+      return record({ ok: false, output: '', error: reason, blocked: true, blockReason: reason });
+    }
   }
 
   try {

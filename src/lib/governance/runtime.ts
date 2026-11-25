@@ -18,7 +18,7 @@
 import { db } from '@/lib/db';
 import { writeAuditEvent } from '@/lib/audit-events';
 import { evaluateGovernance } from './engine';
-import { verifyApprovalBinding, digestActionPayload, normaliseReviewerRole } from './approval-binding';
+import { verifyBoundApproval } from './approvals';
 import type {
   ActionClass,
   ActorRole,
@@ -234,60 +234,19 @@ export interface ToolApprovalResult {
 export async function verifyToolApproval(check: ToolApprovalCheck): Promise<ToolApprovalResult> {
   if (!check.approvalId) return { verified: false, reason: 'No approval id supplied.' };
 
-  try {
-    const approval = await db.approval.findFirst({
-      where: { id: check.approvalId, companyId: check.companyId },
-      select: {
-        id: true,
-        type: true,
-        status: true,
-        companyId: true,
-        requestJson: true,
-        expiresAt: true,
-        reviewedBy: true,
-        reviewedAt: true,
-      },
-    });
-    if (!approval) return { verified: false, reason: 'Approval not found for this organisation.' };
-
-    let reviewerRole: string | null = null;
-    if (approval.reviewedBy) {
-      try {
-        const reviewer = await db.user.findUnique({ where: { id: approval.reviewedBy }, select: { role: true } });
-        reviewerRole = reviewer?.role ?? null;
-      } catch {
-        reviewerRole = null;
-      }
-      if (!reviewerRole) {
-        try {
-          const membership = await db.companyUser.findUnique({
-            where: { companyId_userId: { companyId: check.companyId, userId: approval.reviewedBy } },
-            select: { role: true },
-          });
-          reviewerRole = normaliseReviewerRole(membership?.role ?? null);
-        } catch {
-          reviewerRole = null;
-        }
-      }
-    }
-
-    const verification = verifyApprovalBinding(approval, {
-      companyId: check.companyId,
-      actionClass: check.actionClass,
-      action: check.toolName,
-      resource: `tool:${check.toolName}`,
-      digest: digestActionPayload({ tool: check.toolName, args: check.args }),
-      allowedApproverRoles: check.allowedApproverRoles,
-      reviewerRole,
-    });
-
-    return { verified: verification.valid, reason: verification.reason };
-  } catch (error) {
-    return {
-      verified: false,
-      reason: `Approval could not be verified: ${error instanceof Error ? error.message : 'unknown error'}`,
-    };
-  }
+  // Delegates to the single verification implementation. The tool name and its
+  // arguments are the bound payload, so a changed argument set invalidates the
+  // approval even if the id and tenant are correct.
+  const result = await verifyBoundApproval({
+    approvalId: check.approvalId,
+    companyId: check.companyId,
+    actionClass: check.actionClass,
+    action: check.toolName,
+    resource: `tool:${check.toolName}`,
+    payload: { tool: check.toolName, args: check.args },
+    allowedApproverRoles: check.allowedApproverRoles,
+  });
+  return { verified: result.verified, reason: result.reason };
 }
 
 /* ── Agent execution helper ──────────────────────────────────────────────── */
