@@ -118,6 +118,16 @@ Result: **135 passed / 8 files** (0 failed), including 22 new cases in
 failure, reviewer-role precedence, payload tampering, cross-tenant, expiry, pending,
 single-use consumption, lost compare-and-set and the HTTP gate's three outcomes.
 
+The existing route tests were updated, not skipped:
+`__tests__/api/email.test.ts` now stubs the gate for transport tests and adds one
+test that asserts an unapproved send returns 403 `GOVERNANCE_APPROVAL_REQUIRED`
+with the approval id (26 passed for the email + social API files).
+
+The first CI run after the commit failed **TypeScript** on four casts in the new
+test file (`NextResponse.body` is a `ReadableStream`, not a body object). The test
+double was typed properly (`bodyOf()` narrowing through `unknown`) and the suite
+re-run; nothing was suppressed.
+
 `npx eslint` on every changed file: clean (exit 0).
 `npx tsc --noEmit`: 679 errors, all the pre-existing Prisma-client cascade from the
 offline sandbox (`binaries.prisma.sh` unreachable); **no new error in any added file**
@@ -163,15 +173,28 @@ tests against a database double, not by HTTP calls to a running server.
 
 ## 14. Commit and PR
 
-- Commit: `pending` (this report is committed with the change).
+- Commits on `arena/56041def-alolabs-ai`:
+  - `ac39884` — feat(governance): bound single-use approvals and route coverage
+  - `d30a223` — test(governance): type the NextResponse double so CI typecheck passes
+  - `b074243` — test(email): cover the governed send path and assert the approval block
 - Pull request: [#60](https://github.com/tech360-bd/alolabs_AI/pull/60) (same branch,
   same PR as Phase B).
 
 ## 15. CI status
 
-Pending on push. CI runs the generated Prisma client, so it is the authoritative
-`typecheck`/`lint`/`test`/`build` verification. This section will be corrected with
-the actual check results; no green status is claimed in advance.
+Verified green on `b074243` (run
+[45620606212](https://github.com/tech360-bd/alolabs_AI/actions/runs/45620606212)):
+
+| Check | Result | Duration |
+| --- | --- | --- |
+| TypeScript, tests, lint, and build | **pass** | 4m14s |
+| Login and MFA (isolated Chromium) | **pass** | 51s |
+| Secret Scan | **pass** | 7s |
+| Dependency Audit | **pass** | 1m19s |
+
+CI generates the Prisma client, so this is the authoritative type-check, lint, full
+test suite and production build result. The earlier failure on `ac39884` is recorded
+in §10 rather than hidden.
 
 ## 16. Deployment status
 
