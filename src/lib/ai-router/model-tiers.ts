@@ -194,7 +194,11 @@ export function freeOnlyModeEnabled(env: NodeJS.ProcessEnv = process.env): boole
 export function localProviderNames(env: NodeJS.ProcessEnv = process.env): string[] {
   const names: string[] = [];
   const ollamaEndpoint = env.OLLAMA_BASE_URL || env.OLLAMA_HOST || 'http://localhost:11434';
-  const normalisedOllama = /^https?:\/\//i.test(ollamaEndpoint) ? ollamaEndpoint : `http://${ollamaEndpoint}`;
+  // Mirror provider-registry's normalisation: an OpenAI-style `/v1` suffix must
+  // not change which host/port the trust check sees. See normaliseOllamaEndpoint.
+  const normalisedOllama = (/^https?:\/\//i.test(ollamaEndpoint) ? ollamaEndpoint : `http://${ollamaEndpoint}`)
+    .replace(/\/+$/, '')
+    .replace(/\/v1$/i, '');
   if (isTrustedLocalInferenceEndpoint(normalisedOllama)) names.push('ollama');
   const gatewayIsTrusted = isLocalInferenceConfigured(env) && isTrustedLocalInferenceEndpoint(localGatewayBaseUrl(env));
   if (gatewayIsTrusted) {
