@@ -102,12 +102,18 @@ preflight() {
 
   if install -d -m 700 "${BACKUP_DIR}" 2>/dev/null && [[ -w "${BACKUP_DIR}" ]]; then
     ok "backup directory is writable"
-    local available_kb
+    local available_kb required_kb
     available_kb="$(df -Pk "${BACKUP_DIR}" 2>/dev/null | awk 'NR==2 {print $4}')"
-    if [[ "${available_kb:-0}" =~ ^[0-9]+$ ]] && (( available_kb >= 524288 )); then
-      ok "free disk space: $(( available_kb / 1024 )) MiB"
+    # A verified snapshot needs room for the database dump + compressed storage
+    # archive at the same time. The old 512 MiB floor passed preflight on hosts
+    # where the dump could not possibly fit, and the failure then surfaced as a
+    # truncated backup instead of a clear message. Require 2 GiB by default;
+    # override with ALO_BACKUP_MIN_FREE_MB on unusually small databases.
+    required_kb=$(( ${ALO_BACKUP_MIN_FREE_MB:-2048} * 1024 ))
+    if [[ "${available_kb:-0}" =~ ^[0-9]+$ ]] && (( available_kb >= required_kb )); then
+      ok "free disk space: $(( available_kb / 1024 )) MiB (need $(( required_kb / 1024 )) MiB)"
     else
-      warn "free disk space is below 512 MiB or could not be measured (${available_kb:-unknown} KiB)"
+      warn "free disk space is below $(( required_kb / 1024 )) MiB or could not be measured (${available_kb:-unknown} KiB)"
     fi
   else
     bad "backup directory is not writable"

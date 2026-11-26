@@ -73,5 +73,52 @@ print('-- local dump test')''')
         self.assertEqual(self.finish(self.start()),0); self.assertGreaterEqual(sum(publisher.verified(p) for p in self.store.iterdir()),14)
         self.assertFalse(original.exists());self.assertEqual(len(list(self.store.glob('*-bad*'))),4)
 
+    def test_retention_bounds_disk_growth_without_leaving_zero_restores(self):
+        """Shared-host 520 GB disk: keep 7 restorable snapshots, never fewer.
+
+        A snapshot is dropped only when it is BOTH beyond ALO_BACKUP_RETAIN_COUNT
+        and older than ALO_BACKUP_RETAIN_DAYS. Two failure modes are covered:
+          - many old copies must be pruned (disk safety), and
+          - a lone old copy must survive (restorability).
+        """
+        self.assertEqual(self.finish(self.start()), 0)
+        original = next(self.store.iterdir())
+        old = time.time() - 30 * 86400
+        # Ten snapshots, all 30 days old: beyond both bounds.
+        for i in range(9):
+            p = self.store / f'2025010{i}T000000Z-old'
+            shutil.copytree(original, p)
+            os.utime(p, (old, old))
+        os.utime(original, (old, old))
+        env = {'ALO_BACKUP_RETAIN_COUNT': '7', 'ALO_BACKUP_RETAIN_DAYS': '7'}
+        proc = subprocess.Popen(
+            ['bash', str(ROOT / 'deploy/scripts/backup.sh')],
+            env={
+                'PATH': str(self.bin) + ':' + os.environ['PATH'],
+                'APP_DIR': str(self.app),
+                'BACKUP_DIR': str(self.store),
+                **env,
+            },
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        self.assertEqual(self.finish(proc), 0)
+        valid = [p for p in self.store.iterdir() if publisher.verified(p)]
+        # The newest snapshot is kept plus the retain_count newest; pruning must
+        # never leave the host without a restorable copy.
+        self.assertGreaterEqual(len(valid), 7)
+        self.assertLessEqual(len(valid), 9)
+
+    def test_retention_keeps_a_lone_old_snapshot(self):
+        """Deleting on the age bound alone would destroy the only restore point."""
+        self.assertEqual(self.finish(self.start()), 0)
+        original = next(self.store.iterdir())
+        old = time.time() - 30 * 86400
+        os.utime(original, (old, old))
+        self.assertEqual(self.finish(self.start()), 0)
+        self.assertTrue(original.exists())
+        self.assertTrue(publisher.verified(original))
+
 
 if __name__ == '__main__': unittest.main()
