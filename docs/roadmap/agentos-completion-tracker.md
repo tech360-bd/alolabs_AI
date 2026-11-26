@@ -34,7 +34,7 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | 5 | Developer + infrastructure (cloud, scaling) | NOT_STARTED |
 | 6 | Enterprise (admin, RBAC, audit, billing) | NOT_STARTED |
 | 7 | Integration and hardening (full test matrix) | NOT_STARTED |
-| 8 | Close every requirement, handover reports | NOT_STARTED |
+| 8 | Close every requirement, handover reports | **IN_PROGRESS** — `docs/reports/security-verification-report.md` written |
 
 ---
 
@@ -98,8 +98,8 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | **Deps** | DB: `AiWorkspace.companyId` (nullable → backfill → NOT NULL). API: both towers. |
 | **Security** | This row *is* the security work. |
 | **Tests** | `tenant-isolation.test.ts` (10) + `tenant-migration.test.ts` (10) + `approval-tenant.test.ts` (4) + `system-operation.test.ts` (8) = **32 security tests** |
-| **Commit / PR** | Stage 1 branch |
-| **Verification** | 32/32 pass; full suite **2594 passed**, 0 failed |
+| **Commit / PR** | `cbb653e`, `47019cc`, `f73d956`, `6642ab4`, `4bee7e7` |
+| **Verification** | `npx vitest run __tests__/security` → **5 files, 39 tests passed**; full suite 2601 passed. Evidence: `docs/reports/security-verification-report.md` |
 | **Status** | `TESTED` — T-1…T-8 fixed; production migration gated on DB authorization |
 
 ## A1.5 Unified authentication
