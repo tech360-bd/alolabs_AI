@@ -5185,7 +5185,7 @@ model AiProject {
   description String @db.LongText   @default("")
   status      String   @default("active") // active | archived
   settings    String @db.LongText   @default("{}")
-  createdBy   String @db.LongText
+  createdBy   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

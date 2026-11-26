@@ -14,8 +14,18 @@ describe('static SQLite/MySQL Prisma schema compatibility', () => {
   it('verifies current model, field-type, index, relation and large-text checks', () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const result = verifyCompatibility();
-    expect(result.totalModels).toBe(252);
-    expect(result.sqliteModels).toBe(252);
+    // Model count is read from the schema rather than pinned: this test already
+    // calls verifyCompatibility(), which reports the real figure. A hardcoded
+    // number turns every new model into a failing test with a misleading name
+    // ("parity broke") when in fact only the count moved — the parity,
+    // collision and relation assertions below are what actually matter.
+    const sqliteModels = (fs.readFileSync(path.join(process.cwd(), 'prisma/schema.prisma'), 'utf8')
+      .match(/^model\s+\w+\s*\{/gm) ?? []).length;
+    expect(result.totalModels).toBe(sqliteModels);
+    expect(result.sqliteModels).toBe(sqliteModels);
+    // A guard, not a target: the platform must not silently lose models to a
+    // bad merge of the generated MySQL schema.
+    expect(sqliteModels).toBeGreaterThanOrEqual(266);
     expect(result.schemaParityErrors).toBe(0);
     expect(result.indexCollisions).toBe(0);
     expect(result.relationFieldCollisions).toBe(0);
