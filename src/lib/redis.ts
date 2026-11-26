@@ -29,9 +29,14 @@ const memorySets = new Map<string, Set<string>>();
 const memoryHashes = new Map<string, Map<string, string>>();
 const memoryCounters = new Map<string, number>();
 
-// Cleanup expired memory entries every 60 seconds
+// Cleanup expired memory entries every 60 seconds.
+//
+// `unref()` matters: without it this timer is the only thing keeping a Node
+// process alive, so every CLI script, worker and test that merely *imports*
+// the db/redis graph hangs on exit instead of finishing. The timer is
+// housekeeping, not work, so it must never hold the loop open.
 if (typeof globalThis !== 'undefined') {
-  setInterval(() => {
+  const cleanup = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of memoryCache.entries()) {
       if (entry.expiresAt > 0 && now > entry.expiresAt) {
@@ -39,6 +44,7 @@ if (typeof globalThis !== 'undefined') {
       }
     }
   }, 60_000);
+  cleanup.unref?.();
 }
 
 export async function connectRedis(config?: RedisConfig): Promise<{ success: boolean; error?: string; latencyMs?: number; version?: string }> {

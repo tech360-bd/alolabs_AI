@@ -233,9 +233,30 @@ export async function proxy(request: NextRequest) {
       const session = request.cookies.get(SESSION_COOKIE_NAME)?.value;
       if (session) forwardedHeaders.set('authorization', `Bearer ${session}`);
     }
+    /**
+     * The browser talks to `/api/v1/platform/**` with its own session cookie;
+     * it has no reason to hold an API key, and asking it to would mean every
+     * page has to mint and store a long-lived credential in JS — exactly the
+     * pattern project API keys exist to avoid.
+     *
+     * So for the v1 service plane a `session-token` cookie is a first-class
+     * credential here: it is mirrored into an Authorization header (this proxy
+     * runs at the edge and cannot verify a Node session token itself) and the
+     * route-level resolver performs the real verification, revocation and
+     * workspace-membership checks. Nothing is trusted because of this header;
+     * it only carries the cookie forward.
+     */
+    const isV1 = pathname.startsWith('/api/v1/');
+    const sessionCookie = isV1 ? request.cookies.get(SESSION_COOKIE_NAME)?.value : undefined;
+    if (sessionCookie && !forwardedHeaders.get('authorization')) {
+      forwardedHeaders.set('authorization', `Bearer ${sessionCookie}`);
+    }
     const authHeader = forwardedHeaders.get('authorization');
-    hasV1Key = pathname.startsWith('/api/v1/') && Boolean(request.headers.get('x-api-key')?.trim());
-    if (!hasV1Key && !scrape) {
+    hasV1Key = isV1 && Boolean(request.headers.get('x-api-key')?.trim());
+    // A browser session on the v1 plane is handled by the route resolver; the
+    // edge only needs to confirm a credential is present.
+    const hasV1Session = isV1 && Boolean(sessionCookie) && !hasV1Key;
+    if (!hasV1Key && !hasV1Session && !scrape) {
       if (!authHeader?.startsWith('Bearer ')) {
         return NextResponse.json(
           { error: 'Unauthorized', message: 'Missing or invalid Authorization header' },

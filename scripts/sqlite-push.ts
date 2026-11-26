@@ -173,6 +173,51 @@ function main() {
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec('PRAGMA foreign_keys = ON;');
 
+  /**
+   * Additive columns missing from an existing table.
+   *
+   * `CREATE TABLE IF NOT EXISTS` silently skips a table that already exists, so
+   * without this a newly declared scalar column never reaches a database that
+   * has been pushed before — the model and the table disagree, and the failure
+   * only shows up as a Prisma "Unknown field" at runtime.
+   *
+   * Only *nullable* or defaulted scalars are added. Anything that would need a
+   * table rebuild (a new NOT NULL without a default, a changed type, a new
+   * relation) is reported and left alone rather than guessed at.
+   */
+  const additive: string[] = [];
+  for (const model of models) {
+    if (!existing.has(model.name)) continue;
+    const have = new Set(
+      (db.prepare(`PRAGMA table_info(${quoteIdent(model.name)})`).all() as Array<{ name: string }>)
+        .map((row) => row.name),
+    );
+    for (const field of model.fields) {
+      if (have.has(field.name)) continue;
+      if (field.relation?.fields.length) continue;      // scalar side of a relation
+      if (field.isList) continue;                        // lists live in child tables
+      const type = sqlType(field) + defaultClause(field);
+      const required = field.isRequired && !field.hasDefaultValue && !field.defaultValue;
+      if (required) {
+        console.warn(`[sqlite-push] ${model.name}.${field.name} is required with no default; needs a reviewed table rebuild — skipped.`);
+        continue;
+      }
+      additive.push(`ALTER TABLE ${quoteIdent(model.name)} ADD COLUMN ${quoteIdent(field.name)} ${type};`);
+    }
+  }
+  if (additive.length) {
+    console.log(`sqlite-push: ${additive.length} additive column(s) to apply`);
+    for (const statement of additive) {
+      try {
+        db.exec(statement);
+        console.log(`  + ${statement.replace('ALTER TABLE ', '').replace(' ADD COLUMN ', '.')}`);
+      } catch (e) {
+        console.error('FAILED ALTER:\n' + statement);
+        throw e;
+      }
+    }
+  }
+
   let applied = 0;
   db.exec('BEGIN;');
   try {

@@ -162,6 +162,26 @@ export const SHARED_API_ROUTES: readonly { path: string; methods: readonly strin
   { path: '/api/auth/password-change', methods: ['POST'] },
 ];
 
+/**
+ * Prefixes every authenticated audience may reach.
+ *
+ * `/api/v1/platform/**` is the ALO Open AI Platform: a multi-tenant product
+ * whose tenants are ordinary users, not staff. Both a client account and an
+ * internal account can own a workspace, so gating it on audience would mean a
+ * self-registered user cannot use the product they just signed up for.
+ *
+ * This is not a loosening of isolation. Audience separation protects the
+ * *company's* internal surfaces (`/api/internal/**`, staff tooling) from a
+ * customer session. The platform endpoints authorise themselves: every query is
+ * scoped to the caller's own workspace, and a project or conversation belonging
+ * to someone else resolves to 404 regardless of audience.
+ */
+const SHARED_API_PREFIXES: readonly string[] = ['/api/v1/platform'];
+
+function underSharedPrefix(pathname: string): boolean {
+  return SHARED_API_PREFIXES.some((prefix) => under(pathname, prefix));
+}
+
 function under(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
@@ -255,6 +275,7 @@ export function isSharedApiRoute(pathname: string, method: string): boolean {
  */
 export function audienceMayCallApi(audience: Audience, pathname: string, method: string): boolean {
   if (isSharedApiRoute(pathname, method)) return true;
+  if (underSharedPrefix(pathname)) return true;
   const clientGroup = isClientApiPath(pathname);
   return audience === 'client' ? clientGroup : !clientGroup;
 }
