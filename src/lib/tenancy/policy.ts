@@ -86,8 +86,20 @@ export function isUsableTenantId(value: string | null | undefined): value is str
  * call — a cached membership is how a revoked employee keeps working until the
  * cache expires, and "eventually revoked" is not a security property.
  */
+/**
+ * The narrow slice of Prisma this module needs.
+ *
+ * Prisma's generated delegate is generic over its argument shape, so a concrete
+ * parameter type here would reject the real client. A broad `any` argument with
+ * a narrow result keeps the call site honest while still accepting Prisma and
+ * the test doubles the suites pass in.
+ */
+type MembershipLookup = {
+  companyUser: { findFirst: (args: any) => Promise<{ companyId?: string; role?: string; id?: string } | null> };
+};
+
 export async function userBelongsToCompany(
-  db: { companyUser: { findFirst: (args: unknown) => Promise<unknown> } },
+  db: MembershipLookup,
   userId: string,
   companyId: string,
 ): Promise<boolean> {
@@ -113,9 +125,9 @@ export async function userBelongsToCompany(
 export async function resolveTenantContext(
   deps: {
     db: {
-      companyUser: { findFirst: (args: unknown) => Promise<unknown> };
-      aiWorkspace: { findFirst: (args: unknown) => Promise<unknown> };
-      aiWorkspaceMember: { findFirst: (args: unknown) => Promise<unknown> };
+      companyUser: MembershipLookup['companyUser'];
+      aiWorkspace: { findFirst: (args: any) => Promise<{ id?: string; companyId?: string | null; status?: string } | null> };
+      aiWorkspaceMember: { findFirst: (args: any) => Promise<{ role?: string } | null> };
     };
   },
   principal: { userId: string },
@@ -301,7 +313,7 @@ export class SystemOperationDenied extends Error {
  * indistinguishable from a bug.
  */
 export async function assertSystemOperation(
-  deps: { db: { auditLog: { create: (args: unknown) => Promise<unknown> } } },
+  deps: { db: { auditLog: { create: (args: any) => Promise<unknown> } } },
   principal: { userId: string; role: string; scopes: string[] },
   operation: { action: string; reason: string; targetCompanyIds?: string[] },
 ): Promise<void> {

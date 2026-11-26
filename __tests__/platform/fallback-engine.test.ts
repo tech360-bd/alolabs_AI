@@ -97,7 +97,7 @@ vi.mock('@/lib/platform/model-registry', async () => {
   const actual = await vi.importActual<typeof import('@/lib/platform/model-registry')>('@/lib/platform/model-registry');
   return {
     ...actual,
-    selectCandidates: vi.fn(async (options: { requires?: string[]; allowRemote?: boolean; preferredModel?: string }) => {
+    selectCandidates: vi.fn(async (options: { requires?: import('@/lib/platform/model-registry').ModelCapability[]; allowRemote?: boolean; preferredModel?: string }) => {
       const requires = options.requires ?? ['chat'];
       let list = candidates.filter((c) => requires.every((r) => c.capabilities.includes(r)));
       // Remote providers are opt-in; the default is local-only.

@@ -90,7 +90,7 @@ describe('T-2: no pseudo-tenant absorbs unowned runs', () => {
     // later executed under the literal string 'default-company', which made
     // every orphaned run indistinguishable from every other tenant's.
     await expect(
-      createRun({ objective: 'tenantless run', executeInline: false }),
+      createRun({ objective: 'tenantless run', executeInline: false } as never),
     ).rejects.toThrow(/company/i);
   });
 

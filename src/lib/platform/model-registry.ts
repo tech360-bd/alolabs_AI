@@ -77,7 +77,16 @@ export interface AvailableDeployment extends ModelDeployment {
    */
   health?: DeploymentHealth;
   cooldown?: { active: boolean; until?: number; reason?: string };
-  quota?: { used: number; limit: number; exhausted: boolean; resetAt?: number } | null;
+  /**
+   * Live usage against the configured `quota` window.
+   *
+   * Deliberately NOT called `quota`: the inherited `quota` is the configured
+   * limit (immutable, part of the deployment definition) that `consumeQuota`
+   * needs, while this is the moving state. Sharing one name forced an override
+   * the type system correctly rejected, and renaming the configured field
+   * instead would have broken the routing-state call.
+   */
+  liveQuota?: { used: number; limit: number; exhausted: boolean; resetAt?: number } | null;
   /** Why this deployment is not selectable, when it is not. */
   blockedReason?: string;
   /** Can the router use it right now? */
@@ -395,7 +404,12 @@ export async function describeAvailability(): Promise<AvailableDeployment[]> {
       reachable,
       health,
       cooldown,
-      quota: quota ? { used: quota.used, limit: quota.limit, exhausted: quota.exhausted, ...(quota.resetAt ? { resetAt: quota.resetAt } : {}) } : null,
+      // The CONFIGURED window, copied onto the availability view. Without this
+      // the fallback engine's `if (candidate.quota)` guard was always false on
+      // this path, so a documented free-tier window was never consumed and the
+      // engine would keep routing to a deployment past its limit.
+      ...(deployment.quota ? { quota: deployment.quota } : {}),
+      liveQuota: quota ? { used: quota.used, limit: quota.limit, exhausted: quota.exhausted, ...(quota.resetAt ? { resetAt: quota.resetAt } : {}) } : null,
       ...(blockedReason ? { blockedReason } : {}),
       selectable: !blockedReason,
     });
@@ -463,8 +477,13 @@ export async function selectCandidates(options: SelectOptions = {}): Promise<Ava
     const tier = TIER_ORDER[a.hostingType] - TIER_ORDER[b.hostingType];
     if (tier !== 0) return tier;
     if (a.priority !== b.priority) return a.priority - b.priority;
-    if (b.health.successRate !== a.health.successRate) return b.health.successRate - a.health.successRate;
-    return a.health.avgLatencyMs - b.health.avgLatencyMs;
+    // `health` is optional: a candidate list may be built without probing (a
+    // fresh deployment, or a test). An unprobed deployment sorts after a probed
+    // one with equal tier and priority rather than throwing.
+    const aRate = a.health?.successRate ?? a.health?.successRate ?? 0;
+    const bRate = b.health?.successRate ?? 0;
+    if (bRate !== aRate) return bRate - aRate;
+    return (a.health?.avgLatencyMs ?? Number.MAX_SAFE_INTEGER) - (b.health?.avgLatencyMs ?? Number.MAX_SAFE_INTEGER);
   });
 }
 

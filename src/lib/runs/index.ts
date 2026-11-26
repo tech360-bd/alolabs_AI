@@ -1196,8 +1196,21 @@ async function loadPlan(runId: string): Promise<PlanStep[]> {
 export async function createRunFromCommand(commandId: string): Promise<{ runId: string } | null> {
   const command = await db.command.findUnique({ where: { id: commandId } });
   if (!command) return null;
+
+  // A command has no company of its own; its tenant is the issuer's. Resolve it
+  // rather than letting the run be created unowned (T-2). A command whose user
+  // belongs to no company cannot produce a run.
+  const issuer = command.userId
+    ? await db.companyUser.findFirst({ where: { userId: command.userId }, select: { companyId: true } })
+    : null;
+  if (!isUsableTenantId(issuer?.companyId)) {
+    console.warn('[AgentOS] command has no resolvable tenant; refusing to create a run', commandId);
+    return null;
+  }
+
   const { runId } = await createRun({
     objective: command.rawCommand,
+    companyId: issuer!.companyId,
     ...(command.userId ? { userId: command.userId } : {}),
     commandId: command.id,
   });

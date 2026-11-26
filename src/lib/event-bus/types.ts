@@ -9,7 +9,15 @@ export interface DomainEvent<T = unknown> {
   id: string;
   type: string;
   source: string;       // agent ID, service name, or 'system'
-  companyId: string;
+  /**
+   * The owning tenant.
+   *
+   * Optional because a system-scoped event (a worker starting, a queue
+   * draining) genuinely has no company, and because a run whose tenant could
+   * not be resolved must NOT borrow one (that was threat T-2). Subscribers that
+   * filter by tenant already treat a missing value as "never matches".
+   */
+  companyId?: string;
   userId?: string;
   data: T;
   priority: EventPriority;

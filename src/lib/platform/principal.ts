@@ -304,22 +304,6 @@ async function principalFromSession(token: string, requestedWorkspaceId?: string
   // the caller explicitly asked for one (that would make a switcher lie).
   const requested = requestedWorkspaceId?.trim() || null;
 
-  const memberships = await db.aiWorkspaceMember.findMany({
-    where: {
-      userId: user.id,
-      // Only workspaces in the resolved company are candidates. A stale row
-      // pointing at another company's workspace simply never appears.
-      workspace: { companyId: company.companyId, status: 'active' },
-    },
-    select: { workspaceId: true, role: true, workspace: { select: { status: true } } },
-    orderBy: { createdAt: 'asc' },
-  });
-  const owned = await db.aiWorkspace.findMany({
-    where: { ownerId: user.id, companyId: company.companyId, status: 'active' },
-    select: { id: true, status: true },
-    orderBy: { createdAt: 'asc' },
-  });
-
   // ── Company first (T-3) ─────────────────────────────────────────────────
   // This is the check the platform tower never made. A workspace membership is
   // only meaningful while the user still belongs to the company that owns the
@@ -336,6 +320,23 @@ async function principalFromSession(token: string, requestedWorkspaceId?: string
     // half-built one with an empty workspace id.
     return null;
   }
+
+
+  const memberships = await db.aiWorkspaceMember.findMany({
+    where: {
+      userId: user.id,
+      // Only workspaces in the resolved company are candidates. A stale row
+      // pointing at another company's workspace simply never appears.
+      workspace: { companyId: company.companyId, status: 'active' },
+    },
+    select: { workspaceId: true, role: true, workspace: { select: { status: true } } },
+    orderBy: { createdAt: 'asc' },
+  });
+  const owned = await db.aiWorkspace.findMany({
+    where: { ownerId: user.id, companyId: company.companyId, status: 'active' },
+    select: { id: true, status: true },
+    orderBy: { createdAt: 'asc' },
+  });
 
   const candidates = [
     ...memberships.map((m) => ({ id: m.workspaceId, role: m.role, status: m.workspace.status })),
@@ -428,14 +429,32 @@ export async function sessionPrincipalForWorkspace(
   });
   if (!user || !user.isActive) return null;
 
+  // T-3: this is the same gate the main session path applies. It was missing
+  // here, so UI bootstrap could hand a removed employee a workspace principal
+  // even though the API path would have refused them.
+  const company = (await db.companyUser.findFirst({
+    where: { userId: user.id },
+    select: { companyId: true },
+  })) as { companyId: string } | null;
+  if (!company) return null;
+
   const owned = await db.aiWorkspace.findFirst({
-    where: { ownerId: user.id, status: 'active', ...(workspaceId ? { id: workspaceId } : {}) },
+    where: {
+      ownerId: user.id,
+      companyId: company.companyId,
+      status: 'active',
+      ...(workspaceId ? { id: workspaceId } : {}),
+    },
     orderBy: { createdAt: 'asc' },
   });
   const membership = owned
     ? null
     : await db.aiWorkspaceMember.findFirst({
-        where: { userId: user.id, ...(workspaceId ? { workspaceId } : {}), workspace: { status: 'active' } },
+        where: {
+          userId: user.id,
+          ...(workspaceId ? { workspaceId } : {}),
+          workspace: { status: 'active', companyId: company.companyId },
+        },
         orderBy: { createdAt: 'asc' },
       });
   const target = owned?.id ?? membership?.workspaceId;
@@ -448,6 +467,8 @@ export async function sessionPrincipalForWorkspace(
     name: user.name,
     role: user.role,
     workspaceId: target,
+    companyId: company.companyId,
+    scope: 'workspace',
     scopes: SESSION_SCOPES,
     rateLimitPerMinute: 240,
   };

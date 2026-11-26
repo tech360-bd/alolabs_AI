@@ -25,7 +25,7 @@ beforeAll(async () => {
   });
 }, 60_000);
 
-const env = (list?: string) => ({ ALO_SYSTEM_OPERATORS: list }) as NodeJS.ProcessEnv;
+const env = (list?: string) => ({ ALO_SYSTEM_OPERATORS: list }) as unknown as NodeJS.ProcessEnv;
 
 describe('resolveSystemScopes', () => {
   it('grants nothing when the allowlist is unset', async () => {

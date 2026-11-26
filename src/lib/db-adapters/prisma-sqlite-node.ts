@@ -317,7 +317,9 @@ class NodeSqliteQueryable implements SqlQueryable {
         statement.run(...bindAll(query));
         return { columnNames: [], declaredTypes: [], rows: [] };
       }
-      const rows = statement.all(...bindAll(query)) as unknown[][];
+      // setReturnArrays(true) makes rows positional arrays; the driver's own
+      // types still say record-shaped, so go through `unknown`.
+      const rows = statement.all(...bindAll(query)) as unknown as unknown[][];
       return {
         columnNames: columns.map((column) => column.name),
         declaredTypes: columns.map((column) => column.type ?? null),
@@ -328,6 +330,10 @@ class NodeSqliteQueryable implements SqlQueryable {
     } finally {
       statement?.setReturnArrays(false);
     }
+    // Unreachable: `toDriverError` throws. Present so the function has a
+    // defined return for the compiler, which cannot infer `never` through the
+    // try/finally pair.
+    throw new Error('unreachable: runRead did not return and did not throw');
   }
 
   protected runWrite(query: SqlQuery): number {
@@ -336,8 +342,10 @@ class NodeSqliteQueryable implements SqlQueryable {
       const result = statement.run(...bindAll(query));
       return Number(result.changes);
     } catch (error) {
+      // `never`-returning; the throw below is for the compiler only.
       toDriverError(error);
     }
+    throw new Error('unreachable: runWrite did not return and did not throw');
   }
 
   getConnectionInfo(): { supportsRelationJoins: boolean } {

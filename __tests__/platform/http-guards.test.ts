@@ -51,7 +51,11 @@ vi.mock('@/lib/security/rate-limiter', () => ({
 import { platformRoute, PlatformError, badRequest } from '@/lib/platform/http';
 import { z } from 'zod';
 
-function request(url = 'http://localhost:3011/api/v1/platform/test', init?: RequestInit) {
+// NextRequest narrows RequestInit to Next's own spec; the DOM `RequestInit` is
+// not assignable to it, so the parameter is typed from the constructor itself.
+type NextInit = ConstructorParameters<typeof NextRequest>[1];
+
+function request(url = 'http://localhost:3011/api/v1/platform/test', init?: NextInit) {
   return new NextRequest(url, init);
 }
 
@@ -128,7 +132,7 @@ describe('platformRoute', () => {
 
     // A route may tighten below the principal's ceiling.
     limitState.calls = [];
-    await platformRoute({ rateLimit: { limit: 2 } }, async () => Response.json({}) as never)(
+    await platformRoute({ rateLimit: { limit: 2, windowMs: 60_000 } }, async () => Response.json({}) as never)(
       request('http://localhost:3011/x', { headers: { 'x-api-key': 'alo_pk_x' } }),
     );
     expect(limitState.calls[0]?.limit).toBe(2);
