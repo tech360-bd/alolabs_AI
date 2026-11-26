@@ -76,6 +76,10 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const active = (href: string) => (href === '/platform' ? pathname === href : pathname.startsWith(href));
+  // `canManageProviders` is set by the server from the User row, so this is a
+  // convenience for the navigation, not the authorisation check — every admin
+  // route calls requirePlatformAdmin independently.
+  const canAdministerPlatform = Boolean(me?.permissions.canManageProviders);
 
   return (
     <div className="flex min-h-screen bg-slate-950 text-slate-100">
@@ -136,6 +140,27 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
               </ul>
             </div>
           ))}
+
+          {/* Administration is shown only to an account that can actually use
+              it, so the navigation never advertises a page that will 403. */}
+          {canAdministerPlatform && (
+            <div className="mb-4">
+              <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Administration
+              </div>
+              <Link
+                href="/platform/admin"
+                onClick={() => setOpen(false)}
+                className={`block rounded-md px-2 py-1.5 text-[13px] transition-colors ${
+                  pathname.startsWith('/platform/admin')
+                    ? 'bg-amber-500/15 font-medium text-amber-300'
+                    : 'text-amber-200/70 hover:bg-slate-800/70 hover:text-amber-200'
+                }`}
+              >
+                Super Admin
+              </Link>
+            </div>
+          )}
         </nav>
 
         <div className="mt-auto border-t border-slate-800 p-3 text-[11px] text-slate-400">

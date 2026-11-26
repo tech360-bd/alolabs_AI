@@ -216,7 +216,32 @@ async function principalFromSession(token: string, requestedWorkspaceId?: string
     ...owned.map((w) => ({ id: w.id, role: 'owner', status: w.status })),
   ].filter((entry) => entry.status === 'active');
 
-  if (candidates.length === 0) return null;
+  /**
+   * A signed-in account with no workspace is still a valid identity.
+   *
+   * This happens for real: an operator seeded on a fresh install administers the
+   * platform before any tenant exists, and a newly invited staff member may not
+   * have been added to a workspace yet. Refusing them at the *principal* layer
+   * made the Super Admin panel unreachable for the one account that must reach
+   * it, and produced an "invalid credential" message that was simply untrue.
+   *
+   * The principal is still honest about the absence: `workspaceId` is `''` and
+   * every workspace-scoped helper treats that as "no tenant", so no query can
+   * accidentally match a real workspace id.
+   */
+  if (candidates.length === 0) {
+    if (requested) return null; // explicitly asked for a workspace they are not in
+    return {
+      kind: 'session',
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      workspaceId: '',
+      scopes: SESSION_SCOPES,
+      rateLimitPerMinute: 240,
+    };
+  }
 
   // An explicit request that does not resolve to a workspace the user belongs to
   // is a refusal, not a fallback: silently answering from a different workspace

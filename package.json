@@ -1,6 +1,7 @@
 {
   "name": "alolabs-agentos",
   "version": "1.0.0",
+  "license": "MIT",
   "description": "ALO Labs AgentOS / AI-EOS — Enterprise Artificial Intelligence Operating System",
   "private": true,
   "engines": {

@@ -13,16 +13,25 @@ import { canAdministerWorkspace } from '@/lib/platform/principal';
 import { anyProviderConfigured } from '@/lib/platform/providers';
 
 export const GET = platformRoute({}, async ({ principal, requestId }) => {
+  // An operator without a tenant legitimately has no workspace. Querying with an
+  // empty id would run a pointless query, and returning a fabricated workspace
+  // would be a lie, so the fields below are simply null.
+  const hasWorkspace = Boolean(principal.workspaceId);
+
   const [workspace, user, summary] = await Promise.all([
-    db.aiWorkspace.findUnique({
-      where: { id: principal.workspaceId },
-      select: { id: true, name: true, slug: true, kind: true, plan: true, createdAt: true, ownerId: true },
-    }),
+    hasWorkspace
+      ? db.aiWorkspace.findUnique({
+          where: { id: principal.workspaceId },
+          select: { id: true, name: true, slug: true, kind: true, plan: true, createdAt: true, ownerId: true },
+        })
+      : Promise.resolve(null),
     db.user.findUnique({
       where: { id: principal.userId },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     }),
-    workspaceSummary(principal.workspaceId),
+    hasWorkspace
+      ? workspaceSummary(principal.workspaceId)
+      : Promise.resolve({ projects: 0, keys: 0, activeKeys: 0, conversations: 0, files: 0, requests30d: 0, tokens30d: 0 }),
   ]);
 
   return json({
@@ -38,7 +47,7 @@ export const GET = platformRoute({}, async ({ principal, requestId }) => {
     user,
     workspace,
     permissions: {
-      canAdministerWorkspace: await canAdministerWorkspace(principal, principal.workspaceId),
+      canAdministerWorkspace: hasWorkspace ? await canAdministerWorkspace(principal, principal.workspaceId) : false,
       canCreateKeys: principal.kind === 'session',
       canManageProviders: user?.role === 'admin' || user?.role === 'super_admin',
     },
