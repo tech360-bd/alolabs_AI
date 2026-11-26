@@ -16,15 +16,37 @@ export function SettingsView() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [newKey, setNewKey] = useState<string | null>(null);
+
+  const load = async () => {
+    const [meResult, healthResult] = await Promise.all([platformApi.me(), platformApi.health()]);
+    if (meResult.ok) setMe(meResult.data);
+    else setError(meResult.message);
+    if (healthResult.ok) setHealth(healthResult.data);
+  };
 
   useEffect(() => {
-    void (async () => {
-      const [meResult, healthResult] = await Promise.all([platformApi.me(), platformApi.health()]);
-      if (meResult.ok) setMe(meResult.data);
-      else setError(meResult.message);
-      if (healthResult.ok) setHealth(healthResult.data);
-    })();
+    void load();
   }, []);
+
+  const createWorkspace = async () => {
+    setCreating(true);
+    const response = await fetch('/api/v1/platform/workspaces/ensure', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { apiKey?: string; error?: { message?: string } }
+      | null;
+    setCreating(false);
+    if (!response.ok) {
+      setError(payload?.error?.message ?? 'Could not create a workspace');
+      return;
+    }
+    if (payload?.apiKey) setNewKey(payload.apiKey);
+    await load();
+  };
 
   return (
     <div className="space-y-5">
@@ -34,6 +56,30 @@ export function SettingsView() {
       </div>
 
       {error && <p className="rounded border border-red-800/60 bg-red-950/30 p-2 text-xs text-red-300">{error}</p>}
+
+      {me && !me.workspace && (
+        <section className="rounded-lg border border-cyan-800/60 bg-cyan-950/30 p-4">
+          <h2 className="text-sm font-semibold text-cyan-200">You have no workspace yet</h2>
+          <p className="mt-1 text-xs text-cyan-300/80">
+            A workspace holds your projects, API keys, conversations and usage. Creating one also issues your
+            first API key, which is shown once.
+          </p>
+          <button
+            type="button"
+            onClick={() => void createWorkspace()}
+            disabled={creating}
+            className="mt-2 rounded bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-slate-950 disabled:bg-slate-700 disabled:text-slate-500"
+          >
+            {creating ? 'Creating…' : 'Create my workspace'}
+          </button>
+          {newKey && (
+            <div className="mt-2 rounded border border-emerald-700/60 bg-emerald-950/40 p-2">
+              <div className="text-[11px] font-semibold text-emerald-300">Your API key — copy it now</div>
+              <code className="mt-1 block overflow-x-auto font-mono text-[10px] text-emerald-200">{newKey}</code>
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">

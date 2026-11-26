@@ -67,6 +67,8 @@ export interface PlatformContext {
   query: unknown;
   /** Workspace the request is scoped to (always the principal's). */
   workspaceId: string;
+  /** The unvalidated JSON body, when one was parsed. */
+  rawBody: Record<string, unknown> | null;
 }
 
 export interface PlatformRouteOptions<TBody = unknown, TQuery = unknown> {
@@ -147,7 +149,16 @@ export function platformRoute<TBody = undefined, TQuery = undefined>(
       }
 
       // 3. Rate limit (credential-keyed, Redis-shared)
-      const limit = options.rateLimit?.limit ?? principal.rateLimitPerMinute;
+      //
+      // The *principal's* limit is authoritative. A route-level `rateLimit` can
+      // only tighten it, never relax it: a project API key is minted with an
+      // explicit per-minute ceiling by its owner, and a route that hardcoded a
+      // larger number silently voided that ceiling. That is how a key created
+      // with `rateLimit: 3` was able to make unlimited requests.
+      const principalLimit = principal.rateLimitPerMinute;
+      const limit = options.rateLimit
+        ? Math.min(principalLimit, options.rateLimit.limit)
+        : principalLimit;
       const windowMs = options.rateLimit?.windowMs ?? 60_000;
       const bucket = principal.apiKeyId ? `key:${principal.apiKeyId}` : `user:${principal.userId}`;
       const rate = await checkLimit(`platform:${bucket}`, limit, windowMs);
@@ -170,24 +181,34 @@ export function platformRoute<TBody = undefined, TQuery = undefined>(
       }
 
       // 5. Body validation
+      //
+      // The raw object is kept even when no schema is declared: the tenancy
+      // check below needs `projectId`, and a route that only declares
+      // `projectScoped: true` (no body schema) previously fell through to
+      // "projectId is required" because the parsed body was `undefined`.
       let body: TBody = undefined as TBody;
-      if (options.body) {
+      let rawBody: Record<string, unknown> | null = null;
+      if (options.body || options.projectScoped) {
         let raw: unknown;
         try {
           raw = await request.json();
         } catch {
-          throw badRequest('Request body must be valid JSON');
+          if (options.body) throw badRequest('Request body must be valid JSON');
+          raw = null;
         }
-        const parsed = options.body.safeParse(raw);
-        if (!parsed.success) {
-          throw badRequest(parsed.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`).join('; '));
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) rawBody = raw as Record<string, unknown>;
+        if (options.body) {
+          const parsed = options.body.safeParse(raw);
+          if (!parsed.success) {
+            throw badRequest(parsed.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`).join('; '));
+          }
+          body = parsed.data;
         }
-        body = parsed.data;
       }
 
       // 6. Project tenancy — checked against the *principal's* workspace
       if (options.projectScoped) {
-        const record = (body ?? {}) as Record<string, unknown>;
+        const record = (rawBody ?? {}) as Record<string, unknown>;
         const queryRecord = (query ?? {}) as Record<string, unknown>;
         const projectId = (record.projectId ?? queryRecord.projectId) as string | undefined;
         if (!projectId) throw badRequest('projectId is required');
@@ -197,7 +218,7 @@ export function platformRoute<TBody = undefined, TQuery = undefined>(
         }
       }
 
-      return await handler({ principal, request, requestId, query, body, workspaceId: principal.workspaceId });
+      return await handler({ principal, request, requestId, query, body, workspaceId: principal.workspaceId, rawBody });
     } catch (error) {
       return handlePlatformError(error, requestId);
     }
