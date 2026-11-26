@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAgentHealthMonitor, getAgentStateManager } from '@/lib/agent-runtime';
-import { getAuthUser } from '@/lib/api-auth';
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session';
 import { db } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const tenant = await legacyTenant(request);
 
     const { searchParams } = new URL(request.url);
     const agentId = searchParams.get('agentId');
@@ -23,6 +22,8 @@ export async function GET(request: NextRequest) {
 
     // Get agents from DB
     const dbAgents = await db.agent.findMany({
+      where: tenantWhere(tenant),
+      where: tenantWhere(tenant),
       select: { agentId: true, name: true, status: true, type: true, role: true, version: true, createdAt: true },
       take: 100,
     });

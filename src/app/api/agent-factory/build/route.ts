@@ -1,21 +1,19 @@
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  const tenant = await legacyTenant(request);
   try {
     const builds = await db.agentBuildRequest.findMany({
+      where: tenantWhere(tenant),
       orderBy: { createdAt: 'desc' },
       take: 200,
     })
     return NextResponse.json(builds)
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('[Agent Factory Build List] Error:', error)
     return NextResponse.json(
       { error: 'Failed to list build requests' },
@@ -25,13 +23,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  const tenant = await legacyTenant(request);
   try {
     const body = await request.json()
     const { agentName, departmentId, config } = body
@@ -45,8 +37,8 @@ export async function POST(request: NextRequest) {
 
     // Validate department exists if provided
     if (departmentId) {
-      const dept = await db.department.findUnique({
-        where: { id: departmentId },
+      const dept = await db.department.findFirst({
+        where: tenantWhere(tenant, { id: departmentId }),
       })
       if (!dept) {
         return NextResponse.json(
@@ -58,6 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Generate next agent ID
     const lastAgent = await db.agent.findFirst({
+      where: tenantWhere(tenant),
       orderBy: { agentId: 'desc' },
       select: { agentId: true },
     })
@@ -72,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     // Get department name
     const deptName = departmentId
-      ? (await db.department.findUnique({ where: { id: departmentId }, select: { name: true } }))?.name || 'Unknown'
+      ? (await db.department.findFirst({ where: tenantWhere(tenant, { id: departmentId }), select: { name: true } }))?.name || 'Unknown'
       : 'Unassigned'
 
     const parsedConfig = typeof config === 'string' ? config : JSON.stringify(config || {})
@@ -117,6 +110,8 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('[Agent Factory Build] Error:', error)
     return NextResponse.json(
       { error: 'Failed to build agent' },

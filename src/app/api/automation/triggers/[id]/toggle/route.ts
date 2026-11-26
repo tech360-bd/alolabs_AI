@@ -6,23 +6,16 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = _request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  const tenant = await legacyTenant(_request);
   try {
     const { id } = await params
-    const trigger = await db.automationTrigger.findUnique({ where: { id } })
+    const trigger = await db.automationTrigger.findUnique({ where: tenantWhere(tenant, { id }) })
     if (!trigger) {
       return NextResponse.json({ error: 'Trigger not found' }, { status: 404 })
     }
 
     const newEnabled = !trigger.enabled
-    await db.automationTrigger.update({
-      where: { id },
+    await db.automationTrigger.update({ where: tenantWhere(tenant, { id }),
       data: { enabled: newEnabled },
     })
 

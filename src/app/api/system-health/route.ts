@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { isInternalRole } from '@/lib/access/surfaces';
 
 // Track process start time for uptime
 const PROCESS_START = Date.now();
@@ -12,6 +13,12 @@ export async function GET(request: NextRequest) {
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Platform-wide aggregates: staff only. These counts span every company, so
+  // they are an operator view, not a customer one — a client-portal session
+  // must not learn how many agents/companies/workflows the platform runs.
+  if (!isInternalRole(session.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   try {
     const { searchParams } = new URL(request.url);

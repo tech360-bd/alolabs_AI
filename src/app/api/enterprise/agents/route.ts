@@ -1,6 +1,5 @@
 import { parseJsonArray as safeParseJSON } from '@/lib/json-values';
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUser } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { Prisma } from '@prisma/client'
@@ -42,7 +41,11 @@ function buildWhereClause(
 
 export async function GET(request: NextRequest) {
   try {
-    await getAuthUser() // optional — works with or without Bearer token (public for dashboard)
+    // Was `await getAuthUser()` with the result discarded — an anonymous caller
+    // could page through every tenant's agents. The comment called it "public
+    // for dashboard", but a dashboard is an authenticated surface and the data
+    // is tenant-owned. A tenant is now required and every query is filtered by it.
+    const tenant = await legacyTenant(request)
     const { searchParams } = new URL(request.url)
     const page = Math.max(Number(searchParams.get('page') || 1), 1)
     const limit = Math.min(Number(searchParams.get('limit') || 50), 200)
@@ -52,7 +55,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || ''
     const status = searchParams.get('status') || ''
 
-    const where = buildWhereClause(search, department, role, type, status)
+    const where = tenantWhere(tenant, buildWhereClause(search, department, role, type, status))
 
     const [agents, total] = await Promise.all([
       db.agent.findMany({
@@ -86,6 +89,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ agents: mapped, total, page, limit })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

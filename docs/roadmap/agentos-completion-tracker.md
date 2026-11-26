@@ -27,7 +27,7 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | Stage | Scope | State |
 | --- | --- | --- |
 | 0 | Baseline verification | **COMPLETE** — HEAD `de8b28f`, tree clean, counts re-measured |
-| 1 | Tenant security (T-1 … T-8, schema) | **IN_PROGRESS** — T-1…T-8 all fixed and tested; schema written; production migration gated |
+| 1 | Tenant security (T-1 … T-8, schema, route classification) | **IN_PROGRESS** — T-1…T-8 fixed and tested; all 541 routes classified; 12 legacy routes tenant-scoped; production migration gated |
 | 2 | Runtime acceptance (run engine 20 behaviours) | NOT_STARTED |
 | 3 | Core AgentOS (gateway, agents, orchestration, memory) | NOT_STARTED |
 | 4 | Customer operations (CRM, channels, workflows) | NOT_STARTED |
@@ -51,7 +51,7 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | **Security** | Every surface sits behind one of the two auth towers, both routed through `src/lib/tenancy/policy.ts`. |
 | **Tests** | Full suite; route classification audit (D). |
 | **Commit / PR** | `de8b28f` (audit), Stage 1 branch commits |
-| **Verification** | `npx vitest run` → **235 files / 2594 passed, 0 failed** (15 skipped) |
+| **Verification** | `npx vitest run` → **236 files / 2601 passed, 0 failed** (15 skipped) |
 | **Status** | `IN_PROGRESS` |
 
 ## A1.2 Persistent execution
@@ -113,10 +113,10 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | **Source files** | `src/lib/tenancy/policy.ts` (new), `src/lib/api-auth.ts`, `src/lib/platform/principal.ts`, `src/lib/api/secure-route.ts` |
 | **Deps** | API: all 541 route files. |
 | **Security** | Company-first resolution; revoked membership loses access immediately. |
-| **Tests** | Tenant-isolation suite T-3/T-4; cross-tower equivalence tests (Stage 1 remainder). |
-| **Commit / PR** | Stage 1 branch |
-| **Verification** | 10/10 tenant tests pass |
-| **Status** | `IN_PROGRESS` |
+| **Tests** | `tenant-isolation.test.ts`, `legacy-routes-tenant.test.ts` (7), `scripts/classify-routes.mjs` |
+| **Commit / PR** | `cbb653e`, `f73d956` |
+| **Verification** | **All 541 route files classified, 0 unclassified.** 245 requireAuth-family · 90 own-session · 48 v1Handler · 34 withCompany · 29 secureCrud · 20 clientRoute · 19 public · 19 platformHandler · 16 secureRoute · 16 internalRoute · 5 mail-session |
+| **Status** | `TESTED` |
 
 ## A1.6 Agent builder and lifecycle
 
@@ -392,7 +392,14 @@ complete and the application already fails closed without it.
 2. The system-operator allowlist defaults to empty, so no account currently
    holds `system:cross-tenant`. Cross-tenant admin reads will return 403 until an
    operator is explicitly listed — that is the intended fail-closed behaviour.
-3. Some 197 ad-hoc-auth routes remain unclassified against the shared policy.
+3. Route **classification** is complete (0 unclassified), but 245 routes still
+   use `requireAuth`/`requireCompanyAuth` directly rather than a hardened
+   wrapper. They resolve a tenant; they do not yet share the auditing and
+   rate-limiting of `secureRoute`. Migration is incremental and tracked under
+   A1-05.
+6. 52 legacy route files still need review for whether the model they query has
+   a tenant column (`Workflow`, `Alert`, queues and marketplace listings are
+   shared platform resources and correctly have none).
 4. Production migration not applied — deliberately gated.
 5. `prisma validate` cannot run in this sandbox (engine CDN unreachable); schema
    correctness is verified via the repo's own generator + `sqlite-push.ts`.
