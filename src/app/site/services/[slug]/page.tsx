@@ -6,6 +6,7 @@ import { SERVICE_LINES, serviceBySlug } from '@/lib/brand/service-lines'
 import {
   absoluteUrl,
   breadcrumbSchema,
+  faqPageSchema,
   jsonLd,
   serviceSchema,
 } from '@/lib/seo/structured-data'
@@ -60,11 +61,18 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   if (!service) notFound()
 
   const graph = [
-    serviceSchema(service),
+    serviceSchema({
+      ...service,
+      priceRange: service.engagement?.typicalRange,
+    }),
     breadcrumbSchema([
       { href: '/site/services', label: 'Services' },
       { href: `/site/services/${service.slug}`, label: service.name },
     ]),
+    // The FAQ rendered on the page and the FAQ in the markup come from the
+    // same array, so an answer engine cannot be told about an answer the
+    // reader cannot see.
+    ...(service.faq ? [faqPageSchema(service.faq, `/site/services/${service.slug}`)] : []),
   ]
 
   return (

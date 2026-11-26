@@ -11,8 +11,9 @@
  * scope" for "finished product".
  */
 
+import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowRight, Sparkles, Check } from 'lucide-react'
+import { ArrowRight, Check } from 'lucide-react'
 
 import { agentosStyle } from '@/lib/brand/agentos-3d'
 import {
@@ -80,37 +81,23 @@ export function ServicesIndexPage() {
                 <div className="ag-svc-grid">
                   {lines.map((line) => (
                     <Link key={line.slug} href={`/site/services/${line.slug}`} className="ag-svc-card">
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                          marginBottom: 13,
-                        }}
-                      >
-                        <span
-                          aria-hidden="true"
-                          style={{
-                            display: 'grid',
-                            placeItems: 'center',
-                            width: 34,
-                            height: 34,
-                            borderRadius: 10,
-                            color: '#fff',
-                            background:
-                              group === 'Intelligence'
-                                ? 'linear-gradient(150deg, rgba(252,84,0,.95), rgba(214,63,0,.95))'
-                                : 'linear-gradient(150deg, rgba(44,107,232,.95), rgba(0,24,108,.95))',
-                            boxShadow: '0 1px 0 rgba(255,255,255,.35) inset, 0 8px 18px -10px rgba(0,0,0,.9)',
-                          }}
-                        >
-                          <Sparkles size={16} />
-                        </span>
-                        <span className={`ag-pill-state ag-pill-${line.state}`}>
+                      {/* The service's own generated artwork, not a generic
+                          sparkle. Every card previously carried the same icon,
+                          so twelve different services looked like one product
+                          repeated — the exact "it looks like a placeholder"
+                          problem this work set out to fix. */}
+                      <span className="ag-svc-thumb">
+                        <Image
+                          src={`/services/${line.slug}.webp`}
+                          alt=""
+                          width={1600}
+                          height={900}
+                          sizes="(max-width: 760px) 100vw, 380px"
+                        />
+                        <span className={`ag-pill-state ag-pill-${line.state} ag-svc-thumb-pill`}>
                           {SERVICE_STATE_LABEL[line.state]}
                         </span>
-                      </div>
+                      </span>
                       <h3 className="ag-svc-name">{line.name}</h3>
                       <p className="ag-svc-tagline">{line.tagline}</p>
                       <span className="ag-svc-foot">

@@ -76,7 +76,14 @@ export function websiteSchema() {
  * URL must not have — so the path is a parameter, defaulting to the service
  * route for every caller that predates it.
  */
-export function serviceSchema(service: { name: string; tagline: string; slug: string; urlPath?: string }) {
+export function serviceSchema(service: {
+  name: string
+  tagline: string
+  slug: string
+  urlPath?: string
+  /** Optional: the visible commercial shape, echoed into structured data. */
+  priceRange?: string
+}) {
   const path = service.urlPath ?? `/site/services/${service.slug}`
   return {
     '@context': 'https://schema.org',
@@ -88,6 +95,32 @@ export function serviceSchema(service: { name: string; tagline: string; slug: st
     areaServed: PUBLIC_COMPANY.areaServed,
     serviceType: service.name,
     mainEntityOfPage: absoluteUrl(path),
+    ...(service.priceRange ? { offers: { '@type': 'Offer', priceCurrency: 'USD', description: service.priceRange } } : {}),
+  }
+}
+
+/**
+ * The visible FAQ, as `FAQPage` structured data.
+ *
+ * This is not decoration. An answer engine can only cite a page whose answers
+ * it can extract unambiguously, so the questions rendered on the page and the
+ * questions in the markup must be the same list, generated from one source. If
+ * they drift, the page is claiming to answer something it does not, which is
+ * the fastest way to lose a citation.
+ *
+ * Google shows FAQ rich results only for a subset of sites, but the markup is
+ * still read by assistant crawlers, which is the audience this is for.
+ */
+export function faqPageSchema(items: { q: string; a: string }[], path: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    '@id': `${absoluteUrl(path)}#faq`,
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
   }
 }
 
