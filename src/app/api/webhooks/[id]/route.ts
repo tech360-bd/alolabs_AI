@@ -47,7 +47,10 @@ export async function DELETE(
   const tenant = await legacyTenant(request);
   try {
     const { id } = await params;
-    await db.webhookConfig.delete({ where: tenantWhere(tenant, { id }) });
+    // Ownership proven first; `delete` takes a unique where only.
+    const owned = await db.webhookConfig.findFirst({ where: tenantWhere(tenant, { id }), select: { id: true } });
+    if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    await db.webhookConfig.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
     const authFailure = legacyAuthResponse(error);

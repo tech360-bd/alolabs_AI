@@ -80,7 +80,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const tenant = await legacyTenant(request);
   try {
     const { id } = await params
-    await db.crmDeal.delete({ where: tenantWhere(tenant, { id }) })
+    // Ownership proven first; `delete` takes a unique where only.
+    const owned = await db.crmDeal.findFirst({ where: tenantWhere(tenant, { id }), select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
+    await db.crmDeal.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (error) {
     const authFailure = legacyAuthResponse(error);

@@ -89,7 +89,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const tenant = await legacyTenant(request);
   try {
     const { id } = await params
-    await db.crmContact.delete({ where: tenantWhere(tenant, { id }) })
+    // Prove ownership BEFORE mutating. The previous version passed the tenant
+    // filter into `delete`, whose where clause accepts only unique fields — so
+    // the filter was meaningless and this deleted any tenant's contact by id.
+    const owned = await db.crmContact.findFirst({ where: tenantWhere(tenant, { id }), select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Contact not found' }, { status: 404 })
+    await db.crmContact.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (error) {
     const authFailure = legacyAuthResponse(error);

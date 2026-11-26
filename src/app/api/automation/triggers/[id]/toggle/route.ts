@@ -9,13 +9,15 @@ export async function POST(
   const tenant = await legacyTenant(_request);
   try {
     const { id } = await params
-    const trigger = await db.automationTrigger.findUnique({ where: tenantWhere(tenant, { id }) })
+    const trigger = await db.automationTrigger.findFirst({ where: tenantWhere(tenant, { id }) })
     if (!trigger) {
       return NextResponse.json({ error: 'Trigger not found' }, { status: 404 })
     }
 
     const newEnabled = !trigger.enabled
-    await db.automationTrigger.update({ where: tenantWhere(tenant, { id }),
+    // findFirst above proved this row is in the caller's tenant; update targets
+    // the unique id because Prisma accepts only unique fields here.
+    await db.automationTrigger.update({ where: { id },
       data: { enabled: newEnabled },
     })
 
