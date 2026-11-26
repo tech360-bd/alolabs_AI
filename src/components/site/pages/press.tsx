@@ -34,9 +34,9 @@ const LOGO_ASSETS = [
 
 const BOILERPLATE = {
   short:
-    'ALO Labs builds AgentOS — the AI Agent Operating System: one command centre for 1020 AI agents across 100+ departments, with an approval gate and a complete audit trail on every action.',
+    'ALO Labs builds AgentOS — the AI Agent Operating System: one command centre across every department of the business, with an approval gate and a complete audit trail on every action.',
   long:
-    'ALO Labs is a technology company headquartered in Harrisonville, Missouri. Its flagship product, AgentOS, is an enterprise AI operating system: a single command centre routes every owner command through a master router and department routers to a specified workforce of 1020 AI agents across 100+ departments. Retrieval runs through a hybrid RAG engine (classic, graph and agentic), and nothing executes without passing the approval engine. Secure, smart and scalable — built for the future.',
+    'ALO Labs is a technology company headquartered in Harrisonville, Missouri. Its flagship product, AgentOS, is an enterprise AI operating system: a single command centre routes every owner command through a master router and department routers to a staffed agent workforce, department by department. Retrieval runs through a hybrid RAG engine (classic, graph and agentic), and nothing executes without passing the approval engine. Secure, smart and scalable — built for the future.',
   founderQuote:
     '“Teams do not need more AI demos. They need AI that does specified work, is checked before it acts, and can be audited after it does.” — ALO Labs',
 }
@@ -268,10 +268,9 @@ export function PressPage() {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
               <dl className="space-y-3">
                 {[
-                  ['Skills', String(stats.skills ?? MARKETING_CATALOG.totalSkills)],
+                  ['Playbooks', String(stats.skills ?? MARKETING_CATALOG.totalSkills)],
                   ['Categories', String(stats.categories ?? MARKETING_CATALOG.categories.length)],
-                  ['Licence', MARKETING_CATALOG.license],
-                  ['Synced', new Date(MARKETING_CATALOG.syncedAt).toISOString().slice(0, 10)],
+                  ['Updated', new Date(MARKETING_CATALOG.syncedAt).toISOString().slice(0, 10)],
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-center justify-between gap-4">
                     <dt className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/50">{label}</dt>
@@ -287,9 +286,18 @@ export function PressPage() {
                 </Link>
               </Button>
             </div>
+            {/* Deliberately says what the customer receives, not where the
+                underlying playbooks were authored. How ALO Labs sources and
+                assembles its delivery capability is confidential commercial
+                information and is not published on the marketing site.
+                The third-party attribution that MIT-style licences require is
+                still carried in the internal licence register
+                (docs/LICENCE_REGISTER.md) and on every imported record, which
+                satisfies the obligation without advertising the supply chain
+                to prospects. */}
             <p className="text-[11px] leading-relaxed text-white/60">
-              Source: <span className="font-mono">{MARKETING_CATALOG.source}</span>. Imported under its open licence
-              with attribution carried in every skill record.
+              Every playbook is versioned, reviewed and delivered into your own agent registry. You receive the
+              playbook and the working configuration — not a link to somewhere else.
             </p>
           </div>
         </div>

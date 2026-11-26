@@ -39,7 +39,7 @@ const NOTES: Note[] = [
     tag: 'Governance',
     title: 'Designing an approval gate people do not route around',
     excerpt:
-      'Approval gates fail when they are friction without information. Risk scoring, policy packs and staged approvals — the pattern that keeps 1020 agents productive and safe at the same time.',
+      'Approval gates fail when they are friction without information. Risk scoring, policy packs and staged approvals — the pattern that keeps a large agent workforce productive and safe at the same time.',
     read: '7 min read',
     href: '/site/platform#approvals',
     hrefLabel: 'See the control stack',
@@ -155,7 +155,7 @@ export function InsightsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             'Secure. Smart. Scalable. Built for the Future.',
-            '1 Command Center · 1020 AI Agents · 100+ Departments.',
+            'One command centre · every department · full audit trail.',
             'Orange for action, blue for system.',
             'Nothing executes without passing the gate.',
           ].map((line) => (

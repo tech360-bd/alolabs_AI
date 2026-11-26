@@ -145,12 +145,15 @@ describe('brand — corporate identity', () => {
 describe('brand — system flow', () => {
   it('walks admin → command centre → routers → agents → RAG → approval → execution', () => {
     const main = SYSTEM_FLOW.filter((n) => !n.branch).map((n) => n.label)
+    // The agent node no longer carries a count. How many agents the platform
+    // operates is internal, and this label used to appear on the public site.
+    // The flow itself is unchanged — only the label lost the number.
     expect(main).toEqual([
       'YOU (SUPER ADMIN)',
       'ALO COMMAND CENTER',
       'MASTER ROUTER',
       'DEPARTMENT ROUTER',
-      '1020 AI AGENTS',
+      'AGENT WORKFORCE',
       'MEMORY SYSTEM',
       'HYBRID RAG ENGINE',
       'APPROVAL ENGINE',
