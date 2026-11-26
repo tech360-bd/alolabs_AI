@@ -2,6 +2,7 @@ import { parseJsonArray as safeParseJSON } from '@/lib/json-values';
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/api-auth'
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { Prisma } from '@prisma/client'
 
 function buildWhereClause(

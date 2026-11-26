@@ -2,7 +2,7 @@
   "name": "alolabs-agentos",
   "version": "1.0.0",
   "license": "MIT",
-  "description": "ALO Labs AgentOS / AI-EOS — Enterprise Artificial Intelligence Operating System",
+  "description": "ALO Labs AgentOS / AI-EOS \u2014 Enterprise Artificial Intelligence Operating System",
   "private": true,
   "engines": {
     "node": "^22.13.0 || >=24.0.0",
@@ -64,7 +64,9 @@
     "verify:workforce-execution:run": "tsx scripts/verify-workforce-execution.ts --execute --json",
     "verify:model-discovery": "tsx scripts/run-model-discovery.ts",
     "build:services": "node scripts/build-mini-services.mjs",
-    "seed:bangla-voice-agents": "tsx scripts/seed-bangla-voice-agents.ts"
+    "seed:bangla-voice-agents": "tsx scripts/seed-bangla-voice-agents.ts",
+    "audit:routes": "node scripts/classify-routes.mjs --audit",
+    "verify:routes": "node scripts/classify-routes.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",

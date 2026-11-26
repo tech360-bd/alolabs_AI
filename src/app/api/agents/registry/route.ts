@@ -1,14 +1,10 @@
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const { searchParams } = new URL(request.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
@@ -51,6 +47,7 @@ export async function GET(request: NextRequest) {
 
     const [agents, total] = await Promise.all([
       db.agent.findMany({
+        where: tenantWhere(tenant, where),
         where,
         select: {
           id: true,
@@ -70,7 +67,7 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
       }),
-      db.agent.count({ where }),
+      db.agent.count({ where: tenantWhere(tenant, where) }),
     ])
 
     return NextResponse.json({
@@ -80,6 +77,8 @@ export async function GET(request: NextRequest) {
       limit,
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('[Agents Registry] Error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch agent registry' },
