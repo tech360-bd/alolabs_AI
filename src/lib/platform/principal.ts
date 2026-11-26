@@ -38,6 +38,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
+import { isUsableTenantId, userBelongsToCompany as userBelongsToCompanyPolicy } from '@/lib/tenancy/policy';
 import { verifySessionToken } from '@/lib/auth';
 import { isInternalRole } from '@/lib/access/surfaces';
 
@@ -52,8 +53,33 @@ export interface PlatformPrincipal {
   email: string;
   name: string;
   role: string;
-  /** Workspace the credential belongs to — the isolation boundary. */
+  /**
+   * Workspace the credential is acting inside.
+   *
+   * EMPTY ONLY WHEN `scope` IS `'company'`. A workspace-scoped principal must
+   * carry a real id — an empty string used to be returned for users with no
+   * workspace (T-4), which made "no tenant" look like a tenant whose id happens
+   * to be falsy. Use `requireWorkspace()` to narrow.
+   */
   workspaceId: string;
+  /**
+   * The canonical tenant this principal belongs to. Resolved from CompanyUser,
+   * never from the request (T-3). Present for every session and api-key
+   * principal; `undefined` for system identities that are not tenant-bound.
+   */
+  companyId?: string;
+  /**
+   * What kind of scope this principal is authorised for.
+   *
+   *  · 'workspace' — acts inside one workspace; `workspaceId` is real.
+   *  · 'company'   — acts on company-level resources; `workspaceId` is `''`.
+   *
+   * The distinction is explicit so that a company-scoped principal reaching a
+   * workspace-scoped query is a type error rather than a query with `''` that
+   * silently matches nothing (which is how an isolation bug hides: it looks
+   * like an empty result, not like a refusal).
+   */
+  scope: 'workspace' | 'company';
   /** Set when the credential is scoped to a single project. */
   projectId?: string;
   /** Granted scopes. A session principal gets the workspace's full set. */
@@ -65,6 +91,62 @@ export interface PlatformPrincipal {
 }
 
 /** Scopes a session principal implicitly holds inside its own workspace. */
+/** Is this an identifier a workspace-scoped operation may act on? */
+export function isUsableWorkspaceId(value: string | null | undefined): boolean {
+  return isUsableTenantId(value);
+}
+
+/**
+ * Narrow a principal to a workspace, or refuse.
+ *
+ * Every workspace-scoped route should start with this. The point is that the
+ * *absence* of a workspace is an error rather than an empty string that flows
+ * into a `where: { workspaceId: '' }` clause and silently returns nothing —
+ * which reads to an operator as "no data", not as "wrong principal".
+ *
+ * Pass `{ allowCompanyScope: true }` only for operations that are genuinely
+ * company-wide (listing your company's workspaces, company usage, and so on).
+ * Those get an explicit result shape rather than a fake workspace id.
+ */
+export function requireWorkspace(
+  principal: PlatformPrincipal,
+  options: { allowCompanyScope?: boolean } = {},
+): { principal: PlatformPrincipal; workspaceId: string; companyScoped: false } | { principal: PlatformPrincipal; workspaceId: undefined; companyScoped: true } {
+  if (!principal.companyId) {
+    throw new Error('No tenant: this principal is not bound to a company.');
+  }
+
+  if (principal.scope === 'workspace') {
+    if (!isUsableTenantId(principal.workspaceId)) {
+      throw new Error('Invalid workspace: the principal carries no usable workspace id.');
+    }
+    return { principal, workspaceId: principal.workspaceId, companyScoped: false };
+  }
+
+  if (!options.allowCompanyScope) {
+    throw new Error(
+      'This operation requires a workspace, but the principal is only company-scoped. ' +
+        'Select a workspace and retry.',
+    );
+  }
+
+  return { principal, workspaceId: undefined, companyScoped: true };
+}
+
+/**
+ * Does this user currently hold a CompanyUser row at `companyId`?
+ *
+ * Exported so both towers and the tests can share one definition. Reads through
+ * on every call: a cached membership would keep a revoked employee working.
+ */
+export async function userBelongsToCompany(
+  db: Pick<typeof import('@/lib/db')['db'], 'companyUser'>,
+  userId: string,
+  companyId: string,
+): Promise<boolean> {
+  return userBelongsToCompanyPolicy(db, userId, companyId);
+}
+
 export const SESSION_SCOPES = [
   'ai:chat', 'ai:embed', 'ai:image', 'ai:audio', 'ai:video', 'ai:code',
   'models:read', 'agents:run', 'projects:read', 'projects:write',
@@ -166,6 +248,26 @@ async function principalFromApiKey(plaintext: string): Promise<PlatformPrincipal
     .update({ where: { id: key.id }, data: { lastUsedAt: new Date() } })
     .catch(() => undefined);
 
+  // T-3: an API key's workspace must belong to a company the key's creator is
+  // still a member of. Without this an offboarded employee's key kept working
+  // for as long as the AiApiKey row lived, because only AiWorkspaceMember was
+  // consulted and that row is never removed by an offboarding.
+  const creatorCompany = (await db.companyUser.findFirst({
+    where: { userId: user.id },
+    select: { companyId: true },
+  })) as { companyId: string } | null;
+
+  const keyWorkspace = (await db.aiWorkspace.findUnique({
+    where: { id: key.workspaceId },
+    select: { companyId: true },
+  })) as { companyId: string | null } | null;
+
+  if (!creatorCompany) return null;
+  // A workspace not yet backfilled has no company: fail closed rather than
+  // letting an unowned workspace be entered through the API.
+  if (!keyWorkspace?.companyId) return null;
+  if (keyWorkspace.companyId !== creatorCompany.companyId) return null;
+
   return {
     kind: 'api-key',
     userId: user.id,
@@ -173,6 +275,8 @@ async function principalFromApiKey(plaintext: string): Promise<PlatformPrincipal
     name: user.name,
     role: user.role,
     workspaceId: key.workspaceId,
+    companyId: creatorCompany.companyId,
+    scope: 'workspace',
     ...(key.projectId ? { projectId: key.projectId } : {}),
     scopes: parseScopes(key.scopes),
     apiKeyId: key.id,
@@ -201,15 +305,37 @@ async function principalFromSession(token: string, requestedWorkspaceId?: string
   const requested = requestedWorkspaceId?.trim() || null;
 
   const memberships = await db.aiWorkspaceMember.findMany({
-    where: { userId: user.id },
+    where: {
+      userId: user.id,
+      // Only workspaces in the resolved company are candidates. A stale row
+      // pointing at another company's workspace simply never appears.
+      workspace: { companyId: company.companyId, status: 'active' },
+    },
     select: { workspaceId: true, role: true, workspace: { select: { status: true } } },
     orderBy: { createdAt: 'asc' },
   });
   const owned = await db.aiWorkspace.findMany({
-    where: { ownerId: user.id },
+    where: { ownerId: user.id, companyId: company.companyId, status: 'active' },
     select: { id: true, status: true },
     orderBy: { createdAt: 'asc' },
   });
+
+  // ── Company first (T-3) ─────────────────────────────────────────────────
+  // This is the check the platform tower never made. A workspace membership is
+  // only meaningful while the user still belongs to the company that owns the
+  // workspace; otherwise a removed employee keeps their workspace rows and the
+  // platform keeps honouring them.
+  const company = (await db.companyUser.findFirst({
+    where: { userId: user.id },
+    select: { companyId: true, role: true },
+  })) as { companyId: string; role: string } | null;
+
+  if (!company) {
+    // Authenticated but tenentless. There is no company-scoped resource such a
+    // principal may touch, so it gets no principal at all rather than a
+    // half-built one with an empty workspace id.
+    return null;
+  }
 
   const candidates = [
     ...memberships.map((m) => ({ id: m.workspaceId, role: m.role, status: m.workspace.status })),
@@ -231,6 +357,10 @@ async function principalFromSession(token: string, requestedWorkspaceId?: string
    */
   if (candidates.length === 0) {
     if (requested) return null; // explicitly asked for a workspace they are not in
+    // T-4: this used to return `workspaceId: ''` and hope every caller noticed.
+    // It is now an explicitly company-scoped principal: `scope: 'company'` and
+    // no workspace id at all, so `requireWorkspace()` refuses it by contract and
+    // any query that needs a workspace cannot be written against it by accident.
     return {
       kind: 'session',
       userId: user.id,
@@ -238,6 +368,8 @@ async function principalFromSession(token: string, requestedWorkspaceId?: string
       name: user.name,
       role: user.role,
       workspaceId: '',
+      companyId: company.companyId,
+      scope: 'company',
       scopes: SESSION_SCOPES,
       rateLimitPerMinute: 240,
     };
@@ -258,6 +390,8 @@ async function principalFromSession(token: string, requestedWorkspaceId?: string
     name: user.name,
     role: user.role,
     workspaceId: chosen.id,
+    companyId: company.companyId,
+    scope: 'workspace',
     scopes: SESSION_SCOPES,
     rateLimitPerMinute: 240,
   };

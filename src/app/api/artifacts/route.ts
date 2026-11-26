@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAuth } from '@/lib/api-auth';
+import { requireCompanyAuth } from '@/lib/api-auth';
 import { parseBody, parseQuery, paginationQuery } from '@/lib/validators';
 import { createArtifact, listArtifacts } from '@/lib/artifacts';
 
@@ -25,7 +25,7 @@ const CreateArtifactSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = await requireCompanyAuth();
     if (!user.companyId) return NextResponse.json({ error: 'Company context required' }, { status: 403 });
     const parsed = parseQuery(paginationQuery, new URL(request.url).searchParams);
     if (parsed.error) return NextResponse.json({ error: parsed.error.message }, { status: parsed.error.status });
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const { page, limit } = parsed.data;
     const q = new URL(request.url).searchParams;
     const { artifacts, total } = await listArtifacts({
-      ...(user.companyId ? { companyId: user.companyId } : {}),
+      companyId: user.companyId,
       ...(q.get('projectId') ? { projectId: q.get('projectId')! } : {}),
       ...(q.get('taskId') ? { taskId: q.get('taskId')! } : {}),
       ...(q.get('runId') ? { runId: q.get('runId')! } : {}),
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = await requireCompanyAuth();
     if (!user.companyId) return NextResponse.json({ error: 'Company context required' }, { status: 403 });
     const body = await request.json();
     const parsed = parseBody(CreateArtifactSchema, body);
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     const artifact = await createArtifact({
       ...parsed.data,
       metadata: parsed.data.metadata ?? {},
-      ...(user.companyId ? { companyId: user.companyId } : {}),
+      companyId: user.companyId,
       createdBy: user.userId,
     });
 

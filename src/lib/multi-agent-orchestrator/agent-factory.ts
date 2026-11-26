@@ -286,7 +286,9 @@ export class AgentFactory {
         id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         type: 'agent.archived',
         source: 'agent-factory',
-        companyId: 'default-company',
+        // The agent's own tenant, not a placeholder. `agent` was loaded above
+        // from the database, so this is the same value the archive write used.
+        ...(agent.companyId ? { companyId: agent.companyId } : {}),
         data: {
           agentId: agent.agentId,
           agentDbId,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAuth } from '@/lib/api-auth';
+import { requireCompanyAuth } from '@/lib/api-auth';
 import { parseBody, parseQuery, paginationQuery } from '@/lib/validators';
 import { createRun, listRuns } from '@/lib/runs';
 import { getProject } from '@/lib/projects';
@@ -25,7 +25,7 @@ const CreateRunSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = await requireCompanyAuth();
     if (!user.companyId) return NextResponse.json({ error: 'Company context required' }, { status: 403 });
     const body = await request.json();
     const parsed = parseBody(CreateRunSchema, body);
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const result = await createRun({
       objective: parsed.data.objective,
       userId: user.userId,
-      ...(user.companyId ? { companyId: user.companyId } : {}),
+      companyId: user.companyId,
       ...(parsed.data.projectId ? { projectId: parsed.data.projectId } : {}),
       ...(parsed.data.priority ? { priority: parsed.data.priority } : {}),
     });
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = await requireCompanyAuth();
     if (!user.companyId) return NextResponse.json({ error: 'Company context required' }, { status: 403 });
     const parsed = parseQuery(paginationQuery, new URL(request.url).searchParams);
     if (parsed.error) return NextResponse.json({ error: parsed.error.message }, { status: parsed.error.status });
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     const projectId = new URL(request.url).searchParams.get('projectId') ?? undefined;
 
     const { runs, total } = await listRuns({
-      ...(user.companyId ? { companyId: user.companyId } : {}),
+      companyId: user.companyId,
       userId: user.userId,
       ...(status ? { status } : {}),
       ...(projectId ? { projectId } : {}),

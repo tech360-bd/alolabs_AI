@@ -780,6 +780,7 @@ model Company {
   updatedAt            DateTime @updatedAt
 
   users                 CompanyUser[]
+  aiWorkspaces          AiWorkspace[]  @relation("CompanyAiWorkspaces")
   apiKeys               CompanyApiKey[]
   usageLogs             UsageLog[]
   permissions           CompanyPermission[]
@@ -5106,6 +5107,12 @@ model AiWorkspace {
   name        String
   slug        String   @unique
   ownerId     String
+  /// Canonical tenant root (docs/roadmap/tenant-migration-plan.md).
+  /// Required for every new row; made nullable in the schema only so the
+  /// backfill can run before the constraint is enforced. Application code
+  /// treats a null companyId as an unresolvable tenant and fails closed.
+  companyId   String?
+  company     Company? @relation("CompanyAiWorkspaces", fields: [companyId], references: [id], onDelete: Restrict)
   organisationId String?
   kind        String @db.LongText // personal | team | organisation
   plan        String @db.LongText
@@ -5125,6 +5132,7 @@ model AiWorkspace {
   notifications AiNotification[]
 
   @@index([ownerId])
+  @@index([companyId])
   @@index([organisationId])
   @@index([status])
 }

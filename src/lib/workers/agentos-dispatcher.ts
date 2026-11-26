@@ -6,6 +6,7 @@
  * jobs identically. Unknown job types are rejected (never "acknowledged").
  */
 import type { QueueItemData } from '@/lib/job-queue';
+import { isUsableTenantId } from '@/lib/tenancy/policy';
 
 type DbClient = typeof import('@/lib/db')['db'];
 type ExecuteRunFn = typeof import('@/lib/runs')['executeRun'];
@@ -22,6 +23,60 @@ export interface DispatchDeps {
 }
 
 export const AGENTOS_JOB_TYPES = ['agentos.run', 'agentos.workflow', 'agentos.command', 'agentos.crm.lead-followup'] as const;
+
+/**
+ * T-1 — a worker must prove it still owns the run it is about to execute.
+ *
+ * Before this existed the dispatcher loaded a job, read `runId` out of the
+ * payload and called `executeRun(runId)` with **no tenant check whatsoever**. A
+ * job payload is supplied by whoever enqueued it, so it is untrusted input in
+ * exactly the same sense as an HTTP body: it names a run, but it proves nothing
+ * about that run.
+ *
+ * The rule here is deliberately two-sided. The payload must name a tenant (a job
+ * that does not know its tenant cannot be authorised), AND that tenant must still
+ * match the run row at execution time. Re-checking at execution rather than only
+ * at enqueue matters because a run can be re-parented, and because a queue can
+ * deliver a job long after the enqueuing context has changed.
+ */
+async function assertJobTenantMatchesRun(
+  db: DbClient,
+  payload: Record<string, unknown>,
+  runId: string,
+): Promise<void> {
+  const claimed = typeof payload.companyId === 'string' ? payload.companyId : null;
+
+  if (!isUsableTenantId(claimed)) {
+    throw new Error(
+      `Refusing to dispatch run ${runId}: the job carries no valid tenant ` +
+        `(received ${JSON.stringify(claimed)}). Tenanted work must name its company.`,
+    );
+  }
+
+  const run = await db.agentOSRun.findUnique({
+    where: { id: runId },
+    select: { companyId: true },
+  });
+
+  if (!run) {
+    throw new Error(`Refusing to dispatch run ${runId}: no such run.`);
+  }
+
+  if (!isUsableTenantId(run.companyId)) {
+    throw new Error(
+      `Refusing to dispatch run ${runId}: the run has no resolvable tenant. ` +
+        'It must be assigned to a company before it can execute.',
+    );
+  }
+
+  if (run.companyId !== claimed) {
+    // Never log both ids at error level with tenant-identifying detail beyond
+    // what an operator needs; the mismatch itself is the actionable fact.
+    throw new Error(
+      `Refusing to dispatch run ${runId}: tenant mismatch between the job payload and the run record.`,
+    );
+  }
+}
 
 /**
  * One run, one executor: if another worker holds an earlier, still-leased
@@ -62,6 +117,7 @@ export async function dispatchAgentOSJob(
     case 'agentos.run': {
       const runId = typeof payload.runId === 'string' ? payload.runId : null;
       if (!runId) throw new Error('agentos.run job missing runId');
+      await assertJobTenantMatchesRun(deps.db, payload, runId);
       await deps.executeRun(runId);
       return { runId };
     }
@@ -70,6 +126,7 @@ export async function dispatchAgentOSJob(
       const workflowRunId = typeof payload.workflowRunId === 'string' ? payload.workflowRunId : null;
       const taskId = typeof payload.taskId === 'string' ? payload.taskId : null;
       if (!runId || !workflowRunId) throw new Error('agentos.workflow job missing runId/workflowRunId');
+      await assertJobTenantMatchesRun(deps.db, payload, runId);
       // Load the persisted plan from the run record.
       const run = await deps.db.agentOSRun.findUnique({ where: { id: runId }, select: { plan: true } });
       let plan: PlanResultT = { steps: [], strategy: 'heuristic', reasoning: 'empty' };

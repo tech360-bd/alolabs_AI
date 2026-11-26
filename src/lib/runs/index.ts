@@ -25,6 +25,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { db } from '@/lib/db';
+import { isUsableTenantId } from '@/lib/tenancy/policy';
 import { agentCompanyScope } from '@/lib/agent-access';
 import { getEventBus } from '@/lib/event-bus';
 import { getOrchestrator } from '@/lib/orchestrator';
@@ -100,7 +101,10 @@ export async function recordRunEvent(params: {
       id: randomUUID(),
       type: `agentos.${params.type}`,
       source: params.source ?? 'orchestrator',
-      companyId: run?.companyId ?? 'default-company',
+      // A run row with no company is a data defect, not a default tenant. The
+      // event is still published (subscribers filter on tenant anyway) but it
+      // carries no company rather than borrowing someone else's.
+      ...(isUsableTenantId(run?.companyId) ? { companyId: run!.companyId } : {}),
       ...(run?.userId ? { userId: run.userId } : {}),
       data: { ...(params.data ?? {}), runId: params.runId },
       priority: params.type === 'run.failed' || params.type === 'qc.failed' ? 'high' : 'normal',
@@ -117,7 +121,15 @@ export async function recordRunEvent(params: {
 export interface CreateRunInput {
   objective: string;
   userId?: string;
-  companyId?: string;
+  /**
+   * The canonical tenant. REQUIRED as of the T-2 fix.
+   *
+   * This was optional, and a run created without it was later executed under
+   * the literal string `'default-company'` — a pseudo-tenant that made every
+   * unowned run look like every other unowned run's owner. A run with no tenant
+   * cannot be authorised against, so it must not exist.
+   */
+  companyId: string;
   projectId?: string;
   commandId?: string;
   workflowId?: string;
@@ -127,6 +139,16 @@ export interface CreateRunInput {
 }
 
 export async function createRun(input: CreateRunInput): Promise<{ runId: string; status: RunStatus }> {
+  // Fail closed before touching the database. `isUsableTenantId` rejects '',
+  // 'default-company', 'anonymous' and other placeholders as well as undefined,
+  // so neither a missing nor a sentinel tenant can create a run.
+  if (!isUsableTenantId(input.companyId)) {
+    throw new Error(
+      'createRun requires an authenticated company: a run cannot exist without a tenant ' +
+        `(received ${JSON.stringify(input.companyId ?? null)}).`,
+    );
+  }
+
   const run = await db.agentOSRun.create({
     data: {
       id: randomUUID(),
@@ -136,7 +158,7 @@ export async function createRun(input: CreateRunInput): Promise<{ runId: string;
       ...(input.commandId ? { commandId: input.commandId } : {}),
       ...(input.projectId ? { projectId: input.projectId } : {}),
       ...(input.workflowId ? { workflowId: input.workflowId } : {}),
-      ...(input.companyId ? { companyId: input.companyId } : {}),
+      companyId: input.companyId,
       ...(input.userId ? { userId: input.userId } : {}),
       ...(input.priority ? { priority: input.priority } : {}),
     },
@@ -156,7 +178,9 @@ export async function createRun(input: CreateRunInput): Promise<{ runId: string;
   }
 
   try {
-    await enqueue(RUN_QUEUE, RUN_JOB_TYPE, { runId: run.id }, { priority: 10, maxRetries: 2, idempotencyKey: `run:${run.id}`, jobId: run.id });
+    // The tenant travels with the job. The dispatcher re-verifies it against the
+    // run row, so this is a claim to be checked, not a value to be trusted.
+    await enqueue(RUN_QUEUE, RUN_JOB_TYPE, { runId: run.id, companyId: run.companyId }, { priority: 10, maxRetries: 2, idempotencyKey: `run:${run.id}`, jobId: run.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await db.agentOSRun.update({ where: { id: run.id }, data: { status: 'failed', error: `Queue unavailable: ${message}`, completedAt: new Date() } });
@@ -443,7 +467,13 @@ export async function resolveRunApproval(params: {
     where: { jobId: runId, status: 'queued', NOT: { idempotencyKey: resumeKey } },
     data: { status: 'cancelled', error: `superseded by resume job for approval ${approval.id}`, completedAt: new Date() },
   }).catch(() => undefined);
-  await enqueue(RUN_QUEUE, RUN_JOB_TYPE, { runId, resumeFromApprovalId: approval.id }, {
+  // The resume job names its tenant too. `approvalRequester` already loaded the
+  // run, so there is no extra read here.
+  const resumeTenant = await db.agentOSRun.findUnique({ where: { id: runId }, select: { companyId: true } });
+  if (!isUsableTenantId(resumeTenant?.companyId)) {
+    throw new Error(`Cannot resume run ${runId}: it has no resolvable tenant.`);
+  }
+  await enqueue(RUN_QUEUE, RUN_JOB_TYPE, { runId, companyId: resumeTenant!.companyId, resumeFromApprovalId: approval.id }, {
     priority: 10,
     maxRetries: 2,
     idempotencyKey: resumeKey,
@@ -499,7 +529,16 @@ export async function executeRun(runId: string, options?: { plan?: PlanResult })
   if (!run) throw new Error(`Run ${runId} not found`);
   if (TERMINAL_STATUSES.includes(run.status as RunStatus)) return;
 
-  const companyId = run.companyId ?? 'default-company';
+  // T-2: this used to fall back to 'default-company', which meant a run whose
+  // tenant had been lost was executed as if every other orphaned run's tenant
+  // were its own. A run that cannot name its tenant cannot be executed at all.
+  if (!isUsableTenantId(run.companyId)) {
+    throw new Error(
+      `Run ${runId} has no resolvable tenant and will not be executed. ` +
+        'Assign it to a company (see prisma/migrations/mysql/20261126_ws_company_step2_backfill.sql).',
+    );
+  }
+  const companyId = run.companyId;
   const userId = run.userId ?? 'anonymous';
   const outcomes: StepExecutionOutcome[] = [];
 
@@ -1079,17 +1118,27 @@ async function assembleAndFinish(
     data: { summary: summary.slice(0, 1000), ...(error ? { error: error.slice(0, 1000) } : {}), artifactId, stepCount: outcomes.length, status },
   });
 
-  // Episodic memory (best-effort)
-  try {
-    const memory = getMemoryStore();
-    await memory.addEpisodic({
-      agentId: 'master-orchestrator',
-      companyId: run.companyId ?? 'default-company',
-      userId: run.userId ?? 'anonymous',
-      content: `Run ${run.id} (${status}): ${run.objective.slice(0, 200)} — ${summary.slice(0, 300)}`,
-      metadata: { runId: run.id, status, artifactId },
-    });
-  } catch { /* best-effort */ }
+  // Episodic memory (best-effort).
+  //
+  // The tenant comes from the run row itself. An earlier change referenced a
+  // `companyId` that only exists in `executeRun`'s scope; the ReferenceError was
+  // swallowed by this catch, so memory silently stopped being written and no
+  // test failed loudly. Best-effort must still mean *correct* — hence the
+  // explicit guard and a warning instead of total silence.
+  if (isUsableTenantId(run.companyId)) {
+    try {
+      const memory = getMemoryStore();
+      await memory.addEpisodic({
+        agentId: 'master-orchestrator',
+        companyId: run.companyId,
+        userId: run.userId ?? 'anonymous',
+        content: `Run ${run.id} (${status}): ${run.objective.slice(0, 200)} — ${summary.slice(0, 300)}`,
+        metadata: { runId: run.id, status, artifactId },
+      });
+    } catch (error) {
+      console.warn('[AgentOS] episodic memory write failed for run', run.id, error);
+    }
+  }
 }
 
 async function loadPlan(runId: string): Promise<PlanStep[]> {

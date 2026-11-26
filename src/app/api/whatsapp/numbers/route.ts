@@ -143,12 +143,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // The number belongs to the tenant of the user registering it. Older
-    // records have no companyId and fall back to the default tenant.
+    // The number belongs to the tenant of the user registering it — and only
+    // that tenant. It used to fall back to 'default-company' for a user with no
+    // membership, which meant registering a number without a company created a
+    // shared inbox for every such user. A number is a tenant asset; a user with
+    // no tenant cannot own one (T-2).
     const membership = await db.companyUser.findFirst({
       where: { userId: session.userId },
       select: { companyId: true },
     });
+    if (!membership?.companyId) {
+      return NextResponse.json(
+        { error: 'Your account must belong to a company before registering a WhatsApp number.' },
+        { status: 403 },
+      );
+    }
 
     const newNumber: StoredWhatsAppNumber = {
       id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substring(2)}`,
@@ -161,7 +170,7 @@ export async function POST(request: NextRequest) {
       aiEndpoint: body.aiEndpoint || '',
       handoverThreshold: body.handoverThreshold || 8,
       isActive: true,
-      companyId: membership?.companyId ?? 'default-company',
+      companyId: membership.companyId,
       registeredAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       metadata: body.metadata,
