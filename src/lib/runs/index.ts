@@ -427,10 +427,35 @@ export async function resolveRunApproval(params: {
   approvalId: string;
   approved: boolean;
   reviewerId?: string;
+  /**
+   * The tenant the reviewer is acting for (T-8).
+   *
+   * Optional only so existing callers keep compiling. When supplied — and every
+   * API route supplies it — the approval, the run it names and the reviewer must
+   * all agree on one company. Knowing an approval id is not authorisation.
+   */
+  reviewerCompanyId?: string;
   note?: string;
 }): Promise<{ runId: string | null; resumed: boolean; status?: RunStatus }> {
   const approval = await db.approval.findUnique({ where: { id: params.approvalId } });
   if (!approval) return { runId: null, resumed: false };
+
+  // ── T-8: tenant gate ────────────────────────────────────────────────────
+  // An approval with no company (a legacy row) cannot be authorised against a
+  // tenant, so it is refused rather than decided by whoever asks first.
+  if (params.reviewerCompanyId !== undefined) {
+    if (!isUsableTenantId(approval.companyId)) {
+      throw new Error(
+        `Refusing to resolve approval ${approval.id}: it is not attributed to a company.`,
+      );
+    }
+    if (approval.companyId !== params.reviewerCompanyId) {
+      throw new Error(
+        `Refusing to resolve approval ${approval.id}: it belongs to another company.`,
+      );
+    }
+  }
+
   let runId: string | null = null;
   try {
     const requestJson = JSON.parse(approval.requestJson || '{}') as { runId?: string };
@@ -438,8 +463,19 @@ export async function resolveRunApproval(params: {
   } catch { /* no run link */ }
   if (!runId) return { runId: null, resumed: false };
 
-  const run = await db.agentOSRun.findUnique({ where: { id: runId }, select: { id: true, status: true } });
+  const run = await db.agentOSRun.findUnique({ where: { id: runId }, select: { id: true, status: true, companyId: true } });
   if (!run) return { runId, resumed: false };
+
+  // The run the approval points at must be in the same tenant as the approval.
+  // A cross-linked approval is a configuration defect; acting on it would let
+  // one company decide another company's run.
+  if (params.reviewerCompanyId !== undefined) {
+    if (!isUsableTenantId(run.companyId) || run.companyId !== params.reviewerCompanyId) {
+      throw new Error(
+        `Refusing to resolve approval ${approval.id}: the run it names belongs to another company.`,
+      );
+    }
+  }
   if (TERMINAL_STATUSES.includes(run.status as RunStatus)) return { runId, resumed: false, status: run.status as RunStatus };
 
   await recordRunEvent({

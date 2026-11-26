@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { requireRole } from '@/lib/api-auth';
 import { db } from '@/lib/db';
 import { writeAuditEvent } from '@/lib/audit-events';
+import { SYSTEM_SCOPE, assertSystemOperation, SystemOperationDenied, resolveSystemScopes } from '@/lib/tenancy/policy';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,39 @@ const QuerySchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const actor = await requireRole('super_admin');
+
+    // T-7: reading usage across companies is a SYSTEM operation, not an
+    // administrator's private view. Holding super_admin used to be enough on
+    // its own, which meant an ordinary session could read every tenant's model
+    // spend with no trace. It now needs the explicit cross-tenant scope and a
+    // stated reason, and the attempt is written to AuditLog before the query.
+    const reason = request.nextUrl.searchParams.get('reason') ?? '';
+    try {
+      await assertSystemOperation(
+        { db },
+        {
+          userId: actor.userId,
+          role: actor.role,
+          // Real scopes from the operator allowlist — never synthesised here,
+          // or the check would be checking itself.
+          scopes: resolveSystemScopes({ id: actor.userId, email: actor.email ?? '', role: actor.role }),
+        },
+        { action: 'ai.usage.read', reason },
+      );
+    } catch (error) {
+      if (error instanceof SystemOperationDenied) {
+        return NextResponse.json(
+          {
+            error: error.message,
+            code: 'SYSTEM_SCOPE_REQUIRED',
+            hint: `Cross-tenant reads require the ${SYSTEM_SCOPE} scope and a ?reason= parameter.`,
+          },
+          { status: 403 },
+        );
+      }
+      throw error;
+    }
+
     const parsed = QuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams.entries()));
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     const query = parsed.data;

@@ -27,7 +27,7 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | Stage | Scope | State |
 | --- | --- | --- |
 | 0 | Baseline verification | **COMPLETE** — HEAD `de8b28f`, tree clean, counts re-measured |
-| 1 | Tenant security (T-1 … T-8, schema) | **IN_PROGRESS** — T-1…T-5 fixed and tested; T-7/T-8 open |
+| 1 | Tenant security (T-1 … T-8, schema) | **IN_PROGRESS** — T-1…T-8 all fixed and tested; schema written; production migration gated |
 | 2 | Runtime acceptance (run engine 20 behaviours) | NOT_STARTED |
 | 3 | Core AgentOS (gateway, agents, orchestration, memory) | NOT_STARTED |
 | 4 | Customer operations (CRM, channels, workflows) | NOT_STARTED |
@@ -51,7 +51,7 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | **Security** | Every surface sits behind one of the two auth towers, both routed through `src/lib/tenancy/policy.ts`. |
 | **Tests** | Full suite; route classification audit (D). |
 | **Commit / PR** | `de8b28f` (audit), Stage 1 branch commits |
-| **Verification** | `npx vitest run` → **233 files / 2582 passed, 0 failed** (15 skipped) |
+| **Verification** | `npx vitest run` → **235 files / 2594 passed, 0 failed** (15 skipped) |
 | **Status** | `IN_PROGRESS` |
 
 ## A1.2 Persistent execution
@@ -97,10 +97,10 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | **Source files** | `src/lib/tenancy/policy.ts`, `src/lib/platform/principal.ts`, `src/lib/workers/agentos-dispatcher.ts`, `src/lib/runs/index.ts`, `src/app/api/runs/[id]/events/route.ts`, `prisma/schema.prisma` |
 | **Deps** | DB: `AiWorkspace.companyId` (nullable → backfill → NOT NULL). API: both towers. |
 | **Security** | This row *is* the security work. |
-| **Tests** | `tenant-isolation.test.ts` (10) + `tenant-migration.test.ts` (10) = 20 security tests |
+| **Tests** | `tenant-isolation.test.ts` (10) + `tenant-migration.test.ts` (10) + `approval-tenant.test.ts` (4) + `system-operation.test.ts` (8) = **32 security tests** |
 | **Commit / PR** | Stage 1 branch |
-| **Verification** | 20/20 pass; full suite **2582 passed** |
-| **Status** | `IN_PROGRESS` — T-1…T-5 done; T-7/T-8 and production migration open |
+| **Verification** | 32/32 pass; full suite **2594 passed**, 0 failed |
+| **Status** | `TESTED` — T-1…T-8 fixed; production migration gated on DB authorization |
 
 ## A1.5 Unified authentication
 
@@ -304,7 +304,7 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | **Required** | Super-admin is not a tenant bypass; RBAC enforced on every admin action. |
 | **Source files** | `src/lib/platform/**`, super-admin routes. |
 | **Deps** | DB: `AuditLog`, roles. UI: admin console. |
-| **Security** | T-7 (super_admin conflation) still open. |
+| **Security** | T-7 fixed: cross-tenant admin access requires the audited `system:cross-tenant` scope. |
 | **Tests** | Stage 6 RBAC tests. |
 | **Commit / PR** | — |
 | **Verification** | Not yet run |
@@ -370,8 +370,8 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | **T-4** empty-string workspace | Medium | **FIXED** | Explicit `scope: 'workspace' \| 'company'`; `requireWorkspace()` guard; `isUsableWorkspaceId()` | 2 tests |
 | **T-5** SSE tenant comparison | Medium | **FIXED** | Both sides must be usable tenants before comparison | covered |
 | **T-6** `secureRoute` gaps | Low | Mitigated | Existing `tenant_required`/`tenant_mismatch` | pre-existing |
-| **T-7** `super_admin` conflation | Medium | **OPEN** | Stage 6 | — |
-| **T-8** approval/retry/cancel by runId | Low | **OPEN** | Stage 2 | — |
+| **T-7** `super_admin` conflation | Medium | **FIXED** | Cross-tenant access is a distinct `system:cross-tenant` scope granted only via the `ALO_SYSTEM_OPERATORS` allowlist; requires a reason; writes an AuditLog row before the work. Applied to the cross-tenant usage read. | 8 tests |
+| **T-8** approval/retry/cancel by runId | Low | **FIXED** | `resolveRunApproval` now takes `reviewerCompanyId` and re-checks approval ↔ run ↔ reviewer agreement; both API callers pass it | 4 tests |
 
 ## Schema migration state
 
@@ -388,8 +388,10 @@ complete and the application already fails closed without it.
 
 ## Known limitations at this point
 
-1. `T-7` and `T-8` are not yet remediated.
-2. The 15-row cross-tenant matrix is partially covered (10 rows).
+1. The 15-row cross-tenant matrix is partially covered (10 rows).
+2. The system-operator allowlist defaults to empty, so no account currently
+   holds `system:cross-tenant`. Cross-tenant admin reads will return 403 until an
+   operator is explicitly listed — that is the intended fail-closed behaviour.
 3. Some 197 ad-hoc-auth routes remain unclassified against the shared policy.
 4. Production migration not applied — deliberately gated.
 5. `prisma validate` cannot run in this sandbox (engine CDN unreachable); schema

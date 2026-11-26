@@ -226,3 +226,112 @@ export function workspaceRoleAllows(role: string | undefined, action: 'read' | '
   const need = { read: 1, write: 2, admin: 3 }[action];
   return (rank[role ?? ''] ?? 0) >= need;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * System operations — T-7
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A system operation is one that acts ACROSS tenants: platform-wide usage,
+ * cross-company repair, provisioning for a new company.
+ *
+ * `super_admin` used to be exactly that, implicitly and unaudited: holding the
+ * role was itself permission to reach any tenant's data. That conflates two
+ * very different things — "an administrator inside this company" and "an
+ * operator acting on the platform as a whole" — and it means an ordinary
+ * session carries cross-tenant reach with no record of having used it.
+ *
+ * System operations are now a distinct capability:
+ *
+ *   · they require the `system` scope, not merely the `super_admin` role;
+ *   · they must name a reason;
+ *   · every invocation writes an AuditLog row BEFORE the work happens, so an
+ *     operation that crashes still leaves a trace of having been attempted.
+ */
+export const SYSTEM_SCOPE = 'system:cross-tenant';
+
+/**
+ * Which scopes does this user actually hold?
+ *
+ * The `system:cross-tenant` scope is NOT implied by any role. It is granted only
+ * to accounts explicitly designated in `ALO_SYSTEM_OPERATORS` (comma-separated
+ * user ids or emails). That is the point of separating the capability from the
+ * role: being super_admin makes you an administrator *inside* a company; being
+ * listed as a system operator is what allows reaching *across* companies.
+ *
+ * Fails closed. An empty or absent allowlist means nobody holds the scope, so a
+ * misconfigured deployment loses convenience rather than isolation.
+ */
+export function resolveSystemScopes(
+  user: { id: string; email: string; role: string },
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  if (user.role !== 'super_admin') return [];
+
+  const allowlist = (env.ALO_SYSTEM_OPERATORS ?? '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (allowlist.length === 0) return [];
+
+  const id = user.id.toLowerCase();
+  const email = user.email.toLowerCase();
+  return allowlist.includes(id) || allowlist.includes(email) ? [SYSTEM_SCOPE] : [];
+}
+
+/** May this principal hold the system scope at all? Role alone is not enough. */
+export function canHoldSystemScope(principal: { role: string; scopes: string[] }): boolean {
+  return principal.role === 'super_admin' && principal.scopes.includes(SYSTEM_SCOPE);
+}
+
+export class SystemOperationDenied extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SystemOperationDenied';
+  }
+}
+
+/**
+ * Assert that a cross-tenant operation is allowed, and record the attempt.
+ *
+ * Call this at the START of any operation that reads or writes more than one
+ * tenant. It throws rather than returning a boolean because there is no safe
+ * default: an unauthorised cross-tenant read that "just returns empty" is
+ * indistinguishable from a bug.
+ */
+export async function assertSystemOperation(
+  deps: { db: { auditLog: { create: (args: unknown) => Promise<unknown> } } },
+  principal: { userId: string; role: string; scopes: string[] },
+  operation: { action: string; reason: string; targetCompanyIds?: string[] },
+): Promise<void> {
+  if (!canHoldSystemScope(principal)) {
+    throw new SystemOperationDenied(
+      `Cross-tenant operation '${operation.action}' requires the ${SYSTEM_SCOPE} scope. ` +
+        'A tenant role, including super_admin, is not sufficient on its own.',
+    );
+  }
+
+  const reason = operation.reason?.trim();
+  if (!reason || reason.length < 8) {
+    // A blank reason defeats the audit trail: "why did an operator read every
+    // customer's usage" is the only question an auditor actually asks.
+    throw new SystemOperationDenied(
+      `Cross-tenant operation '${operation.action}' requires a reason (at least 8 characters).`,
+    );
+  }
+
+  await deps.db.auditLog.create({
+    data: {
+      userId: principal.userId,
+      action: `system.${operation.action}`,
+      resource: (operation.targetCompanyIds ?? ['*']).join(','),
+      details: JSON.stringify({
+        reason,
+        scope: SYSTEM_SCOPE,
+        targetCompanyIds: operation.targetCompanyIds ?? null,
+        at: new Date().toISOString(),
+      }),
+    },
+  });
+}

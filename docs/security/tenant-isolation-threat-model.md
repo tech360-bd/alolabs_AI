@@ -160,16 +160,32 @@ that already holds a run id. With T-1 fixed, this closes as a side effect.
 
 ## Threat matrix
 
-| ID | Threat | Severity | State | Blocks Phase 1? |
+| ID | Threat | Severity | State | Remediation |
 |---|---|---|---|---|
-| T-1 | Worker never revalidates tenant | **High** | LIVE | **Yes** |
-| T-2 | `'default-company'` pseudo-tenant | **High** | LATENT | **Yes** |
-| T-3 | Platform tower ignores `Company` | **High** | LIVE | **Yes** |
-| T-4 | Empty `workspaceId` principal | Medium | LIVE | Yes |
-| T-5 | SSE bus not per-event scoped | Medium | LIVE | No (single replica) |
-| T-6 | Client-supplied tenant id | Low | MITIGATED | No |
-| T-7 | `super_admin` conflated with tenant admin | Medium | LIVE | No |
-| T-8 | Approval/retry/cancel by run id | Low | LATENT | No |
+| T-1 | Worker never revalidates tenant | **High** | **FIXED** | `assertJobTenantMatchesRun()` in `agentos-dispatcher.ts`; job must name a usable tenant that still matches the run row at execution |
+| T-2 | `'default-company'` pseudo-tenant | **High** | **FIXED** | Removed from run engine, WhatsApp config/inbox/numbers and the agent archive event; unowned runs refused at create and execute |
+| T-3 | Platform tower ignores `Company` | **High** | **FIXED** | Company resolved first in both session and API-key paths; workspace candidates filtered by it |
+| T-4 | Empty `workspaceId` principal | Medium | **FIXED** | Explicit `scope: 'workspace' \| 'company'`; `requireWorkspace()` and `isUsableWorkspaceId()` |
+| T-5 | SSE bus not per-event scoped | Medium | **FIXED** | Both sides must be usable tenants before the equality check |
+| T-6 | Client-supplied tenant id | Low | Mitigated | Existing `secureRoute` `tenant_required`/`tenant_mismatch` |
+| T-7 | `super_admin` conflated with tenant admin | Medium | **FIXED** | Cross-tenant access is a distinct `system:cross-tenant` scope via `ALO_SYSTEM_OPERATORS`; requires a reason; audited before the work |
+| T-8 | Approval/retry/cancel by run id | Low | **FIXED** | `resolveRunApproval` takes `reviewerCompanyId` and checks approval ↔ run ↔ reviewer; cancel paths already tenant-checked |
+
+### Remediation evidence
+
+Every fix above has a regression test that **failed before the fix landed** —
+the order matters, because a security test written after the fix asserts
+whatever the code happens to do.
+
+| Suite | Tests | Covers |
+|---|---|---|
+| `__tests__/security/tenant-isolation.test.ts` | 10 | T-1 (3), T-2 (3), T-3 (2), T-4 (2) |
+| `__tests__/security/tenant-migration.test.ts` | 10 | Backfill determinism, FK enforcement, `ON DELETE RESTRICT`, idempotency |
+| `__tests__/security/approval-tenant.test.ts` | 4 | T-8 cross-tenant approval, legacy unowned approval, cross-linked run |
+| `__tests__/security/system-operation.test.ts` | 8 | T-7 allowlist, reason requirement, audit-before-work |
+
+Full suite at time of writing: **235 files, 2594 passed, 0 failed, 15 skipped.**
+
 
 ---
 
