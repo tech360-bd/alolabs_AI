@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * CRM, call intelligence and omnichannel pure logic.
  *

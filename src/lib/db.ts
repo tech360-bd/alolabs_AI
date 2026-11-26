@@ -97,6 +97,12 @@ export function withSqliteIntegrityPragmas<T extends AdapterFactoryLike>(factory
  */
 let betterSqlite3Probe: boolean | undefined;
 
+/**
+ * The single default SQLite location, shared by every SQLite path here so an
+ * unset `DATABASE_URL` and an explicit adapter choice cannot disagree.
+ */
+const DEFAULT_SQLITE_URL = 'file:./db/custom.db'
+
 function betterSqlite3Available(): boolean {
   if (betterSqlite3Probe !== undefined) return betterSqlite3Probe;
   try {
@@ -123,7 +129,7 @@ function createPrismaClient(): PrismaClient {
   const datasource = parseDatasource(process.env.DATABASE_URL)
 
   if (process.env.PRISMA_SQLITE_ADAPTER === '1') {
-    const url = process.env.DATABASE_URL ?? 'file:./db/custom.db'
+    const url = process.env.DATABASE_URL ?? DEFAULT_SQLITE_URL
     // Adapter selection, in order of preference:
     //   1. better-sqlite3  — the documented path; fastest, needs a native addon.
     //   2. node:sqlite     — Node 22 core driver; no compilation, same
@@ -169,12 +175,26 @@ function createPrismaClient(): PrismaClient {
   //
   // The production datasource policy above has already refused this path when
   // it matters, so this cannot downgrade a production deployment.
-  if (datasource?.provider === 'sqlite') {
-    console.warn(
-      '[db] PRISMA_SQLITE_ADAPTER is not set; using the node:sqlite adapter for a SQLite URL. ' +
-        'Set PRISMA_SQLITE_ADAPTER=1 to make this explicit and silence this warning.',
-    )
-    return new PrismaClient({ log: ['error'], adapter: new PrismaNodeSqlite({ url: process.env.DATABASE_URL ?? 'file:./db/custom.db' }) })
+  // An *unset* DATABASE_URL is handled by the same branch, deliberately. Every
+  // other SQLite path in this file already defaults to DEFAULT_SQLITE_URL, so
+  // leaving `datasource` null fell through to a bare `new PrismaClient()` —
+  // which Prisma 6's client-only engine refuses ("Missing configured driver
+  // adapter") and which then broke anything that merely imported `@/lib/db`
+  // without a configured URL (scripts, tests, a fresh clone). A missing URL is
+  // not a reason to hand the process a connection that cannot exist.
+  //
+  // This cannot weaken production: `assertProductionDatasource()` above has
+  // already thrown unless DATABASE_URL is a real MySQL/MariaDB server URL, so
+  // an unset URL never reaches this line in a production runtime.
+  if (datasource === null || datasource.provider === 'sqlite') {
+    const url = process.env.DATABASE_URL ?? DEFAULT_SQLITE_URL
+    if (process.env.PRISMA_SQLITE_ADAPTER !== '1') {
+      console.warn(
+        '[db] PRISMA_SQLITE_ADAPTER is not set; using the node:sqlite adapter for a SQLite URL. ' +
+          'Set PRISMA_SQLITE_ADAPTER=1 to make this explicit and silence this warning.',
+      )
+    }
+    return new PrismaClient({ log: ['error'], adapter: new PrismaNodeSqlite({ url }) })
   }
 
   return new PrismaClient({

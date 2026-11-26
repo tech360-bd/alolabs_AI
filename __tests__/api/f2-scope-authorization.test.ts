@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { hasScope, type V1Identity } from '@/lib/v1-auth';
 

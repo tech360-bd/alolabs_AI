@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Verification: is the AI call center doing REAL work?
  *

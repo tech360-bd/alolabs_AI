@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The realtime and queue socket services are internal infrastructure. They
  * share one session check (mini-services/shared/internal-auth.ts), which must
