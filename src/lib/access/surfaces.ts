@@ -141,6 +141,11 @@ export const CLIENT_PAGE_PREFIX = '/portal';
 export const INTERNAL_PAGE_PREFIXES: readonly string[] = [
   '/dashboard',
   '/brand',
+  // The ALO Open AI Platform is an authenticated product surface. It is listed
+  // here so anonymous visitors are redirected to /login instead of being served
+  // a shell that fails every API call; its API authorises per workspace rather
+  // than per audience (see SHARED_API_PREFIXES).
+  '/platform',
   '/design',
   '/invoice',
   '/site/platform',
@@ -180,6 +185,22 @@ const SHARED_API_PREFIXES: readonly string[] = ['/api/v1/platform'];
 
 function underSharedPrefix(pathname: string): boolean {
   return SHARED_API_PREFIXES.some((prefix) => under(pathname, prefix));
+}
+
+/**
+ * Page prefixes that belong to both surfaces.
+ *
+ * The audience split exists so a customer cannot wander into staff tooling and
+ * staff cannot impersonate a customer. The Open AI Platform is neither: it is a
+ * product with its own tenant model, and both a self-registered client account
+ * and an internal account can own a workspace. Without this exemption the
+ * cross-surface rule would bounce every client user from /platform to /portal,
+ * making the product unusable for exactly the audience it is sold to.
+ */
+const SHARED_PAGE_PREFIXES: readonly string[] = ['/platform'];
+
+export function isSharedPagePath(pathname: string): boolean {
+  return SHARED_PAGE_PREFIXES.some((prefix) => under(pathname, prefix));
 }
 
 function under(pathname: string, prefix: string): boolean {

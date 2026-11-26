@@ -4,6 +4,7 @@ import {
   audienceMayCallApi,
   isClientPagePath,
   isInternalPagePath,
+  isSharedPagePath,
 } from '@/lib/access/surfaces';
 import { isMetricsScrape } from '@/lib/access/metrics-scrape';
 import { matchesPublicApiRoute, type PublicApiRoute } from '@/lib/access/public-api-routes';
@@ -324,7 +325,9 @@ export async function proxy(request: NextRequest) {
     // components repeat this check against the database before rendering.
     const cookieAudience = audienceForToken(request.cookies.get(SESSION_COOKIE_NAME)?.value);
     const wantsClientPage = isClientPagePath(pathname);
-    if ((cookieAudience === 'client') !== wantsClientPage) {
+    // /platform is deliberately reachable from both surfaces — see
+    // SHARED_PAGE_PREFIXES in src/lib/access/surfaces.ts.
+    if (!isSharedPagePath(pathname) && (cookieAudience === 'client') !== wantsClientPage) {
       const home = new URL(cookieAudience === 'client' ? '/portal' : '/dashboard', request.url);
       const redirectResponse = NextResponse.redirect(home);
       redirectResponse.headers.set('Cache-Control', 'private, no-store');
