@@ -52,7 +52,7 @@ export async function POST(
       )
     }
 
-    const existing = await db.costEstimate.findUnique({ where: tenantWhere(tenant, { id }) })
+    const existing = await db.costEstimate.findFirst({ where: tenantWhere(tenant, { id }) })
     if (!existing) {
       return NextResponse.json(
         { error: 'Cost estimate not found' },

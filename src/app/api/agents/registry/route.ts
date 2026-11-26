@@ -48,7 +48,6 @@ export async function GET(request: NextRequest) {
     const [agents, total] = await Promise.all([
       db.agent.findMany({
         where: tenantWhere(tenant, where),
-        where,
         select: {
           id: true,
           agentId: true,

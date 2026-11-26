@@ -197,7 +197,10 @@ function main() {
       if (field.relation?.fields.length) continue;      // scalar side of a relation
       if (field.isList) continue;                        // lists live in child tables
       const type = sqlType(field) + defaultClause(field);
-      const required = field.isRequired && !field.hasDefaultValue && !field.defaultValue;
+      // `ParsedField` models a Prisma field as `optional` + `defaultRaw`;
+      // there is no isRequired/hasDefaultValue. A column needs attention when
+      // it is NOT optional and has no default to backfill existing rows with.
+      const required = !field.optional && field.defaultRaw === null;
       if (required) {
         console.warn(`[sqlite-push] ${model.name}.${field.name} is required with no default; needs a reviewed table rebuild — skipped.`);
         continue;

@@ -94,6 +94,67 @@ for (const file of files) {
   gaps.push(rel);
 }
 
+/**
+ * A duplicated `where:` key inside ONE object literal.
+ *
+ * TypeScript rejects this ("An object literal cannot have multiple properties
+ * with the same name"), but only under the strict build — and the consequence is
+ * silent: the LAST key wins, so adding a tenant filter above an existing `where`
+ * does nothing at all. That happened during the tenant sweep
+ * (agent-runs/[taskId] kept `where: { taskId }` after the scoped one), so it is
+ * checked mechanically here as well as by the compiler.
+ *
+ * Scope is the enclosing braces, not a line window: separate calls in the same
+ * function legitimately each have a `where`.
+ */
+function findDuplicateWhere(src) {
+  const hits = [];
+  const stack = []; // brace depth -> Set of keys seen at that depth
+  let depth = 0;
+  const lines = src.split('\n');
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    // Track only the depth transitions that matter; a `where:` key belongs to
+    // the innermost open brace at the time it appears.
+    let dedented = line;
+    const leadingCloses = (dedented.match(/^\s*\}/) || []).length;
+    if (leadingCloses > 0) {
+      depth = Math.max(0, depth - leadingCloses);
+      if (stack[depth]) stack[depth].clear();
+    }
+
+    if (/^\s+where\s*[:,]\s/.test(line)) {
+      const seen = stack[depth] ?? (stack[depth] = new Set());
+      if (seen.has('where')) hits.push(i + 1);
+      seen.add('where');
+    }
+
+    // Count remaining braces on the line to update depth for the next line.
+    const opens = (dedented.match(/\{/g) || []).length;
+    const closes = (dedented.match(/\}/g) || []).length - leadingCloses;
+    if (opens > 0) {
+      for (let k = 0; k < opens; k += 1) {
+        depth += 1;
+        stack[depth] = new Set();
+      }
+    }
+    if (closes > 0) {
+      depth = Math.max(0, depth - closes);
+      for (let k = depth + 1; k < stack.length; k += 1) stack[k] = new Set();
+    }
+  }
+  return hits;
+}
+
+const duplicateWhere = [];
+for (const file of files) {
+  const rel = './' + relative(API, file);
+  for (const line of findDuplicateWhere(readFileSync(file, 'utf8'))) {
+    duplicateWhere.push(`${rel}:${line}`);
+  }
+}
+
 const audit = process.argv.includes('--audit');
 const total = files.length;
 
@@ -109,6 +170,12 @@ if (audit) {
     console.log('Unclassified routes:');
     for (const gap of gaps) console.log('  ' + gap);
   }
+}
+
+if (duplicateWhere.length > 0) {
+  console.error('\nDuplicate `where:` keys found — the last one silently wins:');
+  for (const d of duplicateWhere) console.error('  ' + d);
+  process.exitCode = 1;
 }
 
 if (gaps.length > 0) {

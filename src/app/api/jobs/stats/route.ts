@@ -13,17 +13,16 @@ export async function GET(request: NextRequest) {
       db.workflowRun.count({ where: tenantWhere(tenant, { status: 'completed' }) }),
       db.workflowRun.count({ where: tenantWhere(tenant, { status: 'failed' }) }),
       db.workflowRun.aggregate({
-      where: tenantWhere(tenant),
-        where: { status: 'completed', durationMs: { not: null } },
+        where: tenantWhere(tenant, { status: 'completed', durationMs: { not: null } }),
         _avg: { durationMs: true },
       }),
     ]);
 
     const [agTotal, agRunning, agCompleted, agFailed, agAvg] = await Promise.all([
       db.agentRun.count({ where: tenantWhere(tenant) }),
-      db.agentRun.count({ where: { status: 'running' } }),
-      db.agentRun.count({ where: { status: 'completed' } }),
-      db.agentRun.count({ where: { status: 'failed' } }),
+      db.agentRun.count({ where: tenantWhere(tenant, { status: 'running' }) }),
+      db.agentRun.count({ where: tenantWhere(tenant, { status: 'completed' }) }),
+      db.agentRun.count({ where: tenantWhere(tenant, { status: 'failed' }) }),
       db.agentRun.aggregate({
         where: { status: 'completed', durationMs: { not: null } },
         _avg: { durationMs: true },

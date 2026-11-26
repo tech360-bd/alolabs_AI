@@ -49,7 +49,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json()
     const { firstName, lastName, email, phone, company, jobTitle, source, status, tags, metadata, assignedTo, score, lastContactAt } = body
 
-    const contact = await db.crmContact.findUnique({ where: tenantWhere(tenant, { id }) })
+    const contact = await db.crmContact.findFirst({ where: tenantWhere(tenant, { id }) })
     if (!contact) {
       return NextResponse.json({ error: 'Contact not found' }, { status: 404 })
     }

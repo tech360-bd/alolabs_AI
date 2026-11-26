@@ -38,7 +38,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json()
     const { title, value, currency, probability, expectedClose, actualClose, lostReason, stageId, status, assignedTo, metadata } = body
 
-    const deal = await db.crmDeal.findUnique({ where: tenantWhere(tenant, { id }) })
+    const deal = await db.crmDeal.findFirst({ where: tenantWhere(tenant, { id }) })
     if (!deal) {
       return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
     }

@@ -14,7 +14,7 @@ export async function PATCH(
     const body = await request.json();
     const { name, url, events, isActive } = body;
 
-    const webhook = await db.webhookConfig.findUnique({ where: tenantWhere(tenant, { id }) });
+    const webhook = await db.webhookConfig.findFirst({ where: tenantWhere(tenant, { id }) });
     if (!webhook) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }

@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
     // Get agents from DB
     const dbAgents = await db.agent.findMany({
       where: tenantWhere(tenant),
-      where: tenantWhere(tenant),
       select: { agentId: true, name: true, status: true, type: true, role: true, version: true, createdAt: true },
       take: 100,
     });

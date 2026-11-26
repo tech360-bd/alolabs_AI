@@ -12,8 +12,10 @@ export async function GET(
     const { taskId } = await params
 
     const runs = await db.agentRun.findMany({
-      where: tenantWhere(tenant),
-      where: { taskId },
+      // Both conditions in ONE object: a second `where` key silently won and
+      // dropped the tenant filter entirely, so any caller could read another
+      // company's runs for a task id they guessed.
+      where: tenantWhere(tenant, { taskId }),
       orderBy: { createdAt: 'desc' },
     })
 

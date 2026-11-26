@@ -80,12 +80,16 @@ export async function legacyTenant(request: NextRequest): Promise<LegacyTenant> 
  * `tenantWhere(tenant, { status: 'active' })` → `{ companyId, status: 'active' }`.
  * Pass `field` for models whose tenant column is named differently.
  */
-export function tenantWhere(
+export function tenantWhere<T extends Record<string, unknown> = Record<string, never>>(
   tenant: LegacyTenant,
-  extra: Record<string, unknown> = {},
+  extra?: T,
   field = 'companyId',
-): Record<string, unknown> {
-  return { [field]: tenant.companyId, ...extra };
+): { companyId: string } & T {
+  // `extra` can never overwrite the tenant: the spread order is deliberate.
+  // Returned as a plain intersection rather than a computed key type, because
+  // Prisma's generated `WhereInput` accepts an object literal and the mapped
+  // type defeated inference at the call sites.
+  return { [field]: tenant.companyId, ...(extra ?? ({} as T)) } as unknown as { companyId: string } & T;
 }
 
 /** Map a `LegacyAuthError` to the JSON response the UI already expects. */
