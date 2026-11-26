@@ -30,6 +30,9 @@ const MECHANISMS = [
   ['withCompany', /\bwithCompany\b/],
   ['mail-session', /\bauthenticateMailSession\b/],
   ['requireAuth-family', /\brequireAuth\b|\brequireCompanyAuth\b|\brequireRole\b|\brequireCompanyAdmin\b/],
+  // `legacyTenant` wraps session verification AND resolves a live CompanyUser
+  // membership, so it is a stricter mechanism than a bare session check.
+  ['legacyTenant', /\blegacyTenant\b/],
   ['own-session', /\bverifySessionToken\b|\bgetAuthUser\b|\bgetServerSession\b|\bauthenticateBearerSession\b/],
 ];
 
