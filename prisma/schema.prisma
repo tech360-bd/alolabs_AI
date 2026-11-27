@@ -450,6 +450,10 @@ model Approval {
   responseNote String?
   riskLevel    String    @default("medium")
   executionId  String?
+  // The AgentOS run this approval pauses (null = not a run approval).
+  // This was previously only encoded inside requestJson, so finding a
+  // run's approvals meant matching a JSON substring.
+  runId        String?
   companyId    String?
   expiresAt    DateTime? // pending approvals past this instant are expired, never executed
   createdAt    DateTime  @default(now())
@@ -462,6 +466,7 @@ model Approval {
 
   @@index([companyId, status])
   @@index([executionId])
+  @@index([runId, status])
 }
 
 model CapabilityRequest {

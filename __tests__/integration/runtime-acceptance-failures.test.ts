@@ -560,6 +560,71 @@ describe('Stage 2 acceptance — mandatory failure scenarios', () => {
     expect((await freshRuns.getRunEvents(runId, 10)).length).toBeGreaterThan(0);
   });
 
+  // ── F-23 ─────────────────────────────────────────────────────────────────
+  // The lookup must find a linked approval whose requestJson does NOT carry the
+  // run id, and must still find a legacy row whose only link is that JSON. Two
+  // separate cases, because a legacy row present in the same database masks a
+  // failure of the column path.
+  it('F-23a finds an approval linked by column, not by JSON substring', async () => {
+    const companyId = await freshCompany();
+    const runs = await import('@/lib/runs');
+    const { runId } = await runs.createRun({ objective: 'column lookup', companyId });
+
+    // Linked by column only. A substring implementation finds nothing here, so
+    // the engine would not see the pending decision and would run the step.
+    await real.db.approval.create({
+      data: {
+        id: 'ap-column-only', companyId, title: 'Column-linked', type: 'qc_review',
+        status: 'pending', runId, requestJson: JSON.stringify({ stepId: 's1' }),
+      },
+    });
+    await real.db.agentOSRun.update({ where: { id: runId }, data: { status: 'waiting_approval', attempts: 1 } });
+
+    const before = await real.db.runEvent.count({ where: { runId } });
+    await runs.executeRun(runId);
+    expect(await real.db.runEvent.count({ where: { runId } }), 'a pending decision linked by column must be seen').toBe(before);
+    expect((await runs.getRun(runId))?.status).toBe('waiting_approval');
+  });
+
+  it('F-23b still resolves a legacy approval whose only link is requestJson', async () => {
+    const companyId = await freshCompany();
+    const runs = await import('@/lib/runs');
+    const { runId } = await runs.createRun({ objective: 'legacy lookup', companyId });
+
+    // Written before the column existed: runId is null, the link is in the JSON.
+    await real.db.approval.create({
+      data: {
+        id: 'ap-legacy-only', companyId, title: 'Legacy', type: 'qc_review',
+        status: 'pending', requestJson: JSON.stringify({ runId, stepId: 's1' }),
+      },
+    });
+    await real.db.agentOSRun.update({ where: { id: runId }, data: { status: 'waiting_approval', attempts: 1 } });
+
+    const before = await real.db.runEvent.count({ where: { runId } });
+    await runs.executeRun(runId);
+    expect(await real.db.runEvent.count({ where: { runId } }), 'legacy rows must still be found').toBe(before);
+    expect((await runs.getRun(runId))?.status).toBe('waiting_approval');
+  });
+
+  it('F-23c does not attach an approval that merely mentions the run id', async () => {
+    const companyId = await freshCompany();
+    const runs = await import('@/lib/runs');
+    const { runId } = await runs.createRun({ objective: 'decoy lookup', companyId });
+
+    // No column link; the id appears only inside another field's text. This row
+    // belongs to a different run and must not be treated as this run's.
+    await real.db.approval.create({
+      data: {
+        id: 'ap-decoy-only', companyId, title: 'Decoy', type: 'qc_review',
+        status: 'pending', runId: null,
+        requestJson: JSON.stringify({ runId: 'some-other-run', note: `see ${runId}` }),
+      },
+    });
+
+    const linked = await real.db.approval.findMany({ where: { runId } });
+    expect(linked, 'only column-linked rows belong to this run').toHaveLength(0);
+  });
+
   // ── F-22 ─────────────────────────────────────────────────────────────────
   it('F-22 every created run has an event trail from queue to terminal state', async () => {
     const companyId = await freshCompany();
