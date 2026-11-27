@@ -20,7 +20,7 @@ records.
 
 | Suite | Cases | File |
 | --- | --- | --- |
-| Mandatory failure scenarios | 22 | `__tests__/integration/runtime-acceptance-failures.test.ts` |
+| Mandatory failure scenarios | 25 | `__tests__/integration/runtime-acceptance-failures.test.ts` |
 | Required behaviours | 15 | `__tests__/integration/runtime-acceptance-behaviours.test.ts` |
 
 Harness: `__tests__/helpers/real-db.ts` — a throw-away SQLite database per suite,
@@ -54,6 +54,9 @@ foreign keys ON, WAL, busy timeout, bound to the application's own client.
 | F-20 | Orchestration throws | Run never left non-terminal; reason recorded | **PASS** |
 | F-21 | Durability | State visible from a fresh module instance | **PASS** |
 | F-22 | Event trail | Reaches a terminal event; every event has a source | **PASS** |
+| F-23a | Approval linked by column | Seen even when its JSON carries no run id | **PASS** |
+| F-23b | Legacy approval | JSON-only link still resolved | **PASS** |
+| F-23c | Decoy approval | An id merely mentioned in another field is not a link | **PASS** |
 
 ---
 
@@ -129,12 +132,11 @@ and no other case.
 
 Recorded rather than hidden:
 
-1. **`findRunApprovals` matches on a JSON substring** —
-   `requestJson: { contains: '"runId":"<id>"' }`. It is correct for rows this
-   engine writes, but it is a string match standing in for a relation. A JSON
-   column, or a real foreign key, would remove the class of bug where a
-   coincidental substring matches. Not fixed here because it requires a migration
-   across an existing table.
+1. **`findRunApprovals` used to match on a JSON substring.** Fixed during this
+   work: `Approval` now has a `runId` column (`20261127_approval_run_link.sql`)
+   and the lookup queries it directly, with a substring fallback only for rows
+   written before the migration. Cases F-23a–c cover the column path, the legacy
+   fallback, and a decoy that merely mentions the id.
 2. **No streaming assertion in this report.** SSE replay is covered by its own
    suite (`A1-03`), not by these two, and is not claimed here.
 3. **Queue execution is proven at the queue layer**, not by running the real
@@ -148,13 +150,13 @@ Recorded rather than hidden:
 - Node v22.22.3; SQLite via the `node:sqlite` adapter (`PRISMA_SQLITE_ADAPTER=1`).
 - `npx vitest run __tests__/integration/runtime-acceptance-failures.test.ts`
 - `npx vitest run __tests__/integration/runtime-acceptance-behaviours.test.ts`
-- Full suite at the time of writing: **243 files / 2671 passed / 15 skipped / 0 failed**.
+- Full suite at the time of writing: **243 files / 2674 passed / 15 skipped / 0 failed**.
 
 ---
 
 ## 8. Status
 
-Stage 2 acceptance criteria — the 22 mandatory failure scenarios and the 20
+Stage 2 acceptance criteria — the 25 mandatory failure scenarios and the
 required behaviours — are covered by passing automated tests against the real
 engine on `main`.
 
