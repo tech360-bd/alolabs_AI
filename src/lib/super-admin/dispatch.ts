@@ -21,6 +21,7 @@ import { db } from '@/lib/db';
 import { writeAuditEvent } from '@/lib/audit-events';
 import { createRun, listRuns, type RunStatus } from '@/lib/runs';
 import { isUsableTenantId } from '@/lib/tenancy/policy';
+import { notifyOperator } from '@/lib/notifications/operator';
 import {
   classifyInstruction,
   summariseAttachments,
@@ -138,6 +139,17 @@ export async function dispatchOperatorInstruction(input: DispatchInput): Promise
         result: `Awaiting ${approval.type} approval ${approval.id}.`,
       },
     });
+
+    // The operator may be looking at another screen when the gate is raised.
+    await notifyOperator({
+      companyId: input.companyId,
+      ...(input.userId ? { userId: input.userId } : {}),
+      type: 'approval.required',
+      title: approvalTitle(plan, instruction),
+      message: `"${plan.intent.label}" needs approval (${approval.type}). The request contains the exact steps and attachments.`,
+      approvalId: approval.id,
+      link: '/dashboard?panel=approvals',
+    }).catch(() => undefined);
 
     await writeAuditEvent({
       action: 'super_admin.command.approval_required',

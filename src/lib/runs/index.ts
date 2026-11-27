@@ -132,6 +132,12 @@ export interface CreateRunInput {
   companyId: string;
   projectId?: string;
   commandId?: string;
+  /**
+   * Parent run for multi-agent fan-out. A child run is an ordinary run in every
+   * other respect: it has its own id, events, queue item and cancellation. The
+   * link exists so "cancel the parent" is a query, not a guess.
+   */
+  parentRunId?: string;
   workflowId?: string;
   priority?: string;
   /** Skip queueing (execute inline) — used by tests and sync callers. */
@@ -156,6 +162,7 @@ export async function createRun(input: CreateRunInput): Promise<{ runId: string;
       status: 'queued',
       plan: '[]',
       ...(input.commandId ? { commandId: input.commandId } : {}),
+      ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
       ...(input.projectId ? { projectId: input.projectId } : {}),
       ...(input.workflowId ? { workflowId: input.workflowId } : {}),
       companyId: input.companyId,
@@ -198,6 +205,7 @@ export async function listRuns(filter: {
   companyId?: string;
   userId?: string;
   projectId?: string;
+  parentRunId?: string;
   status?: string;
   limit?: number;
   offset?: number;
@@ -206,6 +214,7 @@ export async function listRuns(filter: {
   if (filter.companyId) where.companyId = filter.companyId;
   if (filter.userId) where.userId = filter.userId;
   if (filter.projectId) where.projectId = filter.projectId;
+  if (filter.parentRunId) where.parentRunId = filter.parentRunId;
   if (filter.status) where.status = filter.status;
 
   const [runs, total] = await Promise.all([
@@ -282,7 +291,9 @@ export async function retryRun(runId: string, callerCompanyId?: string): Promise
   return { runId, status: 'queued' };
 }
 
-export async function cancelRun(runId: string, callerCompanyId?: string): Promise<boolean> {
+const MAX_CANCEL_DEPTH = 5;
+
+export async function cancelRun(runId: string, callerCompanyId?: string, depth = 0): Promise<boolean> {
   const run = await db.agentOSRun.findUnique({ where: { id: runId } });
   if (!run) return false;
   if (callerCompanyId !== undefined) {
@@ -301,6 +312,29 @@ export async function cancelRun(runId: string, callerCompanyId?: string): Promis
     data: { status: 'cancelled', error: 'Run cancelled by user', completedAt: new Date() },
   }).catch(() => undefined);
   await recordRunEvent({ runId, type: 'run.cancelled', source: 'orchestrator', data: {} });
+
+  // Cascading cancellation. A parent that is cancelled must not leave children
+  // running: they hold queue items, spend tokens and write outputs nobody will
+  // reconcile. Children are cancelled through this same function so their own
+  // grandchildren are covered, and the recursion is depth-limited so a corrupted
+  // parent chain cannot loop forever.
+  if (depth < MAX_CANCEL_DEPTH) {
+    const children = await db.agentOSRun.findMany({
+      where: { parentRunId: runId, status: { notIn: [...TERMINAL_STATUSES] } },
+      select: { id: true },
+    }).catch(() => []);
+    for (const child of children) {
+      await cancelRun(child.id, callerCompanyId, depth + 1).catch(() => false);
+    }
+    if (children.length > 0) {
+      await recordRunEvent({
+        runId,
+        type: 'run.cancelled',
+        source: 'orchestrator',
+        data: { cascade: children.map((child) => child.id) },
+      });
+    }
+  }
   return true;
 }
 

@@ -18,6 +18,8 @@
  *    cloud metadata.
  */
 
+import { existsSync } from 'node:fs';
+
 import { assertNavigableUrl, resolveAndGuardLink, type BrowserPolicy, DEFAULT_BROWSER_POLICY } from './navigation-guard';
 
 export interface BrowserCapability {
@@ -80,6 +82,20 @@ export async function browserCapability(): Promise<BrowserCapability> {
       const path = mod.chromium.executablePath();
       if (!path) {
         return { available: false, engine: null, reason: 'Playwright is installed but no Chromium build is present.' };
+      }
+      // `executablePath()` returns the path a browser *would* occupy; it does not
+      // prove the binary exists. Installing the npm package without the browser
+      // download (which is a separate, blocked step in restricted networks) leaves
+      // a valid-looking path and a launch that fails at the first page. Check the
+      // filesystem so the capability report is true.
+      if (!existsSync(path)) {
+        return {
+          available: false,
+          engine: null,
+          reason:
+            'Playwright is installed but its Chromium binary was never downloaded ' +
+            '(`npx playwright install chromium`). Run that on the host or CI image.',
+        };
       }
     } catch {
       return {

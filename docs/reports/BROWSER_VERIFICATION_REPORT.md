@@ -85,3 +85,26 @@ Isolation (fresh context per call, no storage state, CSP not bypassed, downloads
 rejected), destination policy as above, bounded collection (25 console entries, 200
 links, 2.5 MB screenshot cap, 2–60 s timeout), audit of both blocked and completed
 navigations, and `super_admin`-only access with rate limiting.
+
+## 6. Re-verification, 2026-11-27
+
+The code loads Playwright through a variable dynamic specifier, so it needs no
+build-time dependency: the module is present only where a host has installed it.
+`npx playwright install chromium` fails in this sandbox with
+`ECONNRESET` from `cdn.playwright.dev` — the browser download host is not reachable
+here. More importantly, `chromium.executablePath()` returns a path *whether or not
+the binary exists*, so a capability check based on it alone reports success and then
+throws on first use. `src/lib/browser/verify.ts` now `existsSync`es that path.
+
+Re-run: `npx tsx scripts/verify-browser.ts` →
+
+```
+status: UNAVAILABLE   reason: chromium binary not installed
+destination policy: 10 blocked / 0 leaked · 2 allowed / 0 false positives
+```
+
+So the honest position is unchanged: the policy and the route are implemented and
+their refusals are tested, but **no page has been opened in this environment**, and
+the acceptance criteria that depend on opening one remain
+`BLOCKED BY EXTERNAL DEPENDENCY`. On a host where the browser installs, `npm run
+verify:browser` is the check to run before believing any browser claim.

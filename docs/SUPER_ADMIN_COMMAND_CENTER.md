@@ -146,3 +146,114 @@ Runtime proof (writes to a probe company, then deletes everything it created):
 ```bash
 PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run verify:operator
 ```
+
+---
+
+## 7. Multi-agent orchestration (2026-11-27)
+
+A single run has one agent. An objective that names several repositories, or a
+multi-step procedure, needs several — so the command path can hand an objective to
+the orchestrator, which plans subtasks, assigns agents from the registry, runs them
+through the same Run Engine and reconciles the results.
+
+```
+objective ──▶ buildOrchestrationPlan()
+                │  classify intent → steps (sequential: step N needs step N-1)
+                │  extractTargets() → one parallel subtask per URL when ≥2 targets
+                │  selectAgent() per subtask, write scopes serialised
+                ▼
+           orchestrate()  ──▶ child runs (AgentOSRun.parentRunId)
+                │               real QueueItems, real RunEvents, real cancellation
+                ▼
+           reconcile()    ──▶ outcome + contradictions + verdict
+```
+
+Design decisions that matter:
+
+- **`parentRunId` is a real column**, nullable and indexed, with a paired rollback
+  migration in all three schema variants. Depth-limited cascading cancel
+  (`MAX_CANCEL_DEPTH = 5`): cancelling a parent cancels its children, which cancel
+  theirs.
+- **Intent steps are a procedure, not a fan-out.** "Review this repo, then patch it,
+  then open a PR" is ordered. Parallelism comes from independent targets, which is
+  why `extractTargets()` drives the fan-out shape. The first version ran every step
+  in parallel and produced agents racing to edit the same tree.
+- **Write scopes serialise.** Two subtasks that both write are never in flight
+  together, regardless of the concurrency limit. `MAX_CONCURRENCY = 4`.
+- **A failing child never aborts the fan-out.** `createChild` is wrapped: a throw is
+  recorded as `run.fanout.child_failed` and that subtask is marked permanently
+  failed; the rest continue.
+- **A timed-out or blocked child leaves the pending set** — the first version spun
+  forever waiting for a subtask that would never report.
+- **The whole run has a wall-clock deadline** (`subtasks × childTimeoutMs + 60s`);
+  when it expires, live children are cancelled and `run.fanout.deadline_exceeded`
+  lands on the timeline.
+- **`platform.browser` and `platform.coding` are registered `unavailable`.** They
+  exist as descriptors so planning can reason about them; nothing pretends they can
+  execute.
+
+Evidence:
+
+- `__tests__/integration/orchestration-fanout.test.ts` — 12 cases against a scripted
+  `RunPort`: real overlap (`maxConcurrent === 2`), cap enforcement, dependency order,
+  retry vs no-retry, unassigned subtask, parent-cancel cascade, contradiction
+  detection, child timeout, planning rules.
+- `npm run verify:orchestration` — 7 checks against the real database with a stub
+  executor (no model is called): two child rows carrying `parentRunId`, real overlap,
+  the fan-out events on the parent timeline, and cascading cancel. Everything it
+  creates is deleted before exit.
+
+API: `POST /api/super-admin/orchestrate` (create, or `previewOnly` to see the plan),
+`GET` for the agent registry. Cross-tenant orchestration requires the
+`ALO_SYSTEM_OPERATORS` scope **and** a written reason, and is audited.
+
+## 8. Repository assessment (2026-11-27)
+
+"Should we use this GitHub project?" is answered from the API, not from vibes.
+
+- `parseRepositoryReference()` accepts bare `owner/repo`, `git@github.com:` remotes,
+  https URLs with sub-paths, `.git` suffixes — and rejects organisation listing
+  pages, topics, GitLab and non-repository links rather than guessing.
+- `assessRepository()` reads metadata, latest release, recent commits, the tree and
+  `package.json`, then applies rules: archived, disabled, no licence, copyleft,
+  stale, install-time script execution, duplication against `LINK_COVERAGE`.
+- Verdicts are `reject | isolated_evaluation_only | safe_after_review |
+  safe_to_integrate`, each with a sentence a human can argue with.
+- **Absence is not evidence.** Without `GITHUB_TOKEN`, advisories are reported as
+  *unknown* — never as "no advisories". Anything unreadable lands in `unavailable[]`
+  with the reason, and an unreadable repository is a rejection, not a pass.
+- A `curl … | sh` install hook is a **reject**; any other install hook is
+  `isolated_evaluation_only` — the package runs code at install time, so evaluate it
+  somewhere without credentials or network reach into our systems.
+
+Evidence: `__tests__/unit/lib/github-assess.test.ts` (12 cases over an injected
+`fetch`), and `npm run verify:github` — live assessments of real repositories. On
+2026-11-27: `vercel/next.js` → `isolated_evaluation_only` (its `postinstall` runs a
+program), `ripienaar/free-for-dev` → `reject` (no licence), `tech360-bd/alolabs_AI` →
+`safe_to_integrate`. Note: this sandbox intercepts TLS with a private CA, so the live
+script needs `NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt`; a normal host
+or CI runner does not.
+
+Tool: `github_repository_assess` in the command agent's registry, and
+`POST /api/super-admin/repository/assess` (super admin, rate-limited, audited).
+
+## 9. Notifications and run links (2026-11-27)
+
+`src/lib/notifications/operator.ts` writes into the existing `Notification` table —
+the same one the dashboard bell reads:
+
+- **Tenant-scoped**: a notification always belongs to one company; there is no
+  broadcast path, and a missing tenant is refused rather than written.
+- **Deduplicated** on `type + runId` (24 h window) inside `metadata`, so a retrying
+  worker cannot produce ten identical alerts.
+- **Linked**: `runId`, `approvalId`, `link` and evidence pointers travel in
+  `metadata`, so the notification opens the thing it is about.
+- **Delivery is visible**: with `OPERATOR_WEBHOOK_URL` set, the push is attempted
+  with an 8 s timeout; a failure records `attempts` and `lastError` on the row and
+  the in-app notification survives. `retryFailedDeliveries()` retries only those.
+
+Wired into: approval gates (an operator may be on another screen when the gate
+rises), orchestration reconciliation (completed / failed / cancelled), and available
+to any caller that knows a run id. Evidence:
+`__tests__/unit/lib/operator-notifications.test.ts` (8 cases: dedupe, tenant scoping,
+failed delivery, successful delivery, retry).

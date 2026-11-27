@@ -243,7 +243,7 @@ export async function stackRegisterLookup(args: Record<string, unknown>): Promis
     total: rows.length,
     matches: rows.slice(0, limit).map((entry) => ({
       id: entry.id,
-      name: entry.name,
+      name: entry.id,
       verdict: entry.verdict,
       verdictLabel: VERDICT_META[entry.verdict].label,
       pillar: entry.pillar.label,
@@ -283,6 +283,52 @@ export async function browserVerifyTool(args: Record<string, unknown>): Promise<
     ...(typeof args.timeoutMs === 'number' ? { timeoutMs: args.timeoutMs } : {}),
   });
   return withoutScreenshot(evidence);
+}
+
+// ─── github_repository_assess (network, read-only) ──────────────────────────
+
+/**
+ * Repository intelligence for the Command Agent.
+ *
+ * A pasted GitHub link is a request to *inspect* the source, not permission to run
+ * it. This tool reads the repository through the GitHub API and returns the
+ * structured assessment — licence, activity, install scripts, structure,
+ * advisories and the verdict rule — so the agent can report facts instead of a
+ * summary it invented.
+ */
+export async function githubRepositoryAssessTool(args: Record<string, unknown>): Promise<unknown> {
+  const repository = clamp(args.repository ?? args.url, 2_048);
+  if (!repository) throw new Error('repository is required');
+  const { assessRepository } = await import('@/lib/github/assess');
+  const { LINK_COVERAGE } = await import('@/lib/link-coverage/registry');
+  const knownCapabilities = LINK_COVERAGE.flatMap((entry) => {
+    try {
+      const segments = new URL(entry.url).pathname.split('/').filter(Boolean);
+      const name = (segments[segments.length - 1] ?? '').replace(/\.git$/, '');
+      return [name, ...(entry.id ? [entry.id] : [])];
+    } catch {
+      return [];
+    }
+  }).filter((name) => name.length >= 3);
+
+  const assessment = await assessRepository(repository, {
+    ...(process.env.GITHUB_TOKEN ? { token: process.env.GITHUB_TOKEN } : {}),
+    knownCapabilities,
+  });
+
+  return {
+    repository: assessment.ref.fullName,
+    verdict: assessment.verdict,
+    verdictReason: assessment.verdictReason,
+    licence: assessment.licence,
+    activity: assessment.activity,
+    advisories: assessment.advisories,
+    findings: assessment.findings,
+    unavailable: assessment.unavailable,
+    duplication: assessment.duplication,
+    guidance:
+      'Report the verdict literally. "reject" covers an unreadable, archived, unlicensed or install-time-executing repository; "isolated_evaluation_only" means never run its install or build with credentials. Never describe a repository as safe because it is popular.',
+  };
 }
 
 export interface CommandTool {
@@ -362,6 +408,18 @@ export const COMMAND_TOOLS: readonly CommandTool[] = [
       additionalProperties: false,
     },
     run: stackRegisterLookup,
+  },
+  {
+    name: 'github_repository_assess',
+    description:
+      'Inspect a GitHub repository (owner/repo or URL) through the GitHub API: licence, activity, manifest, install scripts, structure, advisories and a verdict (safe_to_integrate | safe_after_review | isolated_evaluation_only | reject). Read-only; it never clones or executes the repository.',
+    parameters: {
+      type: 'object',
+      properties: { repository: { type: 'string', description: 'URL or owner/repo.' } },
+      required: ['repository'],
+      additionalProperties: false,
+    },
+    run: githubRepositoryAssessTool,
   },
   {
     name: 'browser_verify',
