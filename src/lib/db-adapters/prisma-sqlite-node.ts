@@ -41,15 +41,32 @@
 
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { DatabaseSync as DatabaseSyncType, StatementSync } from 'node:sqlite';
 
-// Loaded through `createRequire` rather than a static ESM import so Vite's
-// client/jsdom module graph never tries to bundle `node:sqlite` when a UI or
-// unit test transitively imports `@/lib/db`.
-const nodeRequire = createRequire(import.meta.url);
+/**
+ * Resolve a `require` that works in **both** module systems.
+ *
+ * The SQLite driver is loaded through `createRequire` rather than a static ESM
+ * import so Vite's client/jsdom graph never bundles `node:sqlite` when a UI or
+ * unit test transitively imports `@/lib/db`.
+ *
+ * The reference filename matters: this module is also bundled into the
+ * CommonJS mini-services (`realtime-service.cjs`, `queue-service.cjs`), and
+ * esbuild replaces `import.meta` with `{}` in a `cjs` output — so
+ * `createRequire(import.meta.url)` received `undefined` and threw
+ * `ERR_INVALID_ARG_VALUE` while the service was *loading*, before any of its
+ * code ran. Resolving lazily from a filename that exists in either module
+ * system (CJS has `__filename`; ESM falls back to the working directory)
+ * keeps the deferred load without tying it to `import.meta`.
+ */
+function nodeRequire(): NodeRequire {
+  if (typeof __filename === 'string') return createRequire(__filename);
+  return createRequire(join(process.cwd(), 'index.js'));
+}
+
 function loadDatabaseSync(): typeof DatabaseSyncType {
-  const sqlite = nodeRequire('node:sqlite') as { DatabaseSync: typeof DatabaseSyncType };
+  const sqlite = nodeRequire()('node:sqlite') as { DatabaseSync: typeof DatabaseSyncType };
   return sqlite.DatabaseSync;
 }
 import type {
@@ -216,6 +233,8 @@ function mapRowValues(row: unknown[], columnTypes: ColumnType[]): unknown[] {
     }
     if (typeof value === 'bigint') {
       if (type === DateTime) result[i] = new Date(Number(value)).toISOString();
+      // BigInt(0) rather than 0n: the project targets ES2017, where a BigInt
+      // literal is a syntax error.
       else if (type === Boolean) result[i] = value !== BigInt(0);
       else result[i] = value.toString();
       continue;

@@ -68,14 +68,14 @@ validate-route-auth: OK — every non-public API handler references an auth help
 
 ## 4. Dual-Schema Parity & Migration Safety
 
-- **SQLite / MySQL Parity:** `prisma/schema.prisma`, `prisma/schema.mysql.prisma`, and `prisma/schema.mysql.push.prisma` are synchronized across all **266 models** and **664 indexed fields** (`npm run verify:mysql` → `0` parity errors, `0` index collisions).
+- **SQLite / MySQL Parity:** `prisma/schema.prisma`, `prisma/schema.mysql.prisma`, and `prisma/schema.mysql.push.prisma` are synchronized across all **266 models** and **669 indexed fields** (`npm run verify:mysql` → `0` parity errors, `0` index collisions).
 - **Schema Additions:**
   - `AiWorkspace.companyId` (`ON DELETE RESTRICT`, indexed) with 3-step forward + rollback SQL (`20261126_ws_company_step{1,2_backfill,3_require}.sql`).
   - `AgentBuildRequest.companyId` (`ON DELETE SET NULL`, indexed) with paired forward + rollback SQL (`20261127_agent_build_request_company.sql` & `_rollback.sql`).
 - **Migration Gate:**
   ```text
   $ npm run verify:migrations
-  Migration safety check OK: 13 forward, 10 rollback, all paired, no destructive DDL in a forward migration.
+  Migration safety check OK: 14 forward, 11 rollback, all paired, no destructive DDL in a forward migration.
   ```
 - **Production Database Status:** Production MySQL migrations have **not** been executed from this sandbox (no live production DB credentials exist in the sandbox, and applying DDL to production requires a verified backup and explicit operator authorization).
 
@@ -93,8 +93,8 @@ validate-route-auth: OK — every non-public API handler references an auth help
 | Workflow Definitions | `npm run check:workflows` | **PASS** (17 definitions, 109 steps, 0 errors) |
 | Agent Skills Integrity | `npm run skills:verify` | **PASS** (838 skills, 0 problems) |
 | Route Classification & Auth | `npm run verify:security && node scripts/validate-route-auth.mjs` | **PASS** (542 files, 856 handlers, 0 unclassified) |
-| Security Test Suites | `npx vitest run __tests__/security` | **PASS** (6 files, 46 tests passed) |
+| Security Test Suites | `npx vitest run __tests__/security` | **PASS** (7 files, 50 tests passed) |
 | Run Engine 20 Behaviours | `npx vitest run __tests__/integration/run-engine-behaviours.test.ts` | **PASS** (20 behaviours across 7 real-DB tests) |
-| Full Vitest Suite | `npx vitest run` | **PASS** (240 passed, 0 failed, 1 skipped [MySQL live service], 2,644 tests passed) |
-| Node Native Tests | `node --test __tests__/**/*.node*.mjs` | **PASS** (9/9 passed) |
-| Standalone Production Build | `PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build` | **PASS** (Next.js standalone + mini-services verified, 9,191 files, no leaked data/keys) |
+| Full Vitest Suite | `npx vitest run` | **PASS** (244 passed, 0 failed, 1 skipped [MySQL live service], 2,686 tests passed, 15 skipped) |
+| Node Native Tests | `node --test __tests__/**/*.node*.mjs` | **PASS** (7/7 passed) |
+| Standalone Production Build | `PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build` | **PASS** (Next.js standalone + mini-services verified, 9,191 files, no leaked data/keys); packaged `queue-service.cjs` / `realtime-service.cjs` load cleanly |

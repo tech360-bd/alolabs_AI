@@ -5,8 +5,10 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   const tenant = await legacyTenant(request);
   try {
+    // Scoped by the owning company. `tenantWhere` is not used: this model has
+    // no relation to Company, so the filter is a plain column equality.
     const builds = await db.agentBuildRequest.findMany({
-      where: tenantWhere(tenant),
+      where: { companyId: tenant.companyId },
       orderBy: { createdAt: 'desc' },
       take: 200,
     })
@@ -89,6 +91,7 @@ export async function POST(request: NextRequest) {
     // Create AgentBuildRequest record
     const buildRequest = await db.agentBuildRequest.create({
       data: {
+        companyId: tenant.companyId,
         agentName,
         departmentId: departmentId || null,
         config: parsedConfig,

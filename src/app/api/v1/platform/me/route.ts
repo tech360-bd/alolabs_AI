@@ -47,7 +47,7 @@ export const GET = platformRoute({ allowCompanyScope: true }, async ({ principal
     user,
     workspace,
     permissions: {
-      canAdministerWorkspace: hasWorkspace ? await canAdministerWorkspace(principal, principal.workspaceId) : false,
+      canAdministerWorkspace: hasWorkspace ? await canAdministerWorkspace(principal) : false,
       canCreateKeys: principal.kind === 'session',
       canManageProviders: user?.role === 'admin' || user?.role === 'super_admin',
     },

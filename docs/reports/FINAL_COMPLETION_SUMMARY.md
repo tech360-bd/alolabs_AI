@@ -1,7 +1,7 @@
 # ALO Labs AgentOS — Final Completion & Verification Summary
 
 **Date:** 2026-11-27  
-**Branch:** `arena/5010a0d6-alolabs-ai` (branched from `main` at `ea92476564e11c4c297bff380c39c02cd86eeeb3`)  
+**Branch:** `arena/5010a0d6-alolabs-ai` — branched from `main` at `ea924765`, merged up to `main` at `f0230c8` (PR #73)  
 **Repository:** `tech360-bd/alolabs_AI`
 
 ---
@@ -16,12 +16,12 @@ All code defects blocking CI/build on `main`, all multi-tenant security exposure
 - **ESLint:** `npm run lint` → **0 errors**
 - **Route Classification Gate:** `npm run verify:routes` → **542 / 542 route files classified (`0` unclassified)**
 - **Route Auth Audit Gate:** `node scripts/validate-route-auth.mjs` → **542 route files, 856 non-public handlers OK**
-- **MySQL / SQLite Dual Schema Parity:** `npm run verify:mysql` → **266 / 266 models, 664 indexed fields, 0 parity errors, 0 collisions**
-- **Migration Safety Gate:** `npm run verify:migrations` → **13 forward, 10 rollback, all paired, 0 destructive forward DDL**
+- **MySQL / SQLite Dual Schema Parity:** `npm run verify:mysql` → **266 / 266 models, 669 indexed fields, 0 parity errors, 0 collisions**
+- **Migration Safety Gate:** `npm run verify:migrations` → **14 forward, 11 rollback, all paired, 0 destructive forward DDL**
 - **Prisma Delegate Check:** `npm run check:prisma-delegates` → **227 delegates verified**
 - **Workflow & Skill Registries:** `npm run check:workflows` (**17 definitions, 109 steps, 0 errors**) & `npm run skills:verify` (**838 skills, 0 problems**)
-- **Vitest Automated Matrix:** `npx vitest run` → **240 test files passed, 0 failed** (**2,644 tests passed**, 15 skipped in `mysql-compatibility.test.ts` pending live `MYSQL_TEST_URL` container in CI)
-- **Node Native Test Suite:** `node --test __tests__/**/*.node*.mjs` → **9 / 9 passed**
+- **Vitest Automated Matrix:** `npx vitest run` → **244 test files passed, 1 skipped, 0 failed** (**2,686 tests passed**, 15 skipped in `mysql-compatibility.test.ts` pending a live `MYSQL_TEST_URL` container in CI)
+- **Node Native Test Suite:** `node --test __tests__/**/*.node*.mjs` → **7 / 7 passed**
 - **Production Build & Standalone Packaging:** `PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build` → **PASS** (Next.js 16.4.6 compile + generate + standalone packaging + CJS mini-services + `verify-standalone.mjs` across 9,191 files with 0 leaked secrets/DBs)
 
 ---
@@ -60,11 +60,31 @@ All code defects blocking CI/build on `main`, all multi-tenant security exposure
 
 ---
 
+### 2.4 Merge-integration defects found and fixed
+
+Merging current `main` (`f0230c8`) into this branch exposed two defects that the
+individual branches could not see:
+
+1. **Packaged mini-services crashed on load.** `src/lib/db-adapters/prisma-sqlite-node.ts`
+   resolved its module `require` from `createRequire(import.meta.url)`. esbuild
+   rewrites `import.meta` to `{}` in the CommonJS mini-service bundles, so
+   `createRequire(undefined)` threw `ERR_INVALID_ARG_VALUE` while
+   `queue-service.cjs` was still loading — the packaged services could never
+   start, even though `npm run build` reported success. The require is now
+   resolved lazily from `__filename` (CJS) or the working directory (ESM), and
+   both packaged services were loaded to confirm.
+2. **Duplicated `TaskType` / `TASK_REQUIREMENTS`** in
+   `src/lib/platform/model-registry.ts` survived the auto-merge and broke
+   `tsc` (`TS2300` / `TS2451`). The stale duplicate block was removed and
+   `isTaskType` kept as the single task vocabulary.
+
+---
+
 ## 3. Honest Production Handover Checklist
 
 | Item | Current State | Action Required for Production Go-Live |
 | --- | --- | --- |
 | Code, Tests & Standalone Build | **READY (`TESTED`)** | Merge PR from `arena/5010a0d6-alolabs-ai` to `main` after review. |
-| Production MySQL Schema Migration | **GATED** | Take verified MySQL backup, rehearse `20261126_ws_company_step1..3.sql` + `20261127_agent_build_request_company.sql` on staging copy, then apply during approved maintenance window. |
+| Production MySQL Schema Migration | **GATED** | Take verified MySQL backup, rehearse `20261126_ws_company_step1..3.sql`, `20261127_factory_build_request_tenant.sql` and `20261127_agent_build_request_company.sql` on a staging copy, then apply during approved maintenance window. |
 | Prisma Production Client | **READY** | Deployment workflow generates MySQL client (`npm run db:generate:mysql`) with `PRISMA_SQLITE_ADAPTER` unset (`src/lib/production-database.ts` enforces MySQL in `NODE_ENV=production`). |
 | Cross-Tenant Operator Scope | **FAIL-CLOSED** | Set `ALO_SYSTEM_OPERATORS` env var to authorized operator email(s)/ID(s) if cross-tenant super-admin usage audits are needed. |
