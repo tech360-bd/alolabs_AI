@@ -51,4 +51,16 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
   ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "audit/**", "scripts/**/*.js", "ai-skills/**"]
 }];
 
+// Test helpers are not React code. `useRealFetch` is named with a `use` prefix
+// because it reads like the hook it replaces, but it is an ordinary function
+// that restores the real global fetch. The react-hooks plugin infers hooks from
+// that prefix alone, so calls made while a test module initialises were
+// reported as illegal hook calls in a file with no components in it.
+eslintConfig.push({
+  files: ["__tests__/**", "src/__tests__/**"],
+  rules: {
+    "react-hooks/rules-of-hooks": "off",
+  },
+});
+
 export default eslintConfig;
