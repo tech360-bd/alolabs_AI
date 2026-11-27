@@ -1,14 +1,19 @@
 import { db } from '@/lib/db'
+import { legacyTenant, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Resolves the caller's company from a live membership. The previous check
+  // verified the token but discarded the session, so these routes created
+  // records with no owner and could not attribute them to a tenant.
+  let tenant;
+  try {
+    tenant = await legacyTenant(request);
+  } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
+    throw error;
+  }
   try {
     const body = await request.json()
     const { workflowName, config } = body
@@ -48,6 +53,7 @@ export async function POST(request: NextRequest) {
     // Create WorkflowBuildRequest record
     const buildRequest = await db.workflowBuildRequest.create({
       data: {
+        companyId: tenant.companyId,
         workflowName,
         config: parsedConfig,
         status: 'generated',
