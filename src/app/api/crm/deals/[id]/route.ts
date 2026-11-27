@@ -3,12 +3,12 @@ import { db } from '@/lib/db'
 import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params
-    const deal = await db.crmDeal.findUnique({
-      where: { id },
+    const deal = await db.crmDeal.findFirst({
+      where: tenantWhere(tenant, { id }),
       include: {
         contact: true,
         pipeline: { include: { stages: { orderBy: { sortOrder: 'asc' } } } },
@@ -31,9 +31,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params
     const body = await request.json()
     const { title, value, currency, probability, expectedClose, actualClose, lostReason, stageId, status, assignedTo, metadata } = body
@@ -76,9 +76,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params
     // Ownership proven first; `delete` takes a unique where only.
     const owned = await db.crmDeal.findFirst({ where: tenantWhere(tenant, { id }), select: { id: true } })

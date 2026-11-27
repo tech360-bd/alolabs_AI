@@ -143,12 +143,14 @@ export async function dispatchAgentOSJob(
       const runId = typeof payload.runId === 'string' ? payload.runId : null;
       if (!runId) throw new Error('agentos.crm.lead-followup job missing runId');
       if (!deps.executeLeadFollowup) throw new Error('agentos.crm.lead-followup executor is not wired');
+      await assertJobTenantMatchesRun(deps.db, payload, runId);
       const result = await deps.executeLeadFollowup(runId);
       return { runId, status: result.status };
     }
     case 'agentos.command': {
       const runId = typeof payload.runId === 'string' ? payload.runId : null;
       if (!runId) throw new Error('agentos.command job missing runId');
+      await assertJobTenantMatchesRun(deps.db, payload, runId);
       await deps.executeRun(runId);
       return { runId };
     }

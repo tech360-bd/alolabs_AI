@@ -105,7 +105,7 @@ const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'
  * respectively — and return 401 before the handler runs.
  */
 const AUTH_HELPER_RE =
-  /@\/lib\/portal\/auth|@\/lib\/internal\/auth|clientRoute|internalRoute|@\/lib\/api-auth|@\/lib\/route-auth|@\/lib\/auth|@\/lib\/v1\b|@\/lib\/v1'|@\/lib\/voice\/api-helpers|v1Handler|secureRoute|requireAuth|withAuth|withCompany|authenticate|verifySession|verifySessionToken|verifyToken|getSession|getLockoutStatus/;
+  /@\/lib\/portal\/auth|@\/lib\/internal\/auth|@\/lib\/api\/legacy-session|@\/lib\/platform\/http|clientRoute|internalRoute|legacyTenant|platformRoute|platformHandler|@\/lib\/api-auth|@\/lib\/route-auth|@\/lib\/auth|@\/lib\/v1\b|@\/lib\/v1'|@\/lib\/voice\/api-helpers|v1Handler|secureRoute|requireAuth|withAuth|withCompany|authenticate|verifySession|verifySessionToken|verifyToken|getSession|getLockoutStatus/;
 
 const apiDir = join(root, 'src/app/api');
 if (!existsSync(apiDir)) {

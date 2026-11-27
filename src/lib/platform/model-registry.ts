@@ -37,6 +37,45 @@ export type ModelCapability =
   | 'chat' | 'streaming' | 'code' | 'reasoning' | 'vision'
   | 'embedding' | 'function-calling' | 'json-mode' | 'long-context';
 
+export const MODEL_CAPABILITIES: readonly ModelCapability[] = [
+  'chat',
+  'streaming',
+  'code',
+  'reasoning',
+  'vision',
+  'embedding',
+  'function-calling',
+  'json-mode',
+  'long-context',
+];
+
+export function isModelCapability(value: string): value is ModelCapability {
+  return (MODEL_CAPABILITIES as readonly string[]).includes(value);
+}
+
+export type TaskType =
+  | 'chat'
+  | 'code'
+  | 'vision'
+  | 'reasoning'
+  | 'embedding'
+  | 'summarise'
+  | 'translation';
+
+export const TASK_REQUIREMENTS: Record<TaskType, ModelCapability[]> = {
+  chat: ['chat'],
+  code: ['code'],
+  vision: ['vision'],
+  reasoning: ['reasoning'],
+  embedding: ['embedding'],
+  summarise: ['chat'],
+  translation: ['chat'],
+};
+
+export function isTaskType(value: string): value is TaskType {
+  return Object.prototype.hasOwnProperty.call(TASK_REQUIREMENTS, value);
+}
+
 export type HostingType = 'local' | 'remote' | 'free-cloud';
 
 export type ProviderKind = 'ollama' | 'vllm' | 'litellm' | 'openai-compatible' | 'platform-local';

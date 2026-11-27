@@ -39,7 +39,19 @@
  * path — `src/lib/db.ts` still refuses a SQLite datasource in production.
  */
 
-import { DatabaseSync, type StatementSync } from 'node:sqlite';
+import { mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname } from 'node:path';
+import type { DatabaseSync as DatabaseSyncType, StatementSync } from 'node:sqlite';
+
+// Loaded through `createRequire` rather than a static ESM import so Vite's
+// client/jsdom module graph never tries to bundle `node:sqlite` when a UI or
+// unit test transitively imports `@/lib/db`.
+const nodeRequire = createRequire(import.meta.url);
+function loadDatabaseSync(): typeof DatabaseSyncType {
+  const sqlite = nodeRequire('node:sqlite') as { DatabaseSync: typeof DatabaseSyncType };
+  return sqlite.DatabaseSync;
+}
 import type {
   ArgType,
   ColumnType,
@@ -204,7 +216,7 @@ function mapRowValues(row: unknown[], columnTypes: ColumnType[]): unknown[] {
     }
     if (typeof value === 'bigint') {
       if (type === DateTime) result[i] = new Date(Number(value)).toISOString();
-      else if (type === Boolean) result[i] = value !== 0n;
+      else if (type === Boolean) result[i] = value !== BigInt(0);
       else result[i] = value.toString();
       continue;
     }
@@ -292,7 +304,7 @@ class NodeSqliteQueryable implements SqlQueryable {
   readonly provider = 'sqlite' as const;
   readonly adapterName = 'node-sqlite-prisma-adapter';
 
-  constructor(protected readonly db: DatabaseSync) {}
+  constructor(protected readonly db: DatabaseSyncType) {}
 
   async queryRaw(query: SqlQuery): Promise<SqlResultSet> {
     const { columnNames, declaredTypes, rows } = this.runRead(query);
@@ -356,7 +368,7 @@ class NodeSqliteQueryable implements SqlQueryable {
 class NodeSqliteTransaction extends NodeSqliteQueryable implements Transaction {
   readonly options: TransactionOptions = { usePhantomQuery: false };
 
-  constructor(db: DatabaseSync, private readonly release: () => void) {
+  constructor(db: DatabaseSyncType, private readonly release: () => void) {
     super(db);
   }
 
@@ -402,8 +414,15 @@ export const NODE_SQLITE_PRAGMAS = [
   'PRAGMA synchronous = NORMAL;',
 ].join('\n');
 
-function openDatabase(url: string): DatabaseSync {
+function openDatabase(url: string): DatabaseSyncType {
   const path = url.replace(/^file:/, '');
+  if (path && path !== ':memory:' && !path.startsWith('file::memory:')) {
+    const dir = dirname(path);
+    if (dir && dir !== '.') {
+      mkdirSync(dir, { recursive: true });
+    }
+  }
+  const DatabaseSync = loadDatabaseSync();
   const db = new DatabaseSync(path, { enableForeignKeyConstraints: true });
   db.exec(NODE_SQLITE_PRAGMAS);
   return db;
@@ -414,7 +433,7 @@ function openDatabase(url: string): DatabaseSync {
 class NodeSqliteAdapter extends NodeSqliteQueryable implements SqlDriverAdapter {
   #mutex = new Mutex();
 
-  constructor(db: DatabaseSync) {
+  constructor(db: DatabaseSyncType) {
     super(db);
   }
 

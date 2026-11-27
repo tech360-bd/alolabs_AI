@@ -477,12 +477,18 @@ model CapabilityRequest {
 
 model AgentBuildRequest {
   id           String   @id @default(cuid())
+  // Tenant that owns this build request (null = legacy unowned row).
+  companyId    String?
   agentName    String
   departmentId String?
   config       String   @default("{}")
   status       String   @default("pending")
   result       String?
   createdAt    DateTime @default(now())
+
+  company      Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
 }
 
 model SkillBuildRequest {
@@ -802,6 +808,7 @@ model Company {
   tasks                 Task[]
   companyMemories       CompanyMemory[]
   agentMemories         AgentMemory[]
+  agentBuildRequests    AgentBuildRequest[]
   brand                 Brand?
   workflowPermissions   WorkflowPermission[]
   collaborationSessions CollaborationSession[]

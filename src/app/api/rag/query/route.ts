@@ -1,17 +1,16 @@
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request)
     const body = await request.json()
-    const { companyId, query, collectionId } = body
+    const { companyId: requestedCompanyId, query, collectionId } = body
+
+    if (requestedCompanyId && requestedCompanyId !== tenant.companyId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     if (!query) {
       return NextResponse.json(
@@ -22,29 +21,36 @@ export async function POST(request: NextRequest) {
 
     const startTime = Date.now()
 
-    // Find relevant chunks
+    // Always filter chunks by the caller's resolved tenant
     const chunkWhere: Record<string, unknown> = {}
-    if (companyId) chunkWhere.companyId = companyId
     if (collectionId) {
+      const collection = await db.ragCollection.findFirst({
+        where: tenantWhere(tenant, { id: collectionId }),
+        select: { id: true },
+      })
+      if (!collection) {
+        return NextResponse.json({ error: 'Collection not found' }, { status: 404 })
+      }
       const docIds = await db.ragDocument.findMany({
-        where: { collectionId },
+        where: tenantWhere(tenant, { collectionId }),
         select: { id: true },
       })
       chunkWhere.documentId = { in: docIds.map((d) => d.id) }
     }
 
     const chunks = await db.ragChunk.findMany({
-      where: chunkWhere,
+      where: tenantWhere(tenant, chunkWhere),
       orderBy: { createdAt: 'desc' },
       take: 5,
     })
 
     const durationMs = Date.now() - startTime
 
-    // Create RagQuery record
+    // Create RagQuery record bound to authoritative tenant
     const ragQuery = await db.ragQuery.create({
       data: {
-        companyId: companyId || null,
+        companyId: tenant.companyId,
+        userId: tenant.userId,
         query,
         collectionId: collectionId || null,
         resultCount: chunks.length,
@@ -53,8 +59,6 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Build answer from retrieved chunks (keyword-based retrieval)
-    // When Qdrant vector DB is available, replace with semantic similarity search.
     const answerContent = chunks.length > 0
       ? `Based on ${chunks.length} relevant document${chunks.length > 1 ? 's' : ''} found:\n\n${chunks.map((c, i) => `[${i + 1}] ${c.content.substring(0, 200)}...`).join('\n\n')}`
       : 'No relevant documents found for your query. Consider adding more documents to the knowledge base.'
@@ -62,11 +66,10 @@ export async function POST(request: NextRequest) {
     const chunkIds = JSON.stringify(chunks.map((c) => c.id))
     const confidence = chunks.length > 0 ? Math.min(0.95, 0.5 + chunks.length * 0.1) : 0
 
-    // Create RagAnswer record
     const ragAnswer = await db.ragAnswer.create({
       data: {
         queryId: ragQuery.id,
-        companyId: companyId || null,
+        companyId: tenant.companyId,
         content: answerContent,
         chunks: chunkIds,
         confidence,
@@ -84,6 +87,8 @@ export async function POST(request: NextRequest) {
       })),
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error('[RAG Query] Error:', error)
     return NextResponse.json(
       { error: 'Failed to process RAG query' },

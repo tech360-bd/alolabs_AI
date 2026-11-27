@@ -42,10 +42,12 @@ export const GET = secureRoute(
       return jsonResponse({ success: true, data: results, total: results.length }, context.requestId);
     }
     if (agentId) {
-      const memories = await store.getByAgent(agentId, type);
+      const memories = (await store.getByAgent(agentId, type)).filter(
+        (m) => m.userId === scopeId || m.companyId === scopeId,
+      );
       return jsonResponse({ success: true, data: memories, total: memories.length }, context.requestId);
     }
-    const stats = await store.getStats();
+    const stats = await store.getStats(scopeId);
     return jsonResponse({ success: true, data: stats }, context.requestId);
   },
 );

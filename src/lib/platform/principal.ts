@@ -496,15 +496,28 @@ export async function principalOwnsProject(
 }
 
 /** True when the principal may administer the workspace (not just use it). */
-export async function canAdministerWorkspace(principal: PlatformPrincipal): Promise<boolean> {
+export async function canAdministerWorkspace(
+  principal: PlatformPrincipal,
+  workspaceId: string = principal.workspaceId,
+): Promise<boolean> {
+  if (!isUsableWorkspaceId(workspaceId)) return false;
   if (isInternalRole(principal.role)) return true; // AgentOS staff
   const workspace = await db.aiWorkspace.findFirst({
-    where: { id: principal.workspaceId, ownerId: principal.userId },
+    where: {
+      id: workspaceId,
+      ownerId: principal.userId,
+      ...(principal.companyId ? { companyId: principal.companyId } : {}),
+    },
     select: { id: true },
   });
   if (workspace) return true;
   const membership = await db.aiWorkspaceMember.findFirst({
-    where: { workspaceId: principal.workspaceId, userId: principal.userId, role: { in: ['owner', 'admin'] } },
+    where: {
+      workspaceId,
+      userId: principal.userId,
+      role: { in: ['owner', 'admin'] },
+      ...(principal.companyId ? { workspace: { companyId: principal.companyId } } : {}),
+    },
     select: { id: true },
   });
   return Boolean(membership);

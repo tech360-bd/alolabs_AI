@@ -12,7 +12,7 @@ import { workspaceSummary } from '@/lib/platform/workspaces';
 import { canAdministerWorkspace } from '@/lib/platform/principal';
 import { anyProviderConfigured } from '@/lib/platform/providers';
 
-export const GET = platformRoute({}, async ({ principal, requestId }) => {
+export const GET = platformRoute({ allowCompanyScope: true }, async ({ principal, requestId }) => {
   // An operator without a tenant legitimately has no workspace. Querying with an
   // empty id would run a pointless query, and returning a fabricated workspace
   // would be a lie, so the fields below are simply null.

@@ -191,6 +191,54 @@ describe('T-1: a job cannot be dispatched for a run it does not own', () => {
     await dispatchAgentOSJob(job, deps);
     expect(executed).toEqual(['run-honest']);
   });
+
+  it('rejects cross-tenant and untenanted jobs on agentos.crm.lead-followup and agentos.command', async () => {
+    const { db } = real;
+    const { dispatchAgentOSJob } = await import('@/lib/workers/agentos-dispatcher');
+
+    await db.agentOSRun.create({
+      data: { id: 'run-crm-b', objective: 'crm followup for B', status: 'queued', companyId: B.companyId, userId: B.userId },
+    });
+
+    const executedCrm: string[] = [];
+    const executedCmd: string[] = [];
+    const deps = {
+      db,
+      executeRun: async (id: string) => { executedCmd.push(id); },
+      executeLeadFollowup: async (id: string) => { executedCrm.push(id); return { status: 'completed' }; },
+    } as never;
+
+    await expect(
+      dispatchAgentOSJob(
+        { id: 'job-crm-cross', jobType: 'agentos.crm.lead-followup', payload: JSON.stringify({ runId: 'run-crm-b', companyId: A.companyId }) } as never,
+        deps,
+      ),
+    ).rejects.toThrow(/tenant|company|forbid/i);
+
+    await expect(
+      dispatchAgentOSJob(
+        { id: 'job-crm-none', jobType: 'agentos.crm.lead-followup', payload: JSON.stringify({ runId: 'run-crm-b' }) } as never,
+        deps,
+      ),
+    ).rejects.toThrow(/tenant|company/i);
+
+    await expect(
+      dispatchAgentOSJob(
+        { id: 'job-cmd-cross', jobType: 'agentos.command', payload: JSON.stringify({ runId: 'run-crm-b', companyId: A.companyId }) } as never,
+        deps,
+      ),
+    ).rejects.toThrow(/tenant|company|forbid/i);
+
+    expect(executedCrm).toEqual([]);
+    expect(executedCmd).toEqual([]);
+
+    // Honest matching companyId succeeds
+    await dispatchAgentOSJob(
+      { id: 'job-crm-ok', jobType: 'agentos.crm.lead-followup', payload: JSON.stringify({ runId: 'run-crm-b', companyId: B.companyId }) } as never,
+      deps,
+    );
+    expect(executedCrm).toEqual(['run-crm-b']);
+  });
 });
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -272,5 +320,23 @@ describe('T-4: an empty workspace is never a usable identity', () => {
     const scoped = requireWorkspace(principal as never, { allowCompanyScope: true });
     expect(scoped.workspaceId).toBeUndefined();
     expect(scoped.companyScoped).toBe(true);
+  });
+
+  it('provisionDefaultWorkspace assigns Company ownership from CompanyUser and scopes to that company', async () => {
+    const { db } = real;
+    const { provisionDefaultWorkspace } = await import('@/lib/platform/workspaces');
+
+    await db.user.upsert({
+      where: { id: 'user-prov-a' },
+      create: { id: 'user-prov-a', email: 'prov-a@example.test', name: 'Prov A', passwordHash: 'x', role: 'user' },
+      update: {},
+    });
+    await db.companyUser.create({ data: { userId: 'user-prov-a', companyId: A.companyId, role: 'member' } });
+
+    const provisioned = await provisionDefaultWorkspace('user-prov-a', 'Prov A', { withApiKey: false });
+    expect(provisioned.workspaceId).toBeTruthy();
+
+    const row = await db.aiWorkspace.findUnique({ where: { id: provisioned.workspaceId } });
+    expect(row?.companyId).toBe(A.companyId);
   });
 });

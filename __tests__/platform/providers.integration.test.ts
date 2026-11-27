@@ -23,7 +23,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { useRealFetch } from '../helpers/real-fetch';
+import { enableRealFetch } from '../helpers/real-fetch';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const runtimeScript = path.join(repoRoot, 'scripts/local-model-runtime.mjs');
@@ -91,7 +91,7 @@ async function startRuntime(env: Record<string, string> = {}): Promise<number> {
 // evaluated when the suite is *collected*, which is before any hook runs, so a
 // flag set in `beforeAll` would always be false and the suite would silently
 // skip forever.
-const restoreForStartup = useRealFetch();
+const restoreForStartup = enableRealFetch();
 try {
   healthyPort = await startRuntime();
   // A second instance that answers every chat request with 429 + Retry-After.
@@ -120,7 +120,7 @@ describe.skipIf(!runtimeAvailable)('provider adapters over real HTTP', () => {
   // so every case swaps the real implementation back in.
   let restoreFetch: () => void;
   beforeEach(() => {
-    restoreFetch = useRealFetch();
+    restoreFetch = enableRealFetch();
   });
   afterEach(() => {
     restoreFetch();

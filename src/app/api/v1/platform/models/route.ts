@@ -11,7 +11,13 @@
 
 import { z } from 'zod';
 import { platformRoute, json } from '@/lib/platform/http';
-import { describeAvailability, type TaskType } from '@/lib/platform/model-registry';
+import {
+  describeAvailability,
+  isModelCapability,
+  TASK_REQUIREMENTS,
+  type ModelCapability,
+  type TaskType,
+} from '@/lib/platform/model-registry';
 
 const querySchema = z.object({
   task: z.enum(['chat', 'code', 'vision', 'reasoning', 'embedding', 'summarise', 'translation']).optional(),
@@ -19,20 +25,19 @@ const querySchema = z.object({
   only: z.enum(['all', 'selectable']).default('all'),
 });
 
-const TASK_REQUIREMENTS: Record<TaskType, string[]> = {
-  chat: ['chat'],
-  code: ['code'],
-  vision: ['vision'],
-  reasoning: ['reasoning'],
-  embedding: ['embedding'],
-  summarise: ['chat'],
-  translation: ['chat'],
-};
-
-export const GET = platformRoute({ scope: 'models:read', query: querySchema }, async ({ query, requestId }) => {
+export const GET = platformRoute({ scope: 'models:read', query: querySchema, allowCompanyScope: true }, async ({ query, requestId }) => {
   const task = query.task as TaskType | undefined;
-  const required = task ? TASK_REQUIREMENTS[task] : [];
-  if (query.capability) required.push(query.capability);
+  const required: ModelCapability[] = task ? [...TASK_REQUIREMENTS[task]] : [];
+  if (query.capability) {
+    if (!isModelCapability(query.capability)) {
+      return json({
+        models: [],
+        counts: { total: 0, selectable: 0, byHostingType: {} },
+        tasks: Object.keys(TASK_REQUIREMENTS),
+      }, requestId);
+    }
+    required.push(query.capability);
+  }
 
   const all = await describeAvailability();
   const filtered = all.filter((deployment) =>

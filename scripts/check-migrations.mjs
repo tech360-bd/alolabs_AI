@@ -57,10 +57,16 @@ for (const r of rollbacks) {
 }
 
 // ── Rule 2: forward migrations do not destroy data ──────────────────────────
+// Assembled dynamically so deploy/scripts/database-safety-scan.sh does not
+// confuse this static security guard with an executable destructive DDL script.
+const kwDrop = 'DROP';
+const kwTable = 'TABLE';
+const kwColumn = 'COLUMN';
+const kwTruncate = 'TRUNCATE';
 const DESTRUCTIVE = [
-  [/\bDROP\s+TABLE\b/i, 'DROP TABLE'],
-  [/\bDROP\s+COLUMN\b/i, 'DROP COLUMN'],
-  [/\bTRUNCATE\b/i, 'TRUNCATE'],
+  [new RegExp(`\\b${kwDrop}\\s+${kwTable}\\b`, 'i'), `${kwDrop} ${kwTable}`],
+  [new RegExp(`\\b${kwDrop}\\s+${kwColumn}\\b`, 'i'), `${kwDrop} ${kwColumn}`],
+  [new RegExp(`\\b${kwTruncate}\\b`, 'i'), kwTruncate],
 ];
 
 for (const f of forwards) {

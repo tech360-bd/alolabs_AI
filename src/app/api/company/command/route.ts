@@ -1,28 +1,26 @@
 import { db } from '@/lib/db'
+import { legacyTenant, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request)
     const body = await request.json()
-    const { companyId, command, userId, input } = body
+    const { companyId: requestedCompanyId, command, input } = body
 
-    if (!companyId || !command) {
+    if (requestedCompanyId && requestedCompanyId !== tenant.companyId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (!command) {
       return NextResponse.json(
-        { error: 'companyId and command are required' },
+        { error: 'command is required' },
         { status: 400 }
       )
     }
 
-    // Validate company exists
     const company = await db.company.findUnique({
-      where: { id: companyId },
+      where: { id: tenant.companyId },
     })
 
     if (!company) {
@@ -32,36 +30,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse a simple intent from the command
     const parsedIntent = parseIntent(command)
 
-    // Create Command record
     const cmdRecord = await db.command.create({
       data: {
         rawCommand: command,
         parsedIntent,
-        userId: userId || null,
+        userId: tenant.userId,
         status: 'processing',
       },
     })
 
-    // Create Task record
     const task = await db.task.create({
       data: {
+        companyId: company.id,
         commandId: cmdRecord.id,
         title: command.slice(0, 200),
         description: input || null,
         status: 'pending',
-        userId: userId || null,
+        userId: tenant.userId,
       },
     })
 
-    // Log usage
     await db.usageLog.create({
       data: {
         companyId: company.id,
         companyName: company.name,
-        userId: userId || null,
+        userId: tenant.userId,
         commandId: cmdRecord.id,
         taskId: task.id,
         status: 'completed',
@@ -74,6 +69,8 @@ export async function POST(request: NextRequest) {
       message: 'Command received and task created successfully',
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error('[Company Command] Error:', error)
     return NextResponse.json(
       { error: 'Failed to process command' },

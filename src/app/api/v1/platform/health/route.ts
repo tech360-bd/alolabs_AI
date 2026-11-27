@@ -17,7 +17,7 @@ import { listActiveCooldowns, listHealth } from '@/lib/platform/routing-state';
 
 const querySchema = z.object({ scope: z.enum(['workspace', 'platform']).default('workspace') });
 
-export const GET = platformRoute({ scope: 'models:read', query: querySchema }, async ({ principal, query, requestId }) => {
+export const GET = platformRoute({ scope: 'models:read', query: querySchema, allowCompanyScope: true }, async ({ principal, query, requestId }) => {
   const availability = await describeAvailability();
   const health = await listHealth();
   const healthByKey = new Map(health.map((h) => [`${h.provider}::${h.model}`, h.health]));

@@ -71,7 +71,7 @@ export const POST = v1Handler(async ({ identity }, request) => {
     approved,
     reviewerId: identity.userId,
     // T-8: engine-level tenant gate, independent of the check above.
-    reviewerCompanyId: companyId,
+    reviewerCompanyId: identity.companyId,
     note: parsed.data.note,
   });
   const runId = resolution.runId;

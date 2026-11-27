@@ -20,7 +20,12 @@ import { db } from '@/lib/db';
 import { platformRoute, json, PlatformError } from '@/lib/platform/http';
 import { runWithFallback } from '@/lib/platform/fallback-engine';
 import { completeWithProvider } from '@/lib/platform/providers';
-import { selectCandidates, type TaskType } from '@/lib/platform/model-registry';
+import {
+  selectCandidates,
+  TASK_REQUIREMENTS,
+  isTaskType,
+  type TaskType,
+} from '@/lib/platform/model-registry';
 
 
 const messageSchema = z.object({
@@ -43,16 +48,12 @@ const bodySchema = z.object({
   deadlineMs: z.number().int().min(1000).max(300_000).optional(),
 });
 
-function isTaskType(value: string): value is TaskType {
-  return ['chat', 'code', 'vision', 'reasoning', 'embedding', 'summarise', 'translation'].includes(value);
-}
-
 export const POST = platformRoute(
   { scope: 'ai:chat', body: bodySchema, rateLimit: { limit: 120, windowMs: 60_000 } },
   async ({ principal, body, requestId, workspaceId }) => {
     // ── Resolve the project (tenancy already enforced by the wrapper for
     //    `projectScoped`, but here projectId is optional, so check explicitly).
-    let projectId = body.projectId ?? null;
+    const projectId = body.projectId ?? null;
     if (projectId) {
       const project = await db.aiProject.findFirst({
         where: { id: projectId, workspaceId },
@@ -62,6 +63,7 @@ export const POST = platformRoute(
     }
 
     const task: TaskType = isTaskType(body.task) ? body.task : 'chat';
+    const requiredCapabilities = TASK_REQUIREMENTS[task];
 
     // ── Manual model pinning. Accept a full deployment id or a bare model name;
     //    resolve both against the live candidate list so a pinned model that is
@@ -69,7 +71,7 @@ export const POST = platformRoute(
     let preferredModel: string | undefined;
     if (body.mode === 'manual') {
       if (!body.model) throw new PlatformError(400, 'invalid_request', 'mode "manual" requires a model');
-      const all = await selectCandidates({ requires: [task] });
+      const all = await selectCandidates({ requires: requiredCapabilities });
       const match = all.find((c) => c.id === body.model) ?? all.find((c) => c.model === body.model);
       if (!match) {
         throw new PlatformError(
@@ -110,7 +112,8 @@ export const POST = platformRoute(
       },
       completeWithProvider,
       {
-        requires: [task],
+        requires: requiredCapabilities,
+        taskType: task,
         ...(preferredModel ? { preferredModel } : {}),
         // Local-first by default. Remote providers are only considered when an
         // administrator has configured one; the engine enforces that, not this

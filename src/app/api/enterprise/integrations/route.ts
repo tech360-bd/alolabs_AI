@@ -1,29 +1,29 @@
 import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/api-auth'
+import { requireCompanyAuth } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
 export async function GET() {
   try {
-    await requireAuth()
+    const user = await requireCompanyAuth()
 
-    // Query real webhook configs as integration records
+    // Query real webhook configs scoped to the caller's company
     const webhooks = await db.webhookConfig.findMany({
+      where: { companyId: user.companyId },
       include: {
         company: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
     })
 
-    // Query real API keys that represent active integrations
+    // Query real API keys scoped to the caller's company
     const apiKeys = await db.companyApiKey.findMany({
       include: {
         company: { select: { name: true } },
       },
-      where: { isActive: true },
+      where: { companyId: user.companyId, isActive: true },
       orderBy: { createdAt: 'desc' },
     })
 
-    // Build integration list from real data
     const integrations = [
       ...webhooks.map(w => ({
         id: w.id,
@@ -49,11 +49,11 @@ export async function GET() {
       })),
     ]
 
-    // Also count real system connections from agent runs
+    // Count real system connections from agent runs in the caller's company
     const agentRunModels = await db.agentRun.groupBy({
       by: ['model'],
       _count: { id: true },
-      where: { model: { not: null } },
+      where: { companyId: user.companyId, model: { not: null } },
       orderBy: { _count: { id: 'desc' } },
       take: 10,
     })
@@ -84,6 +84,9 @@ export async function GET() {
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (error instanceof Error && error.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     console.error('Enterprise integrations error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
