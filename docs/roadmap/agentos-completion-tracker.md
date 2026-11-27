@@ -26,8 +26,8 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 
 | Stage | Scope | State |
 | --- | --- | --- |
-| 0 | Baseline verification | **COMPLETE** — HEAD `de8b28f`, tree clean, counts re-measured |
-| 1 | Tenant security (T-1 … T-8, schema, route classification) | **IN_PROGRESS** — T-1…T-8 fixed and tested; all 541 routes classified; 12 legacy routes tenant-scoped; production migration gated |
+| 0 | Baseline verification | **COMPLETE** — recalibrated on a green `main` (`e0d6577`): CI, MySQL, deploy-safety and security-scan workflows all passing |
+| 1 | Tenant security (T-1 … T-8, schema, route classification) | **IN_PROGRESS** — T-1…T-8 fixed and tested; all 542 routes classified; 19 legacy routes scoped through `legacyTenant`; factory build-log leak closed (see A1.4); production migration still gated on owner authorisation |
 | 2 | Runtime acceptance (run engine 20 behaviours) | NOT_STARTED |
 | 3 | Core AgentOS (gateway, agents, orchestration, memory) | NOT_STARTED |
 | 4 | Customer operations (CRM, channels, workflows) | NOT_STARTED |
@@ -35,6 +35,26 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | 6 | Enterprise (admin, RBAC, audit, billing) | NOT_STARTED |
 | 7 | Integration and hardening (full test matrix) | NOT_STARTED |
 | 8 | Close every requirement, handover reports | **IN_PROGRESS** — `docs/reports/security-verification-report.md` written |
+
+---
+
+## Baseline restoration (2026-11-27)
+
+`main` was red when this stage resumed: PR #66 merged while its CI was failing.
+Restoring it exposed four further defects, all now fixed on `main` at `e0d6577`.
+
+| # | Defect | Impact | Fix |
+| --- | --- | --- | --- |
+| 1 | Build-blocking TypeScript errors: `0n` BigInt literal at an ES2017 target, `TaskType` removed while still imported, four `canAdministerWorkspace` calls with the old arity, an out-of-scope `companyId`, and a `tenantWhere` default that Prisma rejects | The production build could not compile | Corrected each; `TaskType`/`TASK_REQUIREMENTS` restored as the single source of truth |
+| 2 | `GET /api/agent-factory/build` returned **every tenant's** build requests | Cross-tenant disclosure of agent names, department ids and config payloads | `companyId` added to the three factory build-request models (nullable, no backfill — legacy rows fail closed); migration `20261127_factory_build_request_tenant.sql` + rollback; test proves A sees only A |
+| 3 | A deployment marked `unreachable` was excluded from routing **permanently** | One transient outage silently shrank the fallback chain for good | Liveness is decided by the live probe; health still orders and reports |
+| 4 | `providers.integration.test.ts` had never run in CI | CI set `DATABASE_URL=file:./ci.db`, which nothing created, so availability returned 503 and the chain never executed | Suite provisions its own throw-away database |
+| 5 | Two CI gates had never executed because the test step failed first: the destructive-SQL scan flagged the migration checker's own pattern list, and the route-auth gate did not know `legacyTenant`/`platformRoute` | 52 handlers reported as unauthenticated; one false destructive-DDL hit | Scan tokens built at runtime; both helpers documented and recognised. Both gates verified still able to fail |
+
+Current gate state on `main` (`e0d6577`): CI, MySQL schema, Production
+database-safe deployment and Security Scan all **pass**; 241 test files /
+2634 passed / 0 failed / 15 skipped; route classification 542 of 542; migrations
+13 forward / 10 rollback all paired.
 
 ---
 
