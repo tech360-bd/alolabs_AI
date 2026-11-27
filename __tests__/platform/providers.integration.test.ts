@@ -204,7 +204,27 @@ describe.skipIf(!runtimeAvailable)('provider adapters over real HTTP', () => {
       { requires: ['chat'], maxAttemptsPerDeployment: 1 },
     );
 
-    expect(outcome.ok).toBe(true);
+    // Include the chain in the failure message. This assertion failed in CI and
+    // not locally, and without the attempt list there is nothing to reason from:
+    // every candidate is either a real HTTP attempt or a documented skip.
+    expect(
+      outcome.ok,
+      `chain did not recover: ${JSON.stringify({
+        ok: outcome.ok,
+        usedFallback: outcome.usedFallback,
+        error: outcome.error,
+        attempts: outcome.attempts.map((a) => ({
+          id: a.deploymentId,
+          provider: a.provider,
+          model: a.model,
+          ok: a.ok,
+          errorClass: a.errorClass,
+          httpStatus: a.httpStatus,
+          latencyMs: a.latencyMs,
+          message: a.message?.slice(0, 200),
+        })),
+      })}`,
+    ).toBe(true);
     expect(outcome.usedFallback).toBe(true);
     // The faulting provider must appear first and fail with a real 429...
     const failed = outcome.attempts.filter((a) => !a.ok && a.errorClass === 'rate_limit');
