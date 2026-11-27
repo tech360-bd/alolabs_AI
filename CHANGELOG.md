@@ -27,3 +27,30 @@
 
 ### Removed
 - Nothing. Zero deletions.
+
+## [Unreleased] — 2026-11-28 self-hosted free stack
+### Added
+- **docker-compose.selfhost-free-stack.yml** — 7 opt-in profiles / 14 services
+  (LiteLLM ai-gateway, LibreChat chat-ui, Open WebUI, Activepieces automation,
+  Temporal workflows, Directus cms, NocoBase nocode). Loopback-bound,
+  fail-closed `${VAR:?}` secrets, memory ceilings, healthchecks. Nothing
+  starts without an explicit `--profile`; default compose behaviour unchanged.
+  Zero paid services: all images free to self-host, models resolve to local
+  Ollama only.
+- **deploy/litellm/config.yaml** — local-models-only LiteLLM gateway config
+  (4 Ollama aliases mapped to the ai-router tier map).
+- **deploy/librechat/librechat.yaml** — LibreChat wired to the LiteLLM
+  gateway; no paid provider keys.
+- **docs/SELFHOST_FREE_STACK_2026-11-28.md** — enablement guide: quick start,
+  ports/licenses/RAM table, Ollama wiring, integration points, phase-2
+  candidates, exclusion list.
+- **REQUESTED_LINKS_AUDIT_2026-11-28.md** — per-link audit of 25 repositories
+  + 3 sites: license verdicts from upstream LICENSE files, free-vs-paid
+  disposition, prohibited items (no-license repo, AGPL reference-only,
+  paid-runtime reference-only).
+
+### Notes
+- Definitions are syntax-validated only; no service deployed or
+  runtime-tested (DoD honesty rules).
+- MirrorFly self-hosted chat, jarvis.institute, outstand.so verified NOT free;
+  excluded. perrypixel/10x-Tool-Calls has no license; prohibited.

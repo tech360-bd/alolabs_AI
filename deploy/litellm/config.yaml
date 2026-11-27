@@ -1,0 +1,38 @@
+# LiteLLM gateway configuration — LOCAL MODELS ONLY.
+#
+# Zero-paid policy: every model below resolves to the Ollama runtime
+# (docker-compose.inference.yml). Add no commercial providers here; if a
+# commercial provider is ever introduced it must pass the SKIP_PAID_SERVICES
+# gate (scripts/ci-paid-services.sh) and a separate review.
+#
+# Model ids must stay in sync with src/lib/ai-router/model-tiers.ts and the
+# LOCAL_MODEL_* overrides in .env.example.
+
+model_list:
+  - model_name: local-general
+    litellm_params:
+      model: ollama_chat/local-general
+      api_base: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+
+  - model_name: local-coder
+    litellm_params:
+      model: ollama_chat/local-coder
+      api_base: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+
+  - model_name: local-voice
+    litellm_params:
+      model: ollama_chat/local-voice
+      api_base: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+
+  - model_name: local-embedding
+    litellm_params:
+      model: ollama/local-embedding
+      api_base: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+
+litellm_settings:
+  drop_params: true
+
+general_settings:
+  # Master key is supplied via the LITELLM_MASTER_KEY environment variable
+  # (fail-closed in docker-compose.selfhost-free-stack.yml).
+  master_key: os.environ/LITELLM_MASTER_KEY
