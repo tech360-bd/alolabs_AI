@@ -1,0 +1,13 @@
+# Dependabot keeps the GitHub Actions used across .github/workflows up to
+# date. Every workflow also pins actions by full commit SHA, so a bump
+# here means a real, reviewable commit change.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"

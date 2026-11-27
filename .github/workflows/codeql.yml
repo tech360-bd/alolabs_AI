@@ -1,0 +1,61 @@
+name: CodeQL Static Analysis
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'arena/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+  schedule:
+    - cron: '30 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      run_paid_services:
+        description: 'Allow billed / external-service steps to run (default: skipped)'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+# CodeQL uploads SARIF results to the Security tab, so it needs
+# security-events: write. Everything else stays read-only.
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  # Default deny. CodeQL on public repositories is free, so nothing is
+  # currently gated on this flag; it is wired through so every workflow
+  # resolves the flag identically.
+  # Rules: scripts/ci-paid-services.sh (unit-tested).
+  SKIP_PAID_SERVICES: 'true'
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          category: '/language:javascript-typescript'
