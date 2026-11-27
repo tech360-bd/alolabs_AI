@@ -499,6 +499,25 @@ as such rather than absorbed into a claim: **e-signature (SignuDoc)**,
 **cloud-browser sessions (FloppyData)**, and **a published OpenAPI document /
 Postman collection**. Each has a written next step in the register.
 
+## Super Admin Command Center (2026-11-27)
+
+The chat-first control plane now has an operational path, built on the existing
+Run Engine rather than beside it.
+
+| Piece | Evidence |
+| --- | --- |
+| Deterministic intent classifier — 13 intents, risk is a property of the table so instruction text cannot lower it | `src/lib/super-admin/operator.ts`, 17 tests |
+| Dispatcher: instruction → `Command` + durable `AgentOSRun` (or a precise `Approval`, with no run) | `src/lib/super-admin/dispatch.ts`; `npm run verify:operator` 15/15 against real SQLite |
+| `POST/GET /api/super-admin/command` — super_admin only, rate limited, cross-tenant needs scope **and** reason | 14 route tests (401/403/429, dispatch, gate, preview, queue failure, tenant boundaries) |
+| Operator panel: composer, attachments by reference, live SSE timeline, cancel/retry | `src/components/panels/super-admin-operator-panel.tsx`, nav id `super-admin-operator` |
+| SSRF guard + browser verification + `browser_verify` agent tool | 30 policy tests; capability honestly reports `unavailable` without Chromium |
+| An **octal-IPv4 SSRF bypass** found and fixed while writing the tests (`0177.0.0.1` parsed as public 177.0.0.1 while browsers resolve loopback) | `parseIpv4`, pinned in the matrix |
+
+Acceptance: **9/20 verified complete**, 1 implemented but not runtime-verified,
+1 blocked by external dependency, 9 not complete — all downstream of a browser
+binary and a bound coding agent. Nothing is claimed beyond that; see
+`docs/reports/AGENTOS_REMAINING_BLOCKERS.md`.
+
 ## Known limitations at this point
 
 1. The cross-tenant matrix is covered by `__tests__/security/*` (7 files, 50

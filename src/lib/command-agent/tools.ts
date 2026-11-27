@@ -260,6 +260,31 @@ export async function stackRegisterLookup(args: Record<string, unknown>): Promis
   };
 }
 
+// ─── browser_verify (network, guarded) ──────────────────────────────────────
+
+/**
+ * Independent browser verification for the Command Agent.
+ *
+ * The agent does not get to assert that a page works: this tool opens it in a
+ * headless browser (when one is installed), and returns measured evidence —
+ * HTTP status, title, console errors, failed requests, a link audit and whether a
+ * screenshot was captured. Destinations are checked by the SSRF policy first.
+ *
+ * When no browser is installed the tool returns `verdict: 'unavailable'` and the
+ * reason. A caller that treats that as a pass is misreading it.
+ */
+export async function browserVerifyTool(args: Record<string, unknown>): Promise<unknown> {
+  const url = clamp(args.url, 2_048);
+  if (!url) throw new Error('url is required');
+  const { withoutScreenshot, verifyPage } = await import('@/lib/browser/verify');
+  const evidence = await verifyPage({
+    url,
+    captureScreenshot: args.captureScreenshot === true,
+    ...(typeof args.timeoutMs === 'number' ? { timeoutMs: args.timeoutMs } : {}),
+  });
+  return withoutScreenshot(evidence);
+}
+
 export interface CommandTool {
   name: string;
   description: string;
@@ -337,6 +362,22 @@ export const COMMAND_TOOLS: readonly CommandTool[] = [
       additionalProperties: false,
     },
     run: stackRegisterLookup,
+  },
+  {
+    name: 'browser_verify',
+    description:
+      'Open a URL in an isolated headless browser and return measured evidence: HTTP status, title, console errors, failed requests, a link audit and whether a screenshot was captured. Refuses loopback, private, link-local, CGNAT and cloud-metadata destinations. Returns verdict "unavailable" — never a pass — when no browser is installed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Absolute http(s) URL.' },
+        captureScreenshot: { type: 'boolean' },
+        timeoutMs: { type: 'integer', minimum: 2000, maximum: 60000 },
+      },
+      required: ['url'],
+      additionalProperties: false,
+    },
+    run: browserVerifyTool,
   },
   {
     name: 'current_time',
