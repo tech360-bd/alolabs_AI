@@ -42,8 +42,10 @@ const DOC = 'docs/CI-CD-GUIDE.md';
 /** Secrets GitHub provides automatically; never need documenting. */
 const AUTO_SECRETS = new Set(['GITHUB_TOKEN']);
 
-/** A pinned action ref is a full-length commit SHA, not a tag or branch. */
-const PINNED = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[0-9a-f]{40}$/;
+/** A pinned action ref is a full-length commit SHA, not a tag or branch.
+ *  Accepts subpath actions too (owner/action and owner/action/subaction —
+ *  e.g. github/codeql-action/init), which are pinnable by the same rule. */
+const PINNED = /^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+@[0-9a-f]{40}$/;
 
 const fail = (msg) => {
   console.error(`  ✗ ${msg}`);
