@@ -28,7 +28,7 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | --- | --- | --- |
 | 0 | Baseline verification | **COMPLETE** — recalibrated on a green `main` (`e0d6577`): CI, MySQL, deploy-safety and security-scan workflows all passing |
 | 1 | Tenant security (T-1 … T-8, schema, route classification) | **IN_PROGRESS** — T-1…T-8 fixed and tested; all 542 routes classified; 19 legacy routes scoped through `legacyTenant`; factory build-log leak closed (see A1.4); production migration still gated on owner authorisation |
-| 2 | Runtime acceptance (run engine 20 behaviours) | NOT_STARTED |
+| 2 | Runtime acceptance (run engine 20 behaviours) | **IMPLEMENTED** — 22 failure scenarios + 15 required behaviours green against the real engine; production verification still blocked on owner authorisation |
 | 3 | Core AgentOS (gateway, agents, orchestration, memory) | NOT_STARTED |
 | 4 | Customer operations (CRM, channels, workflows) | NOT_STARTED |
 | 5 | Developer + infrastructure (cloud, scaling) | NOT_STARTED |
@@ -55,6 +55,36 @@ Current gate state on `main` (`e0d6577`): CI, MySQL schema, Production
 database-safe deployment and Security Scan all **pass**; 241 test files /
 2634 passed / 0 failed / 15 skipped; route classification 542 of 542; migrations
 13 forward / 10 rollback all paired.
+
+---
+
+## Stage 2 — runtime acceptance evidence (2026-11-27)
+
+Two suites, both driving the real `src/lib/runs` engine and the real
+`src/lib/job-queue` against a database built from the real schema. Neither mocks
+the layer under test.
+
+| Suite | Cases | What it establishes |
+| --- | --- | --- |
+| `__tests__/integration/runtime-acceptance-failures.test.ts` | 22 | The runtime fails correctly: no tenant, lost tenant, no agent, foreign agent, terminal runs, cancellation, resume, dependencies, approvals (pending / rejected / expired / cross-tenant / mismatched / double-decided), unknown run ids, orchestration throws |
+| `__tests__/integration/runtime-acceptance-behaviours.test.ts` | 15 | The runtime works: durability before acknowledgement, restart survival, exactly-once claiming under contention, idempotent enqueue, ordered replayable events, terminal state with a summary, pagination bounds, tenant scoping, cancellation, queue-based resumption, no resurrection of finished runs, attributed event trail |
+
+### Defect found by the acceptance work
+
+`resolveRunApproval` **overwrote decisions**. A run a human had approved was
+marked `failed` by a later "reject", while the approval row still read
+`approved` — run state and audit trail contradicting each other.
+
+A decision is now final: re-sending the *same* decision is idempotent (no second
+resume job), the *opposite* decision is refused. Verified by removing the check:
+F-16 fails and nothing else does.
+
+### Why Stage 2 is not `VERIFIED_COMPLETE`
+
+`VERIFIED_COMPLETE` requires deployment plus recorded evidence of behaviour in
+the target environment. The suite evidence is local and in CI; the production
+database is still unmigrated, which needs owner authorisation. That is an
+external blocker, not an unfinished feature.
 
 ---
 
@@ -85,10 +115,10 @@ database-safe deployment and Security Scan all **pass**; 241 test files /
 | **Source files** | `src/lib/runs/index.ts`, `src/lib/job-queue.ts` |
 | **Deps** | DB: `AgentOSRun`, `RunEvent`, `QueueItem`. API: `/api/runs/:id`. |
 | **Security** | Runs now carry a mandatory `companyId` (T-2 fix); unowned runs are refused at create *and* execute. |
-| **Tests** | `__tests__/security/tenant-isolation.test.ts` (T-2 cases); `__tests__/unit/agentos-runs-pipeline.test.ts` |
-| **Commit / PR** | Stage 1 branch |
-| **Verification** | Both suites green; full suite 2572 passed |
-| **Status** | `TESTED` |
+| **Tests** | `__tests__/security/tenant-isolation.test.ts` (T-2 cases); `__tests__/unit/agentos-runs-pipeline.test.ts`; `runtime-acceptance-behaviours.test.ts` B-01, B-02 |
+| **Commit / PR** | PR #71 (`f0230c8`) |
+| **Verification** | Durable before acknowledgement and across a fresh module instance, against a real database; full suite 2671 passed |
+| **Status** | `MERGED` |
 
 ## A1.3 Streaming and recovery
 

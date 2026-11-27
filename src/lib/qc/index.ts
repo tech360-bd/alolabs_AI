@@ -228,6 +228,10 @@ export async function requestHumanReview(params: {
       title: params.title,
       description: params.reason,
       requestJson: JSON.stringify(requestJson),
+      // The link as a column, so run lookups are an index scan rather than a
+      // substring match over JSON. requestJson still carries it for the
+      // approvals UI; this is the queryable copy.
+      ...(params.runId ? { runId: params.runId } : {}),
       status: 'pending',
       riskLevel: 'high',
       expiresAt: new Date(Date.now() + ttlHours * 60 * 60 * 1000),
