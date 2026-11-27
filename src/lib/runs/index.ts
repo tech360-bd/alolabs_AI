@@ -480,8 +480,21 @@ async function saveCheckpoint(runId: string, outcomes: StepExecutionOutcome[]): 
 
 /** Approvals raised by this run (requestJson carries the runId). */
 async function findRunApprovals(runId: string) {
+  // Prefer the real column. Rows written before 20261127_approval_run_link are
+  // matched on requestJson as a fallback, but only when the column found
+  // nothing — the substring match is a compatibility path, not the design.
+  //
+  // The previous version used the substring match for everything. It cannot use
+  // an index (every approval lookup scanned the table), and it treats any row
+  // whose requestJson happens to contain `"runId":"<this id>"` as belonging to
+  // this run, whatever wrote it.
+  const linked = await db.approval.findMany({
+    where: { runId },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (linked.length > 0) return linked;
   return db.approval.findMany({
-    where: { requestJson: { contains: `"runId":"${runId}"` } },
+    where: { runId: null, requestJson: { contains: `"runId":"${runId}"` } },
     orderBy: { createdAt: 'desc' },
   });
 }

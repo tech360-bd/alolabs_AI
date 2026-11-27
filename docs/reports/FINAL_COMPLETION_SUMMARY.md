@@ -1,7 +1,7 @@
 # ALO Labs AgentOS — Final Completion & Verification Summary
 
 **Date:** 2026-11-27  
-**Branch:** `arena/5010a0d6-alolabs-ai` — branched from `main` at `ea924765`, merged up to `main` at `f0230c8` (PR #73)  
+**Branch:** `arena/5010a0d6-alolabs-ai` — branched from `main` at `ea924765`, merged up to `main` at `5e5c9a4` (PR #73)  
 **Repository:** `tech360-bd/alolabs_AI`
 
 ---
@@ -17,10 +17,10 @@ All code defects blocking CI/build on `main`, all multi-tenant security exposure
 - **Route Classification Gate:** `npm run verify:routes` → **542 / 542 route files classified (`0` unclassified)**
 - **Route Auth Audit Gate:** `node scripts/validate-route-auth.mjs` → **542 route files, 856 non-public handlers OK**
 - **MySQL / SQLite Dual Schema Parity:** `npm run verify:mysql` → **266 / 266 models, 669 indexed fields, 0 parity errors, 0 collisions**
-- **Migration Safety Gate:** `npm run verify:migrations` → **14 forward, 11 rollback, all paired, 0 destructive forward DDL**
+- **Migration Safety Gate:** `npm run verify:migrations` → **15 forward, 12 rollback, all paired, 0 destructive forward DDL**
 - **Prisma Delegate Check:** `npm run check:prisma-delegates` → **227 delegates verified**
 - **Workflow & Skill Registries:** `npm run check:workflows` (**17 definitions, 109 steps, 0 errors**) & `npm run skills:verify` (**838 skills, 0 problems**)
-- **Vitest Automated Matrix:** `npx vitest run` → **244 test files passed, 1 skipped, 0 failed** (**2,686 tests passed**, 15 skipped in `mysql-compatibility.test.ts` pending a live `MYSQL_TEST_URL` container in CI)
+- **Vitest Automated Matrix:** `npx vitest run` → **244 test files passed, 1 skipped, 0 failed** (**2,689 tests passed**, 15 skipped in `mysql-compatibility.test.ts` pending a live `MYSQL_TEST_URL` container in CI)
 - **Node Native Test Suite:** `node --test __tests__/**/*.node*.mjs` → **7 / 7 passed**
 - **Production Build & Standalone Packaging:** `PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build` → **PASS** (Next.js 16.4.6 compile + generate + standalone packaging + CJS mini-services + `verify-standalone.mjs` across 9,191 files with 0 leaked secrets/DBs)
 
@@ -62,8 +62,8 @@ All code defects blocking CI/build on `main`, all multi-tenant security exposure
 
 ### 2.4 Merge-integration defects found and fixed
 
-Merging current `main` (`f0230c8`) into this branch exposed two defects that the
-individual branches could not see:
+Merging current `main` (`f0230c8`, then `5e5c9a4`) into this branch exposed
+defects that the individual branches could not see:
 
 1. **Packaged mini-services crashed on load.** `src/lib/db-adapters/prisma-sqlite-node.ts`
    resolved its module `require` from `createRequire(import.meta.url)`. esbuild
@@ -77,6 +77,10 @@ individual branches could not see:
    `src/lib/platform/model-registry.ts` survived the auto-merge and broke
    `tsc` (`TS2300` / `TS2451`). The stale duplicate block was removed and
    `isTaskType` kept as the single task vocabulary.
+3. **Second merge pass (PR #72, `Approval.runId`).** Only the roadmap tracker
+   conflicted; `AgentBuildRequest`/`Approval` schema additions auto-merged
+   cleanly and `verify:mysql` confirms 266/266 models with no duplicated field.
+   Post-merge gates were re-run and are the numbers quoted in section 1.
 
 ---
 

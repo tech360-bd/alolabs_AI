@@ -56,27 +56,27 @@ database-safe deployment and Security Scan all **pass**; 241 test files /
 2634 passed / 0 failed / 15 skipped; route classification 542 of 542; migrations
 13 forward / 10 rollback all paired.
 
-## Branch verification (`arena/5010a0d6-alolabs-ai`, merged with `f0230c8`)
+## Branch verification (`arena/5010a0d6-alolabs-ai`, merged with `main` at `5e5c9a4`)
 
-Re-verified after merging current `main` into this branch. Exact commands and
-outputs:
+Re-verified after merging current `main` into this branch (twice — `f0230c8`
+then `5e5c9a4`). Exact commands and outputs, from the final state:
 
 | Gate | Command | Result |
 | --- | --- | --- |
 | Typecheck (`src/`) | `npm run typecheck` | **PASS** — 0 errors |
 | Typecheck (`__tests__/`) | `npm run typecheck:tests` | **PASS** — 0 errors |
 | Lint | `npm run lint` | **PASS** — 0 errors |
-| Route classification + migration safety | `npm run verify:security` | **PASS** — 542/542 classified, 0 unclassified; 14 forward / 11 rollback paired, 0 destructive DDL |
+| Route classification + migration safety | `npm run verify:security` | **PASS** — 542/542 classified, 0 unclassified; 15 forward / 12 rollback paired, 0 destructive DDL |
 | Route auth gate | `node scripts/validate-route-auth.mjs` | **PASS** — 542 files, 856 non-public handlers, 19 allowlist entries, 1 documented exception |
 | Dual-schema parity | `npm run verify:mysql` | **PASS** — 266/266 models, 669 indexed fields, 0 parity errors, 0 collisions |
 | Prisma delegates | `npm run check:prisma-delegates` | **PASS** — 227 delegates |
 | Workflows / skills | `npm run check:workflows` · `npm run skills:verify` | **PASS** — 17 definitions / 109 steps; 838 skills, 0 problems |
 | Security suites | `npx vitest run __tests__/security` | **PASS** — 7 files, 50 tests |
-| Full matrix | `npx vitest run` | **PASS** — 244 files passed / 1 skipped (live MySQL), **2,686 tests passed**, 0 failed, 15 skipped |
+| Full matrix | `npx vitest run` | **PASS** — 244 files passed / 1 skipped (live MySQL), **2,689 tests passed**, 0 failed, 15 skipped |
 | Native runner | `node --test __tests__/**/*.node*.mjs` | **PASS** — 7/7 |
 | Production build | `PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build` | **PASS** — exit 0; standalone bundle 9,191 files verified; packaged `realtime-service.cjs` / `queue-service.cjs` load cleanly |
 
-Two defects found by this pass and fixed:
+What the merge passes found, and what was fixed:
 
 1. **Packaged mini-services crashed on load.** The SQLite adapter resolved its
    `require` from `createRequire(import.meta.url)`; esbuild rewrites `import.meta`
@@ -84,9 +84,45 @@ Two defects found by this pass and fixed:
    threw `ERR_INVALID_ARG_VALUE` at module load — before any service code ran.
    The path now resolves lazily from `__filename` (CJS) or the working directory
    (ESM), and both packaged services were loaded to confirm.
-2. **Duplicated `TaskType` / `TASK_REQUIREMENTS`** survived the merge of
+2. **Merge pass against PR #72 (`5e5c9a4`).** `Approval.runId` and its
+   `@@index([runId, status])` arrived from `main`; only the tracker document
+   conflicted and was reconciled by hand. Post-merge gates: typecheck,
+   typecheck:tests, `verify:mysql` (266/266), `verify:security` (542/542,
+   15 forward / 12 rollback), the security suites (7 files / 50 tests), the
+   platform suites, and the full matrix (**244 files / 2,689 tests, 0 failed**).
+3. **Duplicated `TaskType` / `TASK_REQUIREMENTS`** survived the merge of
    `src/lib/platform/model-registry.ts`; the duplicate block was removed and
    `isTaskType` kept as the single task vocabulary.
+
+---
+
+## Stage 2 — runtime acceptance evidence (2026-11-27)
+
+Two suites, both driving the real `src/lib/runs` engine and the real
+`src/lib/job-queue` against a database built from the real schema. Neither mocks
+the layer under test.
+
+| Suite | Cases | What it establishes |
+| --- | --- | --- |
+| `__tests__/integration/runtime-acceptance-failures.test.ts` | 22 | The runtime fails correctly: no tenant, lost tenant, no agent, foreign agent, terminal runs, cancellation, resume, dependencies, approvals (pending / rejected / expired / cross-tenant / mismatched / double-decided), unknown run ids, orchestration throws |
+| `__tests__/integration/runtime-acceptance-behaviours.test.ts` | 15 | The runtime works: durability before acknowledgement, restart survival, exactly-once claiming under contention, idempotent enqueue, ordered replayable events, terminal state with a summary, pagination bounds, tenant scoping, cancellation, queue-based resumption, no resurrection of finished runs, attributed event trail |
+
+### Defect found by the acceptance work
+
+`resolveRunApproval` **overwrote decisions**. A run a human had approved was
+marked `failed` by a later "reject", while the approval row still read
+`approved` — run state and audit trail contradicting each other.
+
+A decision is now final: re-sending the *same* decision is idempotent (no second
+resume job), the *opposite* decision is refused. Verified by removing the check:
+F-16 fails and nothing else does.
+
+### Why Stage 2 is not `VERIFIED_COMPLETE`
+
+`VERIFIED_COMPLETE` requires deployment plus recorded evidence of behaviour in
+the target environment. The suite evidence is local and in CI; the production
+database is still unmigrated, which needs owner authorisation. That is an
+external blocker, not an unfinished feature.
 
 ---
 
@@ -103,7 +139,7 @@ Two defects found by this pass and fixed:
 | **Security** | Every surface sits behind one of the two auth towers, both routed through `src/lib/tenancy/policy.ts`. |
 | **Tests** | Full suite; route classification audit (D). |
 | **Commit / PR** | `de8b28f` (audit), Stage 1 branch commits |
-| **Verification** | `npx vitest run` → **244 files passed / 1 skipped, 2,686 tests passed, 0 failed**; 542 route files classified, 0 unclassified |
+| **Verification** | `npx vitest run` → **244 files passed / 1 skipped, 2,689 tests passed, 0 failed**; 542 route files classified, 0 unclassified |
 | **Status** | `TESTED` |
 
 ## A1.2 Persistent execution
@@ -117,9 +153,9 @@ Two defects found by this pass and fixed:
 | **Source files** | `src/lib/runs/index.ts`, `src/lib/job-queue.ts` |
 | **Deps** | DB: `AgentOSRun`, `RunEvent`, `QueueItem`. API: `/api/runs/:id`. |
 | **Security** | Runs now carry a mandatory `companyId` (T-2 fix); unowned runs are refused at create *and* execute. |
-| **Tests** | `__tests__/security/tenant-isolation.test.ts` (T-2 cases); `__tests__/unit/agentos-runs-pipeline.test.ts` |
-| **Commit / PR** | Stage 1 branch |
-| **Verification** | `run-engine-behaviours.test.ts` (20 behaviours), `job-queue-durability.test.ts` (11), `run-resume.test.ts` (3), `runtime-acceptance-{behaviours,failures}.test.ts` — all green; retry now preserves completed checkpoints |
+| **Tests** | `__tests__/security/tenant-isolation.test.ts` (T-2 cases); `__tests__/unit/agentos-runs-pipeline.test.ts`; `runtime-acceptance-behaviours.test.ts` B-01, B-02 |
+| **Commit / PR** | PR #71 (`f0230c8`); this branch (PR #73) |
+| **Verification** | `run-engine-behaviours.test.ts` (20 behaviours), `job-queue-durability.test.ts` (11), `run-resume.test.ts` (3), `runtime-acceptance-{behaviours,failures}.test.ts` — all green; durability proven before acknowledgement and across a fresh module instance; retry preserves completed checkpoints; full suite 2,689 passed |
 | **Status** | `TESTED` — durable retry/cancel/crash-recovery proven on real SQLite |
 
 ## A1.3 Streaming and recovery
@@ -247,7 +283,7 @@ Two defects found by this pass and fixed:
 | **Security** | `qdrant.ts` filters by `companyId`; every RAG document, chunk, query and log route rejects a foreign tenant id and scopes results to the caller. |
 | **Tests** | `__tests__/security/cross-surface-tenant.test.ts` — cross-tenant document/chunk/query isolation on real SQLite. |
 | **Commit / PR** | This branch (PR #73) |
-| **Verification** | `cross-surface-tenant.test.ts` green; full suite 2,686 passed |
+| **Verification** | `cross-surface-tenant.test.ts` green; full suite 2,689 passed |
 | **Status** | `TESTED` |
 
 ## A1.11 Model gateway and failover
@@ -311,7 +347,7 @@ Two defects found by this pass and fixed:
 | **Security** | Credentials resolved per tenant; foreign `companyId` rejected on every integration, webhook, API-management and HMAC-signing route; SSRF guard covers IPv4 and mapped IPv6. |
 | **Tests** | `p0-ssrf-guard.test.ts` (13), `f5-ssrf-mapped-ipv6.test.ts` (12), `cross-surface-tenant.test.ts`. |
 | **Commit / PR** | This branch (PR #73) |
-| **Verification** | All three suites green; full suite 2,686 passed |
+| **Verification** | All three suites green; full suite 2,689 passed |
 | **Status** | `TESTED` |
 
 ## A1.15 Billing, metering and quotas
@@ -327,7 +363,7 @@ Two defects found by this pass and fixed:
 | **Security** | Usage, quota and cost routes are tenant-scoped; a tenant sees only its own usage; foreign ids rejected. |
 | **Tests** | `token-guard.test.ts` (10), `free-tier-quota-tracker.test.ts`, `voice/billing.test.ts` (9), `cross-surface-tenant.test.ts`. |
 | **Commit / PR** | This branch (PR #73) |
-| **Verification** | Suites green; full suite 2,686 passed |
+| **Verification** | Suites green; full suite 2,689 passed |
 | **Status** | `TESTED` |
 
 ## A1.16 Observability
@@ -343,7 +379,7 @@ Two defects found by this pass and fixed:
 | **Security** | Dashboard and protection endpoints are tenant-scoped (protection rows scoped through `Command` → `CompanyUser`); denials throw with a reason. |
 | **Tests** | `site-doctor.test.ts` (5), `health-v2.test.ts`, `metrics-client.test.ts`, `cross-surface-tenant.test.ts`. |
 | **Commit / PR** | This branch (PR #73) |
-| **Verification** | Suites green; full suite 2,686 passed |
+| **Verification** | Suites green; full suite 2,689 passed |
 | **Status** | `TESTED` |
 
 ## A1.17 Enterprise admin, RBAC and audit
@@ -400,14 +436,14 @@ Two defects found by this pass and fixed:
 | --- | --- |
 | **ID** | `A1-20` |
 | **Description** | Full test matrix, forward + rollback migration tests, backup/restore verification, runbooks. |
-| **Existing evidence** | `prisma/migrations/mysql/**` — **14 forward / 11 rollback** pairs including `20261126_ws_company_step1..3`, `20261127_factory_build_request_tenant` and `20261127_agent_build_request_company`. |
+| **Existing evidence** | `prisma/migrations/mysql/**` — **15 forward / 12 rollback** pairs including `20261126_ws_company_step1..3`, `20261127_factory_build_request_tenant`, `20261127_agent_build_request_company` and `20261127_approval_run_link`. |
 | **Required** | Migrations tested forward **and** rollback on a disposable DB; backup/restore proven. |
 | **Source files** | `prisma/migrations/**`, `scripts/**`, `docs/operations/**` |
 | **Deps** | Disposable database. |
 | **Security** | No production migration without backup + tested rollback + explicit authorization. |
 | **Tests** | `verify:migrations` (safety scan), `verify:mysql` (266/266 parity), `backup-restore.test.ts` (8), `sqlite-mysql-migration-safety.test.ts`. |
 | **Commit / PR** | This branch (PR #73) |
-| **Verification** | `verify:migrations` → 14 forward / 11 rollback all paired, 0 destructive DDL; `verify:mysql` → 266/266 models, 669 indexed fields, 0 collisions; `backup-restore.test.ts` green |
+| **Verification** | `verify:migrations` → 15 forward / 12 rollback all paired, 0 destructive DDL; `verify:mysql` → 266/266 models, 669 indexed fields, 0 collisions; `backup-restore.test.ts` green |
 | **Status** | `TESTED` — forward and rollback rehearsed on SQLite/disposable schema; production execution remains gated on operator authorisation |
 
 ---
@@ -434,7 +470,8 @@ Two defects found by this pass and fixed:
 | 3 — NOT NULL with integrity guard | `20261126_ws_company_step3_require.sql` | **WRITTEN** |
 | Single-step tenant FK — factory build requests | `20261127_factory_build_request_tenant.sql` (+ rollback) | **WRITTEN** |
 | Single-step tenant FK — agent build requests | `20261127_agent_build_request_company.sql` (+ rollback) | **WRITTEN** |
-| Rollbacks | `*_rollback.sql` ×5 | **WRITTEN** |
+| Approval → run link (PR #72) | `20261127_approval_run_link.sql` (+ rollback) | **WRITTEN** |
+| Rollbacks | `*_rollback.sql` ×6 | **WRITTEN** |
 
 **Production migration is BLOCKED pending explicit DB authorization, a verified
 backup and a tested rollback on a disposable database.** Local schema work is
