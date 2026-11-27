@@ -114,17 +114,71 @@ ok  a key that stops being secret loses its sealed copy — 1 -> 0
 (no key → refuse, tampering, cross-tenant address binding, rotation, orphaned keys,
 masking).
 
-## 6. What is not done yet
+## 6. Host-side apply (implemented 2026-11-27)
 
-1. **Host-side apply agent.** `EnvironmentApply` rows are instructions with no
-   executor in this deployment. The intended path reuses the existing deployment
-   mechanism — a workflow over the same audited SSH bridge running a fixed
-   `deploy/scripts/apply-environment.sh` — rather than opening a shell from the web
-   API. Until that exists, an apply stays `queued` and the dashboard must not imply
-   otherwise.
-2. **Dashboard panel.** The APIs and the panel registration are not yet wired; the
-   operator surface is still to be built.
-3. **Provider validation.** "Validate this API key" against each provider is not
-   implemented; a saved key is stored, not proven.
-4. No apply has been run against a real service, so the end-to-end claim remains
-   IMPLEMENTED, NOT RUNTIME-VERIFIED.
+An apply is a three-part conversation, and each part can be observed:
+
+```
+POST /api/super-admin/environments/[id]/apply   → EnvironmentApply(status="queued")
+        │
+        ├─ workflow "Apply environment configuration" (environment: production,
+        │  required reviewers) collects the payload for exactly one apply id
+        │
+        ▼
+POST /api/ops/environments/claim                → decrypted values, Cache-Control: no-store,
+        │                                         apply → "running", audit with key names only
+        ▼
+deploy/scripts/apply-environment.sh             → atomic 0600 write + timestamped backup,
+        │                                         optional reload, required health command
+        ▼
+POST /api/ops/environments/result               → apply "succeeded" (only with a health
+                                                  check) / "failed", version marked applied,
+                                                  operator notified
+```
+
+### The script is deliberately narrow
+
+`deploy/scripts/apply-environment.sh`:
+
+- reads **one** JSON payload and validates every field — project slug, environment
+  name, integer version, 64-hex checksum, `UPPER_SNAKE` keys, string values, no
+  newlines (a newline in a value breaks every dotenv parser downstream);
+- refuses a payload whose project or environment does not match the ones the run
+  was invoked for (`--expect-project`, `--expect-environment`);
+- writes through a temp file in the target directory and `mv`s it into place, so a
+  partial file is never visible; mode `0600`; the previous file is kept as
+  `.bak.<timestamp>`, which is what `--rollback` restores;
+- counts the keys it wrote and fails if that number differs from the plan — a
+  half-written environment that exits 0 is the failure this check exists to prevent;
+- runs the reload and health commands **from the workflow inputs, never from the
+  payload**, and runs them in subshells so a command calling `exit` cannot terminate
+  an apply halfway;
+- prints key *names* and status lines only. It never prints a value, and it never
+  `source`s or `eval`s the payload.
+
+The workflow is the only place shell is chosen, and it is a fixed list of inputs
+under the same production protection rules as deploy and backup.
+
+### New endpoints
+
+| Route | Auth | Behaviour |
+| --- | --- | --- |
+| `POST /api/ops/environments/claim` | ops machine token | claims one queued apply, returns decrypted values with `no-store`; refuses a second claim while running unless `reclaim: true`; audits host + key names |
+| `POST /api/ops/environments/result` | ops machine token | records `succeeded` / `failed` / `rolled_back`; **rejects `succeeded` without a health check**; marks the version applied only on success; notifies the requester |
+
+The state machine is a pure predicate (`apply-state.ts`): claimable only from
+`queued`, and success only with proof. Both are unit-tested without a database.
+
+## 7. What is still not done
+
+1. **Dashboard panel.** The Environment Manager UI is not built yet; the APIs are
+   used by the operator workflow today.
+2. **Provider key validation.** "Validate this key" against each provider is not
+   implemented — a saved key is stored, not proven.
+3. **Hosted execution of the apply workflow.** It has not been run against a real
+   deployment: the production SSH secrets gate it (see the backup section of
+   `docs/CI-CD-GUIDE.md`), so the end-to-end claim → write → reload → health → result
+   loop is proven by tests and by local script runs, not by a production change.
+4. `scripts/verify-environments.ts` covers the store, versions, approvals and
+   idempotency; it could not be executed in this sandbox because Prisma engines
+   cannot be downloaded here.

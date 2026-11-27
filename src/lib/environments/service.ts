@@ -18,27 +18,18 @@
 
 import { createHash } from 'node:crypto';
 import { db } from '@/lib/db';
+import {
+  assertApplyClaimable,
+  assertApplyOutcome,
+  EnvironmentError,
+} from '@/lib/environments/apply-state';
+import { notifyOperator } from '@/lib/notifications/operator';
 import { sealSecret, openSecret, maskValue, type SealedSecret } from '@/lib/secrets/envelope';
 
 export const ENVIRONMENT_NAMES = ['development', 'staging', 'production'] as const;
 export type EnvironmentName = (typeof ENVIRONMENT_NAMES)[number];
 
-export class EnvironmentError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly code:
-      | 'not-found'
-      | 'invalid'
-      | 'conflict'
-      | 'approval-required'
-      | 'same-user-approval'
-      | 'secret-store-unavailable',
-  ) {
-    super(message);
-    this.name = 'EnvironmentError';
-  }
-}
+export { EnvironmentError };
 
 export interface Actor {
   userId: string;
@@ -461,4 +452,132 @@ export async function buildApplyPayload(actor: Actor, environmentId: string, ver
     values,
     keys: Object.keys(values).sort(),
   };
+}
+
+
+/**
+ * Claim a queued apply and hand the host its payload.
+ *
+ * This is the only path that decrypts an environment's secrets, so it is
+ * deliberately machine-facing: it requires the ops token, it is scoped to one apply
+ * row, and it can only serve an apply that is `queued` or already `running` for this
+ * host. Re-claiming while running returns the same payload rather than a second one,
+ * so a retried workflow cannot start two applies.
+ */
+export async function claimApply(
+  applyId: string,
+  options: { hostRef: string; allowReclaim?: boolean } = { hostRef: 'host' },
+) {
+  const apply = await db.environmentApply.findUnique({
+    where: { id: applyId },
+    select: {
+      id: true,
+      status: true,
+      environmentId: true,
+      version: { select: { version: true } },
+      environment: { select: { companyId: true, projectSlug: true, name: true } },
+    },
+  });
+  if (!apply) throw new EnvironmentError('Apply not found', 404, 'not-found');
+
+  if (!(apply.status === 'running' && options.allowReclaim)) {
+    assertApplyClaimable(apply.status);
+  }
+
+  const payload = await buildApplyPayload(
+    { userId: 'ops-agent', companyId: apply.environment.companyId, role: 'super_admin' },
+    apply.environmentId,
+    apply.version.version,
+  );
+
+  await db.environmentApply.update({
+    where: { id: applyId },
+    data: {
+      status: 'running',
+      stage: 'dispatching',
+      hostRef: options.hostRef.slice(0, 191),
+      startedAt: new Date(),
+    },
+  });
+
+  return {
+    applyId: apply.id,
+    projectSlug: apply.environment.projectSlug,
+    environment: apply.environment.name,
+    version: apply.version.version,
+    checksum: payload.checksum,
+    values: payload.values,
+  };
+}
+
+export type ApplyOutcome = 'succeeded' | 'failed' | 'rolled_back';
+
+/**
+ * Record what the host reported.
+ *
+ * `succeeded` is only accepted with a passing health check: "the file was written" is
+ * not "the service runs the configuration". Everything else leaves the version
+ * unapplied so the dashboard cannot show a green state that was never verified.
+ */
+export async function recordApplyResult(input: {
+  applyId: string;
+  outcome: ApplyOutcome;
+  stage?: string;
+  detail?: string;
+  healthCheck?: string;
+  hostRef?: string;
+}) {
+  const apply = await db.environmentApply.findUnique({
+    where: { id: input.applyId },
+    select: { id: true, environmentId: true, versionId: true, status: true, requestedBy: true },
+  });
+  if (!apply) throw new EnvironmentError('Apply not found', 404, 'not-found');
+
+  assertApplyOutcome(input.outcome, input.healthCheck);
+
+  const finishedAt = new Date();
+  const updated = await db.environmentApply.update({
+    where: { id: apply.id },
+    data: {
+      status: input.outcome,
+      stage: (input.stage ?? 'finished').slice(0, 64),
+      detail: input.detail?.slice(0, 2_000) ?? null,
+      healthCheck: input.healthCheck?.slice(0, 500) ?? null,
+      hostRef: input.hostRef?.slice(0, 191) ?? undefined,
+      finishedAt,
+    },
+    select: { id: true, status: true, environmentId: true, versionId: true, requestedBy: true },
+  });
+
+  if (input.outcome === 'succeeded') {
+    await db.environmentConfigVersion.update({
+      where: { id: apply.versionId },
+      data: { status: 'applied', appliedAt: finishedAt },
+    });
+  }
+
+  const environment = await db.projectEnvironment.findUnique({
+    where: { id: apply.environmentId },
+    select: { companyId: true, projectSlug: true, name: true },
+  });
+
+  if (environment) {
+    await notifyOperator({
+      companyId: environment.companyId,
+      ...(updated.requestedBy ? { userId: updated.requestedBy } : {}),
+      type: input.outcome === 'succeeded' ? 'config.changed' : 'deployment.failed',
+      title:
+        input.outcome === 'succeeded'
+          ? `Configuration applied: ${environment.projectSlug}/${environment.name}`
+          : `Configuration apply ${input.outcome}: ${environment.projectSlug}/${environment.name}`,
+      message:
+        input.outcome === 'succeeded'
+          ? `Health check passed after applying the configuration.`
+          : `${input.detail ?? 'The host reported a failure.'}`,
+      link: '/dashboard?panel=environment-manager',
+      evidence: { applyId: apply.id, stage: input.stage ?? null, outcome: input.outcome },
+    }).catch(() => undefined);
+  }
+
+  return { applyId: updated.id, status: updated.status };
 }

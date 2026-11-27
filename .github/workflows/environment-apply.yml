@@ -1,0 +1,205 @@
+name: Apply environment configuration
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The host half of the Environment Manager.
+#
+# The dashboard records an apply as `queued`. Nothing on the host changes until this
+# workflow runs, and this workflow does not decide anything either: it collects the
+# payload for one named apply, writes it with the fixed script, reloads, checks
+# health, and reports the result back.
+#
+# Deliberate constraints:
+#   * `environment: production` — the same protection rules (required reviewers) as
+#     deploy and backup, so applying configuration is never a one-click action.
+#   * The apply id is an input, not a search: one run, one apply.
+#   * The reload and health commands are inputs supplied by the operator and are the
+#     only shell this executes on the host. The payload itself is data — the script
+#     never evaluates it.
+#   * Failure reports the stage it reached, so the dashboard shows where it stopped.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply_id:
+        description: 'EnvironmentApply id (from the Environment Manager dashboard)'
+        required: true
+        type: string
+      target_file:
+        description: 'Absolute path of the env file to write, e.g. /opt/alolabs_AI/.env.production'
+        required: true
+        type: string
+      expect_project:
+        description: 'Project slug this apply must belong to (safety check)'
+        required: true
+        type: string
+      expect_environment:
+        description: 'Environment this apply must belong to'
+        required: true
+        type: choice
+        options: [development, staging, production]
+      reload_cmd:
+        description: 'Command that makes the service pick up the new file (may be empty)'
+        required: false
+        type: string
+        default: ''
+      health_cmd:
+        description: 'Command that must exit 0 after reload; required to report success'
+        required: true
+        type: string
+      dry_run:
+        description: 'Validate on the host without writing (recommended first)'
+        required: true
+        type: boolean
+        default: true
+
+concurrency:
+  group: environment-apply
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: Apply configuration on the host
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate required production SSH secrets
+        env:
+          PRODUCTION_HOST_FINGERPRINT: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_PORT: ${{ secrets.PRODUCTION_PORT }}
+        run: bash .github/scripts/validate-production-secrets.sh
+
+      - name: Collect the apply payload
+        env:
+          OPS_STATUS_URL: ${{ vars.OPS_STATUS_URL }}
+          OPS_MACHINE_TOKEN: ${{ secrets.BACKUP_INGEST_TOKEN }}
+          APPLY_ID: ${{ inputs.apply_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPS_STATUS_URL:-}" ] || [ -z "${OPS_MACHINE_TOKEN:-}" ]; then
+            echo "::error title=Environment apply is not configured::Set the OPS_STATUS_URL variable and BACKUP_INGEST_TOKEN secret."
+            exit 1
+          fi
+          # Written inside the workspace so the scp step can find it; deleted in the
+          # final step whatever happens.
+          payload="${GITHUB_WORKSPACE}/apply-payload.json"
+          rm -f -- "$payload"
+          (umask 077; : > "$payload")
+          code="$(curl -sS -o "$payload" -w '%{http_code}' --max-time 30 \
+            -X POST "${OPS_STATUS_URL%/}/api/ops/environments/claim" \
+            -H "authorization: Bearer ${OPS_MACHINE_TOKEN}" \
+            -H 'content-type: application/json' \
+            --data "{\"applyId\":\"${APPLY_ID}\",\"hostRef\":\"github-actions\"}")"
+          if [ "$code" != "200" ]; then
+            echo "::error title=Apply payload was refused::The control plane answered HTTP ${code}. Nothing was changed on the host."
+            cat "$payload"
+            exit 1
+          fi
+          # Key names only: this file contains credentials once it exists.
+          python3 - "$payload" <<'PY'
+          import json, sys
+          payload = json.load(open(sys.argv[1]))
+          print('apply %s → %s/%s version %s (%d keys)' % (
+              payload['applyId'], payload['projectSlug'], payload['environment'],
+              payload['version'], len(payload['values'])))
+          PY
+          echo "PAYLOAD_FILE=$payload" >> "$GITHUB_ENV"
+
+      - name: Write, reload and verify on the host
+        id: apply
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v0.1.7
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          fingerprint: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
+          source: ${{ env.PAYLOAD_FILE }}
+          target: '/tmp/alo-env-payload/'
+          overwrite: true
+          # scp-action copies relative to the workspace; the payload is the only file
+          # it is allowed to see.
+
+      - name: Run the apply script
+        id: run
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
+        env:
+          PAYLOAD: '/tmp/alo-env-payload/apply-payload.json'
+          TARGET_FILE: ${{ inputs.target_file }}
+          EXPECT_PROJECT: ${{ inputs.expect_project }}
+          EXPECT_ENVIRONMENT: ${{ inputs.expect_environment }}
+          RELOAD_CMD: ${{ inputs.reload_cmd }}
+          HEALTH_CMD: ${{ inputs.health_cmd }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          fingerprint: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
+          command_timeout: 15m
+          envs: PAYLOAD,TARGET_FILE,EXPECT_PROJECT,EXPECT_ENVIRONMENT,RELOAD_CMD,HEALTH_CMD,DRY_RUN,PRODUCTION_APP_DIR
+          script: |
+            set -euo pipefail
+            APP_DIR="${PRODUCTION_APP_DIR:-/opt}"
+            SCRIPT="${APP_DIR}/deploy/scripts/apply-environment.sh"
+            [ -x "$SCRIPT" ] || { echo "::error title=Apply script missing::${SCRIPT} is not present or not executable"; exit 1; }
+            args=(--payload "$PAYLOAD" --target "$TARGET_FILE" --expect-project "$EXPECT_PROJECT" --expect-environment "$EXPECT_ENVIRONMENT")
+            [ -z "${RELOAD_CMD:-}" ] || args+=(--reload-cmd "$RELOAD_CMD")
+            [ -z "${HEALTH_CMD:-}" ] || args+=(--health-cmd "$HEALTH_CMD")
+            [ "${DRY_RUN:-false}" = "true" ] && args+=(--dry-run)
+            if ! OUT="$(sudo -n bash "$SCRIPT" "${args[@]}" 2>&1)"; then
+              echo "$OUT"
+              echo "::error title=Apply failed::$(printf '%s' "$OUT" | tail -n 2 | tr '\n' '|')"
+              exit 1
+            fi
+            echo "$OUT"
+            rm -f -- "$PAYLOAD"
+
+      - name: Report the result
+        if: always()
+        env:
+          OPS_STATUS_URL: ${{ vars.OPS_STATUS_URL }}
+          OPS_MACHINE_TOKEN: ${{ secrets.BACKUP_INGEST_TOKEN }}
+          APPLY_ID: ${{ inputs.apply_id }}
+          APPLY_OUTCOME: ${{ steps.run.outcome }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          [ "${DRY_RUN}" = "true" ] && { echo "Dry run: no result reported, nothing changed."; exit 0; }
+          if [ "${APPLY_OUTCOME}" = "success" ]; then
+            outcome=succeeded
+            health="operator-supplied health command exited 0"
+          else
+            outcome=failed
+            health=''
+          fi
+          body="$(python3 - "$outcome" "$health" <<'PY'
+          import json, os, sys
+          outcome, health = sys.argv[1], sys.argv[2]
+          payload = {'applyId': os.environ['APPLY_ID'], 'outcome': outcome, 'stage': 'host', 'hostRef': 'github-actions'}
+          if health:
+              payload['healthCheck'] = health
+          else:
+              payload['detail'] = 'The host apply failed; see the workflow annotations for the stage.'
+          print(json.dumps(payload))
+          PY
+          )"
+          code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
+            -X POST "${OPS_STATUS_URL%/}/api/ops/environments/result" \
+            -H "authorization: Bearer ${OPS_MACHINE_TOKEN}" \
+            -H 'content-type: application/json' --data "$body")"
+          echo "result reported: HTTP ${code}"
+          [ "$code" = "200" ] || echo "::warning title=Apply result was not recorded::The control plane answered HTTP ${code}; the dashboard will show this apply as running."
+      - name: Remove the local payload copy
+        if: always()
+        run: rm -f -- "${GITHUB_WORKSPACE}/apply-payload.json"
