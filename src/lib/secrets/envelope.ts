@@ -115,7 +115,14 @@ function decodeKey(raw: string, id: string): Buffer {
  * a public key, and a secret store that works without configuration is a secret
  * store that has already leaked.
  */
-export function loadKeyRing(env: NodeJS.ProcessEnv = process.env): KeyRing {
+/**
+ * Accepts any string map rather than `NodeJS.ProcessEnv`: Next.js types `ProcessEnv`
+ * with a mandatory `NODE_ENV`, which makes a hand-built environment map in a test a
+ * type error for no reason.
+ */
+export type KeyRingEnv = Readonly<Record<string, string | undefined>>;
+
+export function loadKeyRing(env: KeyRingEnv = process.env): KeyRing {
   const ring = new Map<string, Buffer>();
 
   const multi = env.ALO_KEK_KEYS;
@@ -182,7 +189,7 @@ function gcmDecrypt(key: Buffer, ciphertext: Buffer, iv: Buffer, tag: Buffer, aa
 export function sealSecret(
   plaintext: string,
   context: SecretContext,
-  options: { ring?: KeyRing; env?: NodeJS.ProcessEnv } = {},
+  options: { ring?: KeyRing; env?: KeyRingEnv } = {},
 ): SealedSecret {
   if (!plaintext) throw new SecretStoreError('Refusing to seal an empty value', 'invalid-record');
   const ring = options.ring ?? loadKeyRing(options.env);
@@ -219,7 +226,7 @@ export function sealSecret(
 export function openSecret(
   sealed: SealedSecret,
   context: SecretContext,
-  options: { ring?: KeyRing; env?: NodeJS.ProcessEnv } = {},
+  options: { ring?: KeyRing; env?: KeyRingEnv } = {},
 ): string {
   const ring = options.ring ?? loadKeyRing(options.env);
   const kek = ring.keys.get(sealed.kekId);

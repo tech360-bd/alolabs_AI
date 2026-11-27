@@ -29,7 +29,7 @@ const CONTEXT: SecretContext = {
   key: 'OPENAI_API_KEY',
 };
 
-function envWith(keys: Record<string, string>, active?: string): NodeJS.ProcessEnv {
+function envWith(keys: Record<string, string>, active?: string): Record<string, string | undefined> {
   return { ALO_KEK_KEYS: JSON.stringify(keys), ...(active ? { ALO_KEK_ACTIVE: active } : {}) };
 }
 
