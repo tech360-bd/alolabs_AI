@@ -456,6 +456,27 @@ export async function resolveRunApproval(params: {
     }
   }
 
+  // A decision is final: re-sending the *same* decision is idempotent (a
+  // client retry must not create a second resume job), but the *opposite*
+  // decision is refused.
+  //
+  // Without this, a second call on an already-decided approval overwrote the
+  // outcome: a run a human had approved was marked failed by a later "reject",
+  // while the approval row still read `approved` — the run and the audit trail
+  // contradicting each other. Two reviewers disagreeing must not silently flip
+  // a decision; reversing one is a deliberate act, not a second resolve.
+  const decided = approval.status !== 'pending';
+  if (decided) {
+    const recorded = approval.status === 'approved' ? true : approval.status === 'rejected' ? false : null;
+    if (recorded === null || recorded !== params.approved) {
+      throw new Error(
+        `Refusing to resolve approval ${approval.id}: it was already ${approval.status}` +
+          (approval.reviewedBy ? ` by ${approval.reviewedBy}` : '') +
+          `. Reverse a decision through the approvals API, not by resolving it again.`,
+      );
+    }
+  }
+
   let runId: string | null = null;
   try {
     const requestJson = JSON.parse(approval.requestJson || '{}') as { runId?: string };
