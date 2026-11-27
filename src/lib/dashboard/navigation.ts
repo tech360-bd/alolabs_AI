@@ -25,6 +25,7 @@
 import type { ComponentType } from 'react'
 import {
   Activity,
+  DatabaseBackup,
   ArrowRightLeft,
   BarChart2,
   BarChart3,
@@ -147,6 +148,7 @@ export const DASHBOARD_NAV: DashboardNavGroup[] = [
       { id: "command-agent", label: "Commanding Center (Free AI Agent)", icon: Brain },
       { id: "agentos-command", label: "Command Center", icon: Zap },
       { id: "agentos-runs", label: "Runs", icon: Activity },
+      { id: "backup-status", label: "Backup Verification", icon: DatabaseBackup },
       { id: "agent-command-center", label: "Agent Command Center", icon: Brain },
       { id: "enterprise-overview", label: "Enterprise Overview", icon: LayoutDashboard },
     ],
@@ -488,6 +490,7 @@ export const DASHBOARD_PANELS: Record<string, () => Promise<{ default: Component
   "agent-training": () => import('@/components/panels/agent-training-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "agent-usage": () => import('@/components/panels/agent-usage-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "agentos-command": () => import('@/components/enterprise/panels/agentos-command') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "backup-status": () => import('@/components/panels/backup-status-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "agentos-runs": () => import('@/components/enterprise/panels/agentos-runs') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "agents-registry": () => import('@/components/panels/agents-registry-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "ai-employee-governance": () => import('@/components/enterprise/panels/ai-employee-governance') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,

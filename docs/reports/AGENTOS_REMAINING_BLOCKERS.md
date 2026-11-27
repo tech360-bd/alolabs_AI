@@ -155,7 +155,15 @@ failing on three consecutive days** (2026-11-25, 11-26, 11-27). That is a
 repeatable failure, not a flake, and it is the one gate that would tell us a
 backup is restorable.
 
-- Status: **NOT COMPLETE**.
+- **Diagnosed 2026-11-27:** the failing step is *Validate required production SSH
+  secrets*; the annotation names it exactly — `PRODUCTION_HOST_FINGERPRINT` is not
+  set. The workflow therefore never reached the host. The other four secrets exist.
+  Fixing it is one owner action (`gh secret set … --env production`), not a code
+  change.
+- Status: **NOT COMPLETE** in the sense that no verified production backup exists;
+  the tooling gap it exposed (nothing outside the workflow could notice) is closed
+  by the status reporting, health endpoint, dashboard panel and daily monitor added
+  in the same change.
 - Not yet diagnosed: the job logs are served from blob storage this sandbox cannot
   reach (\`EOF\` on \`.../logs/job-logs.txt\`), so the cause is unknown — production
   credentials absent on the runner and a genuine script defect are both consistent
