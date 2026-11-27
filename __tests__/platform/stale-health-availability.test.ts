@@ -82,8 +82,8 @@ describe('a deployment marked unreachable is not excluded forever', () => {
     const down = await describeAvailability();
     const downEntry = down.find((d) => d.model === 'alo-local-tiny');
     expect(downEntry, 'the local deployment should be in the catalogue').toBeDefined();
-    expect(downEntry!.selectable).toBe(false);
-    expect(downEntry!.blockedReason).toMatch(/not answering|unreachable/i);
+    expect(downEntry?.selectable).toBe(false);
+    expect(downEntry?.blockedReason).toMatch(/not answering|unreachable/i);
 
     // Now the endpoint answers. This is the regression: the stale health record
     // used to keep it unselectable with no way back short of editing the store.
@@ -91,12 +91,13 @@ describe('a deployment marked unreachable is not excluded forever', () => {
     invalidateReachability();
     const up = await describeAvailability();
     const upEntry = up.find((d) => d.model === 'alo-local-tiny');
-    expect(upEntry!.reachable).toBe(true);
-    expect(upEntry!.selectable, 'a reachable endpoint must not be excluded by stale health').toBe(true);
-    expect(upEntry!.blockedReason).toBeUndefined();
+    expect(upEntry, 'the local deployment should still be in the catalogue').toBeDefined();
+    expect(upEntry?.reachable).toBe(true);
+    expect(upEntry?.selectable, 'a reachable endpoint must not be excluded by stale health').toBe(true);
+    expect(upEntry?.blockedReason).toBeUndefined();
 
     // ...while the history is still visible, so the admin page can explain it.
-    expect(upEntry!.health.status).toBe('unreachable');
+    expect(upEntry?.health?.status).toBe('unreachable');
 
     restoreFetch();
   }, 60_000);
