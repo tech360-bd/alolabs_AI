@@ -26,6 +26,8 @@
  * conservative about it.
  */
 
+import { SERVICE_DEPTH, type ServiceDepth } from './service-depth'
+
 export type ServiceState = 'delivered' | 'available' | 'project'
 
 export const SERVICE_STATE_LABEL: Record<ServiceState, string> = {
@@ -56,7 +58,16 @@ export interface ServiceLine {
   stateNote: string
   /** Sits under a group heading on the index. */
   category: 'Build' | 'Intelligence' | 'Operations'
+
 }
+
+/**
+ * A `ServiceLine` as the detail page sees it: the delivery record plus the
+ * depth content. The depth fields live only here, so the flat `SERVICE_LINES`
+ * array stays a truthful delivery record and cannot accidentally render a
+ * half-populated page.
+ */
+export type EnrichedServiceLine = ServiceLine & ServiceDepth
 
 export const SERVICE_LINES: ServiceLine[] = [
   {
@@ -382,6 +393,27 @@ export const SERVICE_GROUP_BLURB: Record<(typeof SERVICE_GROUPS)[number], string
   Operations: 'Making the business run better: automation, integration, visibility and reach.',
 }
 
-export function serviceBySlug(slug: string): ServiceLine | undefined {
-  return SERVICE_LINES.find((s) => s.slug === slug)
+/**
+ * Every service line, enriched with its detail-page content.
+ *
+ * `SERVICE_LINES` stays the flat delivery record (slug, name, state, price
+ * shape) so the index, sitemap and JSON-LD keep working. `depth` is merged in
+ * here rather than duplicated, so a page never renders a stale copy.
+ */
+export function serviceBySlug(slug: string): EnrichedServiceLine | undefined {
+  const base = SERVICE_LINES.find((s) => s.slug === slug)
+  if (!base) return undefined
+  const depth = SERVICE_DEPTH[slug]
+  // The cast is the one place a missing entry could slip through, so the
+  // guard above is real: a slug added without depth content is a bug we want
+  // to see at build time, not a page that renders half its sections.
+  return depth ? ({ ...base, ...depth } as EnrichedServiceLine) : undefined
+}
+
+/** All twelve, enriched. Used by the index and the related-services rail. */
+export function allServiceLines(): EnrichedServiceLine[] {
+  return SERVICE_LINES.flatMap((base) => {
+    const depth = SERVICE_DEPTH[base.slug]
+    return depth ? [{ ...base, ...depth } as EnrichedServiceLine] : []
+  })
 }

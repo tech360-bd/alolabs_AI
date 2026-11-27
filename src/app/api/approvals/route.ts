@@ -184,6 +184,10 @@ export async function PUT(request: NextRequest) {
       approvalId: approval.id,
       approved: action === 'approve',
       reviewerId: user.userId,
+      // T-8: the engine re-checks the approval, the run and the reviewer all
+      // share a tenant. The route already filtered by companyId above; this
+      // makes the invariant hold for any future caller too.
+      reviewerCompanyId: user.companyId,
       note: parsed.data.comment,
     })
 

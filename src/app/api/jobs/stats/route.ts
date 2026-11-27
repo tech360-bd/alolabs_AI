@@ -1,32 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session';
 
 // GET /api/jobs/stats — aggregate job statistics
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const [wfTotal, wfRunning, wfCompleted, wfFailed, wfAvg] = await Promise.all([
-      db.workflowRun.count(),
-      db.workflowRun.count({ where: { status: 'running' } }),
-      db.workflowRun.count({ where: { status: 'completed' } }),
-      db.workflowRun.count({ where: { status: 'failed' } }),
+      db.workflowRun.count({ where: tenantWhere(tenant) }),
+      db.workflowRun.count({ where: tenantWhere(tenant, { status: 'running' }) }),
+      db.workflowRun.count({ where: tenantWhere(tenant, { status: 'completed' }) }),
+      db.workflowRun.count({ where: tenantWhere(tenant, { status: 'failed' }) }),
       db.workflowRun.aggregate({
-        where: { status: 'completed', durationMs: { not: null } },
+        where: tenantWhere(tenant, { status: 'completed', durationMs: { not: null } }),
         _avg: { durationMs: true },
       }),
     ]);
 
     const [agTotal, agRunning, agCompleted, agFailed, agAvg] = await Promise.all([
-      db.agentRun.count(),
-      db.agentRun.count({ where: { status: 'running' } }),
-      db.agentRun.count({ where: { status: 'completed' } }),
-      db.agentRun.count({ where: { status: 'failed' } }),
+      db.agentRun.count({ where: tenantWhere(tenant) }),
+      db.agentRun.count({ where: tenantWhere(tenant, { status: 'running' }) }),
+      db.agentRun.count({ where: tenantWhere(tenant, { status: 'completed' }) }),
+      db.agentRun.count({ where: tenantWhere(tenant, { status: 'failed' }) }),
       db.agentRun.aggregate({
         where: { status: 'completed', durationMs: { not: null } },
         _avg: { durationMs: true },
@@ -55,6 +51,8 @@ export async function GET(request: NextRequest) {
       avgDurationMs: avgDurationMs ? Math.round(avgDurationMs) : null,
     });
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

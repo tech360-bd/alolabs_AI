@@ -35,7 +35,7 @@ const CASES: CaseStudy[] = [
     brief:
       'An education consultancy handling hundreds of monthly enquiries was running applications, document checks and follow-ups by hand across spreadsheets and inboxes.',
     shipped: [
-      'Student Ops department with 40 specified agents',
+      'Student operations department, staffed to the client’s process',
       'Applicant pipeline with document-check workflows',
       'UKVI-aware compliance checklist automation',
       'Owner command centre with live application status',
@@ -93,7 +93,7 @@ const CASES: CaseStudy[] = [
     sector: 'SaaS · Operations',
     title: 'One command centre across five departments',
     brief:
-      'Our own flagship deployment: 1020 agents across 100+ departments routed from a single command centre — the system every customer gets a slice of.',
+      'Our own flagship deployment: a single command centre routing work across every department in the business — the architecture every customer receives as their own instance.',
     shipped: [
       'Master router + department routers',
       'Hybrid RAG over the company corpus',
@@ -101,7 +101,7 @@ const CASES: CaseStudy[] = [
       'Backup, monitoring and disaster-recovery tooling',
     ],
     outcomes: [
-      { value: '1020', label: 'agents under management' },
+      { value: 'Every', label: 'department under one command centre' },
       { value: '8 hops', label: 'fully audited command path' },
       { value: '100%', label: 'runs with a complete audit trail' },
     ],
@@ -190,7 +190,7 @@ export function WorkPage() {
       <Section eyebrow="Track record" title="Numbers we stand behind." ground="canvas">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { value: '1020', label: 'Agents under management', note: 'Across 100+ departments' },
+            { value: '1', label: 'Command centre', note: 'Routing every department' },
             { value: '50', label: 'Marketing playbooks', note: 'Imported and installable as agents' },
             { value: '45', label: 'Editorial diagram types', note: 'Taste-gated in CI' },
             { value: '8 hops', label: 'Audited command path', note: 'From command to result' },

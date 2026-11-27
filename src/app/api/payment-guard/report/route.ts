@@ -1,14 +1,19 @@
 import { db } from '@/lib/db'
+import { isInternalRole } from '@/lib/access/surfaces'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  // Auth check
+  // Platform-wide spend guard report: staff only. The counts, group-by and
+  // cost savings all span every tenant, so this is an operator view.
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.replace('Bearer ', '');
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { verifySessionToken } = await import('@/lib/auth');
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  if (!isInternalRole(session.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   try {
     const [totalBlocked, totalAllowed, totalReplacements] = await Promise.all([
       db.paymentGuardLog.count({ where: { blocked: true } }),

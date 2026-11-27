@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/api-auth';
 import { getRun, getRunEvents } from '@/lib/runs';
 import { getEventBus } from '@/lib/event-bus';
+import { isUsableTenantId } from '@/lib/tenancy/policy';
 import type { DomainEvent } from '@/lib/event-bus';
 
 /**
@@ -35,7 +36,16 @@ export async function GET(
       headers: { 'Content-Type': 'application/json' },
     });
   }
-  if (run.companyId !== user.companyId) {
+  // T-5. This comparison is the whole access control for a live data stream, so
+  // it is written out rather than left as a bare `!==`.
+  //
+  // A run with no tenant used to reach the `!==` and be refused by accident
+  // (null !== a real id). Accident is not a policy: it stops holding the moment
+  // either side is an empty string, or the day someone "fixes" the null check
+  // above. Both sides are therefore required to be real tenants first, so an
+  // unowned run cannot stream to anyone even if the ids happen to compare equal.
+  const runTenant = isUsableTenantId(run.companyId) ? run.companyId : null;
+  if (!runTenant || runTenant !== user.companyId) {
     return new Response(JSON.stringify({ error: 'Forbidden' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },

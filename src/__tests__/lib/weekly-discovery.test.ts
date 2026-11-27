@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildWeeklyDiscoveryReport } from '@/lib/ai-discovery/weekly-discovery';
 import { isWeeklyDiscoveryWindow } from '@/lib/cron-jobs';

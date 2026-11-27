@@ -1,16 +1,12 @@
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  const tenant = await legacyTenant(request);
   try {
     const agents = await db.agent.findMany({
+      where: tenantWhere(tenant),
       select: {
         agentId: true,
         purpose: true,
@@ -92,6 +88,8 @@ export async function GET(request: NextRequest) {
       final_verdict: finalVerdict,
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('[Agent Stability Health] Error:', error)
     return NextResponse.json(
       { error: 'Failed to run stability protocol' },

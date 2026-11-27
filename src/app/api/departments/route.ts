@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session';
 
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const departments = await db.department.findMany({
+      where: tenantWhere(tenant),
       orderBy: { sortOrder: 'asc' },
       include: {
         _count: { select: { agents: true } },
@@ -29,18 +26,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data });
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
 
   try {
     const body = await request.json();
@@ -75,6 +69,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(department, { status: 201 });
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

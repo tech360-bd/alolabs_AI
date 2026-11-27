@@ -20,7 +20,6 @@ import { db } from '@/lib/db';
 import { resolveWhatsAppCompanyId } from './config';
 
 const INDEX_PREFIX = 'whatsapp:inbox:';
-export const DEFAULT_COMPANY_ID = 'default-company';
 
 export interface InboxIndexRecord {
   conversationId: string;
@@ -89,6 +88,16 @@ export async function recordInboundMessage(params: {
   const key = indexKey(phoneNumberId, contact);
   const existing = await readIndex(key);
   const companyId = existing?.companyId ?? (await resolveWhatsAppCompanyId(phoneNumberId));
+  if (!companyId) {
+    // No company on the existing record and no mapping for the number: this
+    // message cannot be attributed, so it must not become a Conversation in
+    // some other tenant's inbox. Dropping it loudly is the safe failure; the
+    // webhook logs the number so the mapping can be fixed.
+    throw new Error(
+      `WhatsApp number ${phoneNumberId} is not mapped to a company. ` +
+        'Map it (WhatsAppNumber.companyId) before accepting messages.',
+    );
+  }
   const now = params.timestamp ?? new Date().toISOString();
 
   let conversationId = existing?.conversationId;
@@ -157,6 +166,11 @@ export async function recordOutboundMessage(params: {
     // is not lost, but never fabricate an inbound user message.
     const now = new Date().toISOString();
     const companyId = await resolveWhatsAppCompanyId(params.phoneNumberId);
+    if (!companyId) {
+      throw new Error(
+        `WhatsApp number ${params.phoneNumberId} is not mapped to a company; refusing to create a conversation.`,
+      );
+    }
     const conversation = await db.conversation.create({
       data: { userId: `whatsapp:${params.phoneNumberId}`, companyId, title: params.contact, status: 'active' },
     });

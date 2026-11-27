@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session';
 
 // GET /api/jobs/[id] — get job details with steps
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const { id } = await params;
 
     // Try workflow run first, then agent run
     const wfRun = await db.workflowRun.findUnique({
-      where: { id },
+      where: tenantWhere(tenant, { id }),
       include: {
         workflow: {
           include: { workflowSteps: true },
@@ -59,6 +55,8 @@ export async function GET(
 
     return NextResponse.json({ error: 'Job not found' }, { status: 404 });
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -68,13 +66,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const { id } = await params;
     const body = await request.json();
@@ -124,6 +117,8 @@ export async function PATCH(
 
     return NextResponse.json({ error: 'Job not found or action not applicable' }, { status: 404 });
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

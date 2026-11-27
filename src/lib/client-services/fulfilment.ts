@@ -23,6 +23,7 @@
 
 import { db } from '@/lib/db';
 import { createRun, getRun } from '@/lib/runs';
+import { ALO_TENANT } from '@/lib/workforce/constants';
 import { tenantDb } from '@/lib/portal/tenant-db';
 import { storeClientDocument } from '@/lib/portal/documents';
 import { findInternalDetail } from '@/lib/client-services/client-safe';
@@ -34,6 +35,25 @@ export const isDeliverableType = (v: unknown): v is DeliverableType =>
   typeof v === 'string' && (DELIVERABLE_TYPES as readonly string[]).includes(v);
 
 /** Hand a client project to the internal workforce. */
+/**
+ * The internal ALO Labs company — the tenant that owns staff-side work.
+ *
+ * Resolved by the tenant slug pinned in `workforce/constants.ts`, which the seed
+ * scripts also use, rather than by any guess about the company's name.
+ */
+async function resolveInternalCompanyId(): Promise<string> {
+  const internal = await db.company.findUnique({
+    where: { slug: ALO_TENANT.slug },
+    select: { id: true, accountType: true },
+  });
+  if (!internal) {
+    throw new Error(
+      `Internal company '${ALO_TENANT.slug}' is missing. Staff-side runs cannot be attributed to a tenant.`,
+    );
+  }
+  return internal.id;
+}
+
 export async function startExecution(input: {
   companyId: string;
   projectId: string;
@@ -59,10 +79,20 @@ export async function startExecution(input: {
     'Produce client-ready output. Do not describe how the work was produced.',
   ].join('\n');
 
-  // Deliberately no companyId / projectId on the run: the run lives on the
-  // internal side. The only link back to the client is the execution row.
+  // The run is NOT attributed to the client company and carries no projectId —
+  // the only link back to the client is the execution row, which no
+  // client-facing query reads.
+  //
+  // It still needs a tenant of its own, and that tenant is the internal one.
+  // Omitting the field entirely used to be "safe" only because the engine
+  // silently substituted `'default-company'` at execution time (T-2) — an
+  // unowned run pretending to be tenanted. Naming ALO Labs explicitly makes the
+  // internal attribution a fact in the database rather than an accident of a
+  // fallback, so the run is isolated from every client tenant on its own merits.
+  const internalCompanyId = await resolveInternalCompanyId();
   const { runId, status } = await createRun({
     objective,
+    companyId: internalCompanyId,
     userId: input.staffUserId,
     ...(input.workflowId ? { workflowId: input.workflowId } : {}),
     ...(input.priority ? { priority: input.priority } : {}),

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaNodeSqlite } from './db-adapters/prisma-sqlite-node'
 import {
   assertProductionDatasource,
   isMySqlCompatible,
@@ -84,6 +85,42 @@ export function withSqliteIntegrityPragmas<T extends AdapterFactoryLike>(factory
   return wrapped as unknown as T
 }
 
+/**
+ * Can the optional `better-sqlite3` native addon actually be loaded?
+ *
+ * `require('@prisma/adapter-better-sqlite3')` succeeds even when the addon is
+ * missing — the binding is only resolved inside `connect()`. Probing the
+ * module itself here would therefore pick the faster adapter and then fail at
+ * first query. This loads the addon directly, once, and caches the answer, so
+ * an air-gapped sandbox degrades to `node:sqlite` on the first call instead of
+ * on the first request.
+ */
+let betterSqlite3Probe: boolean | undefined;
+
+/**
+ * The single default SQLite location, shared by every SQLite path here so an
+ * unset `DATABASE_URL` and an explicit adapter choice cannot disagree.
+ */
+const DEFAULT_SQLITE_URL = 'file:./db/custom.db'
+
+function betterSqlite3Available(): boolean {
+  if (betterSqlite3Probe !== undefined) return betterSqlite3Probe;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Database = require('better-sqlite3') as new (path: string) => { close(): void };
+    const probe = new Database(':memory:');
+    probe.close();
+    betterSqlite3Probe = true;
+  } catch {
+    betterSqlite3Probe = false;
+    console.warn(
+      '[db] better-sqlite3 native addon unavailable; using the node:sqlite adapter ' +
+        '(no native build required, same integrity pragmas).',
+    );
+  }
+  return betterSqlite3Probe;
+}
+
 function createPrismaClient(): PrismaClient {
   // Fail closed before opening any connection: in production this throws
   // unless DATABASE_URL is MySQL/MariaDB and the SQLite adapter is off.
@@ -92,15 +129,25 @@ function createPrismaClient(): PrismaClient {
   const datasource = parseDatasource(process.env.DATABASE_URL)
 
   if (process.env.PRISMA_SQLITE_ADAPTER === '1') {
-    // Lazy require so production (library engine) never loads the adapter.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaBetterSQLite3 } = require('@prisma/adapter-better-sqlite3') as typeof import('@prisma/adapter-better-sqlite3')
-    const url = process.env.DATABASE_URL ?? 'file:./db/custom.db'
-    const adapter = withSqliteIntegrityPragmas(new PrismaBetterSQLite3({ url }))
-    return new PrismaClient({
-      log: ['error'],
-      adapter,
-    })
+    const url = process.env.DATABASE_URL ?? DEFAULT_SQLITE_URL
+    // Adapter selection, in order of preference:
+    //   1. better-sqlite3  — the documented path; fastest, needs a native addon.
+    //   2. node:sqlite     — Node 22 core driver; no compilation, same
+    //                        integrity pragmas. Used automatically when the
+    //                        native addon is unavailable (air-gapped sandbox, no
+    //                        toolchain, a CI image without a prebuilt binding).
+    //   3. engine default  — Prisma's own bundled engine, if one is present.
+    // The fallback is logged once so an operator can tell which path is live;
+    // it never silently downgrades foreign-key enforcement (both adapters run
+    // the same pragmas).
+    const preferNodeSqlite = process.env.PRISMA_SQLITE_DRIVER === 'node';
+    if (!preferNodeSqlite && betterSqlite3Available()) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { PrismaBetterSQLite3 } = require('@prisma/adapter-better-sqlite3') as typeof import('@prisma/adapter-better-sqlite3')
+      const adapter = withSqliteIntegrityPragmas(new PrismaBetterSQLite3({ url }))
+      return new PrismaClient({ log: ['error'], adapter })
+    }
+    return new PrismaClient({ log: ['error'], adapter: new PrismaNodeSqlite({ url }) })
   }
 
   // Production path. Prisma's own MySQL connection limit is deliberately left
@@ -112,7 +159,44 @@ function createPrismaClient(): PrismaClient {
     })
   }
 
-  // Development on SQLite via the library engine (no driver adapter).
+  // Development/test on SQLite without an explicit adapter selection.
+  //
+  // Prisma 6 client-only builds refuse to construct without a driver adapter
+  // ("Missing configured driver adapter"), and a bare throw here is a landmine:
+  // importing `@/lib/db` from any module in a test or a script fails, and the
+  // stack points at Prisma rather than at the missing configuration. Two
+  // behaviours, both honest:
+  //
+  //   · SQLite URL   → fall back to the node:sqlite adapter we ship, with one
+  //                    loud warning telling the operator to set
+  //                    PRISMA_SQLITE_ADAPTER=1 so the choice is deliberate.
+  //   · non-SQLite   → keep Prisma's own engine, which is correct for a
+  //                    server-backed datasource.
+  //
+  // The production datasource policy above has already refused this path when
+  // it matters, so this cannot downgrade a production deployment.
+  // An *unset* DATABASE_URL is handled by the same branch, deliberately. Every
+  // other SQLite path in this file already defaults to DEFAULT_SQLITE_URL, so
+  // leaving `datasource` null fell through to a bare `new PrismaClient()` —
+  // which Prisma 6's client-only engine refuses ("Missing configured driver
+  // adapter") and which then broke anything that merely imported `@/lib/db`
+  // without a configured URL (scripts, tests, a fresh clone). A missing URL is
+  // not a reason to hand the process a connection that cannot exist.
+  //
+  // This cannot weaken production: `assertProductionDatasource()` above has
+  // already thrown unless DATABASE_URL is a real MySQL/MariaDB server URL, so
+  // an unset URL never reaches this line in a production runtime.
+  if (datasource === null || datasource.provider === 'sqlite') {
+    const url = process.env.DATABASE_URL ?? DEFAULT_SQLITE_URL
+    if (process.env.PRISMA_SQLITE_ADAPTER !== '1') {
+      console.warn(
+        '[db] PRISMA_SQLITE_ADAPTER is not set; using the node:sqlite adapter for a SQLite URL. ' +
+          'Set PRISMA_SQLITE_ADAPTER=1 to make this explicit and silence this warning.',
+      )
+    }
+    return new PrismaClient({ log: ['error'], adapter: new PrismaNodeSqlite({ url }) })
+  }
+
   return new PrismaClient({
     log: ['error'],
   })

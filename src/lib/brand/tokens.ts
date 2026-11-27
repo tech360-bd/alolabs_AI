@@ -173,7 +173,7 @@ export const SYSTEM_FLOW: FlowNode[] = [
   { id: 'marketing', label: 'MARKETING DEPARTMENT', tone: 'blue', branch: true },
   { id: 'student', label: 'STUDENT OPS DEPARTMENT', tone: 'blue', branch: true },
   { id: 'finance', label: 'FINANCE DEPARTMENT', tone: 'blue', branch: true },
-  { id: 'agents', label: '1020 AI AGENTS', tone: 'orange' },
+  { id: 'agents', label: 'AGENT WORKFORCE', tone: 'orange' },
   { id: 'memory', label: 'MEMORY SYSTEM', tone: 'blue' },
   { id: 'rag', label: 'HYBRID RAG ENGINE', tone: 'orange' },
   { id: 'classic', label: 'CLASSIC RAG', tone: 'outline', branch: true },

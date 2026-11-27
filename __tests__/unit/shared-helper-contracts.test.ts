@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SITE_NAV, SITE_RESOURCE_NAV, SiteHeader } from '@/components/site/chrome';
 import { SiteHeader as StudioHeader } from '@/components/site/site-header';

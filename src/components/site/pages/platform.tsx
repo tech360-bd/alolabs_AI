@@ -52,7 +52,7 @@ const MODULES = [
   },
   {
     icon: Bot,
-    title: '1020 AI agents, 100+ departments',
+    title: 'One command centre, every department',
     body: 'Agents are specified before they run: department, role, mission, work, inputs, outputs and the QA rules they are held to.',
     items: ['Spec-driven registry', 'Per-department staffing', 'Versioned behaviour'],
   },
@@ -82,7 +82,7 @@ export function PlatformPage() {
       <PageHero
         crumbs={[{ href: '/site/platform', label: 'Platform' }]}
         eyebrow="The AgentOS platform"
-        title={<>One command centre for 1020 AI agents across 100+ departments.</>}
+        title={<>One command centre across every department in the business.</>}
         lead={`ALO Labs ${COMPANY.product} is an enterprise AI operating system: a single command centre on top of a routing layer, a specified agent workforce, a hybrid RAG engine and an approval gate — secure, auditable and built to scale.`}
       >
         <div className="flex flex-wrap items-center gap-3">
@@ -165,7 +165,7 @@ export function PlatformPage() {
         id="agents"
         eyebrow="The agent workforce"
         title="Every agent is specified before it runs."
-        lead="The specification list is the source of truth for the registry — 1020 agents across 100+ departments, each with a named role, a mission, an execution path, and QA and approval rules attached. Cards are generated from data; the same component renders all 1020."
+        lead="The specification list is the source of truth for the registry — every department, each agent with a named role, a mission, an execution path, and QA and approval rules attached. Cards are generated from data, so the registry and the interface can never disagree."
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {SPEC_SAMPLE.map((spec) => (

@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const { id } = await params
     const contact = await db.crmContact.findUnique({
@@ -38,25 +34,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ data: contact })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('[CRM Contact GET by ID]', error)
     return NextResponse.json({ error: 'Failed to fetch contact' }, { status: 500 })
   }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const { id } = await params
     const body = await request.json()
     const { firstName, lastName, email, phone, company, jobTitle, source, status, tags, metadata, assignedTo, score, lastContactAt } = body
 
-    const contact = await db.crmContact.findUnique({ where: { id } })
+    const contact = await db.crmContact.findFirst({ where: tenantWhere(tenant, { id }) })
     if (!contact) {
       return NextResponse.json({ error: 'Contact not found' }, { status: 404 })
     }
@@ -83,6 +76,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ data: updated })
   } catch (error: unknown) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('[CRM Contact PUT]', error)
     const msg = error instanceof Error && error.message.includes('Unique') ? 'Email already exists' : 'Failed to update contact'
     return NextResponse.json({ error: msg }, { status: 500 })
@@ -90,18 +85,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const { id } = await params
+    // Prove ownership BEFORE mutating. The previous version passed the tenant
+    // filter into `delete`, whose where clause accepts only unique fields — so
+    // the filter was meaningless and this deleted any tenant's contact by id.
+    const owned = await db.crmContact.findFirst({ where: tenantWhere(tenant, { id }), select: { id: true } })
+    if (!owned) return NextResponse.json({ error: 'Contact not found' }, { status: 404 })
     await db.crmContact.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('[CRM Contact DELETE]', error)
     return NextResponse.json({ error: 'Failed to delete contact' }, { status: 500 })
   }

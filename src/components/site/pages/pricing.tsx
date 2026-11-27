@@ -31,7 +31,7 @@ const TIERS = [
     note: 'One department, managed cloud',
     body: 'For a team that wants one department automated end to end — command centre, agents, workflows and approvals included.',
     features: [
-      '1 department · up to 40 specified agents',
+      'One department, staffed to your process',
       'Command centre & run dashboards',
       'Hybrid RAG over your documents',
       'Approval engine with standard policy pack',
@@ -46,7 +46,7 @@ const TIERS = [
     price: 'Custom',
     unit: 'annual agreement',
     note: 'The full AgentOS workforce',
-    body: 'The complete operating system: 100+ departments, 1020 agents, SSO, dedicated environments, SLAs and a named delivery team.',
+    body: 'The complete operating system: every department, a full agent workforce, SSO, dedicated environments, SLAs and a named delivery team.',
     features: [
       'Unlimited departments & agent workforce',
       'SSO, RBAC, API keys, custom policy packs',

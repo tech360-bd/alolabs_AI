@@ -227,9 +227,13 @@ export function AgentosHome() {
                   <span className="ag-chip-value">{SERVICE_LINES.length}</span>
                   <span className="ag-chip-label">Service lines</span>
                 </div>
+                {/* Was "1 · Live platform" — an internal inventory count that
+                    told a buyer nothing and invited comparison. Replaced with
+                    the thing that actually differentiates us: every line states
+                    its delivery state instead of implying everything is live. */}
                 <div className="ag-chip">
-                  <span className="ag-chip-value">1</span>
-                  <span className="ag-chip-label">Live platform</span>
+                  <span className="ag-chip-value">100%</span>
+                  <span className="ag-chip-label">Delivery state published</span>
                 </div>
                 <div className="ag-chip">
                   <span className="ag-chip-value">BD</span>

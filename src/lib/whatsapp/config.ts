@@ -31,17 +31,26 @@ export async function getStoredWhatsAppNumbers(): Promise<StoredWhatsAppNumber[]
 }
 
 /** Tenant that owns a phone number. Falls back to the schema's default tenant. */
-export async function resolveWhatsAppCompanyId(phoneNumberId: string): Promise<string> {
+export async function resolveWhatsAppCompanyId(phoneNumberId: string): Promise<string | null> {
   const numbers = await getStoredWhatsAppNumbers();
   const number =
     numbers.find((entry) => entry.phoneNumberId === phoneNumberId) ?? numbers.find((entry) => entry.isDefault);
   const fromMetadata = number?.metadata?.companyId;
-  return (
+  const explicit =
     number?.companyId ||
     (typeof fromMetadata === 'string' ? fromMetadata : '') ||
     process.env.WHATSAPP_DEFAULT_COMPANY_ID ||
-    'default-company'
-  );
+    '';
+
+  // An unmapped number has no tenant — and 'default-company' is not one.
+  //
+  // This used to fall through to that literal, so every unmapped WhatsApp
+  // number's conversations landed in a shared pseudo-tenant. Two different
+  // customers messaging two different unmapped numbers became one tenant's
+  // inbox: a data-protection incident dressed up as a default value. A number
+  // that is not mapped to a company is now a configuration fault that callers
+  // must handle, not a silent assignment (T-2).
+  return explicit || null;
 }
 
 export async function buildWhatsAppClient(phoneNumberId?: string): Promise<WhatsAppBusinessClient | null> {

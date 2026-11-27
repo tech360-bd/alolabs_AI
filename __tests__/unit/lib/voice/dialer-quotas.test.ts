@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest'
 import { parseQuotaConfig, quotaDecision } from '@/lib/voice/quotas'
 import { pickDialableContacts } from '@/lib/voice/dialer'

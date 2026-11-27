@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session';
 import { Prisma } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const { searchParams } = new URL(request.url);
     const companySlug = searchParams.get('company') || '';
@@ -18,8 +14,8 @@ export async function GET(request: NextRequest) {
 
     let companyName: string | undefined;
     if (companySlug) {
-      const company = await db.company.findUnique({
-        where: { slug: companySlug },
+      const company = await db.company.findFirst({
+        where: { slug: companySlug, id: tenant.companyId },
         select: { name: true },
       });
       if (company) {
@@ -71,6 +67,8 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

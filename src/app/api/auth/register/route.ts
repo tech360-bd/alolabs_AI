@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { CLIENT_ROLE } from '@/lib/access/surfaces';
 import { recordAccessViolation } from '@/lib/access/audit';
 import { provisionClientAccount } from '@/lib/client-services/operations';
+import { provisionDefaultWorkspace } from '@/lib/platform/workspaces';
 
 // Public self-registration creates CLIENT accounts and nothing else. The
 // schema names every field that is read; `role`, `accountType`, `isActive`
@@ -99,6 +100,29 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Give the new user a working Open AI Platform workspace: workspace +
+    // default project + one scoped API key. Without this, "register" leads to an
+    // empty dashboard and the user needs an administrator to become a customer,
+    // which conflicts with the platform being self-service and multi-user.
+    //
+    // This is best-effort and deliberately non-fatal: the account exists and the
+    // session is valid, so a provisioning fault must not turn a successful
+    // signup into a 500. The workspace is created on demand by /platform/me if
+    // it is missing, and the key can be reissued from settings.
+    let workspace: { workspaceId: string; projectId: string; apiKey?: string } | null = null;
+    try {
+      const provisioned = await provisionDefaultWorkspace(user.id, name);
+      workspace = {
+        workspaceId: provisioned.workspaceId,
+        projectId: provisioned.projectId,
+        // Returned exactly once, in the signup response, for the same reason
+        // the create-key endpoint does: it cannot be recovered later.
+        ...(provisioned.apiKey.plaintext ? { apiKey: provisioned.apiKey.plaintext } : {}),
+      };
+    } catch (provisionError) {
+      console.error('Workspace provisioning failed for new user:', provisionError instanceof Error ? provisionError.message : provisionError);
+    }
+
     const response = NextResponse.json({
       user: {
         id: user.id,
@@ -107,6 +131,7 @@ export async function POST(request: NextRequest) {
         role: user.role,
       },
       token,
+      ...(workspace ? { workspace } : {}),
     }, { status: 201 });
     // Same cookie contract as /api/auth/login: the server-side page gate reads
     // this cookie, so a freshly registered user lands inside the dashboard.

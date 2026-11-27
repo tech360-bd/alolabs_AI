@@ -96,10 +96,17 @@ export async function createProjectRun(projectId: string, objective: string, use
   const project = await db.project.findUnique({ where: { id: projectId }, select: { id: true, companyId: true, status: true } });
   if (!project) throw new Error(`Project ${projectId} not found`);
   if (project.status === 'archived') throw new Error('Project is archived');
+  // A project with no company predates tenant enforcement. Running it would
+  // create an unownable run (T-2), so refuse and name the remedy instead.
+  if (!project.companyId) {
+    throw new Error(
+      `Project ${projectId} has no company and cannot start a run. Assign it to a company first.`,
+    );
+  }
   return createRun({
     objective,
     projectId,
-    ...(project.companyId ? { companyId: project.companyId } : {}),
+    companyId: project.companyId,
     ...(userId ? { userId } : {}),
   });
 }

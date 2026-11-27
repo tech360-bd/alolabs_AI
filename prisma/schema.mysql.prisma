@@ -29,6 +29,14 @@ model User {
   collaborationSessions CollaborationSession[]
   projects              Project[]
   sessions              Session[]
+
+  // ALO Open AI Platform (additive back-relations)
+  ownedAiWorkspaces  AiWorkspace[]       @relation("AiWorkspaceOwner")
+  ownedAiOrgs        AiOrganisation[]    @relation("AiOrgOwner")
+  aiOrgMemberships   AiOrgMember[]       @relation("AiOrgMemberUser")
+  aiWorkspaceMembers AiWorkspaceMember[] @relation("AiWorkspaceMemberUser")
+  aiCreatedProjects  AiProject[]         @relation("AiProjectCreator")
+  aiConversations    AiConversation[]    @relation("AiConversationUser")
 }
 
 model Session {
@@ -772,6 +780,7 @@ model Company {
   updatedAt            DateTime @updatedAt
 
   users                 CompanyUser[]
+  aiWorkspaces          AiWorkspace[]  @relation("CompanyAiWorkspaces")
   apiKeys               CompanyApiKey[]
   usageLogs             UsageLog[]
   permissions           CompanyPermission[]
@@ -5080,4 +5089,329 @@ model SiteDoctorProbe {
   createdAt  DateTime @default(now())
 
   @@index([target, createdAt])
+}
+
+// ============================================================
+// ALO OPEN AI PLATFORM — public multi-tenant AI workspace
+// ============================================================
+// Additive. Existing AgentOS models are untouched; new relations are optional
+// back-references so an existing row never needs a value it did not have
+// before. See docs/OPEN_AI_PLATFORM.md for the data model rationale.
+
+/// A user's workspace. Owner-scoped by default; organisation workspaces add
+/// members with per-workspace roles. Every project, key, conversation and job
+/// hangs off this row, which is what makes cross-user isolation structural
+/// rather than a per-query convention.
+model AiWorkspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  ownerId     String
+  /// Canonical tenant root (docs/roadmap/tenant-migration-plan.md).
+  /// Required for every new row; made nullable in the schema only so the
+  /// backfill can run before the constraint is enforced. Application code
+  /// treats a null companyId as an unresolvable tenant and fails closed.
+  companyId   String?
+  company     Company? @relation("CompanyAiWorkspaces", fields: [companyId], references: [id], onDelete: Restrict)
+  organisationId String?
+  kind        String @db.LongText   @default("personal") // personal | team | organisation
+  plan        String @db.LongText   @default("free")
+  status      String   @default("active") // active | suspended | archived
+  settings    String @db.LongText   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner        User                  @relation("AiWorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  organisation AiOrganisation?       @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  members      AiWorkspaceMember[]
+  projects     AiProject[]
+  apiKeys      AiApiKey[]
+  conversations AiConversation[]
+  files        AiFile[]
+  jobs         AiJob[]
+  notifications AiNotification[]
+
+  @@index([ownerId])
+  @@index([companyId])
+  @@index([organisationId])
+  @@index([status])
+}
+
+model AiOrganisation {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  ownerId   String
+  plan      String @db.LongText   @default("free")
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner       User               @relation("AiOrgOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  workspaces  AiWorkspace[]
+  members     AiOrgMember[]
+
+  @@index([ownerId])
+}
+
+model AiOrgMember {
+  id             String   @id @default(cuid())
+  organisationId String
+  userId         String
+  role           String   @default("member") // owner | admin | member | viewer
+  createdAt      DateTime @default(now())
+
+  organisation AiOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  user         User           @relation("AiOrgMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, userId])
+  @@index([userId])
+}
+
+model AiWorkspaceMember {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String   @default("member") // owner | admin | member | viewer
+  invitedBy   String? @db.LongText
+  createdAt   DateTime @default(now())
+
+  workspace AiWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User        @relation("AiWorkspaceMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+/// A project inside a workspace. Every AI request, key and job is scoped to
+/// exactly one project, and the project's workspace is the isolation boundary.
+model AiProject {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  slug        String
+  description String @db.LongText   @default("")
+  status      String   @default("active") // active | archived
+  settings    String @db.LongText   @default("{}")
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace     AiWorkspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator       User              @relation("AiProjectCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  apiKeys       AiApiKey[]
+  conversations AiConversation[]
+  files         AiFile[]
+  jobs          AiJob[]
+  usage         AiUsageRecord[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@index([status])
+}
+
+/// Project API key. Only a SHA-256 digest is stored; the plaintext is returned
+/// exactly once at creation. `revokedAt` is checked on every request, so
+/// revocation takes effect on the next call without touching a cache.
+model AiApiKey {
+  id          String   @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  name        String
+  keyHash     String   @unique
+  keyPrefix   String @db.LongText                 // e.g. "alo_pk_ab12" — shown in the UI
+  keySuffix   String @db.LongText   @default("")
+  scopes      String @db.LongText   @default("[]")   // JSON array, e.g. ["ai:chat","models:read"]
+  environment String   @default("live") // live | test
+  rateLimit   Int      @default(60)     // requests per minute
+  isActive    Boolean  @default(true)
+  createdBy   String @db.LongText
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  rotatedFrom String? @db.LongText
+  createdAt   DateTime @default(now())
+
+  workspace AiWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   AiProject?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([projectId])
+  @@index([isActive])
+}
+
+model AiConversation {
+  id          String   @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  userId      String
+  title       String   @default("New chat")
+  model       String?
+  provider    String?                        // provider that served the most recent turn
+  pinned      Boolean  @default(false)
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace AiWorkspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   AiProject?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user      User             @relation("AiConversationUser", fields: [userId], references: [id], onDelete: Cascade)
+  messages  AiChatMessage[]
+
+  @@index([workspaceId, userId])
+  @@index([updatedAt])
+}
+
+model AiChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // user | assistant | system
+  content        String @db.LongText
+  model          String?
+  provider       String?
+  promptTokens   Int      @default(0)
+  completionTokens Int    @default(0)
+  latencyMs      Int?
+  fallbackUsed   Boolean  @default(false)
+  routePath      String @db.LongText   @default("[]") // JSON: ordered attempts
+  metadata       String @db.LongText   @default("{}")
+  createdAt      DateTime @default(now())
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+/// One row per model call — the billing/quota source of truth. Deliberately
+/// separate from AgentOS `UsageLog` (which is company-scoped) because these
+/// rows are workspace/project scoped and power the user-facing dashboard.
+model AiUsageRecord {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  projectId        String?
+  userId           String?
+  apiKeyId         String?
+  service          String @db.LongText   @default("chat") // chat | embedding | image | audio | video | agent | code
+  model            String
+  provider         String
+  hostingType      String @db.LongText   @default("local") // local | remote | free-cloud
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  costUsd          Float    @default(0)
+  latencyMs        Int      @default(0)
+  status           String   @default("success") // success | fallback | failed
+  fallbackChain    String @db.LongText   @default("[]")
+  errorCode        String? @db.LongText
+  createdAt        DateTime @default(now())
+
+  project AiProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([model, createdAt])
+  @@index([createdAt])
+}
+
+model AiFile {
+  id          String   @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  userId      String
+  name        String
+  mimeType    String   @default("application/octet-stream")
+  size        Int      @default(0)
+  checksum    String   @default("")
+  storageKey  String @db.LongText
+  kind        String @db.LongText   @default("document") // document | image | audio | video | dataset
+  indexed     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  workspace AiWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   AiProject?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([projectId])
+}
+
+/// Durable job row for anything long-running (coding task, image render,
+/// transcript, deployment). Uses the same claim/lease model as AgentOS
+/// `JobQueue`/`QueueItem` so one worker drains both.
+model AiJob {
+  id          String   @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  userId      String
+  kind        String @db.LongText   // code.generate | image.render | audio.transcribe | deploy.build | …
+  status      String   @default("queued") // queued | running | succeeded | failed | cancelled
+  input       String @db.LongText   @default("{}")
+  output      String @db.LongText   @default("{}")
+  error       String? @db.LongText
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  workerId    String?
+  leaseUntil  DateTime?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace AiWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   AiProject?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([leaseUntil])
+}
+
+model AiNotification {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  type        String   @default("info")
+  title       String
+  body        String @db.LongText   @default("")
+  link        String? @db.LongText
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  workspace AiWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([workspaceId])
+}
+
+/// Shared routing state (cooldowns, health, quota) mirrored into the database
+/// so a Redis-less single-instance deployment still honours cooldowns, and so
+/// the Super Admin panel can show why a model is not being selected. Redis
+/// remains the fast path; this table is the durable record.
+model AiRoutingState {
+  id         String   @id @default(cuid())
+  key        String   @unique   // e.g. "cooldown:ollama:llama3.2" | "health:..."
+  value      String @db.LongText   @default("{}")
+  expiresAt  DateTime?
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+/// Audit trail for every routing decision that involved a fallback, so the
+/// "show the actual model used" requirement is provable rather than asserted.
+model AiFallbackEvent {
+  id             String   @id @default(cuid())
+  workspaceId    String?
+  projectId      String?
+  requestedModel String @db.LongText
+  taskType       String? @db.LongText
+  attempts       String @db.LongText   @default("[]") // JSON: [{provider,model,errorClass,status,latencyMs}]
+  finalProvider  String? @db.LongText
+  finalModel     String?
+  outcome        String @db.LongText   @default("success") // success | exhausted
+  errorClass     String? @db.LongText
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([finalModel])
 }

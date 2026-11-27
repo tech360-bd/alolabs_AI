@@ -794,6 +794,37 @@
   .ag-svc-grid-3, .ag-svc-grid-2 { grid-template-columns: 1fr; }
 }
 
+/* ── Service card artwork ──────────────────────────────────────────────────
+   Each card shows the service's own generated visual instead of a shared icon.
+   Twelve services previously rendered the same sparkle, which made a
+   differentiated product look like one repeated template. */
+.ag-svc-thumb {
+  position: relative;
+  display: block;
+  margin: -4px -4px 16px;
+  border-radius: 13px;
+  overflow: hidden;
+  line-height: 0;
+  border: 1px solid rgba(160, 195, 255, 0.16);
+  background: #050b16;
+  aspect-ratio: 16 / 9;
+}
+.ag-svc-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.ag-svc-card:hover .ag-svc-thumb img { transform: scale(1.045); }
+.ag-svc-thumb-pill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  backdrop-filter: blur(8px);
+}
+
 .ag-svc-card {
   position: relative;
   display: flex;

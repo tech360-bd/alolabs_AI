@@ -1,17 +1,13 @@
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const { id } = await params
 
@@ -28,6 +24,8 @@ export async function GET(
 
     return NextResponse.json(costEstimate)
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('[Cost Estimate Get] Error:', error)
     return NextResponse.json(
       { error: 'Failed to get cost estimate' },
@@ -40,13 +38,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+  // Session → live Company membership. Authentication alone never authorises.
+  const tenant = await legacyTenant(request);
   try {
     const { id } = await params
     const body = await request.json()
@@ -59,7 +52,7 @@ export async function POST(
       )
     }
 
-    const existing = await db.costEstimate.findUnique({ where: { id } })
+    const existing = await db.costEstimate.findFirst({ where: tenantWhere(tenant, { id }) })
     if (!existing) {
       return NextResponse.json(
         { error: 'Cost estimate not found' },
@@ -84,6 +77,8 @@ export async function POST(
 
     return NextResponse.json(updated)
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('[Cost Estimate Action] Error:', error)
     return NextResponse.json(
       { error: 'Failed to process cost estimate action' },

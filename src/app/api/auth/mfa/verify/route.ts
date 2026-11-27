@@ -92,7 +92,7 @@ const MFA_RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const MAX_MFA_ATTEMPTS_PER_IP = 10;
 
 if (typeof globalThis !== 'undefined') {
-  setInterval(() => {
+  const sweep = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of mfaRateLimits.entries()) {
       entry.timestamps = entry.timestamps.filter((t) => now - t < MFA_RATE_LIMIT_WINDOW_MS);
@@ -101,6 +101,8 @@ if (typeof globalThis !== 'undefined') {
       }
     }
   }, 60_000);
+  // Housekeeping only — must not keep the process alive on its own.
+  sweep.unref?.();
 }
 
 function checkMfaRateLimit(clientIp: string): boolean {

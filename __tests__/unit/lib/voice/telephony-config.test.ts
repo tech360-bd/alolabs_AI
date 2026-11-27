@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Telephony configuration validation: IVR graphs, business hours, timezones.
  * These validators are the gate between an operator's YAML-ish idea of routing

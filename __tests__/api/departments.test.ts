@@ -47,11 +47,17 @@ vi.mock('next/server', () => ({
 }));
 
 const mockDepartmentFindMany = vi.fn();
+const mockCompanyUserFindFirst = vi.fn();
 
 vi.mock('@/lib/db', () => ({
   db: {
     department: {
       findMany: (...args: unknown[]) => mockDepartmentFindMany(...args),
+    },
+    // The route now resolves the caller's tenant through CompanyUser before
+    // querying (it previously queried without any tenant filter at all).
+    companyUser: {
+      findFirst: (...args: unknown[]) => mockCompanyUserFindFirst(...args),
     },
   },
 }));
@@ -61,6 +67,7 @@ import { GET } from '@/app/api/departments/route';
 describe('GET /api/departments', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCompanyUserFindFirst.mockResolvedValue({ companyId: 'company-1', role: 'admin' });
   });
 
   it('should return department tree as a flat list sorted by sortOrder', async () => {

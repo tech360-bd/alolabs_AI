@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session';
 import { verifySessionToken } from '@/lib/auth';
 import { isMetricsScrape, mayReadOperationalMetrics } from '@/lib/access/metrics-scrape';
 import { gaugeLines } from '@/lib/prometheus-text';

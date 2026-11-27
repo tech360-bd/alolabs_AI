@@ -163,7 +163,7 @@ export function sampleInvoice(): Invoice {
       {
         id: 'l2',
         description: 'Agentic tool calls',
-        detail: 'tool-calling loop · 1020 agents',
+        detail: 'tool-calling loop · staffed agent workforce',
         quantity: 310_000,
         unit: 'calls',
         rate: 0.0021,
@@ -210,7 +210,7 @@ export function sampleInvoice(): Invoice {
     },
     notes: [
       'All figures are modelled on published list prices for the equivalent managed services, measured over the period shown.',
-      'Delivered on the ALO Labs AgentOS platform — 1 Command Center · 1020 AI Agents · 100+ Departments.',
+      'Delivered on the ALO Labs AgentOS platform — one command centre across every department.',
       'Questions about this statement: info@alolabs.net · +1 (347) 433 1200.',
     ],
   }

@@ -25,6 +25,11 @@ let mysqlSchema = schema.replace(
 
 // Collect all indexed fields per model
 const modelIndices: Record<string, Set<string>> = {};
+// Fields that participate in a relation as the foreign-key side. MySQL (and
+// InnoDB specifically) requires FK columns to be an indexable scalar type;
+// a `TEXT`/`LONGTEXT` column cannot carry a foreign key. Any String field
+// named in `@relation(fields: [...])` must therefore stay VARCHAR(191).
+const modelRelationFkFields: Record<string, Set<string>> = {};
 const modelRegex = /^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm;
 let match: RegExpExecArray | null;
 
@@ -32,6 +37,7 @@ while ((match = modelRegex.exec(schema)) !== null) {
   const modelName = match[1];
   const body = match[2];
   const indexed = new Set<string>();
+  const foreignKeys = new Set<string>();
 
   const lines = body.split('\n');
   for (const line of lines) {
@@ -42,8 +48,14 @@ while ((match = modelRegex.exec(schema)) !== null) {
         fieldMatch[1].split(',').forEach((f) => indexed.add(f.trim()));
       }
     }
+    // e.g. `creator User @relation("X", fields: [createdBy], references: [id])`
+    const relationFk = trimmed.match(/@relation\([^)]*fields:\s*\[([^\]]+)\]/);
+    if (relationFk) {
+      relationFk[1].split(',').forEach((f) => foreignKeys.add(f.trim()));
+    }
   }
   modelIndices[modelName] = indexed;
+  modelRelationFkFields[modelName] = foreignKeys;
 }
 
 // Fields that should always remain standard VARCHAR
@@ -128,13 +140,14 @@ for (const line of lines) {
     if ((fieldType === 'String' || fieldType === 'String?') && !trimmed.includes('@db.')) {
       const isUniqueOrId = trimmed.includes('@id') || trimmed.includes('@unique');
       const isIndexed = modelIndices[currentModel]?.has(fieldName);
+      const isForeignKey = modelRelationFkFields[currentModel]?.has(fieldName) ?? false;
       const isIdField = fieldName.endsWith('Id') || fieldName.endsWith('ID');
       const isShort = SHORT_EXACT_NAMES.has(fieldName) || isIdField ||
         (MODEL_SHORT_FIELDS[currentModel]?.has(fieldName) ?? false);
 
       // If field is used in an index, unique constraint, or is an ID/short string,
       // it MUST remain VARCHAR(191)
-      if (isUniqueOrId || isIndexed || (isShort && !trimmed.includes('"[]"') && !trimmed.includes('"{}"'))) {
+      if (isUniqueOrId || isIndexed || isForeignKey || (isShort && !trimmed.includes('"[]"') && !trimmed.includes('"{}"'))) {
         processedLines.push(line);
       } else {
         // Needs LongText

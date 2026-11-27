@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAuth } from '@/lib/api-auth';
+import { requireCompanyAuth } from '@/lib/api-auth';
 import { parseBody, parseQuery, paginationQuery } from '@/lib/validators';
 import { createProject, listProjects } from '@/lib/projects';
 
@@ -26,7 +26,7 @@ const UpdateProjectSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = await requireCompanyAuth();
     if (!user.companyId) return NextResponse.json({ error: 'Company context required' }, { status: 403 });
     const parsed = parseQuery(paginationQuery, new URL(request.url).searchParams);
     if (parsed.error) return NextResponse.json({ error: parsed.error.message }, { status: parsed.error.status });
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const { page, limit } = parsed.data;
     const status = new URL(request.url).searchParams.get('status') ?? undefined;
     const { projects, total } = await listProjects({
-      ...(user.companyId ? { companyId: user.companyId } : {}),
+      companyId: user.companyId,
       ownerId: user.userId,
       ...(status ? { status } : {}),
       limit,
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = await requireCompanyAuth();
     if (!user.companyId) return NextResponse.json({ error: 'Company context required' }, { status: 403 });
     const body = await request.json();
     const parsed = parseBody(CreateProjectSchema, body);
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       ...(parsed.data.objective !== undefined ? { objective: parsed.data.objective } : {}),
       ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
       ...(parsed.data.settings ? { settings: parsed.data.settings } : {}),
-      ...(user.companyId ? { companyId: user.companyId } : {}),
+      companyId: user.companyId,
       ownerId: user.userId,
     });
 
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = await requireCompanyAuth();
     if (!user.companyId) return NextResponse.json({ error: 'Company context required' }, { status: 403 });
     const body = await request.json();
     const parsed = parseBody(UpdateProjectSchema, body);

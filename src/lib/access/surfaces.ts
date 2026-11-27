@@ -141,6 +141,11 @@ export const CLIENT_PAGE_PREFIX = '/portal';
 export const INTERNAL_PAGE_PREFIXES: readonly string[] = [
   '/dashboard',
   '/brand',
+  // The ALO Open AI Platform is an authenticated product surface. It is listed
+  // here so anonymous visitors are redirected to /login instead of being served
+  // a shell that fails every API call; its API authorises per workspace rather
+  // than per audience (see SHARED_API_PREFIXES).
+  '/platform',
   '/design',
   '/invoice',
   '/site/platform',
@@ -161,6 +166,42 @@ export const SHARED_API_ROUTES: readonly { path: string; methods: readonly strin
   { path: '/api/auth/logout', methods: ['POST'] },
   { path: '/api/auth/password-change', methods: ['POST'] },
 ];
+
+/**
+ * Prefixes every authenticated audience may reach.
+ *
+ * `/api/v1/platform/**` is the ALO Open AI Platform: a multi-tenant product
+ * whose tenants are ordinary users, not staff. Both a client account and an
+ * internal account can own a workspace, so gating it on audience would mean a
+ * self-registered user cannot use the product they just signed up for.
+ *
+ * This is not a loosening of isolation. Audience separation protects the
+ * *company's* internal surfaces (`/api/internal/**`, staff tooling) from a
+ * customer session. The platform endpoints authorise themselves: every query is
+ * scoped to the caller's own workspace, and a project or conversation belonging
+ * to someone else resolves to 404 regardless of audience.
+ */
+const SHARED_API_PREFIXES: readonly string[] = ['/api/v1/platform'];
+
+function underSharedPrefix(pathname: string): boolean {
+  return SHARED_API_PREFIXES.some((prefix) => under(pathname, prefix));
+}
+
+/**
+ * Page prefixes that belong to both surfaces.
+ *
+ * The audience split exists so a customer cannot wander into staff tooling and
+ * staff cannot impersonate a customer. The Open AI Platform is neither: it is a
+ * product with its own tenant model, and both a self-registered client account
+ * and an internal account can own a workspace. Without this exemption the
+ * cross-surface rule would bounce every client user from /platform to /portal,
+ * making the product unusable for exactly the audience it is sold to.
+ */
+const SHARED_PAGE_PREFIXES: readonly string[] = ['/platform'];
+
+export function isSharedPagePath(pathname: string): boolean {
+  return SHARED_PAGE_PREFIXES.some((prefix) => under(pathname, prefix));
+}
 
 function under(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
@@ -255,6 +296,7 @@ export function isSharedApiRoute(pathname: string, method: string): boolean {
  */
 export function audienceMayCallApi(audience: Audience, pathname: string, method: string): boolean {
   if (isSharedApiRoute(pathname, method)) return true;
+  if (underSharedPrefix(pathname)) return true;
   const clientGroup = isClientApiPath(pathname);
   return audience === 'client' ? clientGroup : !clientGroup;
 }

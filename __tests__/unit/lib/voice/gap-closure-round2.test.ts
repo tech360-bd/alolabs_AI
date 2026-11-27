@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest'
 import { agentConfigSnapshot, versionConfigsDiffer, VOICE_AGENT_CONFIG_FIELDS } from '@/lib/voice/agent-versions'
 import { customerNumberForCallback, isCallbackDue } from '@/lib/voice/callbacks'

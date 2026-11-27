@@ -20,7 +20,7 @@ import { CtaBand, PageHero, Pill, Section } from '@/components/site/chrome'
 
 const GALLERY: { slug: string; note: string }[] = [
   { slug: 'architecture-agentos', note: 'The platform request path, with one focal policy gate.' },
-  { slug: 'org-chart-ai-team', note: 'How 1020 agents report through departments to the command centre.' },
+  { slug: 'org-chart-ai-team', note: 'How department routing reports up to a single command centre.' },
   { slug: 'sequence-tool-loop', note: 'A tool-calling loop, drawn as a sequence with one combined fragment.' },
   { slug: 'loop-growth-flywheel', note: 'The growth flywheel a marketing department runs every week.' },
   { slug: 'kanban-content-board', note: 'Content operations on a board — the shape of every workflow view.' },
