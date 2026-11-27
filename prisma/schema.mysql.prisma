@@ -1864,22 +1864,22 @@ model BackupRun {
   /// running | succeeded | failed
   status            String
   /// secrets | preflight | dump | storage | checksum | publish | restore | unknown
-  stage             String?
+  stage             String? @db.LongText
   startedAt         DateTime  @default(now())
   finishedAt        DateTime?
   durationMs        Int?
-  databaseProvider  String?
-  artifactPath      String?
+  databaseProvider  String? @db.LongText
+  artifactPath      String? @db.LongText
   artifactBytes     BigInt?
   checksum          String?
   restoreTested     Boolean   @default(false)
   restoreVerifiedAt DateTime?
-  commit            String?
+  commit            String? @db.LongText
   /// Redacted, length-capped excerpt. Never a connection string, key or token.
-  failureExcerpt    String?
+  failureExcerpt    String? @db.LongText
   /// workflow | manual | checker
   source            String    @default("workflow")
-  metadata          String?
+  metadata          String? @db.LongText
   createdAt         DateTime  @default(now())
 
   @@index([environment, finishedAt])
