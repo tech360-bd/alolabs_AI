@@ -1,0 +1,388 @@
+# ============================================================
+# ALO Labs AgentOS — Self-Hosted Free-Stack Additions (2026-11-28)
+#
+#   docker compose -f docker-compose.selfhost-free-stack.yml --profile <p> up -d
+#
+# EVERY SERVICE IS OPT-IN: nothing starts without an explicit --profile flag,
+# so the default `docker compose up` behaviour of the platform is unchanged.
+# All images are free to pull and self-host; no paid API keys are required to
+# boot any service here. Billing-relevant upstreams (if an operator chooses to
+# point a UI at a commercial model provider) stay outside this file.
+#
+# PROFILES (enable one or more):
+#   ai-gateway   LiteLLM gateway in front of the local Ollama runtime (MIT)
+#   chat-ui      LibreChat multi-provider chat UI (MIT) + MongoDB
+#   openwebui    Open WebUI chat interface (BSD-3 + branding clause) [CONDITIONAL]
+#   automation   Activepieces workflow automation, MIT core (ee/ dirs excluded)
+#   workflows    Temporal durable workflow engine (MIT) + PostgreSQL + UI
+#   cms          Directus headless CMS (MSCL-1.0-GPL, source-available) [CONDITIONAL]
+#   nocode       NocoBase no-code platform (custom NocoBase agreement) [CONDITIONAL]
+#
+# LICENSE NOTES (verified 2026-11-28 against each upstream LICENSE file):
+#   - LiteLLM: LICENSE file is MIT text; enterprise/ directory carries separate
+#     terms — do not enable enterprise features without review.
+#   - Open WebUI: custom "Open WebUI License" (BSD-3-Clause base with branding
+#     clause). Free to self-host while branding is preserved; large-scale
+#     white-label use requires the enterprise license. Keep the logo/terms.
+#   - Activepieces: MIT for everything outside packages/ee/ and the server ee
+#     tree; those directories carry their own license and are not used here.
+#   - Directus: Monospace Sustainable Core License (MSCL-1.0-GPL) — free to
+#     self-host under its sustainable-use limitations; read before scaling to
+#     external commercial offerings.
+#   - NocoBase: full custom license agreement (LICENSE.txt, updated 2026-11-16).
+#     Deploying it binds the operator to that agreement — legal review first.
+#
+# COST: zero. All services run locally. RAM budgets (opt-in per profile):
+#   ai-gateway ~0.5 GB | chat-ui ~1.0 GB | openwebui ~1.0 GB |
+#   automation ~1.5 GB | workflows ~1.5 GB | cms ~0.5 GB | nocode ~1.0 GB
+# Do not enable every profile at once on the shared 16 GB host (see
+# docker-compose.capacity.yml: ~6 GB is reserved for other projects).
+#
+# SECRETS: `${VAR:?message}` makes compose refuse to start until the variable
+# is set in `.env` next to this file — the same fail-closed pattern as
+# docker-compose.inference.yml.
+#
+# STATUS: definitions are syntax-validated only. None of these services has
+# been deployed or runtime-tested by this repository; enable one profile at a
+# time and verify health endpoints before wiring app traffic to them.
+# ============================================================
+
+name: alolabs-selfhost-free-stack
+
+services:
+  # ── ai-gateway: LiteLLM in front of local Ollama ───────────
+  # Gives the platform a unified OpenAI-compatible gateway with cost tracking
+  # and budgets for every LOCAL model. Zero paid calls: the model_list in
+  # deploy/litellm/config.yaml targets Ollama only.
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: alolabs-litellm
+    restart: unless-stopped
+    profiles: [ai-gateway]
+    command: ["--config", "/etc/litellm/config.yaml", "--port", "4000"]
+    environment:
+      # Ollama endpoint; when docker-compose.inference.yml runs on the same
+      # host, join its network (see docs/SELFHOST_FREE_STACK_2026-11-28.md).
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      # Master key gates the proxy itself — required, fail-closed.
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?set LITELLM_MASTER_KEY}
+      STORE_MODEL_IN_DB: "false"
+    volumes:
+      - ./deploy/litellm/config.yaml:/etc/litellm/config.yaml:ro
+    ports:
+      - "127.0.0.1:4000:4000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:4000/health/liveliness || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  # ── chat-ui: MongoDB for LibreChat ─────────────────────────
+  librechat-mongo:
+    image: mongo:7
+    container_name: alolabs-librechat-mongo
+    restart: unless-stopped
+    profiles: [chat-ui]
+    volumes:
+      - librechat_mongo:/data/db
+    ports:
+      - "127.0.0.1:27027:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  librechat:
+    image: ghcr.io/danny-avila/librechat:latest
+    container_name: alolabs-librechat
+    restart: unless-stopped
+    profiles: [chat-ui]
+    environment:
+      NODE_ENV: production
+      CREDS_IV: ${CREDS_IV:?set CREDS_IV (32 hex chars)}
+      CREDS_KEY: ${CREDS_KEY:?set CREDS_KEY (32 hex chars)}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+    volumes:
+      - ./deploy/librechat/librechat.yaml:/app/librechat.yaml:ro
+      - librechat_uploads:/app/uploads
+    ports:
+      - "127.0.0.1:3080:3080"
+    depends_on:
+      librechat-mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3080/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  # ── openwebui: Open WebUI against the local model runtime ──
+  # CONDITIONAL LICENSE: BSD-3-Clause base with an Open WebUI branding clause.
+  # Self-hosting with the upstream branding intact is free; whitelabel /
+  # multi-tenant redistribution beyond the license terms needs their
+  # enterprise license. Do not strip branding.
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: alolabs-open-webui
+    restart: unless-stopped
+    profiles: [openwebui]
+    environment:
+      # Point at the local runtime; LiteLLM (ai-gateway) also works here via
+      # its OpenAI-compatible /v1 surface.
+      OLLAMA_BASE_URL: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      ENABLE_OPENAI_API: "false"
+      WEBUI_AUTH: "true"
+    volumes:
+      - openwebui_data:/app/backend/data
+    ports:
+      - "127.0.0.1:3081:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    mem_limit: 1g
+    networks: [free-stack-net]
+
+  # ── automation: Activepieces (MIT core; ee/ directories excluded) ──
+  activepieces-postgres:
+    image: postgres:16-alpine
+    container_name: alolabs-ap-postgres
+    restart: unless-stopped
+    profiles: [automation]
+    environment:
+      POSTGRES_DB: ${AP_POSTGRES_DB:-activepieces}
+      POSTGRES_USER: ${AP_POSTGRES_USER:-activepieces}
+      POSTGRES_PASSWORD: ${AP_POSTGRES_PASSWORD:?set AP_POSTGRES_PASSWORD}
+    volumes:
+      - ap_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AP_POSTGRES_USER:-activepieces}"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  activepieces-redis:
+    image: redis:7-alpine
+    container_name: alolabs-ap-redis
+    restart: unless-stopped
+    profiles: [automation]
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    mem_limit: 320m
+    networks: [free-stack-net]
+
+  activepieces:
+    image: ghcr.io/activepieces/activepieces:latest
+    container_name: alolabs-activepieces
+    restart: unless-stopped
+    profiles: [automation]
+    environment:
+      AP_POSTGRES_URL: postgresql://${AP_POSTGRES_USER:-activepieces}:${AP_POSTGRES_PASSWORD}@activepieces-postgres:5432/${AP_POSTGRES_DB:-activepieces}
+      AP_REDIS_URL: redis://activepieces-redis:6379
+      AP_EXECUTION_MODE: UNSANDBOXED
+      AP_FRONTEND_URL: ${AP_FRONTEND_URL:-http://127.0.0.1:3082}
+      AP_API_KEY: ${AP_API_KEY:?set AP_API_KEY}
+      AP_ENCRYPTION_KEY: ${AP_ENCRYPTION_KEY:?set AP_ENCRYPTION_KEY (16+ chars)}
+      AP_JWT_SECRET: ${AP_JWT_SECRET:?set AP_JWT_SECRET}
+    ports:
+      - "127.0.0.1:3082:80"
+    depends_on:
+      activepieces-postgres:
+        condition: service_healthy
+      activepieces-redis:
+        condition: service_healthy
+    mem_limit: 768m
+    networks: [free-stack-net]
+
+  # ── workflows: Temporal durable execution (MIT) ────────────
+  temporal-postgres:
+    image: postgres:16-alpine
+    container_name: alolabs-temporal-postgres
+    restart: unless-stopped
+    profiles: [workflows]
+    environment:
+      POSTGRES_DB: ${TEMPORAL_POSTGRES_DB:-temporal}
+      POSTGRES_USER: ${TEMPORAL_POSTGRES_USER:-temporal}
+      POSTGRES_PASSWORD: ${TEMPORAL_POSTGRES_PASSWORD:?set TEMPORAL_POSTGRES_PASSWORD}
+    volumes:
+      - temporal_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TEMPORAL_POSTGRES_USER:-temporal}"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: alolabs-temporal
+    restart: unless-stopped
+    profiles: [workflows]
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_SEEDS: temporal-postgres
+      POSTGRES_USER: ${TEMPORAL_POSTGRES_USER:-temporal}
+      POSTGRES_PWD: ${TEMPORAL_POSTGRES_PASSWORD}
+      TEMPORAL_ADDRESS: temporal:7233
+    ports:
+      - "127.0.0.1:7233:7233"
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: alolabs-temporal-ui
+    restart: unless-stopped
+    profiles: [workflows]
+    environment:
+      TEMPORAL_ADDRESS: ${TEMPORAL_UI_ADDRESS:-temporal:7233}
+    ports:
+      - "127.0.0.1:3083:8080"
+    depends_on:
+      - temporal
+    mem_limit: 256m
+    networks: [free-stack-net]
+
+  # ── cms: Directus (MSCL-1.0-GPL, source-available) ─────────
+  directus:
+    image: directus/directus:latest
+    container_name: alolabs-directus
+    restart: unless-stopped
+    profiles: [cms]
+    environment:
+      DB_CLIENT: postgres
+      DB_HOST: directus-postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${DIRECTUS_DB:-directus}
+      DB_USER: ${DIRECTUS_DB_USER:-directus}
+      DB_PASSWORD: ${DIRECTUS_DB_PASSWORD:?set DIRECTUS_DB_PASSWORD}
+      SECRET: ${DIRECTUS_SECRET:?set DIRECTUS_SECRET (32+ chars)}
+      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL:?set DIRECTUS_ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD:?set DIRECTUS_ADMIN_PASSWORD}
+      WEBSOCKETS_ENABLED: "true"
+    volumes:
+      - directus_uploads:/directus/uploads
+    ports:
+      - "127.0.0.1:3084:8055"
+    depends_on:
+      directus-postgres:
+        condition: service_healthy
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  directus-postgres:
+    image: postgres:16-alpine
+    container_name: alolabs-directus-postgres
+    restart: unless-stopped
+    profiles: [cms]
+    environment:
+      POSTGRES_DB: ${DIRECTUS_DB:-directus}
+      POSTGRES_USER: ${DIRECTUS_DB_USER:-directus}
+      POSTGRES_PASSWORD: ${DIRECTUS_DB_PASSWORD}
+    volumes:
+      - directus_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DIRECTUS_DB_USER:-directus}"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  # ── nocode: NocoBase (custom upstream agreement) ───────────
+  # CONDITIONAL LICENSE: deploying NocoBase binds the operator to the full
+  # NocoBase License Agreement (LICENSE.txt upstream, updated 2026-11-16).
+  # Obtain legal sign-off BEFORE the first start. Left here so the free-tier
+  # evaluation path is one command, not a research project.
+  nocobase-postgres:
+    image: postgres:16-alpine
+    container_name: alolabs-nocobase-postgres
+    restart: unless-stopped
+    profiles: [nocode]
+    environment:
+      POSTGRES_DB: ${NOCOBASE_DB:-nocobase}
+      POSTGRES_USER: ${NOCOBASE_DB_USER:-nocobase}
+      POSTGRES_PASSWORD: ${NOCOBASE_DB_PASSWORD:?set NOCOBASE_DB_PASSWORD}
+    volumes:
+      - nocobase_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NOCOBASE_DB_USER:-nocobase}"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  nocobase:
+    image: nocobase/nocobase:latest
+    container_name: alolabs-nocobase
+    restart: unless-stopped
+    profiles: [nocode]
+    environment:
+      DB_DIALECT: postgres
+      DB_HOST: nocobase-postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${NOCOBASE_DB:-nocobase}
+      DB_USER: ${NOCOBASE_DB_USER:-nocobase}
+      DB_PASSWORD: ${NOCOBASE_DB_PASSWORD}
+      NOCOBASE_INIT_ADMIN_EMAIL: ${NOCOBASE_ADMIN_EMAIL:?set NOCOBASE_ADMIN_EMAIL}
+      NOCOBASE_INIT_ADMIN_PASSWORD: ${NOCOBASE_ADMIN_PASSWORD:?set NOCOBASE_ADMIN_PASSWORD}
+    volumes:
+      - nocobase_storage:/app/storage
+    ports:
+      - "127.0.0.1:3085:80"
+    depends_on:
+      nocobase-postgres:
+        condition: service_healthy
+    mem_limit: 768m
+    networks: [free-stack-net]
+
+volumes:
+  librechat_mongo:
+  librechat_uploads:
+  openwebui_data:
+  ap_postgres:
+  temporal_postgres:
+  directus_postgres:
+  directus_uploads:
+  nocobase_postgres:
+  nocobase_storage:
+
+networks:
+  # Isolated by default. To reach Ollama from docker-compose.inference.yml:
+  #   docker network connect alolabs-inference_alolabs-net alolabs-litellm
+  # then set OLLAMA_API_BASE=http://ollama:11434.
+  free-stack-net:
+    driver: bridge

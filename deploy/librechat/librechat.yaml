@@ -1,0 +1,40 @@
+# LibreChat configuration — wired to LOCAL runtime only.
+#
+# Mounted read-only into the librechat service (chat-ui profile,
+# docker-compose.selfhost-free-stack.yml). The single endpoint below targets
+# the LiteLLM gateway (ai-gateway profile), which forwards to local Ollama
+# models only. No paid provider keys are referenced.
+#
+# Docs: https://www.librechat.ai/docs/configuration/librechat_yaml
+
+version: 1.2.7
+
+cache: true
+
+endpoints:
+  custom:
+    - name: "ALO Local"
+      apiKey: "${LITELLM_MASTER_KEY}"
+      baseURL: "http://litellm:4000/v1"
+      models:
+        default: ["local-general", "local-coder", "local-voice"]
+        fetch: false
+      titleConvo: "ALO Local"
+      titleModel: "local-general"
+      summarize: false
+      iconURL: ""
+
+fileConfig:
+  endpoints:
+    custom:
+      fileLimit: "20"
+      fileSizeLimit: "20"
+      supportedMimeTypes:
+        - "image/png"
+        - "image/jpeg"
+        - "application/pdf"
+
+rateLimits:
+  fileUploads:
+    ipMax: 50
+    ipWindowInMinutes: 15
