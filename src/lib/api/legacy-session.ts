@@ -80,16 +80,22 @@ export async function legacyTenant(request: NextRequest): Promise<LegacyTenant> 
  * `tenantWhere(tenant, { status: 'active' })` → `{ companyId, status: 'active' }`.
  * Pass `field` for models whose tenant column is named differently.
  */
-export function tenantWhere<T extends Record<string, unknown> = Record<string, unknown>>(
+export function tenantWhere<T extends Record<string, unknown> = Record<never, never>>(
   tenant: LegacyTenant,
   extra?: T,
   field = 'companyId',
 ): { companyId: string } & T {
   // `extra` can never overwrite the tenant: the spread order is deliberate.
-  // Returned as a plain intersection rather than a computed key type, because
-  // Prisma's generated `WhereInput` accepts an object literal and the mapped
-  // type defeated inference at the call sites.
-  return { [field]: tenant.companyId, ...(extra ?? ({} as T)) } as unknown as { companyId: string } & T;
+  //
+  // The default type argument is `Record<never, never>` (an empty object type
+  // that ESLint's no-empty-object-type accepts), not `Record<string, unknown>`. A
+  // `Record<string, unknown>` default gives the return type an index signature
+  // whose values are `unknown`, and `unknown` is not assignable to Prisma's
+  // per-field filter types — so every call that passed no extras was rejected
+  // as a WhereInput. With the empty default the no-extras return collapses to
+  // `{ companyId: string }`, which Prisma accepts, while calls that do pass
+  // extras keep full field checking.
+  return { [field]: tenant.companyId, ...(extra ?? ({} as T)) } as { companyId: string } & T;
 }
 
 /** Map a `LegacyAuthError` to the JSON response the UI already expects. */
