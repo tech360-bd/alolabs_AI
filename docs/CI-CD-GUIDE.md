@@ -515,3 +515,70 @@ echo "bunx lint-staged" > .husky/pre-commit
 - [ ] Security scanning workflow enabled
 - [ ] Pre-commit hooks installed for developers
 **Host identity:** `PRODUCTION_HOST_FINGERPRINT` is required in the protected production environment. See [enrollment and rotation](SSH_HOST_KEY_ROTATION_RUNBOOK.md).
+
+---
+
+## Backup status reporting and alerting (2026-11-27)
+
+The nightly backup (`backup.yml` → *Verified production database backup*) now
+reports every attempt to the application, and a second workflow asks the
+application whether the backup series is still healthy. This exists because the
+backup failed on 2026-11-25, 11-26 and 11-27 without anyone noticing: the failure
+was correctly reported in a run annotation, but the only place that annotation
+lived was a workflow run nobody opens.
+
+### Secrets and variables
+
+| Name | Kind | Where | What it does |
+| --- | --- | --- | --- |
+| `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_SSH_KEY`, `PRODUCTION_PORT`, `PRODUCTION_HOST_FINGERPRINT` | secrets | `production` environment | SSH access to the host. **`PRODUCTION_HOST_FINGERPRINT` was the missing value on 2026-11-25…27**; the workflow names it in the annotation. |
+| `BACKUP_INGEST_TOKEN` | secret | `production` environment **and** the application environment (`BACKUP_INGEST_TOKEN`, 24+ characters) | Shared bearer token for `POST /api/ops/backups/ingest` and `GET /api/ops/backups/health`. Both endpoints answer **503** when it is unset — an unconfigured deployment never accepts an anonymous bearer. |
+| `OPS_STATUS_URL` | repository **variable** | repository settings | Base URL of the application, e.g. `https://app.example.com`, used by the monitor. No trailing slash. |
+| `PRODUCTION_APP_DIR` | repository **variable** | repository settings | Absolute deployment path; unset means the workflow probes `/opt` and `/home/aloedu/alolabs_AI`. |
+
+Generate the token with `openssl rand -hex 32`. Rotating it is an ordinary
+secret change: update the application env, update the repository secret, restart
+the app, then run `gh workflow run backup.yml` to confirm a report arrives.
+
+### What "healthy" means
+
+`GET /api/super-admin/backups` (super administrator, session) returns a derived
+verdict — it is computed from the rows, never stored, so it cannot drift:
+
+| Verdict | Meaning |
+| --- | --- |
+| `ok` | A success newer than `maxAgeHours` (default 36) **and** an isolated restore was recorded for it. |
+| `unverified` | Recent backup, no proven restore. Uploaded is not recoverable. |
+| `stale` | Newest success older than the limit — usually the schedule was disabled. |
+| `failed` | Most recent completed attempt failed; the failing stage is named. |
+| `never` | No completed attempt has ever been reported. |
+
+`failed`, `stale`, `never` (and two or more consecutive failures) raise one
+operator notification per verdict per UTC day, deduplicated — a week-long outage
+produces seven alerts, not seven hundred. Platform notifications are stored with
+`companyId = null` and are readable only through the super-admin surfaces.
+
+### The monitor
+
+`backup-monitor.yml` runs daily at 06:30 UTC and calls
+`GET /api/ops/backups/health` (same bearer token). If the verdict is not `ok` the
+job fails *and* the application has already raised the notification. With
+`OPS_STATUS_URL`/`BACKUP_INGEST_TOKEN` unset it emits a warning annotation and
+exits 0 — an unconfigured monitor must not become a red build everyone ignores;
+the dashboard verdict stays truthful (`never`).
+
+### Current state (measured 2026-11-27)
+
+`PRODUCTION_HOST_FINGERPRINT` is still unset, so the scheduled backup still cannot
+reach the host. That is an owner action, not a code defect:
+
+```bash
+gh secret set PRODUCTION_HOST_FINGERPRINT   --env production --repo tech360-bd/alolabs_AI --body 'SHA256:...'
+gh secret set BACKUP_INGEST_TOKEN           --env production --repo tech360-bd/alolabs_AI < <(openssl rand -hex 32)
+gh variable set OPS_STATUS_URL --repo tech360-bd/alolabs_AI --body 'https://app.example.com'
+gh workflow run backup.yml --repo tech360-bd/alolabs_AI
+```
+
+To obtain the fingerprint without trusting the network:
+`ssh-keyscan -p "$PORT" "$HOST" | ssh-keygen -lf -` and compare against the value
+printed on the server's console (see `docs/SSH_HOST_KEY_ROTATION_RUNBOOK.md`).

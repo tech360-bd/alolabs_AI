@@ -133,6 +133,83 @@ if [[ "${1:-}" == "--preflight" ]]; then
   exit $?
 fi
 
+# ─── Options ─────────────────────────────────────────────────────────────────
+# `--no-verify-restore` skips the isolated restore check. It exists for hosts whose
+# database cannot be restored in place (a MySQL dump needs a scratch server); the
+# default is to verify, because "uploaded" is not the same as "recoverable".
+verify_restore=true
+for arg in "$@"; do
+  case "$arg" in
+    --verify-restore) verify_restore=true ;;
+    --no-verify-restore) verify_restore=false ;;
+    *) echo "ERROR: unknown option ${arg}" >&2; exit 2 ;;
+  esac
+done
+
+# ─── Status reporting ────────────────────────────────────────────────────────
+# When ALO_OPS_STATUS_URL and BACKUP_INGEST_TOKEN are configured, every attempt is
+# reported to the application so that a backup cannot fail unobserved. Reporting is
+# best-effort: a good backup is never discarded because the report failed, and a
+# failed report is printed (not swallowed) so it can be fixed.
+STAGE="start"
+report() {
+  local status="$1" excerpt="${2:-}"
+  [[ -n "${ALO_OPS_STATUS_URL:-}" && -n "${BACKUP_INGEST_TOKEN:-}" ]] || return 0
+  ALO_STATUS="$status" ALO_STAGE="$STAGE" ALO_EXCERPT="$excerpt" ALO_MANIFEST="${manifest_path:-}" \
+  ALO_CHECKSUM="${ALO_CHECKSUM:-}" \
+  python3 - <<'PYREPORT' || printf 'WARN: backup status report failed (see HTTP status above)\n' >&2
+import json, os, time
+manifest = {}
+path = os.environ.get('ALO_MANIFEST') or ''
+if path and os.path.exists(path):
+    try:
+        manifest = json.load(open(path))
+    except Exception:
+        manifest = {}
+size = manifest.get('artifact_bytes')
+payload = {
+    'status': os.environ['ALO_STATUS'],
+    'stage': os.environ['ALO_STAGE'],
+    'source': 'manual',
+    'startedAt': os.environ.get('ALO_STARTED_AT') or None,
+    'finishedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+    'commit': manifest.get('commit') or os.environ.get('ALO_COMMIT') or None,
+    'databaseProvider': manifest.get('database_provider') or None,
+    'artifactPath': manifest.get('artifact_path') or None,
+    'artifactBytes': size if isinstance(size, int) else None,
+    'checksum': os.environ.get('ALO_CHECKSUM') or None,
+    'restoreTested': bool(manifest.get('restore_tested')),
+}
+if manifest.get('restore_verified_at'):
+    payload['restoreVerifiedAt'] = manifest['restore_verified_at']
+excerpt = os.environ.get('ALO_EXCERPT') or ''
+if excerpt:
+    payload['failureExcerpt'] = excerpt[-1500:]
+payload = {k: v for k, v in payload.items() if v is not None}
+import urllib.request
+request = urllib.request.Request(
+    os.environ['ALO_OPS_STATUS_URL'].rstrip('/') + '/api/ops/backups/ingest',
+    data=json.dumps(payload).encode(),
+    headers={'content-type': 'application/json', 'authorization': 'Bearer ' + os.environ['BACKUP_INGEST_TOKEN']},
+    method='POST',
+)
+try:
+    with urllib.request.urlopen(request, timeout=15) as response:
+        print('BACKUP_STATUS_REPORTED=%s' % response.status)
+except Exception as error:
+    print('WARN: backup status report failed: %s' % error, flush=True)
+    raise SystemExit(1)
+PYREPORT
+}
+
+on_error() {
+  local code=$?
+  report failed "backup failed during stage ${STAGE} (exit ${code})"
+  exit "${code}"
+}
+trap on_error ERR
+
+ALO_STARTED_AT="$(date -u +%FT%TZ)"
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 command -v python3 >/dev/null || { echo "ERROR: python3 required for snapshot publication" >&2; exit 1; }
 install -d -m 700 "${BACKUP_DIR}"
@@ -145,6 +222,7 @@ revision_dir=$APP_DIR
 if [[ -L "$APP_DIR/.alo-releases/current" ]]; then revision_dir="$APP_DIR/.alo-releases/current"; fi
 printf '%s\n' "$(git -C "$revision_dir" rev-parse HEAD 2>/dev/null || echo unknown)" > "${dest}/commit.txt"
 
+STAGE="dump"
 case "${DATABASE_URL}" in
   file:*)
     db="${DATABASE_URL#file:}"
@@ -185,6 +263,7 @@ PYSQL
   *) echo "ERROR: unsupported production database provider" >&2; exit 1 ;;
 esac
 
+STAGE="storage"
 # Preserve the provider's data AND .metadata ownership records. The previous
 # archive omitted the local provider's default `uploads/` directory.
 check_storage_root() {
@@ -229,13 +308,85 @@ if (( ${#storage_paths[@]} > 0 )); then
   tar -tzf "${dest}/application-storage.tar.gz" >/dev/null
 fi
 
+STAGE="restore"
+# ─── Isolated restore verification ───────────────────────────────────────────
+# A snapshot is only proven recoverable by restoring it somewhere else and reading
+# it back. For a single-file SQLite database that is cheap and always possible; for
+# a MySQL dump it needs a scratch server, which the deploy host does not have, so the
+# dump is verified for completeness and the manifest says plainly that a restore was
+# not performed instead of implying it was.
+restore_tested=false
+restore_detail="skipped"
+restore_verified_at=""
+if [[ "${verify_restore}" == true ]]; then
+  case "${DATABASE_URL}" in
+    file:*)
+      restore_dir="$(mktemp -d "${BACKUP_DIR}/.restore-${stamp}-XXXXXXXX")"
+      trap 'alo_remove_tree "${restore_dir:-/nonexistent}" "${BACKUP_DIR}" 2>/dev/null || true' EXIT
+      cp "${dest}/database.sqlite" "${restore_dir}/restored.sqlite"
+      chmod 600 "${restore_dir}/restored.sqlite"
+      if command -v sqlite3 >/dev/null; then
+        [[ "$(sqlite3 "${restore_dir}/restored.sqlite" 'PRAGMA integrity_check;')" == "ok" ]] \
+          || { echo "ERROR: restored database failed its integrity check" >&2; exit 1; }
+        tables="$(sqlite3 "${restore_dir}/restored.sqlite" "SELECT count(*) FROM sqlite_master WHERE type='table';")"
+      else
+        tables="$(python3 - "${restore_dir}/restored.sqlite" <<'PYRESTORE'
+import sqlite3, sys
+with sqlite3.connect(f'file:{sys.argv[1]}?mode=ro', uri=True) as restored:
+    if restored.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
+        raise SystemExit('restored database failed its integrity check')
+    print(restored.execute("SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0])
+PYRESTORE
+)"
+      fi
+      [[ "${tables:-0}" =~ ^[0-9]+$ ]] && (( tables > 0 )) \
+        || { echo "ERROR: restored database contains no tables" >&2; exit 1; }
+      restore_tested=true
+      restore_detail="restored into an isolated directory and read back: ${tables} tables, integrity ok"
+      restore_verified_at="$(date -u +%FT%TZ)"
+      alo_remove_tree "${restore_dir}" "${BACKUP_DIR}" 2>/dev/null || true
+      restore_dir=""
+      ;;
+    mysql://*|mariadb://*)
+      restore_detail="not performed: a MySQL restore needs a scratch server (run deploy/scripts/restore.sh against one)"
+      printf 'WARN: %s\n' "${restore_detail}" >&2
+      ;;
+  esac
+fi
+
+STAGE="publish"
 # Checksums detect corruption of the captured files; a separate, isolated
 # restore and application smoke test are still mandatory for release.
 # `sha256sum` (GNU) / `shasum -a 256` (macOS) both emit "<hex>  <file>".
-printf '{"created_at":"%s","commit":"%s","database_backup_verified":true,"storage_included":%s,"external_storage_included":%s,"checksum_manifest":"SHA256SUMS","restore_tested":false}\n' \
-  "$(date -u +%FT%TZ)" "$(cat "${dest}/commit.txt")" \
-  "$( (( ${#storage_paths[@]} > 0 )) && echo true || echo false )" \
-  "${external_storage}" > "${dest}/manifest.json"
+ALO_COMMIT_VALUE="$(cat "${dest}/commit.txt")" \
+ALO_STORAGE_INCLUDED="$( (( ${#storage_paths[@]} > 0 )) && echo true || echo false )" \
+ALO_EXTERNAL_STORAGE="${external_storage}" \
+ALO_RESTORE_TESTED="${restore_tested}" \
+ALO_RESTORE_DETAIL="${restore_detail}" \
+ALO_RESTORE_AT="${restore_verified_at}" \
+ALO_ARTIFACT_BYTES="$(wc -c < "${dest}/database.sqlite" 2>/dev/null || wc -c < "${dest}/database.sql.gz")" \
+ALO_DB_PROVIDER="$(case "${DATABASE_URL}" in file:*) echo sqlite ;; mysql://*) echo mysql ;; mariadb://*) echo mariadb ;; *) echo unknown ;; esac)" \
+python3 - "${dest}/manifest.json" "${final}" <<'PYMANIFEST'
+import json, os, sys, time
+manifest = {
+    'created_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+    'commit': os.environ['ALO_COMMIT_VALUE'],
+    'database_backup_verified': True,
+    'storage_included': os.environ['ALO_STORAGE_INCLUDED'] == 'true',
+    'external_storage_included': os.environ['ALO_EXTERNAL_STORAGE'] == 'true',
+    'checksum_manifest': 'SHA256SUMS',
+    'database_provider': os.environ['ALO_DB_PROVIDER'],
+    'artifact_bytes': int(os.environ.get('ALO_ARTIFACT_BYTES') or 0),
+    'artifact_path': sys.argv[2],
+    'restore_tested': os.environ['ALO_RESTORE_TESTED'] == 'true',
+    'restore_detail': os.environ['ALO_RESTORE_DETAIL'],
+}
+if os.environ.get('ALO_RESTORE_AT'):
+    manifest['restore_verified_at'] = os.environ['ALO_RESTORE_AT']
+with open(sys.argv[1], 'w') as handle:
+    json.dump(manifest, handle, sort_keys=True)
+    handle.write('\n')
+PYMANIFEST
 (
   cd "${dest}"
   for file in manifest.json commit.txt database.sqlite database.sql.gz application-storage.tar.gz configured-storage.tar.gz; do
@@ -244,5 +395,11 @@ printf '{"created_at":"%s","commit":"%s","database_backup_verified":true,"storag
 ) > "${dest}/SHA256SUMS"
 [[ -s "${dest}/SHA256SUMS" ]] || { echo "ERROR: no backup checksum was recorded" >&2; exit 1; }
 alo_sha256_verify "${dest}" SHA256SUMS >/dev/null
+STAGE="publish"
 python3 "${SCRIPT_DIR}/lib/publish-snapshot.py" "$dest" "$final"
+manifest_path="${final}/manifest.json"
+# One value that changes whenever any artifact, or the artifact list, changes.
+ALO_CHECKSUM="$(alo_sha256 "${final}/SHA256SUMS" | awk '{print $1}')"
+STAGE="report"
+report succeeded
 echo "BACKUP_VERIFIED=${final}"

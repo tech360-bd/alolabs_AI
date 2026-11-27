@@ -20,6 +20,19 @@ export interface AIProviderPreset {
 export const AI_PROVIDER_PRESETS: readonly AIProviderPreset[] = [
   { kind: 'ollama', label: 'Ollama local', defaultBaseUrl: 'http://localhost:11434/v1', docsUrl: 'https://docs.ollama.com/api/openai-compatibility', apiKeyRequired: false, local: true, documentationHosts: ['ollama.com'] },
   { kind: 'llama-cpp', label: 'llama.cpp server', defaultBaseUrl: 'http://localhost:8080/v1', docsUrl: 'https://github.com/ggml-org/llama.cpp/tree/master/examples/server', apiKeyRequired: false, local: true, documentationHosts: ['github.com'], documentationPathPrefix: '/ggml-org/llama.cpp/' },
+  // Self-hosted OpenAI-compatible inference servers (2026-11-27 audit of the
+  // `jarvis-ai` topic + reference stack). All of them speak the same OpenAI
+  // protocol the audited OpenAICompatibleProvider serves, cost $0 in API fees,
+  // and are free/open-source software. Marking them `local: true` routes them
+  // through the same trust boundary as Ollama: an endpoint is only treated as
+  // local when it is a loopback/RFC1918/ULA address (isTrustedLocalInferenceEndpoint).
+  { kind: 'vllm', label: 'vLLM (self-hosted)', defaultBaseUrl: 'http://localhost:8000/v1', docsUrl: 'https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html', apiKeyRequired: false, local: true, documentationHosts: ['vllm.ai', 'docs.vllm.ai'] },
+  { kind: 'localai', label: 'LocalAI (self-hosted)', defaultBaseUrl: 'http://localhost:8080/v1', docsUrl: 'https://localai.io/', apiKeyRequired: false, local: true, documentationHosts: ['localai.io'] },
+  { kind: 'litellm-proxy', label: 'LiteLLM proxy (self-hosted)', defaultBaseUrl: 'http://localhost:4000/v1', docsUrl: 'https://docs.litellm.ai/docs/proxy/quick_start', apiKeyRequired: false, local: true, documentationHosts: ['litellm.ai', 'docs.litellm.ai'] },
+  { kind: 'tgi', label: 'Text Generation Inference (self-hosted)', defaultBaseUrl: 'http://localhost:80/v1', docsUrl: 'https://huggingface.co/docs/text-generation-inference/', apiKeyRequired: false, local: true, documentationHosts: ['huggingface.co'] },
+  { kind: 'lm-studio', label: 'LM Studio local server', defaultBaseUrl: 'http://localhost:1234/v1', docsUrl: 'https://lmstudio.ai/docs', apiKeyRequired: false, local: true, documentationHosts: ['lmstudio.ai'] },
+  { kind: 'jan', label: 'Jan local server', defaultBaseUrl: 'http://localhost:1337/v1', docsUrl: 'https://jan.ai/docs/', apiKeyRequired: false, local: true, documentationHosts: ['jan.ai'] },
+  { kind: 'text-generation-webui', label: 'text-generation-webui (oobabooga)', defaultBaseUrl: 'http://localhost:5000/v1', docsUrl: 'https://github.com/oobabooga/text-generation-webui/wiki', apiKeyRequired: false, local: true, documentationHosts: ['github.com'], documentationPathPrefix: '/oobabooga/text-generation-webui/' },
   { kind: 'openrouter', label: 'OpenRouter', defaultBaseUrl: 'https://openrouter.ai/api/v1', docsUrl: 'https://openrouter.ai/docs/quickstart', apiKeyRequired: true, local: false, documentationHosts: ['openrouter.ai'] },
   { kind: 'groq', label: 'Groq', defaultBaseUrl: 'https://api.groq.com/openai/v1', docsUrl: 'https://console.groq.com/docs/openai', apiKeyRequired: true, local: false, documentationHosts: ['groq.com'] },
   { kind: 'huggingface', label: 'Hugging Face Inference Providers', defaultBaseUrl: 'https://router.huggingface.co/v1', docsUrl: 'https://huggingface.co/docs/inference-providers/en/index', apiKeyRequired: true, local: false, documentationHosts: ['huggingface.co'] },

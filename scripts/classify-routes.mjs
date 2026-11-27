@@ -21,6 +21,10 @@ const API = join(ROOT, 'src/app/api');
  * matches, so wrapper-based auth wins over a stray `requireAuth` import.
  */
 const MECHANISMS = [
+  // A shared machine bearer token (`src/lib/api/machine-auth.ts`), constant-time
+  // compared and fail-closed when unconfigured. It protects infrastructure routes
+  // called by workflows rather than by a person.
+  ['machine-token', /\brequireMachineToken\b/],
   ['secureRoute', /\bsecureRoute\b/],
   ['secureCrud', /\bsecureCrud\b/],
   ['internalRoute', /\binternalRoute\b/],

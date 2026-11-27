@@ -571,3 +571,16 @@ echo "WEBHOOK_SECRET=$(openssl rand -base64 32)"
 echo "BACKUP_ENCRYPTION_KEY=$(openssl rand -base64 48)"
 echo "AUTH_OWNER_PASSWORD=$(openssl rand -base64 24)"
 ```
+## Environment manager keys (2026-11-27)
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `ALO_KEK_KEYS` | for the Environment Manager | JSON object of key-encryption keys, `{"1":"<base64 32 bytes>"}`. Never commit it; rotate by adding a new id and setting `ALO_KEK_ACTIVE`. |
+| `ALO_KEK_ACTIVE` | optional | Which key id wraps new secrets. Defaults to the highest id present. |
+| `ALO_KEK` | optional shorthand | Single key, treated as id `1`. Use `ALO_KEK_KEYS` for a ring. |
+| `BACKUP_INGEST_TOKEN` | for backup status | 24+ character shared token for `POST /api/ops/backups/ingest` and `GET /api/ops/backups/health`; must equal the repository secret of the same name. |
+| `OPERATOR_WEBHOOK_URL` | optional | Where operator notifications are pushed. Without it they stay in-app (`delivery: skipped`). |
+
+Generate with `openssl rand -base64 32` (KEK) and `openssl rand -hex 32` (token).
+Losing every KEK makes sealed secrets unrecoverable by design — back the key ring up
+in the same vault as the database credentials, separately from the database.
