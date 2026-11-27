@@ -28,7 +28,7 @@ async function assertManageable(workspaceId: string, keyId: string) {
 export async function DELETE(request: Request, { params }: Params) {
   const { keyId } = await params;
   return platformRoute({ scope: 'usage:read' }, async ({ principal, requestId }) => {
-    if (!(await canAdministerWorkspace(principal, principal.workspaceId))) {
+    if (!(await canAdministerWorkspace(principal))) {
       throw forbidden('Only a workspace owner or admin can revoke API keys');
     }
     await assertManageable(principal.workspaceId, keyId);
@@ -41,7 +41,7 @@ export async function DELETE(request: Request, { params }: Params) {
 export async function POST(request: Request, { params }: Params) {
   const { keyId } = await params;
   return platformRoute({ scope: 'usage:read' }, async ({ principal, requestId }) => {
-    if (!(await canAdministerWorkspace(principal, principal.workspaceId))) {
+    if (!(await canAdministerWorkspace(principal))) {
       throw forbidden('Only a workspace owner or admin can rotate API keys');
     }
     await assertManageable(principal.workspaceId, keyId);

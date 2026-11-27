@@ -24,6 +24,7 @@ import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { useRealFetch } from '../helpers/real-fetch';
+import { createRealDb, type RealDb } from '../helpers/real-db';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const runtimeScript = path.join(repoRoot, 'scripts/local-model-runtime.mjs');
@@ -91,8 +92,16 @@ async function startRuntime(env: Record<string, string> = {}): Promise<number> {
 // evaluated when the suite is *collected*, which is before any hook runs, so a
 // flag set in `beforeAll` would always be false and the suite would silently
 // skip forever.
+// The availability builder reads the provider-config table, so this suite needs
+// a database with the real schema. It gets its own throw-away one instead of
+// relying on whatever DATABASE_URL happens to point at: in CI that is
+// `file:./ci.db`, which no step creates, so the query failed, the engine
+// returned 503 'Model registry unavailable', and the chain never ran. The
+// failure looked like a broken fallback engine and was a missing fixture.
+let real: RealDb | undefined;
 const restoreForStartup = useRealFetch();
 try {
+  real = await createRealDb('providers-integration');
   healthyPort = await startRuntime();
   // A second instance that answers every chat request with 429 + Retry-After.
   faultingPort = await startRuntime({ ALO_RUNTIME_FAIL_MODE: '429', ALO_RUNTIME_RETRY_AFTER: '3' });
@@ -100,11 +109,13 @@ try {
 } catch (error) {
   console.error('[providers.integration] local runtime unavailable, skipping suite:', (error as Error).message);
   runtimeAvailable = false;
+  await real?.cleanup();
 } finally {
   restoreForStartup();
 }
 
-afterAll(() => {
+afterAll(async () => {
+  await real?.cleanup();
   for (const child of children) {
     try {
       child.kill('SIGKILL');
@@ -204,7 +215,27 @@ describe.skipIf(!runtimeAvailable)('provider adapters over real HTTP', () => {
       { requires: ['chat'], maxAttemptsPerDeployment: 1 },
     );
 
-    expect(outcome.ok).toBe(true);
+    // Include the chain in the failure message. This assertion failed in CI and
+    // not locally, and without the attempt list there is nothing to reason from:
+    // every candidate is either a real HTTP attempt or a documented skip.
+    expect(
+      outcome.ok,
+      `chain did not recover: ${JSON.stringify({
+        ok: outcome.ok,
+        usedFallback: outcome.usedFallback,
+        error: outcome.error,
+        attempts: outcome.attempts.map((a) => ({
+          id: a.deploymentId,
+          provider: a.provider,
+          model: a.model,
+          ok: a.ok,
+          errorClass: a.errorClass,
+          httpStatus: a.httpStatus,
+          latencyMs: a.latencyMs,
+          message: a.message?.slice(0, 200),
+        })),
+      })}`,
+    ).toBe(true);
     expect(outcome.usedFallback).toBe(true);
     // The faulting provider must appear first and fail with a real 429...
     const failed = outcome.attempts.filter((a) => !a.ok && a.errorClass === 'rate_limit');

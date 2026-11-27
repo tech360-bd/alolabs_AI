@@ -50,7 +50,7 @@ export const GET = platformRoute({ scope: 'usage:read' }, async ({ principal, re
 });
 
 export const POST = platformRoute({ scope: 'usage:read', body: createSchema }, async ({ principal, body, requestId }) => {
-  const canManage = await canAdministerWorkspace(principal, principal.workspaceId);
+  const canManage = await canAdministerWorkspace(principal);
   if (!canManage) throw forbidden('Only a workspace owner or admin can create API keys');
 
   if (body.projectId) {

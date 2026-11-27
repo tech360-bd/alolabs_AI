@@ -1,0 +1,17 @@
+{
+  "extends": "/home/user/alolabs_AI/tsconfig.check.json",
+  "compilerOptions": {
+    "types": [
+      "node",
+      "react",
+      "react-dom"
+    ],
+    "tsBuildInfoFile": ".next/cache/tsconfig.check-ts7.tsbuildinfo",
+    "incremental": true
+  },
+  "exclude": [
+    "**/node_modules",
+    "src/__tests__",
+    "src/types/urlpattern.d.ts"
+  ]
+}

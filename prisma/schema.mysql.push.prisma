@@ -483,6 +483,9 @@ model AgentBuildRequest {
   status       String   @default("pending")
   result       String? @db.LongText
   createdAt    DateTime @default(now())
+  // Tenant that owns this build request (null = legacy/unowned row).
+  companyId    String?
+  @@index([companyId, createdAt])
 }
 
 model SkillBuildRequest {
@@ -493,6 +496,9 @@ model SkillBuildRequest {
   status    String   @default("pending")
   result    String? @db.LongText
   createdAt DateTime @default(now())
+  // Tenant that owns this build request (null = legacy/unowned row).
+  companyId    String?
+  @@index([companyId, createdAt])
 }
 
 model WorkflowBuildRequest {
@@ -502,6 +508,9 @@ model WorkflowBuildRequest {
   status       String   @default("pending")
   result       String? @db.LongText
   createdAt    DateTime @default(now())
+  // Tenant that owns this build request (null = legacy/unowned row).
+  companyId    String?
+  @@index([companyId, createdAt])
 }
 
 model ToolApprovalRequest {

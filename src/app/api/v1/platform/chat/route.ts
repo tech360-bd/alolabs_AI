@@ -20,7 +20,7 @@ import { db } from '@/lib/db';
 import { platformRoute, json, PlatformError } from '@/lib/platform/http';
 import { runWithFallback } from '@/lib/platform/fallback-engine';
 import { completeWithProvider } from '@/lib/platform/providers';
-import { selectCandidates, type TaskType } from '@/lib/platform/model-registry';
+import { selectCandidates, TASK_REQUIREMENTS, type TaskType } from '@/lib/platform/model-registry';
 
 
 const messageSchema = z.object({
@@ -69,7 +69,7 @@ export const POST = platformRoute(
     let preferredModel: string | undefined;
     if (body.mode === 'manual') {
       if (!body.model) throw new PlatformError(400, 'invalid_request', 'mode "manual" requires a model');
-      const all = await selectCandidates({ requires: [task] });
+      const all = await selectCandidates({ requires: [...TASK_REQUIREMENTS[task]] });
       const match = all.find((c) => c.id === body.model) ?? all.find((c) => c.model === body.model);
       if (!match) {
         throw new PlatformError(
@@ -110,7 +110,7 @@ export const POST = platformRoute(
       },
       completeWithProvider,
       {
-        requires: [task],
+        requires: [...TASK_REQUIREMENTS[task]],
         ...(preferredModel ? { preferredModel } : {}),
         // Local-first by default. Remote providers are only considered when an
         // administrator has configured one; the engine enforces that, not this

@@ -204,7 +204,9 @@ function mapRowValues(row: unknown[], columnTypes: ColumnType[]): unknown[] {
     }
     if (typeof value === 'bigint') {
       if (type === DateTime) result[i] = new Date(Number(value)).toISOString();
-      else if (type === Boolean) result[i] = value !== 0n;
+      // BigInt(0) rather than 0n: the project targets ES2017, where a BigInt
+      // literal is a syntax error.
+      else if (type === Boolean) result[i] = value !== BigInt(0);
       else result[i] = value.toString();
       continue;
     }
