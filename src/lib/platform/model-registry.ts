@@ -408,9 +408,21 @@ export async function describeAvailability(): Promise<AvailableDeployment[]> {
     if (!blockedReason && cooldown.active) {
       blockedReason = `In cooldown until ${new Date(cooldown.until ?? 0).toISOString()}${cooldown.reason ? `: ${cooldown.reason}` : ''}`;
     }
-    if (!blockedReason && health.status === 'unreachable') {
-      blockedReason = `Health monitor marked this deployment unreachable${health.lastError ? `: ${health.lastError}` : ''}`;
-    }
+    // Deliberately NOT blocking on `health.status === 'unreachable'`.
+    //
+    // Health is a record of past outcomes, not a statement about right now. It
+    // has no decay timer and no recovery probe: once three consecutive failures
+    // marked a deployment unreachable it stayed that way, and because
+    // `selectCandidates` drops non-selectable deployments entirely, that
+    // deployment was excluded from every future request — permanently, even
+    // after the provider came back up. A transient provider outage would
+    // therefore silently shrink the fallback chain for good, and a recovered
+    // provider would never be tried again.
+    //
+    // Liveness is decided by the live probe above, which runs on every
+    // availability check and reports the endpoint's state right now. Health
+    // still orders candidates (success rate, then latency) and still drives
+    // alerts; it must not be able to remove a deployment from routing.
     if (!blockedReason && quota?.exhausted) {
       blockedReason = `Local quota window exhausted (${quota.used}/${quota.limit}); resets ${quota.resetAt ? new Date(quota.resetAt).toISOString() : 'later'}`;
     }
