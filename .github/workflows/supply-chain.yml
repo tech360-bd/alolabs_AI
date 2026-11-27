@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Review new dependencies against known vulnerabilities
-        uses: actions/dependency-review-action@31c9f175b9cbbdee66d6ab34ed35e2c827f8be10 # v4.7.4
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
         with:
           fail-on-severity: critical
           comment-summary-in-pr: always
