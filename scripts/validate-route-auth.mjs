@@ -103,9 +103,21 @@ const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'
  * services wall: `/api/portal/**` and `/api/internal/**`. Both authenticate
  * with verifySessionToken — against the client and the internal audience
  * respectively — and return 401 before the handler runs.
+ *
+ * `legacyTenant` (from @/lib/api/legacy-session) carries the tenant resolution
+ * for the pre-`secureRoute` `/api/*` routes. It throws LegacyAuthError(401) when
+ * no valid session is presented and 403 when the user holds no live company
+ * membership, and it filters by the company that membership belongs to. It is
+ * the canonical helper for these routes, listed as a mechanism in the route
+ * classification, so a route that calls it is authenticated and tenant-scoped.
+ *
+ * `platformRoute` (from @/lib/platform/http) is the `/api/v1/platform/**`
+ * wrapper: it resolves a principal from the API key or session, refuses with
+ * 401 when there is none, enforces the route's declared scope, and only then
+ * calls the handler.
  */
 const AUTH_HELPER_RE =
-  /@\/lib\/portal\/auth|@\/lib\/internal\/auth|clientRoute|internalRoute|@\/lib\/api-auth|@\/lib\/route-auth|@\/lib\/auth|@\/lib\/v1\b|@\/lib\/v1'|@\/lib\/voice\/api-helpers|v1Handler|secureRoute|requireAuth|withAuth|withCompany|authenticate|verifySession|verifySessionToken|verifyToken|getSession|getLockoutStatus/;
+  /@\/lib\/portal\/auth|@\/lib\/internal\/auth|@\/lib\/api\/legacy-session|@\/lib\/platform\/http|clientRoute|internalRoute|legacyTenant|platformRoute|@\/lib\/api-auth|@\/lib\/route-auth|@\/lib\/auth|@\/lib\/v1\b|@\/lib\/v1'|@\/lib\/voice\/api-helpers|v1Handler|secureRoute|requireAuth|withAuth|withCompany|authenticate|verifySession|verifySessionToken|verifyToken|getSession|getLockoutStatus/;
 
 const apiDir = join(root, 'src/app/api');
 if (!existsSync(apiDir)) {
