@@ -19,6 +19,7 @@ export const GET = secureRoute(
     const store = getMemoryStore();
     const data = await store.get((context.params as { id: string }).id);
     if (!data) throw notFound('Memory entry not found');
+    assertOwnedBy(data, context.principal.userId);
     return jsonResponse({ success: true, data }, context.requestId);
   },
 );

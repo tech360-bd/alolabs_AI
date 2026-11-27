@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { legacyAuthResponse, legacyTenant } from '@/lib/api/legacy-session';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -403,30 +404,52 @@ export async function evaluateProtection(check: ProtectionCheck): Promise<Protec
 // ─── API Handlers ────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request);
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
 
+    let logFilter: Record<string, unknown> = {};
+    if (tenant.companyRole !== 'super_admin') {
+      const [companyAgents, companyMembers] = await Promise.all([
+        db.agent.findMany({ where: { companyId: tenant.companyId }, select: { id: true } }),
+        db.companyUser.findMany({ where: { companyId: tenant.companyId }, select: { userId: true } }),
+      ]);
+      const agentIds = companyAgents.map((a) => a.id);
+      const memberUserIds = companyMembers.map((m) => m.userId);
+      const companyCommands = memberUserIds.length > 0
+        ? await db.command.findMany({ where: { userId: { in: memberUserIds } }, select: { id: true } })
+        : [];
+      const commandIds = companyCommands.map((c) => c.id);
+      if (agentIds.length === 0 && commandIds.length === 0) {
+        return NextResponse.json({
+          logs: [],
+          stats: { total: 0, blocked: 0, allowed: 0, topActions: [] },
+          pagination: { page, limit, total: 0, totalPages: 0 },
+        });
+      }
+      logFilter = {
+        OR: [
+          ...(agentIds.length > 0 ? [{ agentId: { in: agentIds } }] : []),
+          ...(commandIds.length > 0 ? [{ commandId: { in: commandIds } }] : []),
+        ],
+      };
+    }
+
     const [logs, total, blockedCount, allowedCount, topActions] = await Promise.all([
       db.protectionLog.findMany({
+        where: logFilter,
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      db.protectionLog.count(),
-      db.protectionLog.count({ where: { blocked: true } }),
-      db.protectionLog.count({ where: { blocked: false } }),
+      db.protectionLog.count({ where: logFilter }),
+      db.protectionLog.count({ where: { ...logFilter, blocked: true } }),
+      db.protectionLog.count({ where: { ...logFilter, blocked: false } }),
       db.protectionLog.groupBy({
         by: ['actionType'],
-        where: { blocked: true },
+        where: { ...logFilter, blocked: true },
         _count: { id: true },
         orderBy: { _count: { id: 'desc' } },
         take: 10,
@@ -455,21 +478,23 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    const authErr = legacyAuthResponse(error);
+    if (authErr) return NextResponse.json({ error: authErr.error }, { status: authErr.status });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request);
     const body = await request.json();
     const { action, commandId, agentId, companyId, userId, resource, dataClassification, financialCost, isExternalCommunication, isPublicPublishing, isDataDeletion, isProductionChange, isCredentialAccess, isLegalSensitive, isStudentPrivacy, isCrossCompanyAccess, isBulkOperation, toolName, modelName, bulkCount } = body;
+
+    if (companyId && companyId !== tenant.companyId && tenant.companyRole !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const effectiveCompanyId = tenant.companyRole === 'super_admin' && companyId ? companyId : tenant.companyId;
+    const effectiveUserId = tenant.companyRole === 'super_admin' && userId ? userId : tenant.userId;
 
     if (!action || typeof action !== 'string') {
       return NextResponse.json({ error: 'action is required' }, { status: 400 });
@@ -512,8 +537,8 @@ export async function POST(request: NextRequest) {
 
     if (hasAdvancedContext) {
       const result = await evaluateProtection({
-        companyId,
-        userId,
+        companyId: effectiveCompanyId,
+        userId: effectiveUserId,
         agentId,
         action: actionStr,
         resource,
@@ -570,6 +595,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ blocked: false });
   } catch (error) {
+    const authErr = legacyAuthResponse(error);
+    if (authErr) return NextResponse.json({ error: authErr.error }, { status: authErr.status });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

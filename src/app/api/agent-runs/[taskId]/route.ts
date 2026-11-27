@@ -6,9 +6,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }
 ) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { taskId } = await params
 
     const runs = await db.agentRun.findMany({

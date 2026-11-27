@@ -6,8 +6,8 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const tenant = await legacyTenant(_request);
   try {
+    const tenant = await legacyTenant(_request);
     const { id } = await params
     const trigger = await db.automationTrigger.findFirst({ where: tenantWhere(tenant, { id }) })
     if (!trigger) {
@@ -30,6 +30,8 @@ export async function POST(
       },
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error('[POST /api/automation/triggers/[id]/toggle]', error)
     return NextResponse.json({ error: 'Failed to toggle trigger' }, { status: 500 })
   }

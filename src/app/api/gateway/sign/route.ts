@@ -2,19 +2,18 @@ import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { generateHMAC, verifyApiKey } from '@/lib/api-gateway';
 import { db } from '@/lib/db';
-import { verifySessionToken } from '@/lib/auth';
+import { legacyTenant, legacyAuthResponse } from '@/lib/api/legacy-session';
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-
   try {
+    const tenant = await legacyTenant(request);
     const body = await request.json();
-    const { companyId, payload, apiKey, method = 'POST', url = '/api/test' } = body;
+    const { companyId: requestedCompanyId, payload, apiKey, method = 'POST', url = '/api/test' } = body;
+
+    if (requestedCompanyId && requestedCompanyId !== tenant.companyId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const companyId = tenant.companyId;
 
     if (!payload || typeof payload !== 'string') {
       return NextResponse.json(
@@ -26,13 +25,19 @@ export async function POST(request: NextRequest) {
     let signingSecret: string;
     let companyInfo: { id: string; name: string; slug: string } | null = null;
 
-    // If apiKey is provided, verify it and use it as the signing secret
+    // If apiKey is provided, verify it AND ensure it belongs to the caller's company
     if (apiKey) {
       const keyData = await verifyApiKey(apiKey);
       if (!keyData) {
         return NextResponse.json(
           { error: 'Invalid or inactive API key' },
           { status: 401 }
+        );
+      }
+      if (keyData.company.id !== tenant.companyId) {
+        return NextResponse.json(
+          { error: 'Forbidden' },
+          { status: 403 }
         );
       }
       signingSecret = apiKey;
@@ -103,6 +108,8 @@ export async function POST(request: NextRequest) {
       company: companyInfo,
     });
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('[Gateway Sign Error]', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

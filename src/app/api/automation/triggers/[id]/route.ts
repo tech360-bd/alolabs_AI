@@ -1,21 +1,16 @@
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = _request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(_request)
     const { id } = await params
-    const trigger = await db.automationTrigger.findUnique({
-      where: { id },
+    const trigger = await db.automationTrigger.findFirst({
+      where: tenantWhere(tenant, { id }),
       include: {
         actions: { orderBy: { sortOrder: 'asc' } },
         logs: {
@@ -46,6 +41,8 @@ export async function GET(
       },
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error(`[GET /api/automation/triggers]`, error)
     return NextResponse.json({ error: 'Failed to fetch trigger' }, { status: 500 })
   }
@@ -55,19 +52,19 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request)
     const { id } = await params
     const body = await request.json()
-    const { name, description, type, config, enabled, companyId, actions } = body
+    const { name, description, type, config, enabled, companyId: requestedCompanyId, actions } = body
 
-    const existing = await db.automationTrigger.findUnique({ where: { id } })
+    if (requestedCompanyId && requestedCompanyId !== tenant.companyId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const existing = await db.automationTrigger.findFirst({
+      where: tenantWhere(tenant, { id }),
+    })
     if (!existing) {
       return NextResponse.json({ error: 'Trigger not found' }, { status: 404 })
     }
@@ -81,18 +78,16 @@ export async function PUT(
           ...(type !== undefined ? { type } : {}),
           ...(config !== undefined ? { config: JSON.stringify(config) } : {}),
           ...(enabled !== undefined ? { enabled } : {}),
-          ...(companyId !== undefined ? { companyId: companyId || null } : {}),
+          companyId: tenant.companyId,
         },
       })
 
-      // Upsert actions if provided
       if (actions && Array.isArray(actions)) {
         const validActionTypes = [
           'agent_dispatch', 'send_notification', 'create_task',
           'update_record', 'http_call', 'run_workflow', 'send_email', 'log_message',
         ]
 
-        // Delete existing actions not in the new list
         const incomingIds = actions
           .filter((a: Record<string, unknown>) => a.id)
           .map((a: Record<string, unknown>) => a.id as string)
@@ -114,34 +109,34 @@ export async function PUT(
             ? action.type as string
             : 'log_message'
 
+          const actionData = {
+            name: typeof action.name === 'string' && action.name ? action.name : `Action ${i + 1}`,
+            type: actionType,
+            config: JSON.stringify(action.config || {}),
+            sortOrder: Number.isFinite(Number(action.sortOrder)) ? Number(action.sortOrder) : i,
+            conditionType: typeof action.conditionType === 'string' && action.conditionType ? action.conditionType : 'always',
+            conditionConfig: JSON.stringify(action.conditionConfig || {}),
+            delaySeconds: Number.isFinite(Number(action.delaySeconds)) ? Number(action.delaySeconds) : 0,
+            retryCount: Number.isFinite(Number(action.retryCount)) ? Number(action.retryCount) : 0,
+            retryDelaySeconds: Number.isFinite(Number(action.retryDelaySeconds)) ? Number(action.retryDelaySeconds) : 30,
+          }
+
           if (action.id) {
-            await tx.automationAction.update({
-              where: { id: action.id as string },
-              data: {
-                name: String(action.name) || `Action ${i + 1}`,
-                type: actionType,
-                config: JSON.stringify(action.config || {}),
-                sortOrder: Number(action.sortOrder) ?? i,
-                conditionType: String(action.conditionType) || 'always',
-                conditionConfig: JSON.stringify(action.conditionConfig || {}),
-                delaySeconds: Number(action.delaySeconds) ?? 0,
-                retryCount: Number(action.retryCount) ?? 0,
-                retryDelaySeconds: Number(action.retryDelaySeconds) ?? 30,
-              },
+            const ownedAction = await tx.automationAction.findFirst({
+              where: { id: action.id as string, triggerId: id },
+              select: { id: true },
             })
+            if (ownedAction) {
+              await tx.automationAction.update({
+                where: { id: ownedAction.id },
+                data: actionData,
+              })
+            }
           } else {
             await tx.automationAction.create({
               data: {
                 triggerId: id,
-                name: String(action.name) || `Action ${i + 1}`,
-                type: actionType,
-                config: JSON.stringify(action.config || {}),
-                sortOrder: Number(action.sortOrder) ?? i,
-                conditionType: String(action.conditionType) || 'always',
-                conditionConfig: JSON.stringify(action.conditionConfig || {}),
-                delaySeconds: Number(action.delaySeconds) ?? 0,
-                retryCount: Number(action.retryCount) ?? 0,
-                retryDelaySeconds: Number(action.retryDelaySeconds) ?? 30,
+                ...actionData,
               },
             })
           }
@@ -171,7 +166,9 @@ export async function PUT(
       },
     })
   } catch (error) {
-    console.error(`[PUT /api/automation/triggers/${params}]`, error)
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
+    console.error(`[PUT /api/automation/triggers]`, error)
     return NextResponse.json({ error: 'Failed to update trigger' }, { status: 500 })
   }
 }
@@ -180,25 +177,23 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = _request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(_request)
     const { id } = await params
-    const existing = await db.automationTrigger.findUnique({ where: { id } })
+    const existing = await db.automationTrigger.findFirst({
+      where: tenantWhere(tenant, { id }),
+      select: { id: true },
+    })
     if (!existing) {
       return NextResponse.json({ error: 'Trigger not found' }, { status: 404 })
     }
 
-    // Cascade delete will handle actions and logs
     await db.automationTrigger.delete({ where: { id } })
 
     return NextResponse.json({ data: { id, deleted: true } })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error(`[DELETE /api/automation/triggers]`, error)
     return NextResponse.json({ error: 'Failed to delete trigger' }, { status: 500 })
   }

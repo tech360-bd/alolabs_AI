@@ -19,7 +19,7 @@ type Params = { params: Promise<{ configId: string }> };
 
 export async function PATCH(request: Request, { params }: Params) {
   const { configId } = await params;
-  return platformRoute({ body: bodySchema }, async ({ request: req, body, requestId }) => {
+  return platformRoute({ body: bodySchema, allowCompanyScope: true }, async ({ request: req, body, requestId }) => {
     const admin = await requirePlatformAdmin(req);
     const result = await setProviderEnabled(configId, body.enabled);
     return json({

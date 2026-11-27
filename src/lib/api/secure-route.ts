@@ -266,6 +266,9 @@ export function tenantTarget(
   const own = principal?.companyId ?? '';
   const requestedId = typeof requested === 'string' && requested.length > 0 ? requested : null;
 
+  // System-level operator: ONLY when explicitly allowlisted in ALO_SYSTEM_OPERATORS
+  // (enforced by resolveTenantContext). A bare super_admin without a company
+  // membership and not in ALO_SYSTEM_OPERATORS is denied cross-tenant authority.
   if (principal?.role === 'super_admin') {
     const resolved = requestedId ?? own;
     if (!resolved) return { ok: false, status: 400, error: 'companyId is required' };
@@ -578,8 +581,13 @@ export function secureRoute<TBody = unknown, TQuery = unknown, TParams = unknown
         params,
         assertTenant: (recordCompanyId: string | null | undefined) => {
           if (tenantMode === 'none' || !companyId) return;
-          // Records belonging to another tenant are reported as "not found" so
-          // the API cannot be used to enumerate other tenants' identifiers.
+          // Records belonging to another tenant — OR unowned records (`null` /
+          // `undefined` / `'default-company'`) when tenant isolation is required —
+          // are reported as "not found" so the API cannot be used to enumerate
+          // or hijack unowned/foreign records.
+          if (tenantMode === 'required' && !recordCompanyId) {
+            throw new ApiHttpError(404, 'not_found', 'Not found');
+          }
           if (recordCompanyId && recordCompanyId !== companyId) {
             throw new ApiHttpError(404, 'not_found', 'Not found');
           }

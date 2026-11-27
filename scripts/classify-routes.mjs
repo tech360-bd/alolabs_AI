@@ -57,6 +57,8 @@ const PUBLIC = [
   [/^\.\/public\//, 'deliberately public marketing surface'],
   [/^\.\/free-resources\/route\.ts$/, 'public lead magnet'],
   [/^\.\/open-source-models\/route\.ts$/, 'public catalogue'],
+  [/^\.\/ecosystem\/route\.ts$/, 'public stack register; static catalogue, no tenant data'],
+  [/^\.\/ecosystem\/\[slug\]\/route\.ts$/, 'public stack register detail; static catalogue, no tenant data'],
   [/^\.\/seo\/route\.ts$/, 'crawler metadata'],
   [/^\.\/whatsapp\/webhook\/route\.ts$/, 'provider callback, signature-verified'],
   [/^\.\/voice\/telephony\/webhook\/route\.ts$/, 'provider callback, signature-verified'],

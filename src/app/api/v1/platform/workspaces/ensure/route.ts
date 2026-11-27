@@ -16,9 +16,12 @@ import { db } from '@/lib/db';
 import { platformRoute, json, forbidden } from '@/lib/platform/http';
 import { provisionDefaultWorkspace } from '@/lib/platform/workspaces';
 
-export const POST = platformRoute({}, async ({ principal, requestId }) => {
+export const POST = platformRoute({ allowCompanyScope: true }, async ({ principal, requestId }) => {
   if (principal.kind !== 'session') {
     throw forbidden('A workspace can only be created by a signed-in user, not by an API key');
+  }
+  if (!principal.companyId) {
+    throw forbidden('Your account must belong to an active company before creating a workspace');
   }
 
   const user = await db.user.findUnique({
@@ -28,7 +31,7 @@ export const POST = platformRoute({}, async ({ principal, requestId }) => {
   if (!user) throw forbidden('Account not found');
 
   const existing = await db.aiWorkspace.findFirst({
-    where: { ownerId: user.id },
+    where: { ownerId: user.id, companyId: principal.companyId },
     select: { id: true },
   });
   if (existing) {
@@ -37,7 +40,10 @@ export const POST = platformRoute({}, async ({ principal, requestId }) => {
 
   // Mint a key here: the response is the only chance to show its plaintext, and
   // an operator who just created a workspace needs one to test the API.
-  const provisioned = await provisionDefaultWorkspace(user.id, user.name, { withApiKey: true });
+  const provisioned = await provisionDefaultWorkspace(user.id, user.name, {
+    withApiKey: true,
+    companyId: principal.companyId,
+  });
 
   return json({
     created: true,

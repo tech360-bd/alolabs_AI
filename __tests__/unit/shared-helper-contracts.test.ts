@@ -16,7 +16,9 @@ describe('shared implementations', () => {
   it('keeps the original navigation imports and metadata without introducing a second header', () => {
     expect(SiteHeader).toBe(StudioHeader);
     expect(SITE_NAV.map(n => n.href)).toEqual(['solutions', 'services', 'how-we-work', 'about', 'careers', 'contact'].map(p => `/site/${p}`));
-    expect(SITE_RESOURCE_NAV.map(n => n.href)).toEqual(['/site/projects', '/portal', '/site/privacy', '/site/terms']);
+    // `/site/stack` (the ecosystem stack register) was added after projects: it is
+    // a public catalogue page, so it belongs with the resource links, not the pitch.
+    expect(SITE_RESOURCE_NAV.map(n => n.href)).toEqual(['/site/projects', '/site/stack', '/portal', '/site/privacy', '/site/terms']);
     expect([...SITE_NAV, ...SITE_RESOURCE_NAV].every(n => n.hint)).toBe(true);
   });
   it('retains hub filtering and pagination edge cases', () => {

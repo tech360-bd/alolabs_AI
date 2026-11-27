@@ -6,13 +6,13 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params
 
-    const costEstimate = await db.costEstimate.findUnique({
-      where: { id },
+    const costEstimate = await db.costEstimate.findFirst({
+      where: tenantWhere(tenant, { id }),
     })
 
     if (!costEstimate) {
@@ -38,9 +38,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params
     const body = await request.json()
     const { action } = body

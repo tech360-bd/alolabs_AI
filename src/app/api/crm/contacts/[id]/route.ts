@@ -3,12 +3,12 @@ import { db } from '@/lib/db'
 import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params
-    const contact = await db.crmContact.findUnique({
-      where: { id },
+    const contact = await db.crmContact.findFirst({
+      where: tenantWhere(tenant, { id }),
       include: {
         deals: {
           include: { pipeline: true, stage: true },
@@ -42,9 +42,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params
     const body = await request.json()
     const { firstName, lastName, email, phone, company, jobTitle, source, status, tags, metadata, assignedTo, score, lastContactAt } = body
@@ -85,9 +85,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params
     // Prove ownership BEFORE mutating. The previous version passed the tenant
     // filter into `delete`, whose where clause accepts only unique fields — so

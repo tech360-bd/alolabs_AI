@@ -1,24 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import crypto from 'crypto'
 
-// ─── GET: API Management Overview ────────────────────────────────────────────
+// ─── GET: API Management Overview (Tenant-scoped) ────────────────────────────
 
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request)
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
 
-    // 1. Total API keys by type
     const keysByType = await db.companyApiKey.groupBy({
       by: ['keyType'],
+      where: tenantWhere(tenant),
       _count: { id: true },
     })
     const keyTypeCounts: Record<string, number> = {}
@@ -26,35 +21,31 @@ export async function GET(request: NextRequest) {
       keyTypeCounts[kt.keyType] = kt._count.id
     }
 
-    // 2. Total requests today (from UsageLog)
     const requestsToday = await db.usageLog.count({
-      where: { createdAt: { gte: todayStart } },
+      where: tenantWhere(tenant, { createdAt: { gte: todayStart } }),
     })
 
-    // 3. Rate limit hits (failed requests today = proxy for rate limit)
     const rateLimitHitsToday = await db.usageLog.count({
-      where: {
+      where: tenantWhere(tenant, {
         createdAt: { gte: todayStart },
         status: 'failed',
-      },
+      }),
     })
 
-    // 4. Top API consumers (companies by request count today)
     const topConsumers = await db.usageLog.groupBy({
       by: ['companyId', 'companyName'],
-      where: { createdAt: { gte: todayStart } },
+      where: tenantWhere(tenant, { createdAt: { gte: todayStart } }),
       _count: { id: true },
       _sum: { tokensOrLocalUsed: true },
       orderBy: { _count: { id: 'desc' } },
       take: 10,
     })
 
-    // 5. API response time distribution (computed from UsageLog durations)
     const recentLogs = await db.usageLog.findMany({
-      where: {
+      where: tenantWhere(tenant, {
         createdAt: { gte: todayStart },
         completedAt: { not: null },
-      },
+      }),
       select: {
         startedAt: true,
         completedAt: true,
@@ -78,22 +69,20 @@ export async function GET(request: NextRequest) {
     const p95 = percentile(responseTimes, 95)
     const p99 = percentile(responseTimes, 99)
 
-    // 6. Error rate breakdown by endpoint category (using agentName as proxy)
     const errorBreakdown = await db.usageLog.groupBy({
       by: ['agentName'],
-      where: {
+      where: tenantWhere(tenant, {
         createdAt: { gte: todayStart },
         status: 'failed',
-      },
+      }),
       _count: { id: true },
       orderBy: { _count: { id: 'desc' } },
       take: 10,
     })
 
-    // 7. Total keys active/suspended stats
-    const totalKeys = await db.companyApiKey.count()
-    const activeKeys = await db.companyApiKey.count({ where: { isActive: true } })
-    const suspendedKeys = await db.companyApiKey.count({ where: { isActive: false } })
+    const totalKeys = await db.companyApiKey.count({ where: tenantWhere(tenant) })
+    const activeKeys = await db.companyApiKey.count({ where: tenantWhere(tenant, { isActive: true }) })
+    const suspendedKeys = await db.companyApiKey.count({ where: tenantWhere(tenant, { isActive: false }) })
 
     return NextResponse.json({
       data: {
@@ -127,36 +116,38 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error('API management GET error:', error)
     return NextResponse.json({ error: 'Failed to fetch API management data' }, { status: 500 })
   }
 }
 
-// ─── POST: Create a new API key ─────────────────────────────────────────────
+// ─── POST: Create a new API key (Tenant-scoped + admin/owner role) ───────────
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
-    const body = await request.json()
-    const { companyId, name, type = 'live', scopes = [], rateLimit = 1000, ipAllowlist = [] } = body
-
-    if (!companyId || !name) {
-      return NextResponse.json({ error: 'companyId and name are required' }, { status: 400 })
+    const tenant = await legacyTenant(request)
+    if (!['owner', 'admin'].includes(tenant.companyRole)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Verify company exists
-    const company = await db.company.findUnique({ where: { id: companyId } })
+    const body = await request.json()
+    const { companyId: requestedCompanyId, name, type = 'live', scopes = [], rateLimit = 1000, ipAllowlist = [] } = body
+
+    if (requestedCompanyId && requestedCompanyId !== tenant.companyId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (!name) {
+      return NextResponse.json({ error: 'name is required' }, { status: 400 })
+    }
+
+    const company = await db.company.findUnique({ where: { id: tenant.companyId } })
     if (!company) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 })
     }
 
-    // Generate API key
     const rawKey = `alo_${type}_${crypto.randomBytes(32).toString('hex')}`
     const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex')
     const keyPrefix = rawKey.substring(0, 12)
@@ -164,7 +155,8 @@ export async function POST(request: NextRequest) {
 
     const apiKey = await db.companyApiKey.create({
       data: {
-        companyId,
+        companyId: tenant.companyId,
+        createdBy: tenant.userId,
         keyHash,
         keyPrefix,
         keySuffix,
@@ -186,17 +178,17 @@ export async function POST(request: NextRequest) {
         scopes: JSON.parse(apiKey.scopes),
         rateLimit: apiKey.rateLimit,
         status: apiKey.isActive ? 'active' : 'suspended',
-        key: rawKey, // Only returned on creation
+        key: rawKey,
         createdAt: apiKey.createdAt,
       },
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error('API management POST error:', error)
     return NextResponse.json({ error: 'Failed to create API key' }, { status: 500 })
   }
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function percentile(arr: number[], p: number): number {
   if (arr.length === 0) return 0

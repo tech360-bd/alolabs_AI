@@ -7,9 +7,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params;
     const body = await request.json();
     const { name, url, events, isActive } = body;
@@ -43,9 +43,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params;
     // Ownership proven first; `delete` takes a unique where only.
     const owned = await db.webhookConfig.findFirst({ where: tenantWhere(tenant, { id }), select: { id: true } });

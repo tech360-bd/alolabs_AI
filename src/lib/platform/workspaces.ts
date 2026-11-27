@@ -73,15 +73,33 @@ export interface ProvisionedWorkspace {
 export async function provisionDefaultWorkspace(
   userId: string,
   userName: string,
-  options: { withApiKey?: boolean } = {},
+  options: { withApiKey?: boolean; companyId?: string | null } = {},
 ): Promise<ProvisionedWorkspace> {
+  let resolvedCompanyId = options.companyId ?? null;
+  if (!resolvedCompanyId) {
+    const membership = await db.companyUser.findFirst({
+      where: { userId },
+      select: { companyId: true },
+    });
+    resolvedCompanyId = membership?.companyId ?? null;
+  }
+
   const existing = await db.aiWorkspace.findFirst({
-    where: { ownerId: userId },
+    where: {
+      ownerId: userId,
+      ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+    },
     orderBy: { createdAt: 'asc' },
     include: { projects: { orderBy: { createdAt: 'asc' }, take: 1 } },
   });
 
   if (existing) {
+    if (!existing.companyId && resolvedCompanyId) {
+      await db.aiWorkspace.update({
+        where: { id: existing.id },
+        data: { companyId: resolvedCompanyId },
+      }).catch(() => undefined);
+    }
     const project = existing.projects[0] ?? (await createProject(existing.id, userId, 'Default project'));
     const key = options.withApiKey === false ? null : await createApiKey(existing.id, project.id, userId, {
       name: 'Default key', scopes: DEFAULT_KEY_SCOPES,
@@ -99,6 +117,7 @@ export async function provisionDefaultWorkspace(
       name: `${userName}'s workspace`,
       slug,
       ownerId: userId,
+      ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
       kind: 'personal',
       members: { create: { userId, role: 'owner' } },
     },

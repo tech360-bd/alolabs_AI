@@ -214,6 +214,77 @@ export async function currentTime(args: Record<string, unknown>): Promise<unknow
 
 // ─── Registry + OpenAI schemas ───────────────────────────────────────────────
 
+// ─── stack_register (local knowledge, no network) ────────────────────────────
+
+/**
+ * Answer "do we already support X?" from the repository's own stack register.
+ *
+ * This is the tool that stops an agent (or a human) proposing an integration
+ * this codebase already has — the register knows which of 88 upstream links are
+ * implemented, in kind, reference-only, or a gap, and which of the 26 adapters
+ * covers the system. Pure local data: no network, no tenant context.
+ */
+export async function stackRegisterLookup(args: Record<string, unknown>): Promise<unknown> {
+  const { buildStack, filterStack, ENTRY_ADAPTER, VERDICT_META, VERDICT_ORDER } =
+    await import('@/lib/ecosystem/stack');
+  const q = clamp(args.query, 120);
+  const verdict = typeof args.verdict === 'string' && VERDICT_ORDER.includes(args.verdict as never)
+    ? (args.verdict as (typeof VERDICT_ORDER)[number])
+    : 'all';
+  const pillar = clamp(args.pillar, 40) || 'all';
+  const limit = Math.min(Math.max(Number(args.limit) || 5, 1), 12);
+
+  const report = buildStack();
+  const rows = filterStack(report.entries, { q, verdict, pillar });
+
+  return {
+    query: { text: q, verdict, pillar },
+    stats: report.stats,
+    total: rows.length,
+    matches: rows.slice(0, limit).map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      verdict: entry.verdict,
+      verdictLabel: VERDICT_META[entry.verdict].label,
+      pillar: entry.pillar.label,
+      summary: entry.upstream,
+      claim: entry.claim,
+      ...(entry.gap ? { nextStep: entry.gap } : {}),
+      ...(entry.brief ? { steps: entry.brief.steps, risks: entry.brief.risks } : {}),
+      ...(ENTRY_ADAPTER[entry.id] ? { adapter: ENTRY_ADAPTER[entry.id] } : {}),
+      evidence: entry.evidence.map((item) => item.path),
+    })),
+    guidance:
+      'Use the verdict literally: "implemented" means an adapter or route exists here; "gap" means it does not and the nextStep is the work. Never claim a system is deployed just because it is listed.',
+    register: '/site/stack',
+  };
+}
+
+// ─── browser_verify (network, guarded) ──────────────────────────────────────
+
+/**
+ * Independent browser verification for the Command Agent.
+ *
+ * The agent does not get to assert that a page works: this tool opens it in a
+ * headless browser (when one is installed), and returns measured evidence —
+ * HTTP status, title, console errors, failed requests, a link audit and whether a
+ * screenshot was captured. Destinations are checked by the SSRF policy first.
+ *
+ * When no browser is installed the tool returns `verdict: 'unavailable'` and the
+ * reason. A caller that treats that as a pass is misreading it.
+ */
+export async function browserVerifyTool(args: Record<string, unknown>): Promise<unknown> {
+  const url = clamp(args.url, 2_048);
+  if (!url) throw new Error('url is required');
+  const { withoutScreenshot, verifyPage } = await import('@/lib/browser/verify');
+  const evidence = await verifyPage({
+    url,
+    captureScreenshot: args.captureScreenshot === true,
+    ...(typeof args.timeoutMs === 'number' ? { timeoutMs: args.timeoutMs } : {}),
+  });
+  return withoutScreenshot(evidence);
+}
+
 export interface CommandTool {
   name: string;
   description: string;
@@ -275,6 +346,38 @@ export const COMMAND_TOOLS: readonly CommandTool[] = [
       required: ['prompt'], additionalProperties: false,
     },
     run: generateImage,
+  },
+  {
+    name: 'stack_register',
+    description:
+      'Check whether this platform already implements an upstream system (LiteLLM, Temporal, Activepieces, SignuDoc, vLLM, Postman, …). Returns the honest verdict (implemented / in_kind / reference / gap), the matching adapter, the files that prove it and the next step for a gap. Local data; no network.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'System name, capability ("e-signature", "browser"), or URL fragment.' },
+        verdict: { type: 'string', enum: ['implemented', 'in_kind', 'reference', 'gap', 'not_applicable'] },
+        pillar: { type: 'string', description: 'models | agents | automation | voice | media | ops | research | applied' },
+        limit: { type: 'integer', minimum: 1, maximum: 12 },
+      },
+      additionalProperties: false,
+    },
+    run: stackRegisterLookup,
+  },
+  {
+    name: 'browser_verify',
+    description:
+      'Open a URL in an isolated headless browser and return measured evidence: HTTP status, title, console errors, failed requests, a link audit and whether a screenshot was captured. Refuses loopback, private, link-local, CGNAT and cloud-metadata destinations. Returns verdict "unavailable" — never a pass — when no browser is installed.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Absolute http(s) URL.' },
+        captureScreenshot: { type: 'boolean' },
+        timeoutMs: { type: 'integer', minimum: 2000, maximum: 60000 },
+      },
+      required: ['url'],
+      additionalProperties: false,
+    },
+    run: browserVerifyTool,
   },
   {
     name: 'current_time',

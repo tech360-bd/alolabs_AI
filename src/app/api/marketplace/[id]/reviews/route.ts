@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { legacyTenant, legacyAuthResponse } from '@/lib/api/legacy-session';
 
 export async function GET(
   request: NextRequest,
@@ -55,17 +56,15 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request);
     const { id } = await params;
     const body = await request.json();
-    const { rating, title, comment, companyId, userId } = body;
+    const { rating, title, comment, companyId: requestedCompanyId } = body;
+
+    if (requestedCompanyId && requestedCompanyId !== tenant.companyId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     if (!rating || rating < 1 || rating > 5) {
       return NextResponse.json(
@@ -88,8 +87,8 @@ export async function POST(
         rating: Math.round(rating),
         title: title || null,
         comment: comment || null,
-        companyId: companyId || null,
-        userId: userId || null,
+        companyId: tenant.companyId,
+        userId: tenant.userId,
       },
     });
 
@@ -110,6 +109,8 @@ export async function POST(
 
     return NextResponse.json({ data: review }, { status: 201 });
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     console.error('Failed to create review:', error);
     return NextResponse.json(
       { error: 'Failed to create review' },

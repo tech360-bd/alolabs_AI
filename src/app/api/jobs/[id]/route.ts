@@ -7,13 +7,13 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params;
 
     // Try workflow run first, then agent run
-    const wfRun = await db.workflowRun.findUnique({
+    const wfRun = await db.workflowRun.findFirst({
       where: tenantWhere(tenant, { id }),
       include: {
         workflow: {
@@ -42,8 +42,8 @@ export async function GET(
       });
     }
 
-    // Try agent run
-    const agRun = await db.agentRun.findUnique({ where: { id } });
+    // Try agent run (tenant-scoped)
+    const agRun = await db.agentRun.findFirst({ where: tenantWhere(tenant, { id }) });
     if (agRun) {
       return NextResponse.json({
         ...agRun,
@@ -66,16 +66,16 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { id } = await params;
     const body = await request.json();
     const { action } = body;
 
     if (action === 'cancel') {
-      // Try workflow run
-      const wfRun = await db.workflowRun.findUnique({ where: { id } });
+      // Try workflow run (tenant-scoped)
+      const wfRun = await db.workflowRun.findFirst({ where: tenantWhere(tenant, { id }) });
       if (wfRun && wfRun.status === 'running') {
         await db.workflowRun.update({
           where: { id },
@@ -84,8 +84,8 @@ export async function PATCH(
         return NextResponse.json({ success: true });
       }
 
-      // Try agent run
-      const agRun = await db.agentRun.findUnique({ where: { id } });
+      // Try agent run (tenant-scoped)
+      const agRun = await db.agentRun.findFirst({ where: tenantWhere(tenant, { id }) });
       if (agRun && agRun.status === 'running') {
         await db.agentRun.update({
           where: { id },
@@ -96,7 +96,7 @@ export async function PATCH(
     }
 
     if (action === 'retry') {
-      const wfRun = await db.workflowRun.findUnique({ where: { id } });
+      const wfRun = await db.workflowRun.findFirst({ where: tenantWhere(tenant, { id }) });
       if (wfRun && wfRun.status === 'failed') {
         await db.workflowRun.update({
           where: { id },
@@ -105,7 +105,7 @@ export async function PATCH(
         return NextResponse.json({ success: true });
       }
 
-      const agRun = await db.agentRun.findUnique({ where: { id } });
+      const agRun = await db.agentRun.findFirst({ where: tenantWhere(tenant, { id }) });
       if (agRun && agRun.status === 'failed') {
         await db.agentRun.update({
           where: { id },

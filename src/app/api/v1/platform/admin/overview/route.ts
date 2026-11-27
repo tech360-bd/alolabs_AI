@@ -15,7 +15,7 @@ import { requirePlatformAdmin, listProviderConfigs } from '@/lib/platform/admin'
 import { describeAvailability } from '@/lib/platform/model-registry';
 import { listActiveCooldowns, listHealth } from '@/lib/platform/routing-state';
 
-export const GET = platformRoute({}, async ({ request, requestId }) => {
+export const GET = platformRoute({ allowCompanyScope: true }, async ({ request, requestId }) => {
   const admin = await requirePlatformAdmin(request);
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);

@@ -1,19 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { legacyAuthResponse, legacyTenant } from '@/lib/api/legacy-session';
+import { isUsableTenantId } from '@/lib/tenancy/policy';
 
 // GET /api/observability/dashboard — comprehensive observability dashboard
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request);
+    const isGlobalAdmin = tenant.companyRole === 'super_admin';
+    const companyId = tenant.companyId;
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const companyFilter = isGlobalAdmin ? {} : { companyId };
+    const companyWorkflowIds = isGlobalAdmin
+      ? undefined
+      : (
+          await db.usageLog.groupBy({
+            by: ['workflowId'],
+            where: { companyId, workflowId: { not: null } },
+          })
+        )
+          .map((g) => g.workflowId)
+          .filter((id): id is string => typeof id === 'string' && isUsableTenantId(id));
 
     // Run all queries in parallel for performance
     const [
@@ -44,88 +54,110 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       // Request counts (last hour)
       db.usageLog.findMany({
-        where: { createdAt: { gte: oneHourAgo } },
+        where: { ...companyFilter, createdAt: { gte: oneHourAgo } },
         take: 5000,
         select: { status: true, createdAt: true, companyId: true },
       }),
 
       // Request counts (24h)
       db.usageLog.count({
-        where: { createdAt: { gte: twentyFourHoursAgo } },
+        where: { ...companyFilter, createdAt: { gte: twentyFourHoursAgo } },
       }),
 
       // Error rate (last hour)
-      db.errorLog.count({
-        where: { createdAt: { gte: oneHourAgo } },
-      }),
+      isGlobalAdmin
+        ? db.errorLog.count({ where: { createdAt: { gte: oneHourAgo } } })
+        : db.usageLog.count({ where: { companyId, status: { in: ['failed', 'blocked'] }, createdAt: { gte: oneHourAgo } } }),
 
       // Active alerts
-      db.alert.findMany({
-        orderBy: { updatedAt: 'desc' },
-      }),
+      isGlobalAdmin ? db.alert.findMany({ orderBy: { updatedAt: 'desc' } }) : Promise.resolve([]),
 
       // Queue health
-      db.jobQueue.findMany(),
+      isGlobalAdmin ? db.jobQueue.findMany() : Promise.resolve([]),
 
-      db.queueItem.groupBy({
-        by: ['queueId', 'status'],
-        _count: true,
-      }),
+      isGlobalAdmin
+        ? db.queueItem.groupBy({
+            by: ['queueId', 'status'],
+            _count: true,
+          })
+        : Promise.resolve([]),
 
-      // Token budgets for all companies
+      // Token budgets scoped to caller company unless super_admin
       db.tokenBudget.findMany({
+        where: companyFilter,
         include: { company: { select: { name: true, slug: true } } },
       }),
 
       // Recent token usage (last 100)
       db.tokenUsage.findMany({
+        where: companyFilter,
         orderBy: { createdAt: 'desc' },
         take: 100,
       }),
 
       // Token usage (24h)
       db.tokenUsage.aggregate({
-        where: { createdAt: { gte: twentyFourHoursAgo } },
+        where: { ...companyFilter, createdAt: { gte: twentyFourHoursAgo } },
         _sum: { totalTokens: true },
       }),
 
       // Recent metrics (last hour)
-      db.metric.findMany({
-        where: { createdAt: { gte: oneHourAgo } },
-        orderBy: { createdAt: 'desc' },
-        take: 500,
-      }),
+      isGlobalAdmin
+        ? db.metric.findMany({
+            where: { createdAt: { gte: oneHourAgo } },
+            orderBy: { createdAt: 'desc' },
+            take: 500,
+          })
+        : Promise.resolve([]),
 
       // Agent run stats (24h)
       db.agentRun.findMany({
-        where: { createdAt: { gte: twentyFourHoursAgo } },
+        where: { ...companyFilter, createdAt: { gte: twentyFourHoursAgo } },
         select: { status: true, durationMs: true, createdAt: true },
       }),
 
       // Workflow run stats (24h)
-      db.workflowRun.findMany({
-        where: { createdAt: { gte: twentyFourHoursAgo } },
-        select: { status: true, durationMs: true, createdAt: true },
-      }),
+      isGlobalAdmin
+        ? db.workflowRun.findMany({
+            where: { createdAt: { gte: twentyFourHoursAgo } },
+            select: { status: true, durationMs: true, createdAt: true },
+          })
+        : companyWorkflowIds && companyWorkflowIds.length > 0
+          ? db.workflowRun.findMany({
+              where: { workflowId: { in: companyWorkflowIds }, createdAt: { gte: twentyFourHoursAgo } },
+              select: { status: true, durationMs: true, createdAt: true },
+            })
+          : Promise.resolve([]),
 
       // Skill run stats (24h)
-      db.skillRun.findMany({
-        where: { createdAt: { gte: twentyFourHoursAgo } },
-        select: { status: true, durationMs: true, createdAt: true },
-      }),
+      isGlobalAdmin
+        ? db.skillRun.findMany({
+            where: { createdAt: { gte: twentyFourHoursAgo } },
+            select: { status: true, durationMs: true, createdAt: true },
+          })
+        : db.skillRun.findMany({
+            where: { task: { companyId }, createdAt: { gte: twentyFourHoursAgo } },
+            select: { status: true, durationMs: true, createdAt: true },
+          }),
 
       // Active agents count
-      db.agent.count({ where: { status: 'active' } }),
+      db.agent.count({
+        where: isGlobalAdmin
+          ? { status: 'active' }
+          : { status: 'active', OR: [{ companyId }, { companyId: null }] },
+      }),
 
       // Active queue depth (queued + processing)
-      db.queueItem.count({ where: { status: { in: ['queued', 'processing'] } } }),
+      isGlobalAdmin
+        ? db.queueItem.count({ where: { status: { in: ['queued', 'processing'] } } })
+        : db.agentOSRun.count({ where: { companyId, status: { in: ['queued', 'planning', 'running'] } } }),
 
       // Firing alert count
-      db.alert.count({ where: { isFiring: true } }),
+      isGlobalAdmin ? db.alert.count({ where: { isFiring: true } }) : Promise.resolve(0),
 
       // All runs in 24h for avg response time
       db.agentRun.findMany({
-        where: { createdAt: { gte: twentyFourHoursAgo }, durationMs: { not: null } },
+        where: { ...companyFilter, createdAt: { gte: twentyFourHoursAgo }, durationMs: { not: null } },
         select: { durationMs: true },
         take: 5000,
       }),
@@ -366,6 +398,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: dashboard });
   } catch (error) {
+    const authErr = legacyAuthResponse(error);
+    if (authErr) return NextResponse.json({ error: authErr.error }, { status: authErr.status });
     console.error('GET /api/observability/dashboard error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

@@ -26,7 +26,7 @@ const actionSchema = z.discriminatedUnion('action', [
 ]);
 type Action = z.infer<typeof actionSchema>;
 
-export const GET = platformRoute({}, async ({ request, requestId }) => {
+export const GET = platformRoute({ allowCompanyScope: true }, async ({ request, requestId }) => {
   await requirePlatformAdmin(request);
   const [cooldowns, health, providers, availability] = await Promise.all([
     listActiveCooldowns(),
@@ -63,7 +63,7 @@ export const GET = platformRoute({}, async ({ request, requestId }) => {
   }, requestId);
 });
 
-export const POST = platformRoute({ body: actionSchema }, async ({ request, body, requestId }) => {
+export const POST = platformRoute({ body: actionSchema, allowCompanyScope: true }, async ({ request, body, requestId }) => {
   await requirePlatformAdmin(request);
   const action = body as Action;
 

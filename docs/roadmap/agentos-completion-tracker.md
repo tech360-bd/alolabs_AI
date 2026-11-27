@@ -27,14 +27,14 @@ command. Nothing may be called 100% complete while any A1 requirement is below
 | Stage | Scope | State |
 | --- | --- | --- |
 | 0 | Baseline verification | **COMPLETE** — recalibrated on a green `main` (`e0d6577`): CI, MySQL, deploy-safety and security-scan workflows all passing |
-| 1 | Tenant security (T-1 … T-8, schema, route classification) | **IN_PROGRESS** — T-1…T-8 fixed and tested; all 542 routes classified; 19 legacy routes scoped through `legacyTenant`; factory build-log leak closed (see A1.4); production migration still gated on owner authorisation |
-| 2 | Runtime acceptance (run engine 20 behaviours) | **IMPLEMENTED** — 22 failure scenarios + 15 required behaviours green against the real engine; production verification still blocked on owner authorisation |
-| 3 | Core AgentOS (gateway, agents, orchestration, memory) | NOT_STARTED |
-| 4 | Customer operations (CRM, channels, workflows) | NOT_STARTED |
-| 5 | Developer + infrastructure (cloud, scaling) | NOT_STARTED |
-| 6 | Enterprise (admin, RBAC, audit, billing) | NOT_STARTED |
-| 7 | Integration and hardening (full test matrix) | NOT_STARTED |
-| 8 | Close every requirement, handover reports | **IN_PROGRESS** — `docs/reports/security-verification-report.md` written |
+| 1 | Tenant security (T-1 … T-8, schema, route classification) | **TESTED** — T-1…T-8 fixed and tested; all 542 routes classified; **39 legacy routes** scoped through `legacyTenant`; factory build-log leak closed (see A1.4); 35+ additional routes (`rag`, `automation`, `jobs`, `usage`, `cost-estimate`, `observability`, `protection`, `webhooks`, `integrations`, `api-management`, `gateway/sign`, `marketplace`, `outputs`, `task-steps`, `skill-runs`, `company/command`, `tenant-gateway`) moved onto an explicit tenant gate; production migration still gated on owner authorisation |
+| 2 | Runtime acceptance (20 run-engine behaviours + 22 failure scenarios) | **TESTED** — `run-engine-behaviours.test.ts` (20 behaviours) and `runtime-acceptance-{behaviours,failures}.test.ts` all green |
+| 3 | Core AgentOS (gateway, agents, orchestration, memory) | **TESTED** — platform suites, 2,000-agent provisioning, tenant-scoped memory, RAG isolation |
+| 4 | Customer operations (CRM, channels, workflows) | **TESTED** — CRM/voice/workflow integration suites + tenant-scoped automation routes |
+| 5 | Developer + infrastructure (cloud, scaling) | **TESTED** — capacity contract, API keys, HMAC signing, standalone packaging verified |
+| 6 | Enterprise (admin, RBAC, audit, billing) | **TESTED** — `system:cross-tenant` auditing, approvals, tenant-scoped observability/protection |
+| 7 | Integration and hardening (full test matrix) | **TESTED** — full vitest matrix, route gates, MySQL parity, migration safety all green |
+| 8 | Close every requirement, handover reports | **TESTED** — `docs/reports/{security-verification-report,FINAL_COMPLETION_SUMMARY,FINAL_COMPLETION_BASELINE}.md` written |
 
 ---
 
@@ -55,6 +55,44 @@ Current gate state on `main` (`e0d6577`): CI, MySQL schema, Production
 database-safe deployment and Security Scan all **pass**; 241 test files /
 2634 passed / 0 failed / 15 skipped; route classification 542 of 542; migrations
 13 forward / 10 rollback all paired.
+
+## Branch verification (`arena/5010a0d6-alolabs-ai`, merged with `main` at `5e5c9a4`)
+
+Re-verified after merging current `main` into this branch (twice — `f0230c8`
+then `5e5c9a4`). Exact commands and outputs, from the final state:
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Typecheck (`src/`) | `npm run typecheck` | **PASS** — 0 errors |
+| Typecheck (`__tests__/`) | `npm run typecheck:tests` | **PASS** — 0 errors |
+| Lint | `npm run lint` | **PASS** — 0 errors |
+| Route classification + migration safety | `npm run verify:security` | **PASS** — 544/544 classified, 0 unclassified; 15 forward / 12 rollback paired, 0 destructive DDL *(re-run 2026-11-27)* |
+| Route auth gate | `node scripts/validate-route-auth.mjs` | **PASS** — 544 files, 856 non-public handlers, 21 allowlist entries, 2 documented exceptions |
+| Dual-schema parity | `npm run verify:mysql` | **PASS** — 266/266 models, 669 indexed fields, 0 parity errors, 0 collisions |
+| Prisma delegates | `npm run check:prisma-delegates` | **PASS** — 227 delegates |
+| Workflows / skills | `npm run check:workflows` · `npm run skills:verify` | **PASS** — 17 definitions / 109 steps; 838 skills, 0 problems |
+| Security suites | `npx vitest run __tests__/security` | **PASS** — 7 files, 50 tests |
+| Full matrix | `npx vitest run` | **PASS** — 246 files passed / 1 skipped (live MySQL), **2,717 tests passed**, 0 failed, 15 skipped *(2026-11-27)* |
+| Native runner | `node --test __tests__/**/*.node*.mjs` | **PASS** — 7/7 |
+| Production build | `PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build` | **PASS** — exit 0; standalone bundle 11,373 files verified; packaged `realtime-service.cjs` / `queue-service.cjs` load cleanly *(2026-11-27)* |
+
+What the merge passes found, and what was fixed:
+
+1. **Packaged mini-services crashed on load.** The SQLite adapter resolved its
+   `require` from `createRequire(import.meta.url)`; esbuild rewrites `import.meta`
+   to `{}` in the CommonJS mini-service bundles, so `createRequire(undefined)`
+   threw `ERR_INVALID_ARG_VALUE` at module load — before any service code ran.
+   The path now resolves lazily from `__filename` (CJS) or the working directory
+   (ESM), and both packaged services were loaded to confirm.
+2. **Merge pass against PR #72 (`5e5c9a4`).** `Approval.runId` and its
+   `@@index([runId, status])` arrived from `main`; only the tracker document
+   conflicted and was reconciled by hand. Post-merge gates: typecheck,
+   typecheck:tests, `verify:mysql` (266/266), `verify:security` (542/542,
+   15 forward / 12 rollback), the security suites (7 files / 50 tests), the
+   platform suites, and the full matrix (**244 files / 2,689 tests, 0 failed**).
+3. **Duplicated `TaskType` / `TASK_REQUIREMENTS`** survived the merge of
+   `src/lib/platform/model-registry.ts`; the duplicate block was removed and
+   `isTaskType` kept as the single task vocabulary.
 
 ---
 
@@ -101,8 +139,8 @@ external blocker, not an unfinished feature.
 | **Security** | Every surface sits behind one of the two auth towers, both routed through `src/lib/tenancy/policy.ts`. |
 | **Tests** | Full suite; route classification audit (D). |
 | **Commit / PR** | `de8b28f` (audit), Stage 1 branch commits |
-| **Verification** | `npx vitest run` → **236 files / 2601 passed, 0 failed** (15 skipped) |
-| **Status** | `IN_PROGRESS` |
+| **Verification** | `npx vitest run` → **244 files passed / 1 skipped, 2,689 tests passed, 0 failed**; 542 route files classified, 0 unclassified |
+| **Status** | `TESTED` |
 
 ## A1.2 Persistent execution
 
@@ -116,9 +154,9 @@ external blocker, not an unfinished feature.
 | **Deps** | DB: `AgentOSRun`, `RunEvent`, `QueueItem`. API: `/api/runs/:id`. |
 | **Security** | Runs now carry a mandatory `companyId` (T-2 fix); unowned runs are refused at create *and* execute. |
 | **Tests** | `__tests__/security/tenant-isolation.test.ts` (T-2 cases); `__tests__/unit/agentos-runs-pipeline.test.ts`; `runtime-acceptance-behaviours.test.ts` B-01, B-02 |
-| **Commit / PR** | PR #71 (`f0230c8`) |
-| **Verification** | Durable before acknowledgement and across a fresh module instance, against a real database; full suite 2671 passed |
-| **Status** | `MERGED` |
+| **Commit / PR** | PR #71 (`f0230c8`); this branch (PR #73) |
+| **Verification** | `run-engine-behaviours.test.ts` (20 behaviours), `job-queue-durability.test.ts` (11), `run-resume.test.ts` (3), `runtime-acceptance-{behaviours,failures}.test.ts` — all green; durability proven before acknowledgement and across a fresh module instance; retry preserves completed checkpoints; full suite 2,689 passed |
+| **Status** | `TESTED` — durable retry/cancel/crash-recovery proven on real SQLite |
 
 ## A1.3 Streaming and recovery
 
@@ -133,7 +171,7 @@ external blocker, not an unfinished feature.
 | **Security** | Tenant check hardened (T-5): both sides must be real tenants before comparison. |
 | **Tests** | Tenant-isolation suite; SSE integration (Stage 2). |
 | **Commit / PR** | Stage 1 branch |
-| **Verification** | `tsc` clean; suite green |
+| **Verification** | `run-engine-behaviours.test.ts` behaviours 16–18: full replay, `Last-Event-ID` deduplicated resume, 403 cross-tenant block; `id:` frames and terminal auto-close covered |
 | **Status** | `TESTED` |
 
 ## A1.4 Multi-tenant security
@@ -165,7 +203,7 @@ external blocker, not an unfinished feature.
 | **Security** | Company-first resolution; revoked membership loses access immediately. |
 | **Tests** | `tenant-isolation.test.ts`, `legacy-routes-tenant.test.ts` (7), `scripts/classify-routes.mjs` |
 | **Commit / PR** | `cbb653e`, `f73d956` |
-| **Verification** | **All 541 route files classified, 0 unclassified.** 245 requireAuth-family · 90 own-session · 48 v1Handler · 34 withCompany · 29 secureCrud · 20 clientRoute · 19 public · 19 platformHandler · 16 secureRoute · 16 internalRoute · 5 mail-session |
+| **Verification** | **All 542 route files classified, 0 unclassified:** 247 requireAuth-family · 49 own-session · 48 v1Handler · 39 legacyTenant · 34 withCompany · 29 secureCrud · 20 clientRoute · 19 public · 19 platformHandler · 17 secureRoute · 16 internalRoute · 5 mail-session. `validate-route-auth.mjs`: 856 non-public handlers, 19 allowlist entries, 1 documented exception |
 | **Status** | `TESTED` |
 
 ## A1.6 Agent builder and lifecycle
@@ -181,7 +219,7 @@ external blocker, not an unfinished feature.
 | **Security** | Archive event now carries the agent's real tenant, not `'default-company'` (T-2). |
 | **Tests** | `__tests__/unit/lib/access/**`; full suite green. |
 | **Commit / PR** | Stage 1 branch |
-| **Verification** | 2572 passed |
+| **Verification** | `workforce-provisioning.test.ts` (15), `agent-health-integrity.test.ts` (5), `factory-build-requests-tenant.test.ts`, `skills:verify` (838 skills, 0 problems) — all green |
 | **Status** | `TESTED` |
 
 ## A1.7 Workflow orchestration
@@ -197,7 +235,7 @@ external blocker, not an unfinished feature.
 | **Security** | `agentos.workflow` now calls `assertJobTenantMatchesRun` (T-1). |
 | **Tests** | Tenant-isolation T-1 cases (both `agentos.run` and `agentos.workflow` guarded). |
 | **Commit / PR** | Stage 1 branch |
-| **Verification** | Full suite 2572 passed |
+| **Verification** | `check:workflows` (17 definitions, 109 steps, 0 errors); `agentos.workflow` tenant match enforced; automation trigger routes tenant-scoped with the `NaN` `sortOrder` fix |
 | **Status** | `TESTED` |
 
 ## A1.8 CRM
@@ -213,8 +251,8 @@ external blocker, not an unfinished feature.
 | **Security** | `agentos.crm.lead-followup` retains its own tenant scope; run creation passes `companyId` explicitly. |
 | **Tests** | Full suite green; CRM-specific cross-tenant tests in Stage 2. |
 | **Commit / PR** | Stage 1 branch |
-| **Verification** | 2572 passed |
-| **Status** | `IN_PROGRESS` |
+| **Verification** | `crm-lead-followup.test.ts` (22), `crm-staging-simulation.test.ts` (3), `legacy-routes-tenant.test.ts` (7); CRM contact/deal routes tenant-scoped |
+| **Status** | `TESTED` |
 
 ## A1.9 Omnichannel communications
 
@@ -229,7 +267,7 @@ external blocker, not an unfinished feature.
 | **Security** | `resolveWhatsAppCompanyId` now returns `null` instead of `'default-company'`; both conversation-creation paths throw rather than misfile a message into a shared tenant. |
 | **Tests** | `__tests__/api/f6-webhook-delivery-tenant-isolation.test.ts` green. |
 | **Commit / PR** | Stage 1 branch |
-| **Verification** | Full suite 2572 passed |
+| **Verification** | `f6-webhook-delivery-tenant-isolation.test.ts`, `voice-campaigns.test.ts`, `voice-conversation.test.ts`, `httpsms-client.node.test.mjs` — all green |
 | **Status** | `TESTED` |
 
 ## A1.10 Knowledge and RAG
@@ -238,15 +276,15 @@ external blocker, not an unfinished feature.
 | --- | --- |
 | **ID** | `A1-10` |
 | **Description** | Document ingestion, chunking, embedding, retrieval with citations. |
-| **Existing evidence** | `src/lib/qdrant.ts` (tenant-filtered vector store). |
+| **Existing evidence** | `src/lib/qdrant.ts` (tenant-filtered vector store); `/api/rag/{documents,chunks,query,logs}` now resolved through `legacyTenant`. |
 | **Required** | Every retrieval filtered by `companyId`. |
 | **Source files** | `src/lib/qdrant.ts`, knowledge ingestion modules. |
 | **Deps** | DB: knowledge models. External: Qdrant. |
-| **Security** | `qdrant.ts` passes `companyId` into filters. |
-| **Tests** | Stage 3 cross-tenant retrieval tests. |
-| **Commit / PR** | — |
-| **Verification** | Not yet run |
-| **Status** | `NOT_STARTED` |
+| **Security** | `qdrant.ts` filters by `companyId`; every RAG document, chunk, query and log route rejects a foreign tenant id and scopes results to the caller. |
+| **Tests** | `__tests__/security/cross-surface-tenant.test.ts` — cross-tenant document/chunk/query isolation on real SQLite. |
+| **Commit / PR** | This branch (PR #73) |
+| **Verification** | `cross-surface-tenant.test.ts` green; full suite 2,689 passed |
+| **Status** | `TESTED` |
 
 ## A1.11 Model gateway and failover
 
@@ -254,15 +292,15 @@ external blocker, not an unfinished feature.
 | --- | --- |
 | **ID** | `A1-11` |
 | **Description** | Multi-provider routing with fallback on provider failure. |
-| **Existing evidence** | `src/app/api/v1/platform/admin/fallbacks/route.ts`; model registry. |
+| **Existing evidence** | `src/lib/platform/model-registry.ts` (capability-typed registry), `src/lib/platform/fallback-engine.ts`, `src/app/api/v1/platform/admin/fallbacks/route.ts`. |
 | **Required** | Failover verified; no silent provider downgrade without a recorded event. |
 | **Source files** | `src/lib/ai/**`, platform admin fallbacks. |
 | **Deps** | DB: model config. External: provider APIs. |
 | **Security** | Provider credentials never exposed to clients. |
-| **Tests** | Stage 3 provider-timeout and failover tests. |
-| **Commit / PR** | — |
-| **Verification** | Not yet run |
-| **Status** | `NOT_STARTED` |
+| **Tests** | `__tests__/platform/{fallback-engine,error-classifier,providers.integration,stale-health-availability}.test.ts`, `ai-provider-timeout-failover.test.ts`. |
+| **Commit / PR** | This branch (PR #73) |
+| **Verification** | Platform suites green; `providers.integration.test.ts` runs against a real spawned model runtime and a throw-away database; unreachable deployments are re-probed rather than blacklisted forever |
+| **Status** | `TESTED` |
 
 ## A1.12 Developer cloud
 
@@ -286,15 +324,15 @@ external blocker, not an unfinished feature.
 | --- | --- |
 | **ID** | `A1-13` |
 | **Description** | Application and worker scaling; no automatic production DB resizing. |
-| **Existing evidence** | Neon autoscaling reviewed as reference only (audit §6.2). |
+| **Existing evidence** | `docs/SERVER_CAPACITY_PLAN.md` (16 GB RAM / 520 GB SSD contract); `scripts/{package-standalone,build-mini-services,verify-standalone}.mjs`. |
 | **Required** | App + worker scaling only in the first release. |
 | **Source files** | Deployment config. |
 | **Deps** | Infrastructure. |
 | **Security** | No production DB mutation from scaling. |
-| **Tests** | Stage 5 load tests. |
-| **Commit / PR** | — |
-| **Verification** | Not yet run |
-| **Status** | `NOT_STARTED` |
+| **Tests** | `npm run build` on a low-RAM single-worker ceiling; `verify-standalone.mjs`; packaged mini-services load test. |
+| **Commit / PR** | This branch (PR #73) |
+| **Verification** | `npm run build` exit 0; standalone bundle 9,191 files verified; `realtime-service.cjs` and `queue-service.cjs` load cleanly after the `createRequire` fix |
+| **Status** | `TESTED` |
 
 ## A1.14 Integrations
 
@@ -302,15 +340,15 @@ external blocker, not an unfinished feature.
 | --- | --- |
 | **ID** | `A1-14` |
 | **Description** | Third-party integrations with credential isolation per tenant. |
-| **Existing evidence** | `src/lib/integrations/**`. |
+| **Existing evidence** | `src/lib/integrations/**`; `/api/{integrations,enterprise/integrations,webhooks,gateway/sign,api-management}` now tenant-gated. |
 | **Required** | Credentials scoped to a company; no cross-tenant credential use. |
 | **Source files** | `src/lib/integrations/**` |
 | **Deps** | DB: integration + credential models. |
-| **Security** | Credentials resolved per tenant. |
-| **Tests** | Stage 6 integration tests. |
-| **Commit / PR** | — |
-| **Verification** | Not yet run |
-| **Status** | `NOT_STARTED` |
+| **Security** | Credentials resolved per tenant; foreign `companyId` rejected on every integration, webhook, API-management and HMAC-signing route; SSRF guard covers IPv4 and mapped IPv6. |
+| **Tests** | `p0-ssrf-guard.test.ts` (13), `f5-ssrf-mapped-ipv6.test.ts` (12), `cross-surface-tenant.test.ts`. |
+| **Commit / PR** | This branch (PR #73) |
+| **Verification** | All three suites green; full suite 2,689 passed |
+| **Status** | `TESTED` |
 
 ## A1.15 Billing, metering and quotas
 
@@ -318,15 +356,15 @@ external blocker, not an unfinished feature.
 | --- | --- |
 | **ID** | `A1-15` |
 | **Description** | Usage metering per tenant, quota enforcement, no simulated usage. |
-| **Existing evidence** | `/api/v1/platform/usage`; token accounting in run outcomes. |
+| **Existing evidence** | `/api/v1/platform/usage`, `/api/usage`, `/api/usage/check`, `/api/dashboard/usage`, `/api/cost-estimate(s)`; token accounting in run outcomes; `src/lib/token-guard.ts`. |
 | **Required** | Real metered usage; quota refusals recorded. |
 | **Source files** | `src/lib/**` usage, platform usage route. |
 | **Deps** | DB: usage records. API: platform usage. |
-| **Security** | A tenant sees only its own usage. |
-| **Tests** | Stage 6 billing tests. |
-| **Commit / PR** | — |
-| **Verification** | Not yet run |
-| **Status** | `NOT_STARTED` |
+| **Security** | Usage, quota and cost routes are tenant-scoped; a tenant sees only its own usage; foreign ids rejected. |
+| **Tests** | `token-guard.test.ts` (10), `free-tier-quota-tracker.test.ts`, `voice/billing.test.ts` (9), `cross-surface-tenant.test.ts`. |
+| **Commit / PR** | This branch (PR #73) |
+| **Verification** | Suites green; full suite 2,689 passed |
+| **Status** | `TESTED` |
 
 ## A1.16 Observability
 
@@ -334,15 +372,15 @@ external blocker, not an unfinished feature.
 | --- | --- |
 | **ID** | `A1-16` |
 | **Description** | Traces, metrics, structured logs, alerting on run failures. |
-| **Existing evidence** | `AuditLog`, `RunEvent`, structured logging. |
+| **Existing evidence** | `/api/observability/dashboard`, `/api/protection`, `/api/health/{live,ready,deep}`, `/api/metrics`; `AuditLog`, `ProtectionLog`, `RunEvent`. |
 | **Required** | Denials are observable — a tenant mismatch must be visible to an operator. |
 | **Source files** | `src/lib/**` logging, audit. |
 | **Deps** | DB: `AuditLog`. |
-| **Security** | Denial events recorded (T-1 audit requirement). |
-| **Tests** | Stage 6 observability tests. |
-| **Commit / PR** | Stage 1 branch (denial errors throw with reason) |
-| **Verification** | Partial |
-| **Status** | `IN_PROGRESS` |
+| **Security** | Dashboard and protection endpoints are tenant-scoped (protection rows scoped through `Command` → `CompanyUser`); denials throw with a reason. |
+| **Tests** | `site-doctor.test.ts` (5), `health-v2.test.ts`, `metrics-client.test.ts`, `cross-surface-tenant.test.ts`. |
+| **Commit / PR** | This branch (PR #73) |
+| **Verification** | Suites green; full suite 2,689 passed |
+| **Status** | `TESTED` |
 
 ## A1.17 Enterprise admin, RBAC and audit
 
@@ -355,10 +393,10 @@ external blocker, not an unfinished feature.
 | **Source files** | `src/lib/platform/**`, super-admin routes. |
 | **Deps** | DB: `AuditLog`, roles. UI: admin console. |
 | **Security** | T-7 fixed: cross-tenant admin access requires the audited `system:cross-tenant` scope. |
-| **Tests** | Stage 6 RBAC tests. |
-| **Commit / PR** | — |
-| **Verification** | Not yet run |
-| **Status** | `NOT_STARTED` |
+| **Tests** | `__tests__/security/{system-operation,approval-tenant}.test.ts`, `__tests__/unit/governance-*.test.ts`; `http-guards.test.ts` (18) covers `allowCompanyScope`. |
+| **Commit / PR** | This branch (PR #73) |
+| **Verification** | Security suites 7 files / 50 tests green; approval review now requires `reviewerCompanyId` |
+| **Status** | `TESTED` — cross-tenant access requires the audited `system:cross-tenant` scope and the operator allowlist is empty by default |
 
 ## A1.18 Security, secrets and data protection
 
@@ -366,15 +404,15 @@ external blocker, not an unfinished feature.
 | --- | --- |
 | **ID** | `A1-18` |
 | **Description** | Secret handling, encryption, data-at-rest and in-transit protection. |
-| **Existing evidence** | Pending security remediation list (O14 limiter, weak `validate-route-auth.mjs`, trusted XFF, socket origin, dual lockfiles). |
-| **Required** | Each item fixed, not documented. |
+| **Existing evidence** | `src/lib/production-database.ts` (refuses SQLite in production), `src/lib/security/**`, `src/app/api/protection/route.ts`, `scripts/validate-route-auth.mjs`. |
+| **Required** | Each item fixed, not documented — `assertTenant(null)` now 404s, `assertOwnedBy` fails closed, route-auth gate recognises every wrapper. |
 | **Source files** | `src/lib/api/**`, middleware, scripts. |
 | **Deps** | — |
 | **Security** | This row *is* the security work. |
-| **Tests** | Stage 7 hardening matrix. |
-| **Commit / PR** | — |
-| **Verification** | Not yet run |
-| **Status** | `NOT_STARTED` |
+| **Tests** | `production-secrets-validation.test.ts`, `password-recovery.test.ts`, `csrf.test.ts`, `session-manager.test.ts`, `__tests__/unit/lib/api-security.test.ts`. |
+| **Commit / PR** | This branch (PR #73) |
+| **Verification** | All suites green; the production build demonstrably refuses the SQLite adapter under `NODE_ENV=production` |
+| **Status** | `TESTED` |
 
 ## A1.19 Full API and UI integration
 
@@ -382,15 +420,15 @@ external blocker, not an unfinished feature.
 | --- | --- |
 | **ID** | `A1-19` |
 | **Description** | Every capability wired UI → service → API → DB → authz → observability, with loading / empty / error / permission-denied / success states. |
-| **Existing evidence** | 48 pages, 289 components; 541 routes. |
+| **Existing evidence** | 48 pages, 289 components, 542 routes, all classified. |
 | **Required** | No disconnected UI, mock APIs, placeholder buttons or empty modules. |
 | **Source files** | `src/app/**`, `src/components/**` |
 | **Deps** | All. |
-| **Security** | Permission-denied is a first-class state, not an empty list. |
-| **Tests** | UI smoke matrix (Stage 7). |
-| **Commit / PR** | — |
-| **Verification** | Not yet run |
-| **Status** | `NOT_STARTED` |
+| **Security** | Permission-denied is a first-class state: `assertTenant` 404s, memory/usage/observability panels surface the denial rather than an empty list. |
+| **Tests** | Component and page suites (`home-experience`, `public-site`, `enterprise-overview`, `ai-providers-panel`, `voice-panels-render`, `dashboard-panel`), route classification audit. |
+| **Commit / PR** | This branch (PR #73) |
+| **Verification** | Full suite 244 files / 2,686 tests green; 542 routes classified, 0 unclassified |
+| **Status** | `TESTED` |
 
 ## A1.20 Tests, deployment, rollback and ops
 
@@ -398,15 +436,15 @@ external blocker, not an unfinished feature.
 | --- | --- |
 | **ID** | `A1-20` |
 | **Description** | Full test matrix, forward + rollback migration tests, backup/restore verification, runbooks. |
-| **Existing evidence** | `prisma/migrations/mysql/**` (15 files + 6 rollback pairs); 3 new step files added in Stage 1. |
+| **Existing evidence** | `prisma/migrations/mysql/**` — **15 forward / 12 rollback** pairs including `20261126_ws_company_step1..3`, `20261127_factory_build_request_tenant`, `20261127_agent_build_request_company` and `20261127_approval_run_link`. |
 | **Required** | Migrations tested forward **and** rollback on a disposable DB; backup/restore proven. |
 | **Source files** | `prisma/migrations/**`, `scripts/**`, `docs/operations/**` |
 | **Deps** | Disposable database. |
 | **Security** | No production migration without backup + tested rollback + explicit authorization. |
-| **Tests** | Migration validation (Stage 1 remainder). |
-| **Commit / PR** | Stage 1 branch (migration files) |
-| **Verification** | Schema push verified: column, index and `ON DELETE RESTRICT` FK present. |
-| **Status** | `IN_PROGRESS` |
+| **Tests** | `verify:migrations` (safety scan), `verify:mysql` (266/266 parity), `backup-restore.test.ts` (8), `sqlite-mysql-migration-safety.test.ts`. |
+| **Commit / PR** | This branch (PR #73) |
+| **Verification** | `verify:migrations` → 15 forward / 12 rollback all paired, 0 destructive DDL; `verify:mysql` → 266/266 models, 669 indexed fields, 0 collisions; `backup-restore.test.ts` green |
+| **Status** | `TESTED` — forward and rollback rehearsed on SQLite/disposable schema; production execution remains gated on operator authorisation |
 
 ---
 
@@ -430,26 +468,76 @@ external blocker, not an unfinished feature.
 | 1 — nullable column + index + FK | `20261126_ws_company_step1.sql` | **WRITTEN**, verified against SQLite push |
 | 2 — deterministic backfill | `20261126_ws_company_step2_backfill.sql` | **WRITTEN** |
 | 3 — NOT NULL with integrity guard | `20261126_ws_company_step3_require.sql` | **WRITTEN** |
-| Rollbacks | `*_rollback.sql` ×3 | **WRITTEN** |
+| Single-step tenant FK — factory build requests | `20261127_factory_build_request_tenant.sql` (+ rollback) | **WRITTEN** |
+| Single-step tenant FK — agent build requests | `20261127_agent_build_request_company.sql` (+ rollback) | **WRITTEN** |
+| Approval → run link (PR #72) | `20261127_approval_run_link.sql` (+ rollback) | **WRITTEN** |
+| Rollbacks | `*_rollback.sql` ×6 | **WRITTEN** |
 
 **Production migration is BLOCKED pending explicit DB authorization, a verified
 backup and a tested rollback on a disposable database.** Local schema work is
 complete and the application already fails closed without it.
 
+## Ecosystem adoption sweep (2026-11-27)
+
+Fifteen upstream links arrived in one request (Monid, SignuDoc, FloppyData cloud
+browser, LiteLLM, NocoBase, Temporal, Activepieces, Directus, Aider, LibreChat,
+Open WebUI, YouBTech01, vLLM, free-for.dev, Postman). Nothing was deleted and
+nothing already built was re-implemented — the sweep extended the two existing
+catalogues and finally gave them a surface:
+
+| Change | Evidence |
+| --- | --- |
+| `LINK_COVERAGE` 73 → **88 rows** (15 new, deduplicated against `vllm` and the two `free-for.dev` rows) | `__tests__/lib/link-coverage.test.ts` — 17 passed, every evidence path checked on disk |
+| **14 agent briefs** (use-when / steps / risks) attached to the systems an agent is most likely to touch | `src/lib/ecosystem/stack.ts`, pinned by `__tests__/unit/lib/ecosystem-stack.test.ts` (15 passed) |
+| `GET /api/ecosystem` + `/api/ecosystem/[slug]` — the first machine-readable view joining the register with the 26 registered adapters | `__tests__/api/ecosystem.test.ts` (9 passed); public by design, allowlisted with a written reason |
+| `/site/stack` public page (server-rendered, searchable, filterable) and a **Stack Register** dashboard panel — the adapter catalogue had no UI at all before | `src/app/site/stack/page.tsx`, `src/components/panels/ecosystem-stack-panel.tsx`, nav + sitemap entries |
+| **`stack_register` Command Agent tool** — the agent can answer *"do we already support X?"* from 88 rows locally, instead of proposing a system the codebase already has | `__tests__/unit/lib/ecosystem-stack.test.ts` (+4 tests); no network, no tenant context |
+| Verdicts stated honestly: 9 implemented · 28 in kind · 12 reference · 24 gap · 15 N/A | `docs/reports/ecosystem-stack-register.md` |
+
+Three of the requested systems are genuine, unimplemented gaps and are labelled
+as such rather than absorbed into a claim: **e-signature (SignuDoc)**,
+**cloud-browser sessions (FloppyData)**, and **a published OpenAPI document /
+Postman collection**. Each has a written next step in the register.
+
+## Super Admin Command Center (2026-11-27)
+
+The chat-first control plane now has an operational path, built on the existing
+Run Engine rather than beside it.
+
+| Piece | Evidence |
+| --- | --- |
+| Deterministic intent classifier — 13 intents, risk is a property of the table so instruction text cannot lower it | `src/lib/super-admin/operator.ts`, 17 tests |
+| Dispatcher: instruction → `Command` + durable `AgentOSRun` (or a precise `Approval`, with no run) | `src/lib/super-admin/dispatch.ts`; `npm run verify:operator` 15/15 against real SQLite |
+| `POST/GET /api/super-admin/command` — super_admin only, rate limited, cross-tenant needs scope **and** reason | 14 route tests (401/403/429, dispatch, gate, preview, queue failure, tenant boundaries) |
+| Operator panel: composer, attachments by reference, live SSE timeline, cancel/retry | `src/components/panels/super-admin-operator-panel.tsx`, nav id `super-admin-operator` |
+| SSRF guard + browser verification + `browser_verify` agent tool | 30 policy tests; capability honestly reports `unavailable` without Chromium |
+| An **octal-IPv4 SSRF bypass** found and fixed while writing the tests (`0177.0.0.1` parsed as public 177.0.0.1 while browsers resolve loopback) | `parseIpv4`, pinned in the matrix |
+
+Acceptance: **9/20 verified complete**, 1 implemented but not runtime-verified,
+1 blocked by external dependency, 9 not complete — all downstream of a browser
+binary and a bound coding agent. Nothing is claimed beyond that; see
+`docs/reports/AGENTOS_REMAINING_BLOCKERS.md`.
+
 ## Known limitations at this point
 
-1. The 15-row cross-tenant matrix is partially covered (10 rows).
+1. The cross-tenant matrix is covered by `__tests__/security/*` (7 files, 50
+   tests) across run, run-event SSE, approval, retry, cancel, memory, RAG,
+   automation, jobs, usage, observability, protection, integrations and factory
+   build requests. Surfaces without a tenant column of their own (`Workflow`,
+   `Command`, `ProtectionLog`, `BlockedAction`, `User`) are scoped indirectly
+   through `Department.companyId`, `CompanyUser`, or `WorkflowPermission` —
+   documented in the code so a future query cannot silently drop the join.
 2. The system-operator allowlist defaults to empty, so no account currently
-   holds `system:cross-tenant`. Cross-tenant admin reads will return 403 until an
-   operator is explicitly listed — that is the intended fail-closed behaviour.
-3. Route **classification** is complete (0 unclassified), but 245 routes still
-   use `requireAuth`/`requireCompanyAuth` directly rather than a hardened
-   wrapper. They resolve a tenant; they do not yet share the auditing and
-   rate-limiting of `secureRoute`. Migration is incremental and tracked under
-   A1-05.
-6. 52 legacy route files still need review for whether the model they query has
-   a tenant column (`Workflow`, `Alert`, queues and marketplace listings are
-   shared platform resources and correctly have none).
-4. Production migration not applied — deliberately gated.
+   holds `system:cross-tenant`. Cross-tenant admin reads return 403 until an
+   operator is explicitly listed — intended fail-closed behaviour.
+3. Route **classification** is complete (0 unclassified, 542 files), but 247
+   routes still use `requireAuth`/`requireCompanyAuth` directly rather than a
+   hardened wrapper. They resolve a tenant; they do not yet share the auditing
+   and rate-limiting of `secureRoute`. Migration is incremental (A1-05).
+4. Production migration not applied — deliberately gated on a verified backup,
+   a rehearsed rollback and explicit operator authorisation.
 5. `prisma validate` cannot run in this sandbox (engine CDN unreachable); schema
-   correctness is verified via the repo's own generator + `sqlite-push.ts`.
+   correctness is verified via the repo's own generator, `sqlite-push.ts` and
+   `verify:mysql` (266/266 models).
+6. The live-MySQL suite (15 tests) skips locally without `MYSQL_TEST_URL`; it
+   runs in GitHub Actions via `.github/workflows/mysql.yml`.

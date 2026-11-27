@@ -13,6 +13,7 @@ const PUBLIC_PATHS: { path: string; priority: number; changeFrequency: 'weekly' 
   { path: '/', priority: 1, changeFrequency: 'weekly' },
   { path: '/site/services', priority: 0.95, changeFrequency: 'weekly' },
   { path: '/site/platform-overview', priority: 0.9, changeFrequency: 'monthly' },
+  { path: '/site/stack', priority: 0.7, changeFrequency: 'monthly' },
   { path: '/site/solutions', priority: 0.85, changeFrequency: 'weekly' },
   { path: '/site/how-we-work', priority: 0.8, changeFrequency: 'monthly' },
   { path: '/site/projects', priority: 0.8, changeFrequency: 'monthly' },

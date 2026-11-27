@@ -4,9 +4,9 @@ import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-
 
 // GET /api/jobs/stats — aggregate job statistics
 export async function GET(request: NextRequest) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const [wfTotal, wfRunning, wfCompleted, wfFailed, wfAvg] = await Promise.all([
       db.workflowRun.count({ where: tenantWhere(tenant) }),
       db.workflowRun.count({ where: tenantWhere(tenant, { status: 'running' }) }),
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       db.agentRun.count({ where: tenantWhere(tenant, { status: 'completed' }) }),
       db.agentRun.count({ where: tenantWhere(tenant, { status: 'failed' }) }),
       db.agentRun.aggregate({
-        where: { status: 'completed', durationMs: { not: null } },
+        where: tenantWhere(tenant, { status: 'completed', durationMs: { not: null } }),
         _avg: { durationMs: true },
       }),
     ]);

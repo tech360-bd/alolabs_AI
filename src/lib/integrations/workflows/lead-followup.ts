@@ -213,7 +213,7 @@ export async function enqueueLeadFollowup(params: {
     data: { objective: CRM_FOLLOWUP_OBJECTIVE, credentialId: params.credentialId, leadLimit: CRM_FOLLOWUP_REQUIRED_LEADS },
   });
   try {
-    await enqueue(RUN_QUEUE, CRM_FOLLOWUP_JOB_TYPE, { runId: run.id }, {
+    await enqueue(RUN_QUEUE, CRM_FOLLOWUP_JOB_TYPE, { runId: run.id, companyId: params.companyId }, {
       priority: 20,
       maxRetries: 0,
       idempotencyKey: `crm-followup:${run.id}`,

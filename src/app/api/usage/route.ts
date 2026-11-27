@@ -4,28 +4,25 @@ import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-
 import { Prisma } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const { searchParams } = new URL(request.url);
     const companySlug = searchParams.get('company') || '';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
 
-    let companyName: string | undefined;
     if (companySlug) {
       const company = await db.company.findFirst({
         where: { slug: companySlug, id: tenant.companyId },
-        select: { name: true },
+        select: { id: true },
       });
-      if (company) {
-        companyName = company.name;
+      if (!company) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }
 
-    const baseWhere: Prisma.UsageLogWhereInput = companyName
-      ? { companyName }
-      : {};
+    const baseWhere: Prisma.UsageLogWhereInput = tenantWhere(tenant);
 
     const [logs, total, completedCount, failedCount, blockedCount, totalTokensResult] =
       await Promise.all([

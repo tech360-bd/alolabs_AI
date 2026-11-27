@@ -117,7 +117,7 @@ const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'
  * calls the handler.
  */
 const AUTH_HELPER_RE =
-  /@\/lib\/portal\/auth|@\/lib\/internal\/auth|@\/lib\/api\/legacy-session|@\/lib\/platform\/http|clientRoute|internalRoute|legacyTenant|platformRoute|@\/lib\/api-auth|@\/lib\/route-auth|@\/lib\/auth|@\/lib\/v1\b|@\/lib\/v1'|@\/lib\/voice\/api-helpers|v1Handler|secureRoute|requireAuth|withAuth|withCompany|authenticate|verifySession|verifySessionToken|verifyToken|getSession|getLockoutStatus/;
+  /@\/lib\/portal\/auth|@\/lib\/internal\/auth|@\/lib\/api\/legacy-session|@\/lib\/platform\/http|clientRoute|internalRoute|legacyTenant|platformRoute|platformHandler|@\/lib\/api-auth|@\/lib\/route-auth|@\/lib\/auth|@\/lib\/v1\b|@\/lib\/v1'|@\/lib\/voice\/api-helpers|v1Handler|secureRoute|requireAuth|withAuth|withCompany|authenticate|verifySession|verifySessionToken|verifyToken|getSession|getLockoutStatus/;
 
 const apiDir = join(root, 'src/app/api');
 if (!existsSync(apiDir)) {
@@ -143,6 +143,17 @@ for (const file of walk(apiDir)) {
 
 /** @type {Record<string, string>} */
 const EXCEPTIONS = {
+  // The stack register is public in two forms: the exact list at /api/ecosystem
+  // and the per-row detail beneath it. The exact entry cannot legitimately cover
+  // a descendant, so the descendant is listed here rather than left to inherit
+  // publicity by accident. Verified: both handlers read only static catalogue
+  // data from @/lib/ecosystem — no db import, no companyId, no process.env, no
+  // tenant data — and both are also covered by the /api/ecosystem/ prefix entry
+  // in src/proxy.ts.
+  '/api/ecosystem/[slug]':
+    'Intentionally public catalogue detail beneath the exact /api/ecosystem entry; ' +
+    'static data only (no db import, no companyId, no tenant data), also covered by ' +
+    "the '/api/ecosystem/' prefix allowlist entry.",
   '/api/enterprise/roadmap':
     'Serves static content from @/lib/enterprise-roadmap. Verified: no db import, ' +
     'no companyId, no process.env, no tenant data. Not in the edge allowlist, so a ' +

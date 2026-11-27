@@ -3,8 +3,8 @@ import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  const tenant = await legacyTenant(request);
   try {
+    const tenant = await legacyTenant(request);
     const agents = await db.agent.findMany({
       where: tenantWhere(tenant),
       select: {
