@@ -22,7 +22,15 @@ export type AIProvider =
   | 'groq'
   | 'deepseek'
   | 'mistral'
-  | 'qwen';
+  | 'qwen'
+  /** Self-hosted OpenAI-compatible servers (2026-11-27 jarvis-ai audit). */
+  | 'vllm'
+  | 'localai'
+  | 'litellm-proxy'
+  | 'tgi'
+  | 'lm-studio'
+  | 'jan'
+  | 'text-generation-webui';
 
 export type AIModelFamily = 'glm' | 'qwen' | 'deepseek' | 'llama' | 'gemma' | 'phi' | 'mistral' | 'codestral' | 'command-r' | 'yi' | 'starcoder' | 'custom';
 
