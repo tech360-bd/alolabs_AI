@@ -53,10 +53,23 @@ print('-- local dump test')''')
         (self.app/'.env').write_text('DATABASE_URL=mysql://user:%zz@localhost/test');self.assertNotEqual(self.finish(self.start()),0); self.assertFalse(list(self.store.iterdir()))
 
     def test_interrupt(self):
+        # Wait for the staging directory itself, not merely a moment in time.
+        #
+        # This used to poll 100 times at 20ms and then signal regardless. On a
+        # loaded CI runner the loop could exhaust before backup.sh had created
+        # its staging dir: the signal then arrived before there was anything to
+        # clean up, and the assertion that no snapshot remains was satisfiable
+        # without the cleanup path ever running — a test that passed for the
+        # wrong reason. The file agreeing on a fixed sleep, the wait is now
+        # explicit: either the stage appears (and the interrupt is real) or the
+        # test fails loudly instead of pretending.
         self.mock('import time;time.sleep(60)');p=self.start()
-        for _ in range(100):
-            if list(self.store.glob('.stage-*')): break
+        staged=False
+        for _ in range(500):
+            if list(self.store.glob('.stage-*')): staged=True; break
+            if p.poll() is not None: break
             time.sleep(.02)
+        self.assertTrue(staged,'backup.sh never created a staging directory; cannot test interrupt')
         os.killpg(p.pid,signal.SIGTERM); self.assertNotEqual(self.finish(p),0); self.assertFalse(list(self.store.iterdir()))
 
     def test_retention_ignores_corrupt_and_incomplete_sets(self):
