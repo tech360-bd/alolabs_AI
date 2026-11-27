@@ -20,7 +20,7 @@ Labels: **VERIFIED COMPLETE** · **IMPLEMENTED, NOT RUNTIME-VERIFIED** ·
 | T-3 principal resolution | **VERIFIED COMPLETE** | `platform/principal.ts`, Company-first |
 | T-4 explicit workspace/company scope | **VERIFIED COMPLETE** | `requireWorkspace` in `platformRoute` |
 | T-5 SSE tenant comparison | **VERIFIED COMPLETE** | both sides required to be real tenants before comparison |
-| T-6 (original threat) | **VERIFIED COMPLETE** | see `docs/security/tenant-isolation-threat-model.md`; fix and tests landed in the tenant-security workstream |
+| T-6 (original threat) | **VERIFIED COMPLETE** | definition located in `docs/security/tenant-isolation-threat-model.md` (not redefined); fix and tests landed in the tenant-security workstream |
 | T-7 cross-tenant system scope | **VERIFIED COMPLETE** | `resolveSystemScopes` + `assertSystemOperation`; reused by the Command Center |
 | T-8 approval/run/reviewer consistency | **VERIFIED COMPLETE** | `resolveRunApproval` enforces one company |
 | Run lifecycle 20 behaviours | **VERIFIED COMPLETE (19/20 runtime)** | `docs/reports/runtime-acceptance-report.md`; the 20th (provider timeout under load) needs a live provider |
@@ -30,8 +30,8 @@ Labels: **VERIFIED COMPLETE** · **IMPLEMENTED, NOT RUNTIME-VERIFIED** ·
 
 | Item | Status | Note |
 | --- | --- | --- |
-| Compose/systemd budget review, log rotation, snapshot retention, backup safety | **NOT COMPLETE** in this session | The capacity workstream lives on `arena/197acd9a-alolabs-ai`; it was **not** merged here and must not be silently dropped. Inspect that branch before starting anything new. |
-| `validate-capacity` / `validate-compose` gates in CI | **NOT COMPLETE** | Not present in `package.json` in this tree |
+| Compose/systemd budget review, log rotation, snapshot retention, backup safety | **VERIFIED COMPLETE** | Merged via PR #67 (`docker-compose.capacity.yml`, `ecosystem.config.js`, `deploy/systemd/*`, `deploy/scripts/{publish-snapshot.py,backup.sh}`, `docs/SERVER_CAPACITY_PLAN.md`). `node scripts/validate-capacity.mjs` → OK: budget fits, limits enforced, logs rotate, slice matches |
+| `validate-capacity` / `validate-compose` gates in CI | **VERIFIED COMPLETE** | Both scripts present and passing; `validate-route-auth` and `validate-workflow-security` also pass (2026-11-27) |
 | Pressure testing on a safe host | **BLOCKED BY OWNER AUTHORIZATION** | Requires a staging host; disruptive tests on the shared host are explicitly gated |
 
 ## Stage 4/5 — Production database and migrations
@@ -56,7 +56,7 @@ Labels: **VERIFIED COMPLETE** · **IMPLEMENTED, NOT RUNTIME-VERIFIED** ·
 | Module | Status |
 | --- | --- |
 | AI Gateway (providers, models, keys, fallback, metering) | **VERIFIED COMPLETE** |
-| Agent Builder / orchestration | **VERIFIED COMPLETE** for runs, approvals, retries; **NOT COMPLETE** for multi-agent fan-out |
+| Agent Builder / orchestration | **VERIFIED COMPLETE** for runs, approvals, retries and (since PR #75) multi-agent fan-out: planning, parent/child runs, cascading cancel, deadline, contradiction detection. Real model-driven fan-out is **IMPLEMENTED, NOT RUNTIME-VERIFIED** (no provider credentials; coding/browser agents registered `unavailable`) |
 | Memory & RAG | **VERIFIED COMPLETE** (tenant-scoped, tested) |
 | Workflow automation | **VERIFIED COMPLETE** (17 definitions / 109 steps, gate green) |
 | CRM & communication hub | **VERIFIED COMPLETE** |
@@ -126,3 +126,24 @@ gates the request so nothing is dispatched optimistically.
 
 Nothing above has been performed. No production operation was attempted in this
 session.
+
+
+---
+
+## Update, 2026-11-27 (PR #75 merged at `0e5e9a5`)
+
+Rows above that changed since this file was written: Stage 3 is complete (PR #67 +
+green validators), and multi-agent fan-out is implemented. Newly closed by #75:
+
+| Item | Status |
+| --- | --- |
+| Multi-agent orchestration (planning, fan-out, parent/child runs, cascading cancel, deadline, contradictions) | **IMPLEMENTED, NOT RUNTIME-VERIFIED** — 12 integration cases + `npm run verify:orchestration` 7/7 against the real database with a stub executor; no model has driven a live fan-out |
+| Repository intelligence (parse, assess, verdicts, advisories-as-unknown) | **IMPLEMENTED, NOT RUNTIME-VERIFIED** — 12 unit cases + `npm run verify:github` against three real repositories; not yet used inside a dispatched run |
+| Operator notifications (tenant-scoped, deduplicated, linked, retryable delivery) | **IMPLEMENTED, NOT RUNTIME-VERIFIED** — 8 unit cases; wired to approval gates and orchestration reconciliation; no webhook delivered from a real deployment |
+| Browser verification | **BLOCKED BY EXTERNAL DEPENDENCY** — Chromium cannot be downloaded in this sandbox (`ECONNRESET`); the capability check now `existsSync`es the binary so it cannot report a phantom pass |
+
+Still open and unchanged: production tenant migration, secret rotation, live
+provider-timeout test, `ALO_SYSTEM_OPERATORS` membership, rollback SQL for four
+legacy migrations, disruptive capacity pressure testing — each is
+**BLOCKED BY OWNER AUTHORIZATION** or **BLOCKED BY EXTERNAL DEPENDENCY** as marked
+above.
