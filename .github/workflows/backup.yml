@@ -67,6 +67,12 @@ jobs:
         env:
           BACKUP_CODE_DIGEST: ${{ steps.backup-code.outputs.digest }}
           PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
+          # Status reporting: the host posts each attempt back to the application so
+          # a backup that never runs is visible on the dashboard instead of silently
+          # disappearing into an unopened workflow run. Both may be unset; the host
+          # script then skips reporting and the monitor still detects staleness.
+          ALO_OPS_STATUS_URL: ${{ vars.OPS_STATUS_URL }}
+          BACKUP_INGEST_TOKEN: ${{ secrets.BACKUP_INGEST_TOKEN }}
         with:
           fingerprint: ${{ secrets.PRODUCTION_HOST_FINGERPRINT }}
           host: ${{ secrets.PRODUCTION_HOST }}
@@ -74,7 +80,7 @@ jobs:
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           port: ${{ secrets.PRODUCTION_PORT }}
           command_timeout: 30m
-          envs: PRODUCTION_APP_DIR,BACKUP_CODE_DIGEST
+          envs: PRODUCTION_APP_DIR,BACKUP_CODE_DIGEST,ALO_OPS_STATUS_URL,BACKUP_INGEST_TOKEN
           script: |
             set -euo pipefail
             # The application directory is resolved, never assumed: a wrong
@@ -122,7 +128,10 @@ jobs:
             fi
             echo "${PREFLIGHT_OUT}"
 
-            if ! BACKUP_OUT="$(sudo -n APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/scripts/backup.sh" 2>&1)"; then
+            # --verify-restore: restore the dump into an isolated directory and read
+            # it back. "Uploaded" is not "recoverable", and the previous manifest
+            # recorded restore_tested:false forever.
+            if ! BACKUP_OUT="$(sudo -n APP_DIR="${APP_DIR}" ALO_OPS_STATUS_URL="${ALO_OPS_STATUS_URL:-}" BACKUP_INGEST_TOKEN="${BACKUP_INGEST_TOKEN:-}" bash "${APP_DIR}/deploy/scripts/backup.sh" --verify-restore 2>&1)"; then
               echo "${BACKUP_OUT}"
               annotate "Backup failed" "$(printf '%s\n' "${BACKUP_OUT}" | tail -n 4 | tr '\n' '|')"
               exit 1

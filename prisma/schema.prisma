@@ -1852,6 +1852,41 @@ model Notification {
   @@index([createdAt])
 }
 
+/// One attempt at a verified production backup, reported by the host workflow.
+///
+/// Platform-level infrastructure, not a tenant record: `companyId` stays null and
+/// only super administrators can read the table. The point of persisting it is
+/// that a backup that silently stops running is the failure mode nobody notices —
+/// a row with a timestamp makes staleness detectable and alertable.
+model BackupRun {
+  id                String    @id @default(cuid())
+  environment       String    @default("production")
+  /// running | succeeded | failed
+  status            String
+  /// secrets | preflight | dump | storage | checksum | publish | restore | unknown
+  stage             String?
+  startedAt         DateTime  @default(now())
+  finishedAt        DateTime?
+  durationMs        Int?
+  databaseProvider  String?
+  artifactPath      String?
+  artifactBytes     BigInt?
+  checksum          String?
+  restoreTested     Boolean   @default(false)
+  restoreVerifiedAt DateTime?
+  commit            String?
+  /// Redacted, length-capped excerpt. Never a connection string, key or token.
+  failureExcerpt    String?
+  /// workflow | manual | checker
+  source            String    @default("workflow")
+  metadata          String?
+  createdAt         DateTime  @default(now())
+
+  @@index([environment, finishedAt])
+  @@index([status])
+  @@index([createdAt])
+}
+
 model FeatureFlag {
   id                String   @id @default(cuid())
   key               String   @unique
