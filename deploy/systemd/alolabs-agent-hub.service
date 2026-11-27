@@ -55,8 +55,11 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=alolabs-agent-hub
 
-# Resource limits
-MemoryMax=4G
+# Resource limits — sized for a 16 GB host shared with other projects
+# (docs/SERVER_CAPACITY_PLAN.md §2). MemoryHigh is the soft wall the kernel
+# reclaims against first; MemoryMax is the hard OOM wall.
+MemoryHigh=2560M
+MemoryMax=3072M
 CPUQuota=200%
 
 [Install]

@@ -31,6 +31,46 @@ export {
 export type { CrmLead, CrmFailureKind, LeadReadOutcome } from './connectors/crm/alo-lead-api';
 export type { VideoJob, VideoJobStatus } from './connectors/media/video-gen';
 
+// ─── Wave-2: free / open systems (docs/FREE_SYSTEMS_INTEGRATION.md) ──────────
+export { litellmAdapter, litellmListModels, litellmChat } from './connectors/gateway/litellm';
+export type { LiteLLMModel } from './connectors/gateway/litellm';
+export { omnirouteAdapter, omnirouteListModels } from './connectors/gateway/omniroute';
+export { freeClaudeCodeAdapter, freeClaudeCodeListModels } from './connectors/gateway/free-claude-code';
+export { librechatAdapter, librechatListModels } from './connectors/ai-chat/librechat';
+export { openWebuiAdapter, openWebuiListModels } from './connectors/ai-chat/open-webui';
+export { aiderAdapter, aiderFormatHunks, aiderParseHunks } from './connectors/coding-agent/aider';
+export type { AiderHunk } from './connectors/coding-agent/aider';
+export { sweAgentAdapter, sweValidateTrajectory } from './connectors/coding-agent/swe-agent';
+export type { SweTrajectoryStep } from './connectors/coding-agent/swe-agent';
+export {
+  toolLoopAdapter,
+  toolLoopShouldContinue,
+  DEFAULT_TOOL_LOOP_POLICY,
+} from './connectors/coding-agent/tool-loop';
+export type { ToolLoopPolicy } from './connectors/coding-agent/tool-loop';
+export { directusAdapter, directusListItems } from './connectors/content/directus';
+export { grapesjsAdapter, grapesSanitizeTemplate } from './connectors/content/grapesjs';
+export type { GrapesTemplate } from './connectors/content/grapesjs';
+export { activepiecesAdapter, activepiecesListFlows } from './connectors/automation/activepieces';
+export { nocobaseAdapter, nocobaseListCollections } from './connectors/automation/nocobase';
+export { temporalAdapter } from './connectors/automation/temporal';
+export {
+  jarvisAdapter,
+  jarvisRequiresApproval,
+  jarvisAllowsCloud,
+} from './connectors/automation/jarvis';
+export type { JarvisPrivacyMode, JarvisApproval } from './connectors/automation/jarvis';
+export { caproverAdapter } from './connectors/deploy/caprover';
+export { dokkuAdapter, dokkuValidateSpec } from './connectors/deploy/dokku';
+export type { DokkuDeploySpec } from './connectors/deploy/dokku';
+export { callGptAdapter, callGptValidateCall } from './connectors/telephony/call-gpt';
+export type { CallGptFunctionCall } from './connectors/telephony/call-gpt';
+export { aiNativeCallcenterAdapter } from './connectors/telephony/ai-native-callcenter';
+export { callIntelligenceAdapter, callIntelValidate } from './connectors/telephony/call-intelligence';
+export type { CallIntelligenceSummary } from './connectors/telephony/call-intelligence';
+export { infiniteTalkAdapter } from './connectors/media/infinite-talk';
+export type { InfiniteTalkJob } from './connectors/media/infinite-talk';
+
 import { integrationRegistry } from './registry';
 import { twentyAdapter } from './connectors/crm/twenty';
 import { frappeAdapter } from './connectors/crm/frappe';
@@ -38,10 +78,30 @@ import { httpsmsAdapter } from './connectors/messaging/httpsms';
 import { rsshubAdapter } from './connectors/content/rsshub';
 import { videoGenAdapter } from './connectors/media/video-gen';
 import { aloLeadApiAdapter } from './connectors/crm/alo-lead-api';
+import { litellmAdapter } from './connectors/gateway/litellm';
+import { omnirouteAdapter } from './connectors/gateway/omniroute';
+import { freeClaudeCodeAdapter } from './connectors/gateway/free-claude-code';
+import { librechatAdapter } from './connectors/ai-chat/librechat';
+import { openWebuiAdapter } from './connectors/ai-chat/open-webui';
+import { aiderAdapter } from './connectors/coding-agent/aider';
+import { sweAgentAdapter } from './connectors/coding-agent/swe-agent';
+import { toolLoopAdapter } from './connectors/coding-agent/tool-loop';
+import { directusAdapter } from './connectors/content/directus';
+import { grapesjsAdapter } from './connectors/content/grapesjs';
+import { activepiecesAdapter } from './connectors/automation/activepieces';
+import { nocobaseAdapter } from './connectors/automation/nocobase';
+import { temporalAdapter } from './connectors/automation/temporal';
+import { jarvisAdapter } from './connectors/automation/jarvis';
+import { caproverAdapter } from './connectors/deploy/caprover';
+import { dokkuAdapter } from './connectors/deploy/dokku';
+import { callGptAdapter } from './connectors/telephony/call-gpt';
+import { aiNativeCallcenterAdapter } from './connectors/telephony/ai-native-callcenter';
+import { callIntelligenceAdapter } from './connectors/telephony/call-intelligence';
+import { infiniteTalkAdapter } from './connectors/media/infinite-talk';
 
 let bootstrapped = false;
 
-/** Idempotent registration of the Wave-1 connector set. */
+/** Idempotent registration of the Wave-1 + Wave-2 connector set (26 adapters). */
 export function bootstrapIntegrations(): void {
   if (bootstrapped) return;
   integrationRegistry.register(twentyAdapter);
@@ -50,6 +110,27 @@ export function bootstrapIntegrations(): void {
   integrationRegistry.register(rsshubAdapter);
   integrationRegistry.register(videoGenAdapter);
   integrationRegistry.register(aloLeadApiAdapter);
+  // Wave-2 free/open systems — same ONE Runtime contract, same license gates.
+  integrationRegistry.register(litellmAdapter);
+  integrationRegistry.register(omnirouteAdapter);
+  integrationRegistry.register(freeClaudeCodeAdapter);
+  integrationRegistry.register(librechatAdapter);
+  integrationRegistry.register(openWebuiAdapter);
+  integrationRegistry.register(aiderAdapter);
+  integrationRegistry.register(sweAgentAdapter);
+  integrationRegistry.register(toolLoopAdapter);
+  integrationRegistry.register(directusAdapter);
+  integrationRegistry.register(grapesjsAdapter);
+  integrationRegistry.register(activepiecesAdapter);
+  integrationRegistry.register(nocobaseAdapter);
+  integrationRegistry.register(temporalAdapter);
+  integrationRegistry.register(jarvisAdapter);
+  integrationRegistry.register(caproverAdapter);
+  integrationRegistry.register(dokkuAdapter);
+  integrationRegistry.register(callGptAdapter);
+  integrationRegistry.register(aiNativeCallcenterAdapter);
+  integrationRegistry.register(callIntelligenceAdapter);
+  integrationRegistry.register(infiniteTalkAdapter);
   bootstrapped = true;
 }
 

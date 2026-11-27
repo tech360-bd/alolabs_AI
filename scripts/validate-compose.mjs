@@ -100,11 +100,22 @@ const promConfig = read('deploy/prometheus.yml');
 
 const baseServices = servicesOf(baseText);
 const prodServices = servicesOf(prodText);
+// The capacity overlay is applied on a shared host; a service name that the
+// base file does not define makes `docker compose up` abort, exactly like the
+// prod overlay would.
+const capacityPath = 'docker-compose.capacity.yml';
+const capacityText = existsSync(join(root, capacityPath)) ? read(capacityPath) : '';
+const capacityServices = capacityText ? servicesOf(capacityText) : [];
 
 // ─── 1. prod may only override services the base defines ───────────────────
 for (const svc of prodServices) {
   if (!baseServices.includes(svc)) {
     fail(`docker-compose.prod.yml overrides "${svc}", which docker-compose.yml does not define`);
+  }
+}
+for (const svc of capacityServices) {
+  if (!baseServices.includes(svc)) {
+    fail(`${capacityPath} overrides "${svc}", which docker-compose.yml does not define`);
   }
 }
 
@@ -264,6 +275,9 @@ for (const [file, text] of [['docker-compose.yml', baseText], ['docker-compose.p
 // ─── report ────────────────────────────────────────────────────────────────
 console.log(`validate-compose: ${baseServices.length} base services [${baseServices.join(', ')}]`);
 console.log(`validate-compose: ${prodServices.length} prod overrides [${prodServices.join(', ')}]`);
+if (capacityServices.length) {
+  console.log(`validate-compose: ${capacityServices.length} capacity overrides [${capacityServices.join(', ')}]`);
+}
 
 if (violations.length) {
   console.error(`\nvalidate-compose: FAILED with ${violations.length} violation(s)\n`);

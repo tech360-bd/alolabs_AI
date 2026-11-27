@@ -55,9 +55,26 @@ def publish(stage, final):
         stage.rename(final)
         # Old-format, staging and invalid directories are neither counted nor deleted.
         valid = [p for p in root.iterdir() if re.fullmatch(r'\d{8}T\d{6}Z-[A-Za-z0-9]+', p.name) and not p.is_symlink() and p.is_dir() and verified(p)]
+        # Retention keeps the newest RETAIN_COUNT snapshots and additionally
+        # drops ones older than RETAIN_MAX_AGE_DAYS — but a snapshot is deleted
+        # only when it exceeds BOTH bounds. Deleting on either bound alone is
+        # unsafe: with a single valid snapshot present (a fresh host, or after a
+        # run of failed backups) the age bound would delete the ONLY restorable
+        # copy. tests/reliability/snapshots.py pins that guarantee.
+        #
+        # The previous 14/15-day pair kept two weeks of full copies, which can
+        # fill a shared 520 GB disk. 7/7 is the default and is overridable per
+        # host (docs/SERVER_CAPACITY_PLAN.md §4).
+        retain_count = int(os.environ.get('ALO_BACKUP_RETAIN_COUNT', '7'))
+        retain_max_age = int(os.environ.get('ALO_BACKUP_RETAIN_DAYS', '7')) * 86400
         valid.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-        for p in valid[14:]:
-            if p != final and time.time() - p.stat().st_mtime > 15 * 86400:
+        for index, p in enumerate(valid):
+            if p == final:
+                continue
+            too_many = index >= retain_count
+            too_old = time.time() - p.stat().st_mtime > retain_max_age
+            # Never leave fewer than retain_count restorable snapshots behind.
+            if too_many and too_old and len(valid) - 1 >= retain_count:
                 shutil.rmtree(p)
     finally:
         os.close(fd)

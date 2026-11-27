@@ -1,0 +1,183 @@
+# ============================================================
+# ALO Labs AgentOS — Host Capacity / Multi-Project Overrides
+#
+# Target host: 16 GB RAM, 520 GB SSD, shared with OTHER projects.
+#
+# Usage
+#   # Project 1 (this app) with a reserved budget:
+#   docker compose -f docker-compose.yml \
+#                  -f docker-compose.prod.yml \
+#                  -f docker-compose.capacity.yml up -d
+#
+#   # Whole-host check before you start: does the budget fit?
+#   node scripts/validate-capacity.mjs
+#
+#   # On the live host: install the hard outer wall (cgroup v2) so other
+#   # projects can never starve this one, then verify:
+#   sudo deploy/systemd/alolabs-agentos-slice.conf        # install the drop-in
+#   systemd-cgtop -m                                      # watch memory per slice
+#
+# WHY A SEPARATE FILE
+#   docker-compose.prod.yml is the *hardening* overlay and deliberately carries
+#   no deploy.resources block (it is ignored by `docker compose` outside Swarm
+#   mode and misleads operators). Applies-to-all limits shown as comments there
+#   were therefore non-functional. This file carries `mem_limit` / `cpus`,
+#   which the Compose v2 non-Swarm runtime DOES enforce, and is applied
+#   explicitly so a single-project host is not silently capped.
+#
+# BUDGET (16 GB total, this project is first)
+#   ┌────────────────────────┬──────────┬─────────────────────────────────────┐
+#   │ app                    │ 3.0 GB   │ Next.js standalone + in-process      │
+#   │                        │          │ worker (src/instrumentation.node.ts) │
+#   │ redis                  │ 0.75 GB  │ maxmemory 512mb + AOF overhead       │
+#   │ qdrant                 │ 1.5 GB   │ vectors + HNSW index                 │
+#   │ minio                  │ 0.75 GB  │ object store (disk growth lives here)│
+#   │ caddy                  │ 0.25 GB  │ TLS + reverse proxy                  │
+#   │ prometheus             │ 0.75 GB  │ 30d retention on local TSDB          │
+#   │ grafana                │ 0.5 GB   │ dashboards                           │
+#   │ mariadb (tools only)   │ 1.5 GB   │ 512M buffer pool + connections       │
+#   ├────────────────────────┼──────────┼─────────────────────────────────────┤
+#   │ project 1 total        │ 9.0 GB   │ core stack is 7.5 GB (no mariadb)    │
+#   │ host + docker daemon   │ 1.0 GB   │ page cache, dockerd, OS              │
+#   │ reserved for others    │ ~6.0 GB  │ projects 2..N                        │
+#   └────────────────────────┴──────────┴─────────────────────────────────────┘
+#   Ollama / n8n are NOT part of this budget: docker-compose.inference.yml is
+#   the only file that runs them, gated behind review, and llama.cpp with a
+#   realistic model needs more RAM than is left here. Do not enable it on this
+#   host while other projects share it.
+#
+# THESE ARE BUDGET-CEILINGS, NOT A RESERVATION
+#   mem_limit stops a service from *exceeding* its ceiling. It does not stop
+#   another project's container from eating the host. The reservation is the
+#   systemd slice in deploy/systemd/alolabs-agentos-slice.conf (MemoryMin /
+#   CPUWeight). Install it on the host for the guarantee.
+#
+# Every service named here must exist in docker-compose.yml; compose aborts
+# otherwise. scripts/validate-capacity.mjs and scripts/validate-compose.mjs
+# both check that invariant in CI.
+# ============================================================
+
+services:
+  # ── Next.js app + in-process worker ───────────────────────────
+  # 3 GB ceiling: the worker runs inside this process (instrumentation.ts
+  # registers it on boot), so a 1G cap — as in ecosystem.config.js — would
+  # kill long orchestrator runs. Keep `max_memory_restart` in PM2 for the
+  # bare-metal path, but for Docker rely on this limit + restart policy.
+  app:
+    mem_limit: ${APP_MEM_LIMIT:-3g}
+    mem_reservation: 768m
+    cpus: ${APP_CPUS:-2.0}
+    # Application logs, not the app's own files: without a cap the json-file
+    # driver grows until the disk is full. 50 MB × 5 files per service.
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ── Redis ─────────────────────────────────────────────────────
+  # Keep in step with --maxmemory in docker-compose.prod.yml (512mb) plus AOF.
+  redis:
+    mem_limit: 768m
+    mem_reservation: 192m
+    cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── Qdrant ────────────────────────────────────────────────────
+  qdrant:
+    mem_limit: 1536m
+    mem_reservation: 384m
+    cpus: "2.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── MinIO ─────────────────────────────────────────────────────
+  # Object store memory is small; DISK is the growth vector. See
+  # docs/SERVER_CAPACITY_PLAN.md §4 for the storage budget and rotation.
+  minio:
+    mem_limit: 768m
+    mem_reservation: 192m
+    cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── Caddy ─────────────────────────────────────────────────────
+  caddy:
+    mem_limit: 256m
+    mem_reservation: 64m
+    cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── Prometheus ────────────────────────────────────────────────
+  # 30d local TSDB (see the retention flag in docker-compose.yml). On a
+  # 520 GB disk shared with other projects, 0.75 GB of RAM is the safe ceiling
+  # and ~2 GB of scrape data is the realistic steady state mid-size host.
+  prometheus:
+    mem_limit: 768m
+    mem_reservation: 192m
+    cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── Grafana ───────────────────────────────────────────────────
+  grafana:
+    mem_limit: 512m
+    mem_reservation: 128m
+    cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── MariaDB (tools profile only) ──────────────────────────────
+  # Matches innodb_buffer_pool_size=512M in deploy/docker/mariadb-custom.cnf.
+  # Production uses a separately provisioned database; when this container is
+  # the database, 1.5 GB is the floor that keeps the buffer pool warm.
+  mariadb:
+    mem_limit: 1536m
+    mem_reservation: 512m
+    cpus: "2.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── Optional socket services (sockets profile) ────────────────
+  queue-service:
+    mem_limit: 512m
+    mem_reservation: 128m
+    cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  realtime-service:
+    mem_limit: 512m
+    mem_reservation: 128m
+    cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
