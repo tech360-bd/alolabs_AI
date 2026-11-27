@@ -14,15 +14,15 @@ All code defects blocking CI/build on `main`, all multi-tenant security exposure
 - **TypeScript (`src/` + Next route types):** `npm run typecheck` → **0 errors**
 - **TypeScript (`__tests__/`):** `npm run typecheck:tests` → **0 errors**
 - **ESLint:** `npm run lint` → **0 errors**
-- **Route Classification Gate:** `npm run verify:routes` → **542 / 542 route files classified (`0` unclassified)**
-- **Route Auth Audit Gate:** `node scripts/validate-route-auth.mjs` → **542 route files, 856 non-public handlers OK**
+- **Route Classification Gate:** `npm run verify:routes` → **544 / 544 route files classified (`0` unclassified)** *(re-verified 2026-11-27)*
+- **Route Auth Audit Gate:** `node scripts/validate-route-auth.mjs` → **544 route files, 856 non-public handlers OK, 21 allowlist entries, 2 documented exceptions**
 - **MySQL / SQLite Dual Schema Parity:** `npm run verify:mysql` → **266 / 266 models, 669 indexed fields, 0 parity errors, 0 collisions**
 - **Migration Safety Gate:** `npm run verify:migrations` → **15 forward, 12 rollback, all paired, 0 destructive forward DDL**
 - **Prisma Delegate Check:** `npm run check:prisma-delegates` → **227 delegates verified**
 - **Workflow & Skill Registries:** `npm run check:workflows` (**17 definitions, 109 steps, 0 errors**) & `npm run skills:verify` (**838 skills, 0 problems**)
-- **Vitest Automated Matrix:** `npx vitest run` → **244 test files passed, 1 skipped, 0 failed** (**2,689 tests passed**, 15 skipped in `mysql-compatibility.test.ts` pending a live `MYSQL_TEST_URL` container in CI)
+- **Vitest Automated Matrix:** `npx vitest run` → **246 test files passed, 1 skipped, 0 failed** (**2,717 tests passed**, 15 skipped in `mysql-compatibility.test.ts` pending a live `MYSQL_TEST_URL` container in CI)
 - **Node Native Test Suite:** `node --test __tests__/**/*.node*.mjs` → **7 / 7 passed**
-- **Production Build & Standalone Packaging:** `PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build` → **PASS** (Next.js 16.4.6 compile + generate + standalone packaging + CJS mini-services + `verify-standalone.mjs` across 9,191 files with 0 leaked secrets/DBs)
+- **Production Build & Standalone Packaging:** `PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build` → **PASS** (Next.js 16.4.6 compile + generate + standalone packaging + CJS mini-services + `verify-standalone.mjs` across 11,373 files with 0 leaked secrets/DBs)
 
 ---
 

@@ -66,15 +66,15 @@ then `5e5c9a4`). Exact commands and outputs, from the final state:
 | Typecheck (`src/`) | `npm run typecheck` | **PASS** — 0 errors |
 | Typecheck (`__tests__/`) | `npm run typecheck:tests` | **PASS** — 0 errors |
 | Lint | `npm run lint` | **PASS** — 0 errors |
-| Route classification + migration safety | `npm run verify:security` | **PASS** — 542/542 classified, 0 unclassified; 15 forward / 12 rollback paired, 0 destructive DDL |
-| Route auth gate | `node scripts/validate-route-auth.mjs` | **PASS** — 542 files, 856 non-public handlers, 19 allowlist entries, 1 documented exception |
+| Route classification + migration safety | `npm run verify:security` | **PASS** — 544/544 classified, 0 unclassified; 15 forward / 12 rollback paired, 0 destructive DDL *(re-run 2026-11-27)* |
+| Route auth gate | `node scripts/validate-route-auth.mjs` | **PASS** — 544 files, 856 non-public handlers, 21 allowlist entries, 2 documented exceptions |
 | Dual-schema parity | `npm run verify:mysql` | **PASS** — 266/266 models, 669 indexed fields, 0 parity errors, 0 collisions |
 | Prisma delegates | `npm run check:prisma-delegates` | **PASS** — 227 delegates |
 | Workflows / skills | `npm run check:workflows` · `npm run skills:verify` | **PASS** — 17 definitions / 109 steps; 838 skills, 0 problems |
 | Security suites | `npx vitest run __tests__/security` | **PASS** — 7 files, 50 tests |
-| Full matrix | `npx vitest run` | **PASS** — 244 files passed / 1 skipped (live MySQL), **2,689 tests passed**, 0 failed, 15 skipped |
+| Full matrix | `npx vitest run` | **PASS** — 246 files passed / 1 skipped (live MySQL), **2,717 tests passed**, 0 failed, 15 skipped *(2026-11-27)* |
 | Native runner | `node --test __tests__/**/*.node*.mjs` | **PASS** — 7/7 |
-| Production build | `PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build` | **PASS** — exit 0; standalone bundle 9,191 files verified; packaged `realtime-service.cjs` / `queue-service.cjs` load cleanly |
+| Production build | `PRISMA_SQLITE_ADAPTER=1 DATABASE_URL=file:./db/custom.db npm run build` | **PASS** — exit 0; standalone bundle 11,373 files verified; packaged `realtime-service.cjs` / `queue-service.cjs` load cleanly *(2026-11-27)* |
 
 What the merge passes found, and what was fixed:
 
@@ -476,6 +476,28 @@ external blocker, not an unfinished feature.
 **Production migration is BLOCKED pending explicit DB authorization, a verified
 backup and a tested rollback on a disposable database.** Local schema work is
 complete and the application already fails closed without it.
+
+## Ecosystem adoption sweep (2026-11-27)
+
+Fifteen upstream links arrived in one request (Monid, SignuDoc, FloppyData cloud
+browser, LiteLLM, NocoBase, Temporal, Activepieces, Directus, Aider, LibreChat,
+Open WebUI, YouBTech01, vLLM, free-for.dev, Postman). Nothing was deleted and
+nothing already built was re-implemented — the sweep extended the two existing
+catalogues and finally gave them a surface:
+
+| Change | Evidence |
+| --- | --- |
+| `LINK_COVERAGE` 73 → **88 rows** (15 new, deduplicated against `vllm` and the two `free-for.dev` rows) | `__tests__/lib/link-coverage.test.ts` — 17 passed, every evidence path checked on disk |
+| **14 agent briefs** (use-when / steps / risks) attached to the systems an agent is most likely to touch | `src/lib/ecosystem/stack.ts`, pinned by `__tests__/unit/lib/ecosystem-stack.test.ts` (15 passed) |
+| `GET /api/ecosystem` + `/api/ecosystem/[slug]` — the first machine-readable view joining the register with the 26 registered adapters | `__tests__/api/ecosystem.test.ts` (9 passed); public by design, allowlisted with a written reason |
+| `/site/stack` public page (server-rendered, searchable, filterable) and a **Stack Register** dashboard panel — the adapter catalogue had no UI at all before | `src/app/site/stack/page.tsx`, `src/components/panels/ecosystem-stack-panel.tsx`, nav + sitemap entries |
+| **`stack_register` Command Agent tool** — the agent can answer *"do we already support X?"* from 88 rows locally, instead of proposing a system the codebase already has | `__tests__/unit/lib/ecosystem-stack.test.ts` (+4 tests); no network, no tenant context |
+| Verdicts stated honestly: 9 implemented · 28 in kind · 12 reference · 24 gap · 15 N/A | `docs/reports/ecosystem-stack-register.md` |
+
+Three of the requested systems are genuine, unimplemented gaps and are labelled
+as such rather than absorbed into a claim: **e-signature (SignuDoc)**,
+**cloud-browser sessions (FloppyData)**, and **a published OpenAPI document /
+Postman collection**. Each has a written next step in the register.
 
 ## Known limitations at this point
 

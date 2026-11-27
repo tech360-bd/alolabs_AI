@@ -16,6 +16,9 @@ import type { CoverageEntry } from './types';
 
 const CHECKED = '2026-10-26';
 
+// Second sweep: the AI-platform ecosystem links requested 2026-11-27.
+const REQUESTED_DATE = '2026-11-27';
+
 export const LINK_COVERAGE: CoverageEntry[] = [
   // Requested 2026-11-24: upstream availability checked via the GitHub API on
   // 2026-11-24. Local evidence below is related capability, not upstream
@@ -1102,6 +1105,205 @@ export const LINK_COVERAGE: CoverageEntry[] = [
     gap: 'If wanted: a Stack Exchange API ingestion job into /api/rag/ingest, respecting the site\'s attribution licence (CC BY-SA).',
     upstreamMeta: { checkedAt: CHECKED },
   },
+  // ─── Requested 2026-11-27: the AI-platform ecosystem, audit at call time ───
+  // These fifteen links arrived together. Eight of them already have a
+  // registered adapter under ONE Runtime, so the honest verdict is
+  // `implemented` — the adapter exists and is catalogue-visible, but no
+  // upstream instance is deployed by this repository. Three are genuine gaps
+  // (e-signature, cloud browser, OpenAPI export) and are labelled as such.
+  {
+    id: 'litellm-org', url: 'https://github.com/orgs/BerriAI/repositories', kind: 'repository', category: 'AI & models',
+    upstream: 'BerriAI — LiteLLM proxy and SDK: one OpenAI-compatible gateway in front of 100+ providers (Python core, MIT with separately licensed enterprise features).',
+    verdict: 'implemented',
+    claim: 'A LiteLLM adapter is registered under ONE Runtime as `gateway.litellm`, and the platform provider layer also treats LiteLLM as a provider kind, so a self-hosted proxy is a supported backend rather than a rewrite.',
+    evidence: [
+      { label: 'LiteLLM adapter', path: 'src/lib/integrations/connectors/gateway/litellm.ts', kind: 'library' },
+      { label: 'Adapter catalogue API', path: 'src/app/api/integrations/catalog/route.ts', kind: 'route' },
+      { label: 'Platform provider adapters', path: 'src/lib/platform/providers.ts', kind: 'library' },
+    ],
+    gap: 'No LiteLLM proxy is deployed here and no live-proxy contract test runs in CI; the adapter is exercised against a local stub only.',
+    upstreamMeta: { stars: 64009, language: 'Python', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'monid', url: 'https://github.com/monid-ai/monid.git', kind: 'repository', category: 'AI & models',
+    upstream: 'Monid — open-source AI tool directory and agent workspace (TypeScript, MIT).',
+    verdict: 'reference',
+    claim: 'A tool/model directory, not an engine. This repository keeps its own curated catalogues instead (open-source model hub, free-tier resources, adapter registry), so no Monid code is vendored.',
+    evidence: [
+      { label: 'Open-source model catalogue', path: 'src/lib/open-source-models.ts', kind: 'library' },
+      { label: 'Model hub panel', path: 'src/components/panels/model-hub-panel.tsx', kind: 'panel' },
+      { label: 'Free-tier resource catalogue', path: 'src/lib/free-resources.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 5683, language: 'TypeScript', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'monid-tools', url: 'https://monid.ai/tools', kind: 'site', category: 'AI & models',
+    upstream: 'Monid’s hosted AI tool directory — a browsable index of third-party AI tools.',
+    verdict: 'reference',
+    claim: 'A public directory: nothing to integrate. Its role is covered in kind by this repository’s own tool surfaces — the model hub, the adapter catalogue and the stack register page — which list what is actually usable here rather than what exists elsewhere.',
+    evidence: [
+      { label: 'Adapter registry (26 upstream systems)', path: 'src/lib/integrations/registry.ts', kind: 'library' },
+      { label: 'Model hub panel', path: 'src/components/panels/model-hub-panel.tsx', kind: 'panel' },
+      { label: 'Stack register page', path: 'src/app/site/stack/page.tsx', kind: 'page' },
+    ],
+    upstreamMeta: { checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'signudoc', url: 'https://github.com/NYLLON-SOFTWARE/SignuDoc.git', kind: 'repository', category: 'Business operations',
+    upstream: 'SignuDoc — self-hostable electronic signature and document-signing suite (TypeScript, MIT, 3.3k stars).',
+    verdict: 'gap',
+    claim: 'Deliverable acceptance, invoicing and human approvals exist, but there is no signature capture, document hash, timestamp authority or tamper-evident signing record anywhere in this repository.',
+    evidence: [
+      { label: 'Deliverables acceptance page', path: 'src/app/portal/deliverables/page.tsx', kind: 'page' },
+      { label: 'Invoice surface', path: 'src/app/invoice/page.tsx', kind: 'page' },
+      { label: 'Approval resolution (closest existing gate)', path: 'src/app/api/v1/approvals/[id]/route.ts', kind: 'route' },
+    ],
+    gap: 'Add a `DocumentSignature` model (documentId, signerId, companyId, sha256, signedAt, IP), a SignuDoc adapter registered under ONE Runtime, and an end-to-end test that a tampered document fails verification. Needs legal review of eIDAS/ESIGN evidence requirements before it is offered to customers.',
+    upstreamMeta: { stars: 3314, language: 'TypeScript', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'floppydata-cloud-browser', url: 'https://floppydata.com/cloud-browser/', kind: 'site', category: 'Developer tooling',
+    upstream: 'FloppyData Cloud Browser — hosted browser sessions for agents (CDP/VNC endpoints, per-session isolation).',
+    verdict: 'gap',
+    claim: 'The Command Agent’s tools are HTTP fetches (search, Wikipedia, weather) and an MCP server registry exists, but no agent can drive a real browser session: there is no CDP client, no session pool and no screenshot/consent flow.',
+    evidence: [
+      { label: 'Command Agent tools (fetch only)', path: 'src/lib/command-agent/tools.ts', kind: 'library' },
+      { label: 'MCP server registry', path: 'src/app/api/mcp-servers/route.ts', kind: 'route' },
+    ],
+    gap: 'Same underlying gap as the browse MCP row: add a browser tool that opens an isolated CDP session, records every navigation, requires approval for credentialed flows, and is covered by a task-level test. A hosted provider is one option; a self-hosted container pool is the other.',
+    upstreamMeta: { checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'nocobase', url: 'https://github.com/orgs/nocobase/repositories', kind: 'repository', category: 'Business operations',
+    upstream: 'NocoBase — no-code/low-code data platform for internal tools (TypeScript core, AGPL-3.0 with separately licensed plugins).',
+    verdict: 'implemented',
+    claim: 'A NocoBase adapter is registered under ONE Runtime as `automation.nocobase` with an API-only strategy and a custom-model-license classification, so a separately hosted NocoBase instance can be read from without vendoring AGPL code.',
+    evidence: [
+      { label: 'NocoBase adapter', path: 'src/lib/integrations/connectors/automation/nocobase.ts', kind: 'library' },
+      { label: 'Bootstrap registration', path: 'src/lib/integrations/index.ts', kind: 'library' },
+      { label: 'Adapter catalogue API', path: 'src/app/api/integrations/catalog/route.ts', kind: 'route' },
+    ],
+    gap: 'Collections are listed but no record write-back path or live instance test exists; internal-tool authoring stays in the platform’s own panels.',
+    upstreamMeta: { stars: 25028, language: 'TypeScript', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'temporalio', url: 'https://github.com/orgs/temporalio/repositories', kind: 'repository', category: 'Developer tooling',
+    upstream: 'Temporal — durable execution engine: workflows as code with retries, timers and crash recovery (Go server, MIT).',
+    verdict: 'in_kind',
+    claim: 'Durable execution is implemented natively rather than delegated: `AgentOSRun` + `RunEvent` + a lease-based `QueueItem` job queue give checkpointing, retry, cancel and crash recovery (20 behaviours acceptance-tested). A Temporal adapter also exists for teams that already run a cluster.',
+    evidence: [
+      { label: 'Run engine (checkpoints, retry, cancel)', path: 'src/lib/runs/index.ts', kind: 'library' },
+      { label: 'Lease-based job queue', path: 'src/lib/job-queue.ts', kind: 'library' },
+      { label: 'Durability acceptance tests', path: '__tests__/integration/run-engine-behaviours.test.ts', kind: 'test' },
+      { label: 'Temporal adapter', path: 'src/lib/integrations/connectors/automation/temporal.ts', kind: 'library' },
+    ],
+    gap: 'No Temporal cluster is deployed; the native engine is the production path, so a Temporal migration would be a deliberate architectural change, not an upgrade.',
+    upstreamMeta: { stars: 24627, language: 'Go', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'activepieces', url: 'https://github.com/activepieces/activepieces', kind: 'repository', category: 'Business operations',
+    upstream: 'Activepieces — open-source automation builder with 200+ pieces (TypeScript, MIT core).',
+    verdict: 'implemented',
+    claim: 'An Activepieces adapter is registered as `automation.activepieces` and the platform’s own workflow engine plus tenant-scoped automation triggers (17 definitions, 109 steps, checked by `npm run check:workflows`) cover the flows this product needs.',
+    evidence: [
+      { label: 'Activepieces adapter', path: 'src/lib/integrations/connectors/automation/activepieces.ts', kind: 'library' },
+      { label: 'Workflow definitions', path: 'src/lib/workflow-engine/index.ts', kind: 'library' },
+      { label: 'Tenant-scoped automation API', path: 'src/app/api/automation/triggers/route.ts', kind: 'route' },
+    ],
+    gap: 'No Activepieces instance is deployed and no flow is imported from it; the adapter lists flows for display, it does not execute upstream pieces.',
+    upstreamMeta: { stars: 25753, language: 'TypeScript', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'directus', url: 'https://github.com/orgs/directus/repositories', kind: 'repository', category: 'Business operations',
+    upstream: 'Directus — headless data platform and admin for any SQL database (TypeScript, source-available BSL-style licence).',
+    verdict: 'implemented',
+    claim: 'A Directus adapter is registered as `content.directus` with a source-available licence class and API-only strategy: content can be read from a separately hosted Directus without mixing licences.',
+    evidence: [
+      { label: 'Directus adapter', path: 'src/lib/integrations/connectors/content/directus.ts', kind: 'library' },
+      { label: 'Bootstrap registration', path: 'src/lib/integrations/index.ts', kind: 'library' },
+      { label: 'Prisma schema (own data model)', path: 'prisma/schema.prisma', kind: 'schema' },
+    ],
+    gap: 'No Directus instance is deployed; the platform keeps its own Prisma model as the source of truth, so Directus is an optional side-car rather than the admin layer.',
+    upstreamMeta: { stars: 38699, language: 'TypeScript', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'aider-org', url: 'https://github.com/orgs/Aider-AI/repositories', kind: 'repository', category: 'Developer tooling',
+    upstream: 'Aider — AI pair-programming CLI that edits a local git repository through structured diffs (Python, Apache-2.0).',
+    verdict: 'implemented',
+    claim: 'An Aider adapter is registered as `coding-agent.aider` with a REUSE strategy, including hunk formatting/parsing so generated edits are applied as reviewable diffs rather than whole-file overwrites.',
+    evidence: [
+      { label: 'Aider adapter (REUSE)', path: 'src/lib/integrations/connectors/coding-agent/aider.ts', kind: 'library' },
+      { label: 'Agent factory route', path: 'src/app/api/agent-factory/build/route.ts', kind: 'route' },
+      { label: 'Skill factory route', path: 'src/app/api/skill-factory/build/route.ts', kind: 'route' },
+    ],
+    gap: 'No Aider process is spawned here: the adapter formats and validates diffs, it does not run upstream code, and no repository-editing task has been executed end to end.',
+    upstreamMeta: { stars: 50282, language: 'Python', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'librechat-org', url: 'https://github.com/LibreChat-AI', kind: 'repository', category: 'AI & models',
+    upstream: 'LibreChat — multi-provider chat UI with agents, presets and file handling (TypeScript, MIT).',
+    verdict: 'implemented',
+    claim: 'A LibreChat adapter lists models from a separately hosted instance, and the platform ships its own multi-provider chat (`/platform/chat`, the unified dashboard chat panel) with conversation persistence and per-workspace tenancy.',
+    evidence: [
+      { label: 'LibreChat adapter', path: 'src/lib/integrations/connectors/ai-chat/librechat.ts', kind: 'library' },
+      { label: 'Platform chat route', path: 'src/app/api/v1/platform/chat/route.ts', kind: 'route' },
+      { label: 'Unified chat panel', path: 'src/components/chat/unified-chat.tsx', kind: 'panel' },
+    ],
+    gap: 'Model listing only — conversations are not mirrored between LibreChat and this platform, and no LibreChat instance is deployed.',
+    upstreamMeta: { stars: 47577, language: 'TypeScript', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'open-webui-org', url: 'https://github.com/orgs/open-webui/repositories', kind: 'repository', category: 'AI & models',
+    upstream: 'Open WebUI — self-hosted AI interface for Ollama and OpenAI-compatible backends (Svelte, source-available licence with branding terms).',
+    verdict: 'implemented',
+    claim: 'An Open WebUI adapter is registered as `ai-chat.open-webui` with a source-available licence class, and the platform’s model hub panel renders the same deployment/health information for its own registry.',
+    evidence: [
+      { label: 'Open WebUI adapter', path: 'src/lib/integrations/connectors/ai-chat/open-webui.ts', kind: 'library' },
+      { label: 'Model hub panel', path: 'src/components/panels/model-hub-panel.tsx', kind: 'panel' },
+      { label: 'Model registry (capability routing)', path: 'src/lib/platform/model-registry.ts', kind: 'library' },
+    ],
+    gap: 'The licence gates redistribution of Open WebUI’s branding, so this repository integrates over HTTP only and does not vendor its frontend.',
+    upstreamMeta: { stars: 159669, language: 'Svelte', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'free-for-dev-upstream', url: 'https://github.com/ripienaar/free-for-dev.git', kind: 'repository', category: 'Reference & content',
+    upstream: 'free-for.dev — the canonical list of free developer tiers (HTML/Markdown, 143k stars, no licence file).',
+    verdict: 'implemented',
+    claim: 'A curated, honest subset lives in `src/lib/free-resources.ts` and is served by `/api/free-resources`: only entries that map onto a capability this product implements, each with the quoted allowance and a verify URL, and nothing auto-enabled.',
+    evidence: [
+      { label: 'Curated free-tier catalogue', path: 'src/lib/free-resources.ts', kind: 'library' },
+      { label: 'Free resources API', path: 'src/app/api/free-resources/route.ts', kind: 'route' },
+      { label: 'Link coverage for the mirror', path: 'src/lib/link-coverage/registry.ts', kind: 'library' },
+    ],
+    gap: 'The curated subset is intentionally partial and the quoted allowances are dated; re-verify vendor terms before anything is offered as free to a customer.',
+    upstreamMeta: { stars: 143797, language: 'HTML', archived: false, checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'postman', url: 'https://www.postman.com', kind: 'site', category: 'Developer tooling',
+    upstream: 'Postman — API client, collection runner and documentation host.',
+    verdict: 'gap',
+    claim: 'The API surface is real and mechanically classified (542 route files, 856 non-public handlers checked by `scripts/validate-route-auth.mjs`), but no OpenAPI document or Postman collection is published, so a client developer cannot import the API into Postman today.',
+    evidence: [
+      { label: 'Route classification gate', path: 'scripts/classify-routes.mjs', kind: 'config' },
+      { label: 'Route auth gate', path: 'scripts/validate-route-auth.mjs', kind: 'config' },
+      { label: 'Typed platform API (zod schemas)', path: 'src/app/api/v1/platform/models/route.ts', kind: 'route' },
+    ],
+    gap: 'Generate an OpenAPI 3.1 document from the zod request/response schemas, publish it at `/api/openapi.json`, and export a Postman collection from it in CI so the two cannot drift.',
+    upstreamMeta: { checkedAt: REQUESTED_DATE },
+  },
+  {
+    id: 'youbtech01', url: 'https://github.com/YouBTech01', kind: 'repository', category: 'Reference & content',
+    upstream: 'GitHub account supplied in the reference list without a named repository.',
+    verdict: 'not_applicable',
+    claim: 'The link is an account profile, not an artefact: no repository, release or package was identified at request time, so nothing could be inspected, attributed or integrated. Recording it here keeps the reference list complete without pretending to a capability.',
+    evidence: [
+      { label: 'This coverage registry', path: 'src/lib/link-coverage/registry.ts', kind: 'library' },
+      { label: 'Ecosystem reverse map', path: 'docs/ECOSYSTEM_REVERSE_MAP.md', kind: 'doc' },
+    ],
+    gap: 'Re-submit with the specific repository URL(s) to be evaluated; an account listing alone cannot move past this verdict.',
+    upstreamMeta: { checkedAt: REQUESTED_DATE },
+  },
+
 ];
 
 /** Convenience lookups used by the API route, the panel and the tests. */

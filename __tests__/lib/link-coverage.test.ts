@@ -89,6 +89,23 @@ const EXPECTED_LINKS = [
   'github.com/orgs/nuxt/repositories',
   'scripts.nuxt.com/scripts',
   'free-for.dev/#',
+  // Requested 2026-11-27 (AI-platform ecosystem sweep; availability read from
+  // the GitHub API on that date, local evidence audited against the tree).
+  'github.com/orgs/BerriAI/repositories',
+  'github.com/monid-ai/monid',
+  'monid.ai/tools',
+  'github.com/NYLLON-SOFTWARE/SignuDoc',
+  'floppydata.com/cloud-browser',
+  'github.com/orgs/nocobase/repositories',
+  'github.com/orgs/temporalio/repositories',
+  'github.com/activepieces/activepieces',
+  'github.com/orgs/directus/repositories',
+  'github.com/orgs/Aider-AI/repositories',
+  'github.com/LibreChat-AI',
+  'github.com/orgs/open-webui/repositories',
+  'github.com/ripienaar/free-for-dev',
+  'postman.com',
+  'github.com/YouBTech01',
 ];
 
 function normalise(url: string): string {

@@ -99,38 +99,59 @@ import { aiNativeCallcenterAdapter } from './connectors/telephony/ai-native-call
 import { callIntelligenceAdapter } from './connectors/telephony/call-intelligence';
 import { infiniteTalkAdapter } from './connectors/media/infinite-talk';
 
+import type { ExternalSystemAdapter } from './types';
+
 let bootstrapped = false;
+
+/**
+ * Register an adapter unless its id is already present.
+ *
+ * The `bootstrapped` flag above is module-local, and a module can legitimately be
+ * instantiated more than once in a bundler graph (Turbopack evaluated
+ * `@/lib/integrations` and `./index` as separate instances while rendering the
+ * stack register): the flag reset, the singleton registry did not, and the second
+ * pass threw `integration registry: duplicate adapter id "crm.twenty"` — a 500 on
+ * every route that imports the catalogue.
+ *
+ * The registry owns that state, so the guard belongs here. Registration stays
+ * strict for a *different* adapter claiming an existing id, because that is a
+ * real programming error and `register()` keeps throwing for it.
+ */
+function registerAdapter(adapter: ExternalSystemAdapter): void {
+  if (integrationRegistry.get(adapter.id)) return;
+  integrationRegistry.register(adapter);
+}
 
 /** Idempotent registration of the Wave-1 + Wave-2 connector set (26 adapters). */
 export function bootstrapIntegrations(): void {
   if (bootstrapped) return;
-  integrationRegistry.register(twentyAdapter);
-  integrationRegistry.register(frappeAdapter);
-  integrationRegistry.register(httpsmsAdapter);
-  integrationRegistry.register(rsshubAdapter);
-  integrationRegistry.register(videoGenAdapter);
-  integrationRegistry.register(aloLeadApiAdapter);
+  registerAdapter(twentyAdapter);
+  registerAdapter(frappeAdapter);
+  registerAdapter(httpsmsAdapter);
+  registerAdapter(rsshubAdapter);
+  registerAdapter(videoGenAdapter);
+  registerAdapter(aloLeadApiAdapter);
   // Wave-2 free/open systems — same ONE Runtime contract, same license gates.
-  integrationRegistry.register(litellmAdapter);
-  integrationRegistry.register(omnirouteAdapter);
-  integrationRegistry.register(freeClaudeCodeAdapter);
-  integrationRegistry.register(librechatAdapter);
-  integrationRegistry.register(openWebuiAdapter);
-  integrationRegistry.register(aiderAdapter);
-  integrationRegistry.register(sweAgentAdapter);
-  integrationRegistry.register(toolLoopAdapter);
-  integrationRegistry.register(directusAdapter);
-  integrationRegistry.register(grapesjsAdapter);
-  integrationRegistry.register(activepiecesAdapter);
-  integrationRegistry.register(nocobaseAdapter);
-  integrationRegistry.register(temporalAdapter);
-  integrationRegistry.register(jarvisAdapter);
-  integrationRegistry.register(caproverAdapter);
-  integrationRegistry.register(dokkuAdapter);
-  integrationRegistry.register(callGptAdapter);
-  integrationRegistry.register(aiNativeCallcenterAdapter);
-  integrationRegistry.register(callIntelligenceAdapter);
-  integrationRegistry.register(infiniteTalkAdapter);
+  registerAdapter(litellmAdapter);
+  registerAdapter(omnirouteAdapter);
+  registerAdapter(freeClaudeCodeAdapter);
+  registerAdapter(librechatAdapter);
+  registerAdapter(openWebuiAdapter);
+  registerAdapter(aiderAdapter);
+  registerAdapter(sweAgentAdapter);
+  registerAdapter(toolLoopAdapter);
+  registerAdapter(directusAdapter);
+  registerAdapter(grapesjsAdapter);
+  registerAdapter(activepiecesAdapter);
+  registerAdapter(nocobaseAdapter);
+  registerAdapter(temporalAdapter);
+  registerAdapter(jarvisAdapter);
+  registerAdapter(caproverAdapter);
+  registerAdapter(dokkuAdapter);
+  registerAdapter(callGptAdapter);
+  registerAdapter(aiNativeCallcenterAdapter);
+  registerAdapter(callIntelligenceAdapter);
+  registerAdapter(infiniteTalkAdapter);
   bootstrapped = true;
 }
 
