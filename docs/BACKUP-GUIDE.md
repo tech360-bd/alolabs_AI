@@ -512,3 +512,59 @@ tail -20 /opt/alolabs/agent-hub/logs/cron-backup.log | grep -i error
 - [ ] Restore procedure tested at least once
 - [ ] Backup encryption key stored in password manager
 - [ ] Weekly backup verification cron job installed
+---
+
+## 13. Restore verification and backup health (2026-11-27)
+
+### 13.1 A snapshot is verified by restoring it, not by uploading it
+
+`deploy/scripts/backup.sh` now performs an isolated restore before it publishes a
+snapshot:
+
+- **SQLite / file databases** — the dump is copied into a throwaway directory,
+  opened read-only, `PRAGMA integrity_check` must return `ok`, and the restored
+  database must contain at least one table. Any failure aborts the backup, so a
+  corrupt snapshot is never published. `manifest.json` then records
+  `restore_tested: true`, `restore_detail` and `restore_verified_at`.
+- **MySQL / MariaDB** — a dump cannot be restored without a scratch server, which
+  the deploy host does not have. The dump is verified for completeness (gzip test,
+  non-zero size, non-empty SQL) and the manifest says so explicitly:
+  `restore_tested: false`, `restore_detail: "not performed: a MySQL restore needs a
+  scratch server…"`. That is a statement of fact, not an implication of safety.
+
+`--verify-restore` is the default; `--no-verify-restore` exists only for hosts that
+cannot do it, and the workflow always passes `--verify-restore`.
+
+### 13.2 Every attempt is reported
+
+When `ALO_OPS_STATUS_URL` and `BACKUP_INGEST_TOKEN` are set on the host, the script
+posts each attempt — succeeded or failed, with its stage — to
+`POST /api/ops/backups/ingest`. Reporting failure is a warning, never a reason to
+discard a good backup. The endpoint fails closed (503) when the token is not
+configured, and the failure excerpt is redacted twice: once by the sender, once
+server-side.
+
+Stages reported: `secrets`, `preflight`, `dump`, `storage`, `restore`, `checksum`,
+`publish`, `report`.
+
+### 13.3 Health, staleness and alerting
+
+`GET /api/super-admin/backups` returns a derived verdict (`ok`, `unverified`,
+`stale`, `failed`, `never`), the age of the newest verified backup, consecutive
+failures, the failing stage and a redacted excerpt. The dashboard panel
+**Backup Verification** renders it.
+
+`backup-monitor.yml` asks `GET /api/ops/backups/health` once a day. Outside the
+backup path is the only place that can notice a backup job that stopped running
+entirely — no failing run exists to see. Notifications are deduplicated per verdict
+per UTC day.
+
+### 13.4 What is still unverified
+
+No production backup has been produced or restored in this environment, because
+`PRODUCTION_HOST_FINGERPRINT` is unset and the workflow stops before it contacts
+the host. The mechanism — capture, checksum, isolated restore, publication,
+reporting, alerting — is exercised by
+`__tests__/integration/backup-restore.test.ts` (8 cases), and the health rules by
+`__tests__/unit/lib/backup-status.test.ts` (15 cases). Production remains
+**NOT COMPLETE** until a real artifact exists and its restore is recorded.

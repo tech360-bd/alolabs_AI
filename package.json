@@ -59,6 +59,7 @@
     "typecheck:tests": "node scripts/typecheck/run.mjs --tests",
     "verify:ai-employees": "npx tsx scripts/provision-ai-employee-identities.ts --verify",
     "verify:browser": "tsx scripts/verify-browser.ts",
+    "verify:environments": "tsx scripts/verify-environments.ts",
     "verify:github": "tsx scripts/verify-github.ts",
     "verify:inference": "npx tsx scripts/verify-inference.ts",
     "verify:inference:json": "npx tsx scripts/verify-inference.ts --json",

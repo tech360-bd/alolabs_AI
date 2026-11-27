@@ -1,0 +1,65 @@
+name: Backup freshness monitor
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Why this workflow exists.
+#
+# The production backup failed on 2026-11-25, 11-26 and 11-27 and nobody noticed.
+# The failure itself was clear (a missing PRODUCTION_HOST_FINGERPRINT secret, named
+# in the run annotation), but the *signal* only existed inside a workflow run that
+# nobody opens. A monitor that only reports failures cannot help: a backup job that
+# stops running entirely emits nothing at all.
+#
+# So this asks the application a different question — "how old is the newest
+# verified backup?" — once a day, and the application raises a deduplicated
+# operator notification when the answer is bad (failed / stale / never).
+#
+# Configuration:
+#   vars.OPS_STATUS_URL        e.g. https://app.example.com   (no trailing slash)
+#   secrets.BACKUP_INGEST_TOKEN  same value as the application env var
+#
+# If either is missing the step emits a warning and exits 0: an unconfigured monitor
+# must not turn into a red build that everyone learns to ignore. The dashboard still
+# shows `never` for the backup series, which is the truth.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Ask the application for backup health
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check backup freshness
+        env:
+          OPS_STATUS_URL: ${{ vars.OPS_STATUS_URL }}
+          BACKUP_INGEST_TOKEN: ${{ secrets.BACKUP_INGEST_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPS_STATUS_URL:-}" ] || [ -z "${BACKUP_INGEST_TOKEN:-}" ]; then
+            echo "::warning title=Backup monitor not configured::Set the OPS_STATUS_URL repository variable and the BACKUP_INGEST_TOKEN secret to enable daily backup freshness alerting."
+            exit 0
+          fi
+          body="$(mktemp)"
+          code="$(curl -sS -o "$body" -w '%{http_code}' --max-time 30 \
+            -H "authorization: Bearer ${BACKUP_INGEST_TOKEN}" \
+            "${OPS_STATUS_URL%/}/api/ops/backups/health?environment=production")"
+          echo "health endpoint returned ${code}"
+          if [ "$code" != "200" ]; then
+            echo "::error title=Backup health check failed::The application answered HTTP ${code}. The backup series cannot be evaluated, which is itself a failure."
+            exit 1
+          fi
+          python3 - "$body" <<'PY'
+          import json, sys
+          health = json.load(open(sys.argv[1]))
+          print(json.dumps({k: health.get(k) for k in ('verdict','reason','ageHours','consecutiveFailures','restoreEvidence')}, indent=2))
+          if health.get('verdict') != 'ok':
+              print('::error title=Backup series is not healthy::%s %s' % (health.get('verdict'), health.get('reason')))
+              sys.exit(1)
+          PY
