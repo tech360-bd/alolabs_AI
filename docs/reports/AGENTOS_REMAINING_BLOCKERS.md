@@ -147,3 +147,22 @@ provider-timeout test, `ALO_SYSTEM_OPERATORS` membership, rollback SQL for four
 legacy migrations, disruptive capacity pressure testing — each is
 **BLOCKED BY OWNER AUTHORIZATION** or **BLOCKED BY EXTERNAL DEPENDENCY** as marked
 above.
+
+## Newly found, 2026-11-27: scheduled backup verification is red
+
+\`gh run list --workflow backup.yml\` shows **"Verified production database backup"
+failing on three consecutive days** (2026-11-25, 11-26, 11-27). That is a
+repeatable failure, not a flake, and it is the one gate that would tell us a
+backup is restorable.
+
+- Status: **NOT COMPLETE**.
+- Not yet diagnosed: the job logs are served from blob storage this sandbox cannot
+  reach (\`EOF\` on \`.../logs/job-logs.txt\`), so the cause is unknown — production
+  credentials absent on the runner and a genuine script defect are both consistent
+  with what is visible here.
+- What *is* true: \`deploy/scripts/backup.sh\` exists, and \`backup-portability.yml\`
+  (the restore-into-temp-dirs test) passes. Those cover the mechanism, not the
+  production backup.
+- Next step: run \`gh run view <id> --log-failed\` from a machine that can reach the
+  blob endpoint, or exercise \`backup.sh\` against a staging database. Either way this
+  must be green before any production migration is attempted.
