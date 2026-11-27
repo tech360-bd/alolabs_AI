@@ -39,6 +39,26 @@ export type ModelCapability =
 
 export type HostingType = 'local' | 'remote' | 'free-cloud';
 
+/**
+ * A user-facing task, resolved to the capabilities it needs.
+ *
+ * The router itself deals only in `ModelCapability`; `TaskType` is the vocabulary
+ * the API and UI speak ("summarise this", "translate that") and exists so that
+ * mapping lives in one place instead of being duplicated per route.
+ */
+export type TaskType =
+  | 'chat' | 'code' | 'vision' | 'reasoning' | 'embedding' | 'summarise' | 'translation';
+
+export const TASK_REQUIREMENTS: Record<TaskType, ModelCapability[]> = {
+  chat: ['chat'],
+  code: ['code'],
+  vision: ['vision'],
+  reasoning: ['reasoning'],
+  embedding: ['embedding'],
+  summarise: ['chat'],
+  translation: ['chat'],
+};
+
 export type ProviderKind = 'ollama' | 'vllm' | 'litellm' | 'openai-compatible' | 'platform-local';
 
 export interface ModelDeployment {

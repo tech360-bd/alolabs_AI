@@ -80,7 +80,7 @@ export async function legacyTenant(request: NextRequest): Promise<LegacyTenant> 
  * `tenantWhere(tenant, { status: 'active' })` → `{ companyId, status: 'active' }`.
  * Pass `field` for models whose tenant column is named differently.
  */
-export function tenantWhere<T extends Record<string, unknown> = Record<string, never>>(
+export function tenantWhere<T extends Record<string, unknown> = Record<string, unknown>>(
   tenant: LegacyTenant,
   extra?: T,
   field = 'companyId',
