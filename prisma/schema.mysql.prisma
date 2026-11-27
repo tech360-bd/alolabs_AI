@@ -1852,6 +1852,41 @@ model Notification {
   @@index([createdAt])
 }
 
+/// One attempt at a verified production backup, reported by the host workflow.
+///
+/// Platform-level infrastructure, not a tenant record: `companyId` stays null and
+/// only super administrators can read the table. The point of persisting it is
+/// that a backup that silently stops running is the failure mode nobody notices —
+/// a row with a timestamp makes staleness detectable and alertable.
+model BackupRun {
+  id                String    @id @default(cuid())
+  environment       String    @default("production")
+  /// running | succeeded | failed
+  status            String
+  /// secrets | preflight | dump | storage | checksum | publish | restore | unknown
+  stage             String? @db.LongText
+  startedAt         DateTime  @default(now())
+  finishedAt        DateTime?
+  durationMs        Int?
+  databaseProvider  String? @db.LongText
+  artifactPath      String? @db.LongText
+  artifactBytes     BigInt?
+  checksum          String?
+  restoreTested     Boolean   @default(false)
+  restoreVerifiedAt DateTime?
+  commit            String? @db.LongText
+  /// Redacted, length-capped excerpt. Never a connection string, key or token.
+  failureExcerpt    String? @db.LongText
+  /// workflow | manual | checker
+  source            String    @default("workflow")
+  metadata          String? @db.LongText
+  createdAt         DateTime  @default(now())
+
+  @@index([environment, finishedAt])
+  @@index([status])
+  @@index([createdAt])
+}
+
 model FeatureFlag {
   id                String   @id @default(cuid())
   key               String   @unique
@@ -5435,4 +5470,125 @@ model AiFallbackEvent {
   @@index([createdAt])
   @@index([workspaceId, createdAt])
   @@index([finalModel])
+}
+
+/// One deployable environment of one project (development | staging | production).
+///
+/// Tenant-owned: `companyId` is the canonical Company id — never an
+/// `AiWorkspace.organisationId`, which is a different identifier in the same
+/// database and has been the source of a mapping mistake before.
+model ProjectEnvironment {
+  id          String   @id @default(cuid())
+  companyId   String
+  projectSlug String
+  name        String
+  status      String   @default("active")
+  createdBy   String? @db.LongText
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  variables EnvironmentVariable[]
+  secrets   EnvironmentSecret[]
+  versions  EnvironmentConfigVersion[]
+  applies   EnvironmentApply[]
+
+  @@unique([companyId, projectSlug, name])
+  @@index([companyId, projectSlug])
+}
+
+/// A non-secret variable. Secrets live in EnvironmentSecret and never here.
+model EnvironmentVariable {
+  id            String   @id @default(cuid())
+  environmentId String
+  key           String
+  value         String @db.LongText
+  description   String? @db.LongText
+  updatedBy     String? @db.LongText
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  environment   ProjectEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@unique([environmentId, key])
+  @@index([environmentId])
+}
+
+/// An encrypted secret: envelope-encrypted, bound to its tenant/project/env/key.
+///
+/// `masked` is the only representation any API may return. The column exists so the
+/// UI can show "…last four" without ever decrypting.
+model EnvironmentSecret {
+  id            String   @id @default(cuid())
+  environmentId String
+  key           String
+  masked        String @db.LongText
+  kekId         String
+  dekCiphertext String @db.LongText
+  dekIv         String @db.LongText
+  dekTag        String @db.LongText
+  ciphertext    String @db.LongText
+  iv            String @db.LongText
+  tag           String @db.LongText
+  algorithm     String @db.LongText   @default("aes-256-gcm")
+  version       Int      @default(1)
+  createdBy     String? @db.LongText
+  rotatedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  environment   ProjectEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@unique([environmentId, key])
+  @@index([environmentId])
+  @@index([kekId])
+}
+
+/// An immutable snapshot of an environment's configuration.
+///
+/// Secrets are represented by key name and mask only — a version history is not a
+/// second copy of the secret store.
+model EnvironmentConfigVersion {
+  id            String   @id @default(cuid())
+  environmentId String
+  version       Int
+  status        String   @default("draft")
+  changeSummary String @db.LongText
+  variablesJson String @db.LongText
+  secretKeysJson String @db.LongText
+  checksum      String
+  rollbackOf    Int?
+  createdBy     String? @db.LongText
+  approvedBy    String? @db.LongText
+  approvedAt    DateTime?
+  appliedAt     DateTime?
+  createdAt     DateTime @default(now())
+  environment   ProjectEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  applies       EnvironmentApply[]
+
+  @@unique([environmentId, version])
+  @@index([environmentId, status])
+}
+
+/// One attempt to apply a configuration version to a host.
+///
+/// This is the durable record the dashboard reads. "Saved" is not "applied": only a
+/// row here with `status = "succeeded"` and a passing health check claims that.
+model EnvironmentApply {
+  id             String   @id @default(cuid())
+  environmentId  String
+  versionId      String
+  status         String   @default("queued")
+  stage          String? @db.LongText
+  detail         String? @db.LongText
+  healthCheck    String? @db.LongText
+  hostRef        String? @db.LongText
+  idempotencyKey String   @unique
+  requestedBy    String?
+  approvedBy     String? @db.LongText
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime @default(now())
+  environment    ProjectEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  version        EnvironmentConfigVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([environmentId, status])
+  @@index([createdAt])
 }
