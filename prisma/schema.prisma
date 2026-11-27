@@ -3461,6 +3461,8 @@ model AgentOSRun {
   summary     String?
   error       String?
   commandId   String?
+  // Parent run for multi-agent fan-out (null = a root run).
+  parentRunId String?
   projectId   String?
   workflowId  String?
   companyId   String?
@@ -3473,6 +3475,7 @@ model AgentOSRun {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  @@index([parentRunId])
   @@index([companyId])
   @@index([userId])
   @@index([projectId])

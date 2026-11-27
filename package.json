@@ -59,6 +59,7 @@
     "typecheck:tests": "node scripts/typecheck/run.mjs --tests",
     "verify:ai-employees": "npx tsx scripts/provision-ai-employee-identities.ts --verify",
     "verify:browser": "tsx scripts/verify-browser.ts",
+    "verify:github": "tsx scripts/verify-github.ts",
     "verify:inference": "npx tsx scripts/verify-inference.ts",
     "verify:inference:json": "npx tsx scripts/verify-inference.ts --json",
     "verify:links": "npx tsx scripts/verify-link-coverage.ts",
@@ -66,6 +67,7 @@
     "verify:model-discovery": "tsx scripts/run-model-discovery.ts",
     "verify:mysql": "npx tsx scripts/verify-mysql-compatibility.ts",
     "verify:operator": "tsx scripts/verify-operator-dispatch.ts",
+    "verify:orchestration": "tsx scripts/verify-orchestration.ts",
     "verify:routes": "node scripts/classify-routes.mjs",
     "verify:security": "node scripts/classify-routes.mjs && node scripts/check-migrations.mjs",
     "verify:workforce": "npx tsx scripts/verify-2000-workforce.ts",
@@ -119,6 +121,7 @@
     "mysql2": "^3.24.4",
     "next": "^16.4.6",
     "next-themes": "^0.4.6",
+    "nodemailer": "10.6.0",
     "pg": "^8.22.0",
     "react": "19.2.3",
     "react-day-picker": "^9.14.0",
@@ -135,8 +138,7 @@
     "vaul": "^1.1.2",
     "z-ai-web-dev-sdk": "^0.0.18",
     "zod": "^4.6.6",
-    "zustand": "^5.0.6",
-    "nodemailer": "10.6.0"
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
