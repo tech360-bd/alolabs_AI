@@ -51,6 +51,16 @@ export const CONFIGURABLE_PROVIDER_KINDS = [
   'openrouter',
   'ollama',
   'llama-cpp',
+  // Self-hosted OpenAI-compatible servers (2026-11-27 jarvis-ai audit). Each
+  // is a free, self-hosted, $0-API-fee engine; they all route through the
+  // audited OpenAICompatibleProvider and the local-endpoint trust boundary.
+  'vllm',
+  'localai',
+  'litellm-proxy',
+  'tgi',
+  'lm-studio',
+  'jan',
+  'text-generation-webui',
   'huggingface',
   'github-models',
   'cerebras',
@@ -288,6 +298,24 @@ function normaliseOllamaEndpoint(value: string): string {
 }
 
 /**
+ * Self-hosted OpenAI-compatible servers that can be auto-registered from the
+ * environment (2026-11-27 jarvis-ai audit of the reference stack). Each entry
+ * pairs an env variable with the provider kind of the same name in
+ * `AI_PROVIDER_PRESETS`, so the Super Admin console, the local-endpoint trust
+ * boundary and the free-only-mode policy all recognise the provider the
+ * moment it is registered.
+ */
+const SELF_HOSTED_OPENAI_COMPATIBLE_SERVERS = [
+  { kind: 'vllm', envVar: 'VLLM_BASE_URL', modelsEnvVar: 'VLLM_MODELS', label: 'vLLM (self-hosted)' },
+  { kind: 'localai', envVar: 'LOCALAI_BASE_URL', modelsEnvVar: 'LOCALAI_MODELS', label: 'LocalAI (self-hosted)' },
+  { kind: 'litellm-proxy', envVar: 'LITELLM_BASE_URL', modelsEnvVar: 'LITELLM_MODELS', label: 'LiteLLM proxy (self-hosted)' },
+  { kind: 'tgi', envVar: 'TGI_BASE_URL', modelsEnvVar: 'TGI_MODELS', label: 'Text Generation Inference (self-hosted)' },
+  { kind: 'lm-studio', envVar: 'LM_STUDIO_BASE_URL', modelsEnvVar: 'LM_STUDIO_MODELS', label: 'LM Studio local server' },
+  { kind: 'jan', envVar: 'JAN_BASE_URL', modelsEnvVar: 'JAN_MODELS', label: 'Jan local server' },
+  { kind: 'text-generation-webui', envVar: 'TEXT_GENERATION_WEBUI_BASE_URL', modelsEnvVar: 'TEXT_GENERATION_WEBUI_MODELS', label: 'text-generation-webui (oobabooga)' },
+] as const;
+
+/**
  * Providers implied by environment variables. Only providers whose
  * credentials are actually present are returned — nothing is "assumed".
  */
@@ -344,6 +372,37 @@ export function providersFromEnvironment(env: NodeJS.ProcessEnv = process.env): 
       source: 'OLLAMA_BASE_URL',
       isLocal: true,
       create: () => new OllamaProvider(normaliseOllamaEndpoint(ollamaEndpoint)),
+    });
+  }
+
+  // Self-hosted OpenAI-compatible servers (vLLM, LocalAI, LiteLLM, TGI,
+  // LM Studio, Jan, text-generation-webui). Point the matching *_BASE_URL
+  // variable at a loopback/RFC1918/ULA endpoint and the server registers
+  // automatically through the audited OpenAI-compatible adapter — no API key,
+  // no vendor SDK, no billed service. An endpoint that fails the
+  // trusted-local check is skipped rather than registered (fail closed),
+  // mirroring the Ollama handling above. Models must be declared (e.g.
+  // VLLM_MODELS="Qwen/Qwen2.5-7B-Instruct") so routing by exact id works
+  // without a live /models round-trip; a server without a model list is not
+  // registered because an empty catalogue can route nothing.
+  for (const server of SELF_HOSTED_OPENAI_COMPATIBLE_SERVERS) {
+    const endpoint = env[server.envVar]?.trim();
+    if (!endpoint || !isTrustedLocalInferenceEndpoint(endpoint)) continue;
+    const models = csv(env[server.modelsEnvVar] ?? '');
+    if (models.length === 0) continue;
+    specs.push({
+      name: server.kind,
+      source: server.envVar,
+      isLocal: true,
+      create: () =>
+        new OpenAICompatibleProvider({
+          id: server.kind,
+          label: server.label,
+          baseUrl: endpoint,
+          models: models.map((id) => ({ id })),
+          timeoutMs: Number(env.LOCAL_INFERENCE_TIMEOUT_MS) || 120_000,
+          defaultContextLength: 32_768,
+        }),
     });
   }
   // A provider without an explicit API key may still rely on a hosted account,

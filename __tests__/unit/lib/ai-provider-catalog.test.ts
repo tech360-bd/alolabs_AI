@@ -93,3 +93,37 @@ describe('every runtime-supported free provider is configurable in the console',
     expect(isOfficialProviderDocsUrl('sambanova', 'https://sambanova.ai.evil.test/docs')).toBe(false);
   });
 });
+
+describe('self-hosted OpenAI-compatible server presets (2026-11-27 jarvis-ai audit)', () => {
+  const SELF_HOSTED_KINDS = [
+    'vllm',
+    'localai',
+    'litellm-proxy',
+    'tgi',
+    'lm-studio',
+    'jan',
+    'text-generation-webui',
+  ];
+
+  it('has a local, key-free preset with a trusted default endpoint for each kind', () => {
+    for (const kind of SELF_HOSTED_KINDS) {
+      const preset = providerPreset(kind);
+      expect(preset, `${kind} preset`).toBeDefined();
+      expect(preset?.local, `${kind} is local`).toBe(true);
+      expect(preset?.apiKeyRequired, `${kind} needs no API key`).toBe(false);
+      expect(preset?.defaultBaseUrl, `${kind} default base URL`).toBeTruthy();
+      expect(
+        isTrustedLocalInferenceEndpoint(preset?.defaultBaseUrl),
+        `${kind} default endpoint is loopback/private`,
+      ).toBe(true);
+      expect(isOfficialProviderDocsUrl(kind, preset?.docsUrl ?? ''), `${kind} docs URL`).toBe(true);
+    }
+  });
+
+  it('keeps CONFIGURABLE_PROVIDER_KINDS in sync with the self-hosted presets', async () => {
+    const { CONFIGURABLE_PROVIDER_KINDS } = await import('@/lib/ai-router/provider-registry');
+    for (const kind of SELF_HOSTED_KINDS) {
+      expect(CONFIGURABLE_PROVIDER_KINDS, `${kind} is configurable`).toContain(kind);
+    }
+  });
+});
