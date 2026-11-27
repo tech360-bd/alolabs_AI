@@ -10,6 +10,13 @@
 # `depends_on` or override block for an undefined service. That invariant is
 # checked in CI by scripts/validate-compose.mjs.
 #
+# MEMORY / CPU LIMITS ARE NOT HERE.
+# `deploy.resources` is ignored outside Swarm mode, so the block that used to
+# live in this file looked like a limit but enforced nothing. Real limits for
+# a non-Swarm host live in docker-compose.capacity.yml (`mem_limit`, `cpus`),
+# applied on top of this file, with a matching systemd slice in
+# deploy/systemd/alolabs-agentos-slice.conf. See docs/SERVER_CAPACITY_PLAN.md.
+#
 # PORT CONTRACT: the app listens on 3011. See docker-compose.yml.
 # ============================================================
 
@@ -43,14 +50,8 @@ services:
       SMTP_FROM: "${SMTP_FROM:-}"
     # No entrypoint overrides, automatic schema pushes or DB resets. Point this
     # service at a separately provisioned database; see docs/PRODUCTION_MYSQL.md.
-    deploy:
-      resources:
-        limits:
-          cpus: "2.0"
-          memory: 2G
-        reservations:
-          cpus: "0.5"
-          memory: 512M
+    # Resource limits: docker-compose.capacity.yml (deploy.resources is a
+    # Swarm-only no-op here).
     networks:
       - alolabs-net
 
@@ -79,27 +80,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 768M
-        reservations:
-          cpus: "0.25"
-          memory: 256M
 
   # ── Qdrant (production overrides) ─────────────────────────
   qdrant:
     restart: always
     ports: !reset []
-    deploy:
-      resources:
-        limits:
-          cpus: "2.0"
-          memory: 2G
-        reservations:
-          cpus: "0.5"
-          memory: 512M
 
   # ── MinIO (production overrides) ──────────────────────────
   minio:
@@ -108,14 +93,6 @@ services:
     environment:
       MINIO_ROOT_USER: "${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set for production}"
       MINIO_ROOT_PASSWORD: "${S3_SECRET_KEY:?S3_SECRET_KEY must be set for production}"
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 1G
-        reservations:
-          cpus: "0.25"
-          memory: 256M
 
   # ── Caddy (production overrides) ──────────────────────────
   caddy:

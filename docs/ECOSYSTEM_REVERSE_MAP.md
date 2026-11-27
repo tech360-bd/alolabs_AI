@@ -59,6 +59,24 @@ The target list covered the categories the owner requested: low-code platforms, 
 
 ---
 
+### Wave-2 addition (free/open systems requested by the user)
+
+Twenty further systems were integrated in the same adapter layer and are recorded,
+with verified licenses and one row per adapter, in
+[`FREE_SYSTEMS_INTEGRATION.md`](./FREE_SYSTEMS_INTEGRATION.md). Three of them
+corrected a widely-held license belief and are now part of the named-trap list:
+
+- **Open WebUI** — *not* BSD-3. Its LICENSE adds a branding clause (≤ 50 users,
+  written permission, or enterprise license) → source-available.
+- **Directus** — *not* MIT/MPL. MSCL-1.0-GPL, a fair-code license forbidding
+  "Competing Use" and license-key circumvention.
+- **NocoBase 3+** — *not* Apache-2.0. A bespoke, vendor-amendable license
+  agreement; commercial/Studio features need a paid license.
+- **10x-Tool-Calls** publishes **no license** (all rights reserved) → LEARN only.
+- **Jarvis (jarvis.institute)** is proprietary, not open source → LEARN only.
+
+---
+
 ## 4. Architecture — how external systems enter the ONE Runtime
 
 ```
