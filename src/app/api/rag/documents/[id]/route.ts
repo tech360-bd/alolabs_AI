@@ -1,23 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { deleteDocumentChunks } from '@/lib/rag-engine'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request)
     const { id } = await params
 
-    const document = await db.ragDocument.findUnique({
-      where: { id },
+    const document = await db.ragDocument.findFirst({
+      where: tenantWhere(tenant, { id }),
     })
 
     if (!document) {
@@ -25,7 +20,7 @@ export async function GET(
     }
 
     const chunks = await db.ragChunk.findMany({
-      where: { documentId: id },
+      where: tenantWhere(tenant, { documentId: id }),
       orderBy: { position: 'asc' },
     })
 
@@ -60,6 +55,8 @@ export async function GET(
       chunks: parsedChunks,
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error('[RAG Document Get] Error:', error)
     return NextResponse.json(
       { error: 'Failed to retrieve document' },
@@ -72,18 +69,12 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request)
     const { id } = await params
 
-    const document = await db.ragDocument.findUnique({
-      where: { id },
+    const document = await db.ragDocument.findFirst({
+      where: tenantWhere(tenant, { id }),
       select: { id: true, collectionId: true },
     })
 
@@ -101,7 +92,7 @@ export async function DELETE(
 
     // Update collection document count
     const docCount = await db.ragDocument.count({
-      where: { collectionId: document.collectionId },
+      where: tenantWhere(tenant, { collectionId: document.collectionId }),
     })
     await db.ragCollection.update({
       where: { id: document.collectionId },
@@ -114,6 +105,8 @@ export async function DELETE(
       deletedChunks,
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error('[RAG Document Delete] Error:', error)
     return NextResponse.json(
       { error: 'Failed to delete document' },

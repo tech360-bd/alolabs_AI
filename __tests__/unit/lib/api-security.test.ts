@@ -215,18 +215,24 @@ describe('secureRoute — tenant isolation', () => {
     expect((await read(response)).error.code).toBe('tenant_mismatch');
   });
 
-  it('assertTenant hides another tenant’s record behind 404', async () => {
+  it('assertTenant hides another tenant’s record and unowned (null) records behind 404', async () => {
     mocks.getAuthUser.mockResolvedValue(principal());
-    const route = secureRoute({ resource: 'test', action: 'update' }, (ctx: SecureContext) => {
+    const foreignRoute = secureRoute({ resource: 'test', action: 'update' }, (ctx: SecureContext) => {
       ctx.assertTenant(TENANT_B);
       return { ok: true };
     });
+    const unownedRoute = secureRoute({ resource: 'test', action: 'update' }, (ctx: SecureContext) => {
+      ctx.assertTenant(null);
+      return { ok: true };
+    });
 
-    const response = await request();
+    const resForeign = await foreignRoute(await request());
+    expect(resForeign.status).toBe(404);
+    expect((await read(resForeign)).error.code).toBe('not_found');
 
-    const result = await route(response);
-    expect(result.status).toBe(404);
-    expect((await read(result)).error.code).toBe('not_found');
+    const resUnowned = await unownedRoute(await request());
+    expect(resUnowned.status).toBe(404);
+    expect((await read(resUnowned)).error.code).toBe('not_found');
   });
 
   it('tenantWhere always injects the principal tenant into Prisma filters', async () => {

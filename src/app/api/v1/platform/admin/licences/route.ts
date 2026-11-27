@@ -18,7 +18,7 @@ import { requirePlatformAdmin } from '@/lib/platform/admin';
 
 const execFileAsync = promisify(execFile);
 
-export const GET = platformRoute({}, async ({ request, requestId }) => {
+export const GET = platformRoute({ allowCompanyScope: true }, async ({ request, requestId }) => {
   await requirePlatformAdmin(request);
 
   const script = path.join(process.cwd(), 'scripts', 'licence-inventory.mjs');

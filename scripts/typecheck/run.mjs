@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { totalmem } from 'node:os';
+import { cpus, totalmem } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -150,13 +150,17 @@ mkdirSync(resolve(repoRoot, '.next/cache'), { recursive: true });
 const { configName, cleanup } = withShimExcluded(config);
 
 const totalMemMb = Math.floor(totalmem() / (1024 * 1024));
+const cpuCount = cpus().length;
+const lowMemNative = compilerMajor >= 7 && (totalMemMb <= 4608 || cpuCount <= 2);
 
 /**
  * TypeScript 7 is a native (Go) binary, so NODE_OPTIONS never reaches it; its
  * ceiling comes from the Go runtime. Left alone it is OOM-killed on a 4 GB
- * container (observed: exit 137 with no diagnostics), so `GOMEMLIMIT` pins it
- * to a fraction of RAM and `GOGC` makes it collect earlier instead of
- * doubling the live heap.
+ * container (observed: exit 137 with no diagnostics), and multi-goroutine
+ * parallel checking + incremental `.tsbuildinfo` serialization thrash GC on
+ * <= 4.5 GB / 2-vCPU hosts. On those smaller hosts we run `--singleThreaded`
+ * without incremental cache serialization (completes in ~26s cleanly); on >= 8 GB
+ * CI runners parallel + incremental remains active.
  *
  * The JavaScript 5.x checker still needs the V8 flag because 250k lines plus
  * the generated catalogues exceed the default 2 GB limit — but not a
@@ -164,7 +168,7 @@ const totalMemMb = Math.floor(totalmem() / (1024 * 1024));
  * surfaces as "exit 1" with no output whatsoever.
  */
 const v8HeapMb = Math.min(6144, Math.max(2048, totalMemMb - 1536));
-const goMemLimitMb = Math.max(1024, Math.floor(totalMemMb * 0.65));
+const goMemLimitMb = Math.max(1024, Math.floor(totalMemMb * (lowMemNative ? 0.75 : 0.65)));
 
 const childEnv = {
   ...process.env,
@@ -172,15 +176,23 @@ const childEnv = {
     .filter(Boolean)
     .join(' '),
   GOMEMLIMIT: process.env.GOMEMLIMIT ?? `${goMemLimitMb}MiB`,
-  GOGC: process.env.GOGC ?? '50',
+  GOGC: process.env.GOGC ?? (lowMemNative ? '40' : '50'),
 };
+
+const extraCompilerFlags = lowMemNative
+  ? ['--singleThreaded', '--incremental', 'false']
+  : [];
 
 let result;
 try {
-  result = spawnSync(process.execPath, [chosen.tsc, '-p', configName, '--noEmit', ...args], {
-    stdio: 'inherit',
-    env: childEnv,
-  });
+  result = spawnSync(
+    process.execPath,
+    [chosen.tsc, '-p', configName, '--noEmit', ...extraCompilerFlags, ...args],
+    {
+      stdio: 'inherit',
+      env: childEnv,
+    },
+  );
 } finally {
   cleanup();
 }

@@ -45,12 +45,20 @@ export async function GET(
   // above. Both sides are therefore required to be real tenants first, so an
   // unowned run cannot stream to anyone even if the ids happen to compare equal.
   const runTenant = isUsableTenantId(run.companyId) ? run.companyId : null;
-  if (!runTenant || runTenant !== user.companyId) {
+  const callerTenant = isUsableTenantId(user.companyId) ? user.companyId : null;
+  if (!runTenant || !callerTenant || runTenant !== callerTenant) {
     return new Response(JSON.stringify({ error: 'Forbidden' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
     });
   }
+
+  const lastEventHeader = request.headers.get('last-event-id');
+  const urlAfter = new URL(request.url).searchParams.get('lastEventId');
+  const resumeAfterSeq = Math.max(
+    0,
+    Number.parseInt(lastEventHeader ?? urlAfter ?? '0', 10) || 0,
+  );
 
   const encoder = new TextEncoder();
   let lastEventId = 0;
@@ -58,18 +66,20 @@ export async function GET(
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (payload: Record<string, unknown>) => {
+      const send = (seqId: number | null, payload: Record<string, unknown>) => {
         if (closed) return;
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+        const prefix = seqId !== null ? `id: ${seqId}\n` : '';
+        controller.enqueue(encoder.encode(`${prefix}data: ${JSON.stringify(payload)}\n\n`));
       };
 
-      // 1. Replay persisted events (durable history)
+      // 1. Replay persisted events (durable history; honours Last-Event-ID on reconnect)
       const persisted = await getRunEvents(runId, 500);
       for (const event of persisted) {
         lastEventId += 1;
+        if (lastEventId <= resumeAfterSeq) continue;
         let data: Record<string, unknown> = {};
         try { data = JSON.parse(event.data); } catch { /* keep raw */ }
-        send({
+        send(lastEventId, {
           id: lastEventId,
           type: event.type,
           source: event.source,
@@ -80,13 +90,25 @@ export async function GET(
         });
       }
 
+      // If run is already terminal when client connects/reconnects, close cleanly after replay
+      const initialCheck = await getRun(runId);
+      if (initialCheck && ['completed', 'failed', 'cancelled', 'blocked', 'timed_out'].includes(initialCheck.status)) {
+        send(null, { type: 'stream.closed', data: { status: initialCheck.status } });
+        closed = true;
+        controller.close();
+        return;
+      }
+
       // 2. Subscribe to the live event bus for this run
       const bus = getEventBus();
       const subId = bus.subscribe('*', (event: DomainEvent) => {
         if (event.correlationId !== runId) return;
         if (!event.type.startsWith('agentos.')) return;
+        // T-5 per-event defence-in-depth: drop any live event missing a valid
+        // companyId or attributed to a different tenant.
+        if (!isUsableTenantId(event.companyId) || event.companyId !== callerTenant) return;
         lastEventId += 1;
-        send({
+        send(lastEventId, {
           id: lastEventId,
           type: event.type.replace(/^agentos\./, ''),
           source: event.source,
@@ -100,10 +122,11 @@ export async function GET(
         if (closed) return;
         try {
           const current = await getRun(runId);
-          if (current && ['completed', 'failed', 'cancelled'].includes(current.status)) {
-            send({ type: 'stream.closed', data: { status: current.status } });
+          if (current && ['completed', 'failed', 'cancelled', 'blocked', 'timed_out'].includes(current.status)) {
+            send(null, { type: 'stream.closed', data: { status: current.status } });
             closed = true;
             clearInterval(watcher);
+            clearInterval(heartbeat);
             bus.unsubscribe(subId);
             controller.close();
           }

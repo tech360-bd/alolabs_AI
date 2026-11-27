@@ -143,14 +143,26 @@ export async function dispatchAgentOSJob(
       const runId = typeof payload.runId === 'string' ? payload.runId : null;
       if (!runId) throw new Error('agentos.crm.lead-followup job missing runId');
       if (!deps.executeLeadFollowup) throw new Error('agentos.crm.lead-followup executor is not wired');
+      await assertJobTenantMatchesRun(deps.db, payload, runId);
       const result = await deps.executeLeadFollowup(runId);
       return { runId, status: result.status };
     }
     case 'agentos.command': {
       const runId = typeof payload.runId === 'string' ? payload.runId : null;
       if (!runId) throw new Error('agentos.command job missing runId');
+      await assertJobTenantMatchesRun(deps.db, payload, runId);
       await deps.executeRun(runId);
       return { runId };
+    }
+    case 'agentos.orchestrate': {
+      const runId = typeof payload.runId === 'string' ? payload.runId : null;
+      if (!runId) throw new Error('agentos.orchestrate job missing runId');
+      await assertJobTenantMatchesRun(deps.db, payload, runId);
+      // Imported lazily: the coordinator pulls in the agent registry and the plan
+      // builder, which are not needed for an ordinary run job.
+      const { orchestrateRunFromDb } = await import('@/lib/orchestration/service');
+      const result = await orchestrateRunFromDb(runId);
+      return { runId, ...result };
     }
     default:
       throw new Error(`Unknown job type: ${job.jobType}`);

@@ -1,22 +1,19 @@
 import { db } from '@/lib/db'
+import { legacyTenant, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request)
     const { searchParams } = new URL(request.url)
     const triggerId = searchParams.get('triggerId') || undefined
     const status = searchParams.get('status') || undefined
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)))
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = {
+      trigger: { companyId: tenant.companyId },
+    }
     if (triggerId) where.triggerId = triggerId
     if (status) where.status = status
 
@@ -49,6 +46,8 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error('[GET /api/automation/logs]', error)
     return NextResponse.json({ error: 'Failed to fetch logs' }, { status: 500 })
   }

@@ -132,6 +132,12 @@ export interface CreateRunInput {
   companyId: string;
   projectId?: string;
   commandId?: string;
+  /**
+   * Parent run for multi-agent fan-out. A child run is an ordinary run in every
+   * other respect: it has its own id, events, queue item and cancellation. The
+   * link exists so "cancel the parent" is a query, not a guess.
+   */
+  parentRunId?: string;
   workflowId?: string;
   priority?: string;
   /** Skip queueing (execute inline) — used by tests and sync callers. */
@@ -156,6 +162,7 @@ export async function createRun(input: CreateRunInput): Promise<{ runId: string;
       status: 'queued',
       plan: '[]',
       ...(input.commandId ? { commandId: input.commandId } : {}),
+      ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
       ...(input.projectId ? { projectId: input.projectId } : {}),
       ...(input.workflowId ? { workflowId: input.workflowId } : {}),
       companyId: input.companyId,
@@ -198,6 +205,7 @@ export async function listRuns(filter: {
   companyId?: string;
   userId?: string;
   projectId?: string;
+  parentRunId?: string;
   status?: string;
   limit?: number;
   offset?: number;
@@ -206,6 +214,7 @@ export async function listRuns(filter: {
   if (filter.companyId) where.companyId = filter.companyId;
   if (filter.userId) where.userId = filter.userId;
   if (filter.projectId) where.projectId = filter.projectId;
+  if (filter.parentRunId) where.parentRunId = filter.parentRunId;
   if (filter.status) where.status = filter.status;
 
   const [runs, total] = await Promise.all([
@@ -229,15 +238,103 @@ export async function getRunEvents(runId: string, limit = 200): Promise<RunEvent
   return events as RunEventRecord[];
 }
 
-export async function cancelRun(runId: string): Promise<boolean> {
+export async function retryRun(runId: string, callerCompanyId?: string): Promise<{ runId: string; status: RunStatus } | null> {
+  const run = await db.agentOSRun.findUnique({ where: { id: runId } });
+  if (!run) return null;
+  if (!isUsableTenantId(run.companyId)) {
+    throw new Error(`Refusing to retry run ${runId}: run has no resolvable tenant.`);
+  }
+  if (callerCompanyId !== undefined && run.companyId !== callerCompanyId) {
+    throw new Error(`Refusing to retry run ${runId}: tenant mismatch.`);
+  }
+  if (!['failed', 'cancelled', 'timed_out', 'blocked'].includes(run.status)) {
+    return null;
+  }
+
+  // Filter checkpoint to retain only completed steps so failed/skipped steps re-execute cleanly
+  const prevCheckpoint = parseCheckpoint(run.checkpoint);
+  const filteredSteps: RunCheckpoint['steps'] = {};
+  for (const [stepId, stepData] of Object.entries(prevCheckpoint.steps)) {
+    if (stepData.status === 'completed') {
+      filteredSteps[stepId] = stepData;
+    }
+  }
+  const nextCheckpoint: RunCheckpoint = {
+    version: 1,
+    steps: filteredSteps,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await db.agentOSRun.update({
+    where: { id: runId },
+    data: {
+      status: 'queued',
+      error: null,
+      completedAt: null,
+      checkpoint: JSON.stringify(nextCheckpoint),
+    },
+  });
+
+  const retryKey = `run:${runId}:retry:${(run.attempts ?? 0) + 1}:${Date.now()}`;
+  await enqueue(
+    RUN_QUEUE,
+    RUN_JOB_TYPE,
+    { runId, companyId: run.companyId, retry: true },
+    { priority: 10, maxRetries: 2, idempotencyKey: retryKey, jobId: runId },
+  );
+  await recordRunEvent({
+    runId,
+    type: 'run.queued',
+    source: 'orchestrator',
+    data: { retry: true, preservedCompletedSteps: Object.keys(filteredSteps).length },
+  });
+  return { runId, status: 'queued' };
+}
+
+const MAX_CANCEL_DEPTH = 5;
+
+export async function cancelRun(runId: string, callerCompanyId?: string, depth = 0): Promise<boolean> {
   const run = await db.agentOSRun.findUnique({ where: { id: runId } });
   if (!run) return false;
+  if (callerCompanyId !== undefined) {
+    if (!isUsableTenantId(run.companyId) || run.companyId !== callerCompanyId) {
+      throw new Error(`Refusing to cancel run ${runId}: tenant mismatch.`);
+    }
+  }
   if (TERMINAL_STATUSES.includes(run.status as RunStatus)) return false;
   await db.agentOSRun.update({
     where: { id: runId },
     data: { status: 'cancelled', completedAt: new Date(), error: 'Cancelled by user' },
   });
+  // Cancel any pending queue items for this run so a worker does not start it later
+  await db.queueItem.updateMany({
+    where: { jobId: runId, status: 'queued' },
+    data: { status: 'cancelled', error: 'Run cancelled by user', completedAt: new Date() },
+  }).catch(() => undefined);
   await recordRunEvent({ runId, type: 'run.cancelled', source: 'orchestrator', data: {} });
+
+  // Cascading cancellation. A parent that is cancelled must not leave children
+  // running: they hold queue items, spend tokens and write outputs nobody will
+  // reconcile. Children are cancelled through this same function so their own
+  // grandchildren are covered, and the recursion is depth-limited so a corrupted
+  // parent chain cannot loop forever.
+  if (depth < MAX_CANCEL_DEPTH) {
+    const children = await db.agentOSRun.findMany({
+      where: { parentRunId: runId, status: { notIn: [...TERMINAL_STATUSES] } },
+      select: { id: true },
+    }).catch(() => []);
+    for (const child of children) {
+      await cancelRun(child.id, callerCompanyId, depth + 1).catch(() => false);
+    }
+    if (children.length > 0) {
+      await recordRunEvent({
+        runId,
+        type: 'run.cancelled',
+        source: 'orchestrator',
+        data: { cascade: children.map((child) => child.id) },
+      });
+    }
+  }
   return true;
 }
 
@@ -269,10 +366,20 @@ export async function getRunDetail(runId: string): Promise<RunDetail | null> {
   const run = await db.agentOSRun.findUnique({ where: { id: runId } });
   if (!run) return null;
 
-  const [events, tasks, artifacts, agentRuns] = await Promise.all([
-    getRunEvents(runId, 500),
+  const events = await getRunEvents(runId, 500);
+  const taskIdsFromEvents = Array.from(new Set(
+    events.filter((e) => e.taskId && e.type.startsWith('task.')).map((e) => e.taskId as string),
+  ));
+
+  const [tasksByRun, artifacts, agentRuns] = await Promise.all([
     db.task.findMany({
-      where: { workflowId: run.workflowId ?? undefined, userId: run.userId ?? undefined },
+      where: {
+        ...(run.companyId ? { companyId: run.companyId } : {}),
+        OR: [
+          { runId },
+          ...(taskIdsFromEvents.length > 0 ? [{ id: { in: taskIdsFromEvents } }] : []),
+        ],
+      },
       orderBy: { createdAt: 'asc' },
       take: 100,
     }),
@@ -284,12 +391,7 @@ export async function getRunDetail(runId: string): Promise<RunDetail | null> {
     }),
   ]);
 
-  // Tasks belonging to this run are those created during the run window with
-  // matching user; tag them via RunEvent task.* events for precision.
-  const taskIdsFromEvents = new Set(
-    events.filter((e) => e.taskId && e.type.startsWith('task.')).map((e) => e.taskId as string),
-  );
-  const runTasks = tasks.filter((t) => taskIdsFromEvents.has(t.id));
+  const runTasks = tasksByRun;
 
   const runTaskIds = new Set(runTasks.map((t) => t.id));
   const relatedAgentRuns = agentRuns.filter((r) => r.taskId && runTaskIds.has(r.taskId));
@@ -859,6 +961,7 @@ export async function executeRun(runId: string, options?: { plan?: PlanResult })
       const task = await db.task.create({
         data: {
           id: randomUUID(),
+          companyId,
           title: step.title.slice(0, 200),
           description: step.description.slice(0, 2000),
           status: 'pending',

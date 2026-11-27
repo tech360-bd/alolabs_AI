@@ -10,7 +10,9 @@ const contact = { href: '/site/contact', label: 'Contact', hint: 'Talk to us' };
 const projects = { href: '/site/projects', label: 'Projects', hint: 'What we are building' };
 
 export const SITE_NAV: NavItem[] = [solutions, services, process, about, careers, contact];
-export const SITE_RESOURCE_NAV: NavItem[] = [projects,
+const stack = { href: '/site/stack', label: 'Stack register', hint: 'What we build, mirror and owe' };
+
+export const SITE_RESOURCE_NAV: NavItem[] = [projects, stack,
   { href: '/portal', label: 'Client portal', hint: 'Projects, deliverables, billing' },
   { href: '/site/privacy', label: 'Privacy Policy', hint: 'How we handle data' },
   { href: '/site/terms', label: 'Terms of Service', hint: 'Working with us' },

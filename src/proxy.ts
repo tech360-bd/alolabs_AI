@@ -38,6 +38,13 @@ export const PUBLIC_API_ROUTES: readonly PublicApiRoute[] = [
   { path: '/api/whatsapp/webhook', methods: ['GET', 'POST'] },
   { path: '/api/voice/telephony/webhook', methods: ['GET', 'POST'] },
   { path: '/api/public/', methods: ['GET', 'POST', 'PUT', 'DELETE'] },
+  // The stack register is a static catalogue *about this repository* — every
+  // row is a claim plus the file that proves it. No tenant row, credential or
+  // usage figure is read, so it is public on purpose: agents and buyers must be
+  // able to check what is genuinely implemented before asking for it. The
+  // trailing-slash entry covers the per-row detail route /api/ecosystem/<id>.
+  { path: '/api/ecosystem', methods: ['GET'] },
+  { path: '/api/ecosystem/', methods: ['GET'] },
 ];
 
 export function isPublicApiRoute(pathname: string, method: string): boolean {

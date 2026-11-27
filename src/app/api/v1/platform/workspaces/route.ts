@@ -12,7 +12,7 @@
 
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { platformRoute, json } from '@/lib/platform/http';
+import { platformRoute, json, forbidden } from '@/lib/platform/http';
 import { createProject, slugify } from '@/lib/platform/workspaces';
 
 const createSchema = z.object({
@@ -20,9 +20,15 @@ const createSchema = z.object({
   kind: z.enum(['personal', 'team', 'organisation']).default('team'),
 });
 
-export const GET = platformRoute({}, async ({ principal, requestId }) => {
+export const GET = platformRoute({ allowCompanyScope: true }, async ({ principal, requestId }) => {
+  if (!principal.companyId) {
+    return json({ workspaces: [] }, requestId);
+  }
   const memberships = await db.aiWorkspaceMember.findMany({
-    where: { userId: principal.userId },
+    where: {
+      userId: principal.userId,
+      workspace: { companyId: principal.companyId, status: 'active' },
+    },
     orderBy: { createdAt: 'asc' },
     select: {
       role: true,
@@ -31,7 +37,7 @@ export const GET = platformRoute({}, async ({ principal, requestId }) => {
   });
   // A workspace created before membership rows existed still has an owner.
   const owned = await db.aiWorkspace.findMany({
-    where: { ownerId: principal.userId },
+    where: { ownerId: principal.userId, companyId: principal.companyId, status: 'active' },
     select: { id: true, name: true, slug: true, kind: true, plan: true, createdAt: true },
   });
   const byId = new Map<string, { id: string; name: string; slug: string; kind: string; plan: string; createdAt: Date; role: string }>();
@@ -47,7 +53,10 @@ export const GET = platformRoute({}, async ({ principal, requestId }) => {
   }, requestId);
 });
 
-export const POST = platformRoute({ body: createSchema }, async ({ principal, body, requestId }) => {
+export const POST = platformRoute({ body: createSchema, allowCompanyScope: true }, async ({ principal, body, requestId }) => {
+  if (!principal.companyId) {
+    throw forbidden('Your account must belong to an active company before creating a workspace');
+  }
   const base = slugify(body.name);
   let slug = base;
   for (let attempt = 0; attempt < 10; attempt++) {
@@ -62,6 +71,7 @@ export const POST = platformRoute({ body: createSchema }, async ({ principal, bo
       slug,
       kind: body.kind,
       ownerId: principal.userId,
+      companyId: principal.companyId,
       members: { create: { userId: principal.userId, role: 'owner' } },
     },
     select: { id: true, name: true, slug: true, kind: true, createdAt: true },

@@ -3,9 +3,9 @@ import { db } from '@/lib/db'
 import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session';
 
 export async function GET(request: NextRequest) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const departments = await db.department.findMany({
       where: tenantWhere(tenant),
       orderBy: { sortOrder: 'asc' },
@@ -33,10 +33,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // Session → live Company membership. Authentication alone never authorises.
-  const tenant = await legacyTenant(request);
-
   try {
+    // Session → live Company membership. Authentication alone never authorises.
+    const tenant = await legacyTenant(request);
     const body = await request.json();
     const { name, slug, description, managerId, agentCount, sortOrder, status } = body;
 
@@ -64,6 +63,7 @@ export async function POST(request: NextRequest) {
         agentCount: agentCount ?? 20,
         sortOrder: sortOrder ?? 0,
         status: status || 'active',
+        companyId: tenant.companyId,
       },
     });
 

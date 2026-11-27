@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
 import { URL } from 'url'
 
@@ -109,6 +110,7 @@ async function executeAction(
   config: Record<string, unknown>,
   eventData: Record<string, unknown>,
   triggerId: string,
+  companyId: string,
   userId?: string
 ): Promise<Record<string, unknown>> {
   const now = new Date().toISOString()
@@ -119,7 +121,6 @@ async function executeAction(
       const message = (config.message as string) || JSON.stringify(eventData)
       const priority = (config.priority as string) || 'info'
       const recipientId = (config.recipientId as string) || userId
-      const companyId = (config.companyId as string) || undefined
 
       const notification = await db.notification.create({
         data: {
@@ -277,6 +278,7 @@ async function executeAction(
 
       const task = await db.task.create({
         data: {
+          companyId,
           title,
           description,
           status: 'pending',
@@ -319,7 +321,7 @@ async function executeAction(
       // Blocked fields prevent updating sensitive columns
       const BLOCKED_FIELDS: Record<string, string[]> = {
         // Universal blocked fields (applied to every table)
-        '__universal__': ['id', 'createdAt', 'updatedAt'],
+        '__universal__': ['id', 'companyId', 'createdAt', 'updatedAt'],
         'agent': ['agentId', 'departmentId', 'departmentName', 'status'],
         'task': [],
         'workflow': [],
@@ -345,22 +347,42 @@ async function executeAction(
         const updateData: Record<string, unknown> = { ...filteredUpdates, updatedAt: new Date() }
         switch (targetTable) {
           case 'agent': {
+            const owned = await db.agent.findFirst({ where: { id: recordId, companyId }, select: { id: true } })
+            if (!owned) return { success: false, message: 'Record not found in company', timestamp: now }
             const r = await db.agent.update({ where: { id: recordId }, data: updateData as Record<string, unknown> })
             return { success: true, message: `Record updated in ${targetTable}`, recordsAffected: 1, recordId: r.id, timestamp: now }
           }
           case 'task': {
+            const owned = await db.task.findFirst({ where: { id: recordId, companyId }, select: { id: true } })
+            if (!owned) return { success: false, message: 'Record not found in company', timestamp: now }
             const r = await db.task.update({ where: { id: recordId }, data: updateData as Record<string, unknown> })
             return { success: true, message: `Record updated in ${targetTable}`, recordsAffected: 1, recordId: r.id, timestamp: now }
           }
           case 'workflow': {
+            const deptIds = (await db.department.findMany({ where: { companyId }, select: { id: true } })).map((d) => d.id)
+            const owned = await db.workflow.findFirst({
+              where: {
+                id: recordId,
+                OR: [
+                  ...(deptIds.length > 0 ? [{ departmentId: { in: deptIds } }] : []),
+                  { workflowPermissions: { some: { companyId, allowed: true } } },
+                ],
+              },
+              select: { id: true },
+            })
+            if (!owned) return { success: false, message: 'Record not found in company', timestamp: now }
             const r = await db.workflow.update({ where: { id: recordId }, data: updateData as Record<string, unknown> })
             return { success: true, message: `Record updated in ${targetTable}`, recordsAffected: 1, recordId: r.id, timestamp: now }
           }
           case 'crmContact': {
+            const owned = await db.crmContact.findFirst({ where: { id: recordId, companyId }, select: { id: true } })
+            if (!owned) return { success: false, message: 'Record not found in company', timestamp: now }
             const r = await db.crmContact.update({ where: { id: recordId }, data: updateData as Record<string, unknown> })
             return { success: true, message: `Record updated in ${targetTable}`, recordsAffected: 1, recordId: r.id, timestamp: now }
           }
           case 'crmDeal': {
+            const owned = await db.crmDeal.findFirst({ where: { id: recordId, companyId }, select: { id: true } })
+            if (!owned) return { success: false, message: 'Record not found in company', timestamp: now }
             const r = await db.crmDeal.update({ where: { id: recordId }, data: updateData as Record<string, unknown> })
             return { success: true, message: `Record updated in ${targetTable}`, recordsAffected: 1, recordId: r.id, timestamp: now }
           }
@@ -389,7 +411,7 @@ async function executeAction(
         }
       }
 
-      const agent = await db.agent.findUnique({ where: { id: agentId } })
+      const agent = await db.agent.findFirst({ where: { id: agentId, companyId } })
       if (!agent) {
         return {
           success: false,
@@ -402,6 +424,7 @@ async function executeAction(
         data: {
           agentId,
           agentName: agent.name,
+          companyId,
           status: 'queued',
           input: taskPrompt,
         },
@@ -429,7 +452,16 @@ async function executeAction(
         }
       }
 
-      const workflow = await db.workflow.findUnique({ where: { id: workflowId } })
+      const deptIds = (await db.department.findMany({ where: { companyId }, select: { id: true } })).map((d) => d.id)
+      const workflow = await db.workflow.findFirst({
+        where: {
+          id: workflowId,
+          OR: [
+            ...(deptIds.length > 0 ? [{ departmentId: { in: deptIds } }] : []),
+            { workflowPermissions: { some: { companyId, allowed: true } } },
+          ],
+        },
+      })
       if (!workflow) {
         return {
           success: false,
@@ -442,6 +474,7 @@ async function executeAction(
         data: {
           workflowId,
           workflowName: workflow.name,
+          companyId,
           status: 'pending',
           input: workflowInput,
         },
@@ -503,14 +536,8 @@ async function executeAction(
 }
 
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  const token = authHeader?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { verifySessionToken } = await import('@/lib/auth')
-  const session = await verifySessionToken(token)
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-
   try {
+    const tenant = await legacyTenant(request)
     const body = await request.json()
     const { triggerId, eventData: inputEventData } = body
 
@@ -518,8 +545,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'triggerId is required' }, { status: 400 })
     }
 
-    const trigger = await db.automationTrigger.findUnique({
-      where: { id: triggerId },
+    const trigger = await db.automationTrigger.findFirst({
+      where: tenantWhere(tenant, { id: triggerId }),
       include: {
         actions: { orderBy: { sortOrder: 'asc' } },
       },
@@ -587,7 +614,7 @@ export async function POST(request: NextRequest) {
       while (attempts < maxAttempts) {
         attempts++
         try {
-          result = await executeAction(action.type, actionConfig, eventData, trigger.id, session.userId)
+          result = await executeAction(action.type, actionConfig, eventData, trigger.id, tenant.companyId, tenant.userId)
           if (result.success) break
           if (attempts < maxAttempts && retryDelay > 0) {
             await new Promise((resolve) => setTimeout(resolve, retryDelay))
@@ -672,6 +699,8 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error('[POST /api/automation/execute]', error)
     return NextResponse.json({ error: 'Failed to execute trigger' }, { status: 500 })
   }

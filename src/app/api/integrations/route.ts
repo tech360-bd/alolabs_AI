@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAuth } from '@/lib/api-auth';
+import { requireCompanyAuth, canManageCompany } from '@/lib/api-auth';
 
-// GET /api/integrations — list all integrations (webhooks + oauth)
+// GET /api/integrations — list integrations scoped to the caller's company
 export async function GET() {
   try {
-    await requireAuth();
+    const user = await requireCompanyAuth();
 
     const [webhooks, oauthProviders] = await Promise.all([
-      db.webhookConfig.findMany({ orderBy: { createdAt: 'desc' } }),
-      db.oAuthProvider.findMany({ orderBy: { createdAt: 'desc' } }),
+      db.webhookConfig.findMany({
+        where: { companyId: user.companyId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      user.role === 'super_admin'
+        ? db.oAuthProvider.findMany({ orderBy: { createdAt: 'desc' } })
+        : Promise.resolve([]),
     ]);
 
-    // No McpServer model exists in the schema, so MCP integrations are empty
     const mcpServers: unknown[] = [];
 
     const integrations = [
@@ -45,6 +49,9 @@ export async function GET() {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (error instanceof Error && error.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -52,12 +59,19 @@ export async function GET() {
 // POST /api/integrations — create an integration
 export async function POST(req: NextRequest) {
   try {
-    await requireAuth();
+    const user = await requireCompanyAuth();
+    if (!canManageCompany(user)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     const body = await req.json();
     const { name, type, config } = body;
 
     if (!name || !type) {
       return NextResponse.json({ error: 'name and type are required' }, { status: 400 });
+    }
+
+    if (config?.companyId && config.companyId !== user.companyId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     let record;
@@ -68,7 +82,7 @@ export async function POST(req: NextRequest) {
       }
       record = await db.webhookConfig.create({
         data: {
-          companyId: config.companyId || 'default',
+          companyId: user.companyId,
           name,
           url: config.url,
           events: JSON.stringify(config.events || []),
@@ -89,6 +103,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (type === 'oauth') {
+      if (user.role !== 'super_admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
       if (!config?.clientId || !config?.clientSecret || !config?.authorizationUrl || !config?.tokenUrl) {
         return NextResponse.json({ error: 'clientId, clientSecret, authorizationUrl, and tokenUrl are required for OAuth integrations' }, { status: 400 });
       }
@@ -121,6 +138,9 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (error instanceof Error && error.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -128,7 +148,10 @@ export async function POST(req: NextRequest) {
 // PUT /api/integrations — update an integration
 export async function PUT(req: NextRequest) {
   try {
-    await requireAuth();
+    const user = await requireCompanyAuth();
+    if (!canManageCompany(user)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     const body = await req.json();
     const { id, type, ...updates } = body;
 
@@ -137,6 +160,14 @@ export async function PUT(req: NextRequest) {
     }
 
     if (type === 'webhook') {
+      const owned = await db.webhookConfig.findFirst({
+        where: { id, companyId: user.companyId },
+        select: { id: true },
+      });
+      if (!owned) {
+        return NextResponse.json({ error: 'Integration not found' }, { status: 404 });
+      }
+
       const data: Record<string, unknown> = {};
       if (updates.name) data.name = updates.name;
       if (updates.config?.url) data.url = updates.config.url;
@@ -162,6 +193,9 @@ export async function PUT(req: NextRequest) {
     }
 
     if (type === 'oauth') {
+      if (user.role !== 'super_admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
       const data: Record<string, unknown> = {};
       if (updates.name) data.provider = updates.name;
       if (updates.config?.clientId) data.clientId = updates.config.clientId;
@@ -193,6 +227,9 @@ export async function PUT(req: NextRequest) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (error instanceof Error && error.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -200,7 +237,10 @@ export async function PUT(req: NextRequest) {
 // DELETE /api/integrations — delete an integration
 export async function DELETE(req: NextRequest) {
   try {
-    await requireAuth();
+    const user = await requireCompanyAuth();
+    if (!canManageCompany(user)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     const body = await req.json();
     const { id, type } = body;
 
@@ -209,8 +249,18 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (type === 'webhook') {
+      const owned = await db.webhookConfig.findFirst({
+        where: { id, companyId: user.companyId },
+        select: { id: true },
+      });
+      if (!owned) {
+        return NextResponse.json({ error: 'Integration not found' }, { status: 404 });
+      }
       await db.webhookConfig.delete({ where: { id } });
     } else if (type === 'oauth') {
+      if (user.role !== 'super_admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
       await db.oAuthProvider.delete({ where: { id } });
     } else {
       return NextResponse.json({ error: `Unsupported integration type: ${type}` }, { status: 400 });
@@ -220,6 +270,9 @@ export async function DELETE(req: NextRequest) {
   } catch (error: unknown) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

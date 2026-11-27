@@ -10,7 +10,7 @@ import { platformRoute, json } from '@/lib/platform/http';
 import { requirePlatformAdmin } from '@/lib/platform/admin';
 import { hardwareSnapshot } from '@/lib/platform/hardware';
 
-export const GET = platformRoute({}, async ({ request, requestId }) => {
+export const GET = platformRoute({ allowCompanyScope: true }, async ({ request, requestId }) => {
   await requirePlatformAdmin(request);
   return json({ hardware: hardwareSnapshot(), capturedAt: new Date().toISOString() }, requestId);
 });

@@ -32,7 +32,7 @@ interface AttemptShape {
   message?: string;
 }
 
-export const GET = platformRoute({ query: querySchema }, async ({ request, query, requestId }) => {
+export const GET = platformRoute({ query: querySchema, allowCompanyScope: true }, async ({ request, query, requestId }) => {
   await requirePlatformAdmin(request);
   const since = new Date(Date.now() - query.hours * 60 * 60 * 1000);
 

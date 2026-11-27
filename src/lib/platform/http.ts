@@ -29,6 +29,7 @@ import {
   resolvePrincipal,
   hasScope,
   principalOwnsProject,
+  requireWorkspace,
   type PlatformPrincipal,
 } from './principal';
 import { checkLimit } from '@/lib/security/rate-limiter';
@@ -80,6 +81,12 @@ export interface PlatformRouteOptions<TBody = unknown, TQuery = unknown> {
   query?: ZodType<TQuery>;
   /** Require a `projectId` (query or body) that belongs to the workspace. */
   projectScoped?: boolean;
+  /**
+   * Allow company-scoped principals (who do not yet have an active workspace)
+   * to call this route (e.g. `/me`, `/workspaces`, `/admin/**`, `/models`).
+   * Defaults to `false`, enforcing T-4 (`requireWorkspace`) on every route.
+   */
+  allowCompanyScope?: boolean;
   /** Per-credential rate limit; defaults to the credential's own limit. */
   rateLimit?: { limit: number; windowMs: number };
 }
@@ -145,6 +152,18 @@ export function platformRoute<TBody = undefined, TQuery = undefined>(
         throw forbidden(
           `This credential lacks the "${options.scope}" scope`,
           `Grant "${options.scope}" to the API key, or call with a session that has it.`,
+        );
+      }
+
+      // 2b. T-4 Workspace boundary enforcement
+      let resolvedWorkspaceId = '';
+      try {
+        const narrowed = requireWorkspace(principal, { allowCompanyScope: Boolean(options.allowCompanyScope) });
+        resolvedWorkspaceId = narrowed.workspaceId ?? '';
+      } catch (wsError) {
+        throw forbidden(
+          wsError instanceof Error ? wsError.message : 'Workspace required',
+          'Create or select a workspace via POST /api/v1/platform/workspaces/ensure first.',
         );
       }
 
@@ -218,7 +237,7 @@ export function platformRoute<TBody = undefined, TQuery = undefined>(
         }
       }
 
-      return await handler({ principal, request, requestId, query, body, workspaceId: principal.workspaceId, rawBody });
+      return await handler({ principal, request, requestId, query, body, workspaceId: resolvedWorkspaceId, rawBody });
     } catch (error) {
       return handlePlatformError(error, requestId);
     }

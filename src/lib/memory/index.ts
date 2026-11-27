@@ -570,14 +570,19 @@ class PersistentMemoryStore {
     return result.count;
   }
 
-  /** Get memory stats */
-  async getStats(): Promise<{ total: number; byType: Record<string, number>; oldest: Date | null }> {
+  /** Get memory stats (optionally scoped to a specific owner/tenant id) */
+  async getStats(scopeId?: string): Promise<{ total: number; byType: Record<string, number>; oldest: Date | null }> {
+    const stWhere = scopeId ? { sessionId: scopeId } : undefined;
+    const ltWhere = scopeId
+      ? { OR: [{ approvedBy: scopeId }, { scopeId }] }
+      : undefined;
+
     const [stCount, ltCount, ltByCategory, stOldest, ltOldest] = await Promise.all([
-      db.memoryShortTerm.count(),
-      db.memoryLongTerm.count(),
-      db.memoryLongTerm.groupBy({ by: ['category'], _count: true }),
-      db.memoryShortTerm.findFirst({ orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
-      db.memoryLongTerm.findFirst({ orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
+      db.memoryShortTerm.count({ where: stWhere }),
+      db.memoryLongTerm.count({ where: ltWhere }),
+      db.memoryLongTerm.groupBy({ by: ['category'], where: ltWhere, _count: true }),
+      db.memoryShortTerm.findFirst({ where: stWhere, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
+      db.memoryLongTerm.findFirst({ where: ltWhere, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
     ]);
 
     const byType: Record<string, number> = { short_term: stCount };

@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { legacyTenant, legacyAuthResponse } from '@/lib/api/legacy-session'
 
 // ─── POST: Check Usage Quota ────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request)
     const body = await request.json()
-    const { companyId, action, estimatedTokens = 0 } = body
+    const { companyId: requestedCompanyId, action, estimatedTokens = 0 } = body
 
-    if (!companyId || !action) {
+    if (requestedCompanyId && requestedCompanyId !== tenant.companyId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    const companyId = tenant.companyId
+
+    if (!action) {
       return NextResponse.json(
-        { error: 'companyId and action are required' },
+        { error: 'action is required' },
         { status: 400 },
       )
     }
@@ -268,6 +268,8 @@ export async function POST(request: NextRequest) {
       warnings,
     })
   } catch (error) {
+    const authFailure = legacyAuthResponse(error)
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status })
     console.error('Usage check error:', error)
     return NextResponse.json(
       { error: 'Failed to check usage quota' },

@@ -37,17 +37,30 @@ export type ModelCapability =
   | 'chat' | 'streaming' | 'code' | 'reasoning' | 'vision'
   | 'embedding' | 'function-calling' | 'json-mode' | 'long-context';
 
-export type HostingType = 'local' | 'remote' | 'free-cloud';
+export const MODEL_CAPABILITIES: readonly ModelCapability[] = [
+  'chat',
+  'streaming',
+  'code',
+  'reasoning',
+  'vision',
+  'embedding',
+  'function-calling',
+  'json-mode',
+  'long-context',
+];
 
-/**
- * A user-facing task, resolved to the capabilities it needs.
- *
- * The router itself deals only in `ModelCapability`; `TaskType` is the vocabulary
- * the API and UI speak ("summarise this", "translate that") and exists so that
- * mapping lives in one place instead of being duplicated per route.
- */
+export function isModelCapability(value: string): value is ModelCapability {
+  return (MODEL_CAPABILITIES as readonly string[]).includes(value);
+}
+
 export type TaskType =
-  | 'chat' | 'code' | 'vision' | 'reasoning' | 'embedding' | 'summarise' | 'translation';
+  | 'chat'
+  | 'code'
+  | 'vision'
+  | 'reasoning'
+  | 'embedding'
+  | 'summarise'
+  | 'translation';
 
 export const TASK_REQUIREMENTS: Record<TaskType, ModelCapability[]> = {
   chat: ['chat'],
@@ -58,6 +71,12 @@ export const TASK_REQUIREMENTS: Record<TaskType, ModelCapability[]> = {
   summarise: ['chat'],
   translation: ['chat'],
 };
+
+export function isTaskType(value: string): value is TaskType {
+  return Object.prototype.hasOwnProperty.call(TASK_REQUIREMENTS, value);
+}
+
+export type HostingType = 'local' | 'remote' | 'free-cloud';
 
 export type ProviderKind = 'ollama' | 'vllm' | 'litellm' | 'openai-compatible' | 'platform-local';
 

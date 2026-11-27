@@ -16,7 +16,8 @@ const principalState: {
   value: {
     kind: 'session' | 'api-key';
     userId: string;
-    workspaceId: string;
+    companyId: string;
+    workspaceId: string | null;
     projectId?: string;
     apiKeyId?: string;
     scopes: string[];
@@ -28,7 +29,7 @@ const limitState = { calls: [] as Array<{ limit: number; windowMs: number }>, al
 
 // Deliberately NOT `importActual`: the real principal module imports the Prisma
 // client, which imports the node:sqlite driver — a Node built-in that cannot be
-// bundled into the jsdom environment the rest of the suite uses. Only the two
+// bundled into the jsdom environment the rest of the suite uses. Only the
 // functions the wrapper calls are needed, and stubbing them keeps this test
 // about the wrapper rather than about Prisma.
 vi.mock('@/lib/platform/principal', () => ({
@@ -37,6 +38,15 @@ vi.mock('@/lib/platform/principal', () => ({
     projectId.startsWith(principal.workspaceId)),
   hasScope: (principal: { scopes: string[] }, scope: string) =>
     principal.scopes.includes(scope) || principal.scopes.includes('admin:all'),
+  requireWorkspace: (
+    principal: { workspaceId: string | null },
+    options?: { allowCompanyScope?: boolean },
+  ) => {
+    if (!principal.workspaceId && !options?.allowCompanyScope) {
+      throw new Error('Workspace context required');
+    }
+    return principal;
+  },
 }));
 
 vi.mock('@/lib/security/rate-limiter', () => ({
@@ -62,6 +72,7 @@ function request(url = 'http://localhost:3011/api/v1/platform/test', init?: Next
 const sessionPrincipal = {
   kind: 'session' as const,
   userId: 'user-1',
+  companyId: 'comp-1',
   workspaceId: 'ws-1',
   scopes: ['ai:chat', 'models:read', 'admin:all'],
   rateLimitPerMinute: 60,
@@ -70,6 +81,7 @@ const sessionPrincipal = {
 const keyPrincipal = {
   kind: 'api-key' as const,
   userId: 'user-1',
+  companyId: 'comp-1',
   workspaceId: 'ws-1',
   projectId: 'ws-1-proj',
   apiKeyId: 'key-1',
@@ -269,6 +281,17 @@ describe('platformRoute', () => {
 
     expect(response.status).toBe(400);
     expect(((await response.json()) as { error: { message: string } }).error.message).toContain('days');
+  });
+
+  it('rejects a company-only principal with 403 unless allowCompanyScope is set', async () => {
+    principalState.value = { ...sessionPrincipal, workspaceId: null };
+    const blocked = await platformRoute({}, async () => Response.json({ ok: true }) as never)(request());
+    expect(blocked.status).toBe(403);
+
+    const allowed = await platformRoute({ allowCompanyScope: true }, async ({ workspaceId }) =>
+      Response.json({ ok: true, workspaceId }) as never)(request());
+    expect(allowed.status).toBe(200);
+    expect(await allowed.json()).toEqual({ ok: true, workspaceId: '' });
   });
 
   it('builds PlatformErrors through helpers so status and code stay paired', () => {
