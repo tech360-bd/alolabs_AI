@@ -172,6 +172,8 @@ jobs:
         # depends_on targets, app-port drift, and unreachable Caddy upstreams.
         # Runs without Docker so it works on every runner.
         run: node scripts/validate-compose.mjs
+      - name: Validate host capacity budget
+        run: node scripts/validate-capacity.mjs
       - name: Validate API route auth coverage
         # Dependency-free. src/proxy.ts is the Next 16 edge gate and is
         # fail-closed, but it only checks that a Bearer token is PRESENT — the

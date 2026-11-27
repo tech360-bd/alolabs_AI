@@ -41,7 +41,11 @@ module.exports = {
     exec_mode: 'fork',
     autorestart: true,
     watch: false,
-    max_memory_restart: '1G',
+    // The in-process worker (src/instrumentation.node.ts) runs orchestrator
+    // pipelines inside this process; 1G restarted it mid-run. 3G matches the
+    // Docker ceiling in docker-compose.capacity.yml, so both deploy paths fail
+    // at the same point. docs/SERVER_CAPACITY_PLAN.md §2.
+    max_memory_restart: '3G',
     restart_delay: 5000,
     kill_timeout: 10000,
     listen_timeout: 15000,

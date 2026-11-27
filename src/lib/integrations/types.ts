@@ -19,7 +19,11 @@ export type IntegrationCategory =
   | 'content'
   | 'media'
   | 'telephony'
-  | 'automation';
+  | 'automation'
+  | 'gateway'
+  | 'ai-chat'
+  | 'coding-agent'
+  | 'deploy';
 
 /**
  * REUSE            — permissive license; adapter may be inspired by or vendor code (with attribution).
