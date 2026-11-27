@@ -31,7 +31,8 @@ export type OperatorNotificationType =
   | 'build.failed'
   | 'deployment.failed'
   | 'security.issue'
-  | 'config.changed';
+  | 'config.changed'
+  | 'ops.backup';
 
 const PRIORITY: Record<OperatorNotificationType, 'info' | 'warning' | 'critical'> = {
   'run.completed': 'info',
@@ -44,10 +45,17 @@ const PRIORITY: Record<OperatorNotificationType, 'info' | 'warning' | 'critical'
   'build.failed': 'critical',
   'deployment.failed': 'critical',
   'security.issue': 'critical',
+  'ops.backup': 'critical',
 };
 
 export interface OperatorNotificationInput {
+  /**
+   * The tenant this belongs to. Empty only with `scope: 'platform'`, which writes a
+   * platform-level row (companyId null) that only super administrators can read —
+   * used for infrastructure such as backups, which are not a customer's data.
+   */
   companyId: string;
+  scope?: 'tenant' | 'platform';
   userId?: string;
   type: OperatorNotificationType;
   title: string;
@@ -95,7 +103,8 @@ function parseMetadata(raw: string | null): NotificationMetadata {
  * dedupe window — callers treat that as success, not as an error.
  */
 export async function notifyOperator(input: OperatorNotificationInput): Promise<OperatorNotificationResult> {
-  if (!isUsableTenantId(input.companyId)) {
+  const platform = input.scope === 'platform';
+  if (!platform && !isUsableTenantId(input.companyId)) {
     // A notification with no tenant would be visible to whoever owned the row.
     return { id: null, created: false, reason: 'no tenant' };
   }
@@ -106,7 +115,7 @@ export async function notifyOperator(input: OperatorNotificationInput): Promise<
   const existing = await db.notification
     .findFirst({
       where: {
-        companyId: input.companyId,
+        companyId: platform ? null : input.companyId,
         type: input.type,
         createdAt: { gte: since },
         metadata: { contains: `"dedupeKey":"${dedupeKey}"` },
@@ -131,7 +140,7 @@ export async function notifyOperator(input: OperatorNotificationInput): Promise<
       title: input.title.slice(0, 200),
       message: input.message.slice(0, 2_000),
       priority: PRIORITY[input.type],
-      companyId: input.companyId,
+      ...(platform ? {} : { companyId: input.companyId }),
       ...(input.userId ? { userId: input.userId } : {}),
       metadata: JSON.stringify(metadata),
     },
@@ -230,6 +239,16 @@ export async function retryFailedDeliveries(companyId: string, limit = 20): Prom
 }
 
 /** Unread operator notifications for the bell. Tenant-scoped, newest first. */
+/** Platform-level notifications (backups, infrastructure) for super administrators. */
+export async function listPlatformNotifications(limit = 20) {
+  return db.notification.findMany({
+    where: { companyId: null, type: { startsWith: 'ops.' } },
+    orderBy: { createdAt: 'desc' },
+    take: Math.min(Math.max(limit, 1), 50),
+    select: { id: true, type: true, title: true, message: true, priority: true, read: true, metadata: true, createdAt: true },
+  });
+}
+
 export async function listOperatorNotifications(companyId: string, limit = 20) {
   if (!isUsableTenantId(companyId)) return [];
   return db.notification.findMany({

@@ -237,7 +237,11 @@ describe('isolated real backup → restore (not production certification)', () =
       expect(createHash('sha256').update(downloaded).digest('hex')).toBe(fixture.uploadedChecksum);
 
       const manifest = JSON.parse(readFileSync(join(snapshot, 'manifest.json'), 'utf8'));
-      expect(manifest).toMatchObject({ database_backup_verified: true, storage_included: true, restore_tested: false });
+      expect(manifest).toMatchObject({ database_backup_verified: true, storage_included: true, restore_tested: true });
+      // A snapshot is only useful if it can be read back: the restore is performed
+      // into an isolated directory during the backup itself.
+      expect(String(manifest.restore_detail)).toMatch(/integrity ok/i);
+      expect(Date.parse(String(manifest.restore_verified_at))).toBeGreaterThan(0);
     } finally {
       rmSync(fixture.root, { recursive: true, force: true });
     }
@@ -288,7 +292,7 @@ describe('isolated real backup → restore (not production certification)', () =
       expect(await restoredStorage.download(fixture.uploadedId)).toEqual(fixture.bytes);
 
       const manifest = JSON.parse(readFileSync(join(snapshot, 'manifest.json'), 'utf8'));
-      expect(manifest).toMatchObject({ external_storage_included: true, restore_tested: false });
+      expect(manifest).toMatchObject({ external_storage_included: true, restore_tested: true });
     } finally {
       rmSync(fixture.root, { recursive: true, force: true });
     }
