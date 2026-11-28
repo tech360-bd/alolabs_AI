@@ -155,7 +155,7 @@ test('ecosystem hub loads, syncs vault, guards sandbox branches, and renders cle
   await shot(page, 'ecosystem-vault-1440x900');
 
   // Voice, LiveKit & Browser Guardrail probes
-  await page.getByRole('tab', { name: /Voice, LiveKit/ }).click();
+  await page.getByRole('tab', { name: /LiveKit, OBS & Visual QA/ }).click();
   await page.getByRole('button', { name: /Check LiveKit & Meetings/ }).click();
   await page.getByText(/LiveKit SFU/i).first().waitFor();
   await page.getByRole('button', { name: /Verify Browser Guardrails/ }).click();
