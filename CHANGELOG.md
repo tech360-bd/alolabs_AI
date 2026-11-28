@@ -67,3 +67,23 @@
   `docs/SELFHOST_FREE_STACK_2026-11-28.md` with round-2 verdicts and the
   Code-Sync enablement path. No new compose services: no round-2 repo ships a
   publishable free image that fits the zero-paid profiles.
+
+### Round 3 — 2026-11-28 (free equivalents BUILT for not-free services)
+- **`docker-compose.selfhost-free-stack.yml`** grows from 10 to 24 services
+  with three new opt-in profiles, replacing every requested service that
+  failed the free-self-host test:
+  - `chat-calls` — Rocket.Chat (MIT core, upstream LICENSE verified) +
+    MongoDB replica set: free MirrorFly chat equivalent.
+  - `video-calls` — Jitsi Meet (Apache-2.0, official docker-jitsi-meet
+    pattern: web/prosody/jicofo/jvb): free MirrorFly audio/video equivalent;
+    embeds into Rocket.Chat via its Jitsi integration.
+  - `social` — Postmill (AGPL-3.0, published image, unmodified separate
+    service, Stripe keys empty): free outstand.so equivalent.
+- jarvis.institute maps to the already-integrated `openwebui` / `chat-ui`
+  profiles (local-model assistant); documented, nothing proprietary added.
+- All new services follow the established fail-closed pattern: `${VAR:?}`
+  secrets, loopback-only ports, healthchecks, memory ceilings; RAM budget
+  rows added to the header (each new profile ~1.5 GB).
+- Docs: audit doc gains a Round-3 license-evidence table (Rocket.Chat MIT
+  verified from the upstream LICENSE text; Jitsi Apache-2.0; Postmill AGPL);
+  integration guide gains enablement commands + Rocket.Chat↔Jitsi wiring.
