@@ -509,7 +509,7 @@ export default function SuperAdminEcosystemHub() {
       const writeJson = await writeRes.json()
       if (!readRes.ok || !writeRes.ok) throw new Error('Guardrail check failed')
       setGuardrailProbe(
-        `navigate → ${readJson.policy?.requiresApproval ? 'approval' : 'auto-allow'}; publish_content → ${writeJson.policy?.requiresApproval ? 'approval-required' : 'auto-allow'}`,
+        `navigate → ${readJson.decision?.requiresHumanApproval ? 'approval-required' : 'auto-allow'}; publish_content → ${writeJson.decision?.requiresHumanApproval ? 'approval-required' : 'auto-allow'}`,
       )
       toast.success('Browser guardrail policy verified')
     } catch (err) {
