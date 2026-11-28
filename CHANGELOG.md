@@ -54,3 +54,16 @@
   runtime-tested (DoD honesty rules).
 - MirrorFly self-hosted chat, jarvis.institute, outstand.so verified NOT free;
   excluded. perrypixel/10x-Tool-Calls has no license; prohibited.
+
+### Round 2 — 2026-11-28 (second requested-links batch)
+- **Audit round 2**: sahilatahar/Code-Sync (MIT — free self-host confirmed,
+  Express+Socket.io, no paid deps), postmill-ai/postmill-app (AGPL — free
+  self-hosted outstand.so alternative, reference-only per policy), MeiGen-AI
+  org (18 repos: MultiTalk/OPSD-V Apache-2.0 research references; 7 no-license
+  repos prohibited; X-Cut AGPL), MirrorFly org (26 repos — confirmed NOT free:
+  unlicensed samples for a commercial SDK), jarvis.institute compare page
+  (confirms $9.99 proprietary).
+- Updated `REQUESTED_LINKS_AUDIT_2026-11-28.md` and
+  `docs/SELFHOST_FREE_STACK_2026-11-28.md` with round-2 verdicts and the
+  Code-Sync enablement path. No new compose services: no round-2 repo ships a
+  publishable free image that fits the zero-paid profiles.
