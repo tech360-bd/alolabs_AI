@@ -2,6 +2,7 @@
 
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { toast } from 'sonner'
 import {
   Shield,
   Plus,
@@ -143,9 +144,13 @@ export default function RoleManagementPanel() {
     try {
       const res = await apiFetch('/api/roles')
       const data = await res.json()
+      if (!res.ok) {
+        toast.error('Error', { description: data.error || `Failed to load roles (HTTP ${res.status})` })
+        return
+      }
       setRoles(data.data || [])
     } catch {
-      // silently handle
+      toast.error('Error', { description: 'Failed to load roles' })
     } finally {
       setLoading(false)
     }
@@ -186,13 +191,17 @@ export default function RoleManagementPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingId, ...form }),
       })
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
+        toast.success(isEdit ? 'Role updated' : 'Role created')
         setDialogOpen(false)
         resetForm()
         fetchData()
+      } else {
+        toast.error('Save failed', { description: data.error || `HTTP ${res.status}` })
       }
     } catch {
-      // silently handle
+      toast.error('Save failed', { description: 'Unable to save role' })
     } finally {
       setSubmitting(false)
     }
@@ -201,15 +210,21 @@ export default function RoleManagementPanel() {
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      await apiFetch('/api/roles', {
+      const res = await apiFetch('/api/roles', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: deleteConfirm.id }),
       })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Delete failed', { description: data.error || `HTTP ${res.status}` })
+        return
+      }
+      toast.success('Role deleted')
       setDeleteConfirm({ open: false, id: '', name: '' })
       fetchData()
     } catch {
-      // silently handle
+      toast.error('Delete failed', { description: 'Unable to delete role' })
     } finally {
       setDeleting(false)
     }

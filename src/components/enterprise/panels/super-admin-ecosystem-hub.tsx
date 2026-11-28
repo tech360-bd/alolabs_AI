@@ -105,12 +105,31 @@ interface VaultResponse {
     category: string
     availability: string
   }>
+  assets?: Array<{
+    id: string
+    fullName: string
+    url: string
+    licenseSpdx: string | null
+    compatibilityStatus: string
+    integrationPattern: string
+    assetCategory: string
+    isPinned: boolean
+  }>
   licenses: Array<{
     id: string
+    assetId?: string
     spdxId: string
     copyleftScope: string
     commercialAllowed: boolean
     verdict: string
+  }>
+  securityReviews?: Array<{
+    id: string
+    assetId: string
+    riskLevel: string
+    status: string
+    ssrfChecked: boolean
+    sandboxRequired: boolean
   }>
   integrations: Array<{
     id: string
@@ -120,6 +139,14 @@ interface VaultResponse {
     strategy: string
     licenseClass: string
     status: string
+    activeVersionId?: string | null
+    versions?: Array<{
+      id: string
+      version: string
+      pinnedRef: string
+      isActive: boolean
+      createdAt: string
+    }>
   }>
   hardware: {
     memory?: { totalGb?: number; availableGb?: number }
@@ -195,6 +222,8 @@ export default function SuperAdminEcosystemHub() {
     deduplicatedCount: number
     estimatedTokensSaved: number
   } | null>(null)
+  const [livekitProbe, setLivekitProbe] = useState<string | null>(null)
+  const [guardrailProbe, setGuardrailProbe] = useState<string | null>(null)
 
   const loadAll = useCallback(async () => {
     try {
@@ -383,6 +412,110 @@ export default function SuperAdminEcosystemHub() {
       }
     } catch {
       toast.error('Optimizer preview failed')
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const pinIntegrationVersion = async (integration: NonNullable<VaultResponse['integrations']>[number]) => {
+    setBusyAction(`pin:${integration.id}`)
+    try {
+      const nextPatch = `1.0.${(integration.versions?.length ?? 0) + 1}`
+      const res = await apiFetch('/api/super-admin/ecosystem/vault', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'pin_version',
+          integrationId: integration.id,
+          version: nextPatch,
+          pinnedRef: `pinned-${nextPatch}`,
+          changelog: `Pinned ${nextPatch} from Super Admin Ecosystem Hub`,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      toast.success(`Pinned ${integration.slug} → v${nextPatch}`)
+      await loadAll()
+    } catch (err) {
+      toast.error('Version pin failed', { description: err instanceof Error ? err.message : 'Unable to pin version' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const rollbackIntegration = async (integration: NonNullable<VaultResponse['integrations']>[number]) => {
+    const previous = (integration.versions ?? []).find((v) => !v.isActive)
+    if (!previous) {
+      toast.error('No previous version to roll back to')
+      return
+    }
+    setBusyAction(`rollback:${integration.id}`)
+    try {
+      const res = await apiFetch('/api/super-admin/ecosystem/vault', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'rollback_version',
+          integrationId: integration.id,
+          targetVersionId: previous.id,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      toast.success(`Rolled back ${integration.slug} → v${previous.version}`)
+      await loadAll()
+    } catch (err) {
+      toast.error('Rollback failed', { description: err instanceof Error ? err.message : 'Unable to roll back' })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const probeLiveKitMeetings = async () => {
+    setBusyAction('probe_livekit')
+    try {
+      const res = await apiFetch('/api/meetings')
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+      setLivekitProbe(
+        `${json.livekitConfigured ? 'LiveKit SFU configured' : 'LiveKit SFU unconfigured'} · ${json.stats?.total ?? 0} meetings (${json.stats?.scheduled ?? 0} scheduled)`,
+      )
+      toast.success('Meetings & LiveKit SFU status checked')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Meetings probe failed'
+      setLivekitProbe(`Error: ${msg}`)
+      toast.error('Meetings probe failed', { description: msg })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const probeBrowserGuardrails = async () => {
+    setBusyAction('probe_browser')
+    try {
+      const [readRes, writeRes] = await Promise.all([
+        apiFetch('/api/super-admin/coding-agents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'classify_browser_action', browserAction: 'navigate' }),
+        }),
+        apiFetch('/api/super-admin/coding-agents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'classify_browser_action', browserAction: 'publish_content' }),
+        }),
+      ])
+      const readJson = await readRes.json()
+      const writeJson = await writeRes.json()
+      if (!readRes.ok || !writeRes.ok) throw new Error('Guardrail check failed')
+      setGuardrailProbe(
+        `navigate → ${readJson.policy?.requiresApproval ? 'approval' : 'auto-allow'}; publish_content → ${writeJson.policy?.requiresApproval ? 'approval-required' : 'auto-allow'}`,
+      )
+      toast.success('Browser guardrail policy verified')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Guardrail probe failed'
+      setGuardrailProbe(`Error: ${msg}`)
+      toast.error('Guardrail probe failed', { description: msg })
     } finally {
       setBusyAction(null)
     }
@@ -629,6 +762,114 @@ export default function SuperAdminEcosystemHub() {
                   <p className="text-xs text-slate-500 col-span-full">Click &quot;Sync Vault to Database&quot; to populate all 30 verified sources, assets, and license records.</p>
                 )}
               </div>
+
+              {/* License & Security Audit Verdicts */}
+              {(vaultData?.assets ?? []).length > 0 && (
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-800">
+                    Audited Assets, Licenses &amp; Security Reviews ({vaultData?.assets?.length ?? 0} assets · {vaultData?.dbCounts.licenses ?? 0} licenses · {vaultData?.dbCounts.securityReviews ?? 0} reviews)
+                  </h4>
+                  <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white">
+                    {(vaultData?.assets ?? []).slice(0, 30).map((asset) => {
+                      const lic = vaultData?.licenses.find((l) => l.assetId === asset.id)
+                      const rev = vaultData?.securityReviews?.find((r) => r.assetId === asset.id)
+                      return (
+                        <div key={asset.id} className="px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <div className="min-w-0">
+                            <span className="font-mono font-medium text-slate-800">{asset.fullName}</span>
+                            <span className="text-slate-500 ml-2">{asset.integrationPattern} · {asset.compatibilityStatus}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Badge variant="outline" className="text-[10px] font-mono">
+                              {lic?.spdxId ?? asset.licenseSpdx ?? 'UNKNOWN'}
+                            </Badge>
+                            {lic && (
+                              <Badge className={`text-[10px] ${lic.verdict === 'approved' ? 'bg-emerald-100 text-emerald-800' : lic.verdict === 'conditional' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`}>
+                                {lic.verdict}
+                              </Badge>
+                            )}
+                            {rev && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                risk: {rev.riskLevel}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Pinned Integrations & Rollback */}
+              {(vaultData?.integrations ?? []).length > 0 && (
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-800">
+                    Integration Registry &amp; Immutable Version Pins ({vaultData?.integrations.length ?? 0})
+                  </h4>
+                  <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white">
+                    {(vaultData?.integrations ?? []).map((integ) => {
+                      const activeVer = integ.versions?.find((v) => v.isActive)
+                      const hasRollback = (integ.versions?.length ?? 0) > 1
+                      return (
+                        <div key={integ.id} className="px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <div className="min-w-0">
+                            <span className="font-mono font-semibold text-slate-800">{integ.slug}</span>
+                            <span className="text-slate-500 ml-2">{integ.strategy} · {activeVer ? `v${activeVer.version}` : 'unpinned'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Badge className={`text-[10px] ${LICENSE_TONE[integ.licenseClass] ?? 'bg-slate-100 text-slate-700'}`}>
+                              {integ.licenseClass}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[11px]"
+                              disabled={busyAction === `pin:${integ.id}`}
+                              onClick={() => pinIntegrationVersion(integ)}
+                            >
+                              Pin Patch
+                            </Button>
+                            {hasRollback && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-[11px] text-amber-700"
+                                disabled={busyAction === `rollback:${integ.id}`}
+                                onClick={() => rollbackIntegration(integ)}
+                              >
+                                Rollback
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 35 ONE Runtime Adapter Inventory */}
+              {(vaultData?.reconciledAdapters ?? []).length > 0 && (
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-800">
+                    ONE Runtime Adapter Inventory ({vaultData?.reconciledAdapters?.length ?? 0} registered adapters)
+                  </h4>
+                  <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white">
+                    {(vaultData?.reconciledAdapters ?? []).map((ad) => (
+                      <div key={ad.id} className="px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="min-w-0">
+                          <span className="font-mono font-medium text-slate-800">{ad.id}</span>
+                          <span className="text-slate-500 ml-2 truncate">{ad.stateReason}</span>
+                        </div>
+                        <Badge className={`text-[10px] shrink-0 ${ad.runtimeState === 'operational' ? 'bg-emerald-100 text-emerald-800' : ad.runtimeState === 'configured' ? 'bg-blue-100 text-blue-800' : ad.runtimeState === 'restricted' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>
+                          {ad.runtimeState}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -745,10 +986,15 @@ export default function SuperAdminEcosystemHub() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">LiveKit &amp; rasonyang Voice</CardTitle>
               </CardHeader>
-              <CardContent className="text-xs text-slate-600 space-y-1.5">
+              <CardContent className="text-xs text-slate-600 space-y-2">
                 <p><span className="font-semibold">telephony.livekit</span> — Apache-2.0 HS256 JWT + Twirp room API</p>
                 <p><span className="font-semibold">telephony.freesbc</span> — Apache-2.0 pure-Go SBC &amp; RTP proxy</p>
                 <p><span className="font-semibold">telephony.cascade-realtime-gateway</span> — OpenAI Realtime WS</p>
+                <Button size="sm" variant="outline" className="h-7 text-xs mt-1" disabled={busyAction === 'probe_livekit'} onClick={probeLiveKitMeetings}>
+                  {busyAction === 'probe_livekit' ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Play className="w-3 h-3 mr-1" />}
+                  Check LiveKit &amp; Meetings
+                </Button>
+                {livekitProbe && <p className="text-[11px] font-mono bg-slate-50 border border-slate-200 rounded p-1.5 text-slate-700">{livekitProbe}</p>}
               </CardContent>
             </Card>
             <Card className="border-slate-200">
@@ -765,11 +1011,16 @@ export default function SuperAdminEcosystemHub() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">Responsive QA Presets</CardTitle>
               </CardHeader>
-              <CardContent className="text-xs text-slate-600 space-y-1.5">
+              <CardContent className="text-xs text-slate-600 space-y-2">
                 {(agentsData?.qaViewports ?? []).map((vp) => (
                   <p key={vp.id}><span className="font-semibold">{vp.label}</span> — {vp.width}×{vp.height}px</p>
                 ))}
                 <p className="text-[11px] text-slate-500 pt-1">Read-only DOM/screenshots pass automatically; form submits &amp; publishes require approval.</p>
+                <Button size="sm" variant="outline" className="h-7 text-xs" disabled={busyAction === 'probe_browser'} onClick={probeBrowserGuardrails}>
+                  {busyAction === 'probe_browser' ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ShieldCheck className="w-3 h-3 mr-1" />}
+                  Verify Browser Guardrails
+                </Button>
+                {guardrailProbe && <p className="text-[11px] font-mono bg-slate-50 border border-slate-200 rounded p-1.5 text-slate-700">{guardrailProbe}</p>}
               </CardContent>
             </Card>
           </div>

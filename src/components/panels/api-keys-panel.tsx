@@ -2,6 +2,7 @@
 
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
+import { toast } from 'sonner'
 import {
   Key,
   Plus,
@@ -143,10 +144,14 @@ export default function ApiKeysPanel() {
       ])
       const keysData = await keysRes.json()
       const companiesData = await companiesRes.json()
+      if (!keysRes.ok) {
+        toast.error('Error', { description: keysData.error || `Failed to load API keys (HTTP ${keysRes.status})` })
+        return
+      }
       setKeys(keysData.data || [])
       setCompanies(companiesData.data || [])
     } catch {
-      // silently handle
+      toast.error('Error', { description: 'Failed to load API keys' })
     } finally {
       setLoading(false)
     }
@@ -166,15 +171,18 @@ export default function ApiKeysPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(createForm),
       })
-      const data = await res.json()
-      if (data.key) {
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.key) {
         setRevealKey(data.key)
         setCreateOpen(false)
         setCreateForm({ companyId: '', name: '', type: 'test', scopes: [], rateLimit: 1000 })
+        toast.success('API key generated')
         fetchData()
+      } else {
+        toast.error('Create failed', { description: data.error || `HTTP ${res.status}` })
       }
     } catch {
-      // silently handle
+      toast.error('Create failed', { description: 'Unable to create API key' })
     } finally {
       setCreating(false)
     }
@@ -190,7 +198,7 @@ export default function ApiKeysPanel() {
   const handleAction = async () => {
     setActioning(true)
     try {
-      await apiFetch('/api/api-keys', {
+      const res = await apiFetch('/api/api-keys', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -198,10 +206,16 @@ export default function ApiKeysPanel() {
           action: confirmAction.action,
         }),
       })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Action failed', { description: data.error || `HTTP ${res.status}` })
+        return
+      }
+      toast.success(`API key ${confirmAction.action}ed`)
       setConfirmAction({ open: false, keyId: '', keyName: '', action: 'suspend' })
       fetchData()
     } catch {
-      // silently handle
+      toast.error('Action failed', { description: 'Unable to update API key' })
     } finally {
       setActioning(false)
     }

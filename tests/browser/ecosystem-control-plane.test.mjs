@@ -145,11 +145,22 @@ test('ecosystem hub loads, syncs vault, guards sandbox branches, and renders cle
   });
   assert.equal(blockedStatus, 400, 'Protected branch `main` must be rejected');
 
-  // Vault sync
+  // Vault sync + licenses + pin/rollback + 35 ONE Runtime adapters
   await page.getByRole('tab', { name: /Asset Vault/ }).click();
   await page.getByRole('button', { name: /Sync Vault to Database/ }).click();
   await page.getByText(/src-livekit|livekit\/livekit/i).first().waitFor();
+  await page.getByText(/ONE Runtime Adapter Inventory \(35 registered adapters\)/i).waitFor();
+  await page.getByRole('button', { name: /^Pin Patch$/ }).first().click();
+  await page.getByRole('button', { name: /^Rollback$/ }).first().waitFor();
   await shot(page, 'ecosystem-vault-1440x900');
+
+  // Voice, LiveKit & Browser Guardrail probes
+  await page.getByRole('tab', { name: /Voice, LiveKit/ }).click();
+  await page.getByRole('button', { name: /Check LiveKit & Meetings/ }).click();
+  await page.getByText(/LiveKit SFU/i).first().waitFor();
+  await page.getByRole('button', { name: /Verify Browser Guardrails/ }).click();
+  await page.getByText(/publish_content → approval-required/i).waitFor();
+  await shot(page, 'ecosystem-voice-qa-1440x900');
 
   // Coding Harnesses: approve + execute sandbox task
   await page.getByRole('tab', { name: /Coding Harnesses/ }).click();

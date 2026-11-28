@@ -2,6 +2,7 @@
 
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { toast } from 'sonner'
 import {
   Users,
   UserCheck,
@@ -109,10 +110,14 @@ export default function UserManagementPanel() {
       ])
       const usersData = await usersRes.json()
       const companiesData = await companiesRes.json()
+      if (!usersRes.ok) {
+        toast.error('Error', { description: usersData.error || `Failed to load users (HTTP ${usersRes.status})` })
+        return
+      }
       setUsers(usersData.data || [])
       setCompanies(companiesData.data || [])
     } catch {
-      // silently handle
+      toast.error('Error', { description: 'Failed to load users' })
     } finally {
       setLoading(false)
     }
@@ -127,7 +132,7 @@ export default function UserManagementPanel() {
   const handleToggle = async (user: UserItem) => {
     setTogglingId(user.id)
     try {
-      await apiFetch('/api/users', {
+      const res = await apiFetch('/api/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -135,9 +140,15 @@ export default function UserManagementPanel() {
           action: user.status === 'active' ? 'disable' : 'enable',
         }),
       })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Update failed', { description: data.error || `HTTP ${res.status}` })
+        return
+      }
+      toast.success(user.status === 'active' ? 'User disabled' : 'User enabled')
       fetchData()
     } catch {
-      // silently handle
+      toast.error('Update failed', { description: 'Unable to update user status' })
     } finally {
       setTogglingId(null)
     }
