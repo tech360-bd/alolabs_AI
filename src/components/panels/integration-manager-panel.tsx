@@ -2,6 +2,7 @@
 
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
+import { toast } from 'sonner'
 import {
   Plug,
   Plus,
@@ -122,6 +123,9 @@ const TYPE_FIELDS: Record<string, { key: string; label: string; placeholder: str
 export default function IntegrationManagerPanel() {
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [companies, setCompanies] = useState<CompanyOption[]>([])
+  const [catalogAdapters, setCatalogAdapters] = useState<
+    Array<{ id: string; category: string; strategy: string; licenseClass: string; description: string; upstreamRepo: string }>
+  >([])
   const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState<string>('all')
 
@@ -153,16 +157,23 @@ export default function IntegrationManagerPanel() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [integrationsRes, companiesRes] = await Promise.all([
+      const [integrationsRes, companiesRes, catalogRes] = await Promise.all([
         apiFetch('/api/integrations'),
         apiFetch('/api/companies'),
+        apiFetch('/api/integrations/catalog'),
       ])
       const integrationsData = await integrationsRes.json()
       const companiesData = await companiesRes.json()
+      const catalogData = catalogRes.ok ? await catalogRes.json().catch(() => ({ data: [] })) : { data: [] }
+      if (!integrationsRes.ok) {
+        toast.error('Error', { description: integrationsData.error || `Failed to load integrations (HTTP ${integrationsRes.status})` })
+        return
+      }
       setIntegrations(integrationsData.data || [])
       setCompanies(companiesData.data || [])
+      setCatalogAdapters(catalogData.data || [])
     } catch {
-      // silently handle
+      toast.error('Error', { description: 'Failed to load integrations' })
     } finally {
       setLoading(false)
     }
@@ -206,13 +217,17 @@ export default function IntegrationManagerPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingId, ...form }),
       })
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
+        toast.success(isEdit ? 'Integration updated' : 'Integration created')
         setDialogOpen(false)
         resetForm()
         fetchData()
+      } else {
+        toast.error('Error', { description: data.error || `Request failed (HTTP ${res.status})` })
       }
     } catch {
-      // silently handle
+      toast.error('Error', { description: 'Failed to save integration' })
     } finally {
       setSubmitting(false)
     }
@@ -221,15 +236,21 @@ export default function IntegrationManagerPanel() {
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      await apiFetch('/api/integrations', {
+      const res = await apiFetch('/api/integrations', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: deleteConfirm.id }),
       })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Delete failed', { description: data.error || `HTTP ${res.status}` })
+        return
+      }
+      toast.success('Integration deleted')
       setDeleteConfirm({ open: false, id: '', name: '' })
       fetchData()
     } catch {
-      // silently handle
+      toast.error('Delete failed', { description: 'Unable to delete integration' })
     } finally {
       setDeleting(false)
     }
@@ -238,7 +259,7 @@ export default function IntegrationManagerPanel() {
   const handleToggle = async (integration: Integration) => {
     setTogglingId(integration.id)
     try {
-      await apiFetch('/api/integrations', {
+      const res = await apiFetch('/api/integrations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -246,9 +267,15 @@ export default function IntegrationManagerPanel() {
           action: integration.enabled ? 'disable' : 'enable',
         }),
       })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Update failed', { description: data.error || `HTTP ${res.status}` })
+        return
+      }
+      toast.success(integration.enabled ? 'Integration disabled' : 'Integration enabled')
       fetchData()
     } catch {
-      // silently handle
+      toast.error('Update failed', { description: 'Unable to update integration' })
     } finally {
       setTogglingId(null)
     }
@@ -308,12 +335,13 @@ export default function IntegrationManagerPanel() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: 'Total', value: totalIntegrations, icon: Plug },
           { label: 'Connected', value: connectedIntegrations, icon: CheckCircle, color: 'text-green-500' },
+          { label: 'Enabled', value: enabledIntegrations, icon: Settings, color: 'text-sky-500' },
           { label: 'Errors', value: errorIntegrations, icon: AlertCircle, color: 'text-red-500' },
-          { label: 'Enabled', value: enabledIntegrations, icon: Zap, color: 'text-purple-500' },
+          { label: 'ONE Runtime Adapters', value: catalogAdapters.length, icon: Zap, color: 'text-purple-500' },
         ].map((s) => (
           <div
             key={s.label}
@@ -329,6 +357,24 @@ export default function IntegrationManagerPanel() {
           </div>
         ))}
       </div>
+
+      {catalogAdapters.length > 0 && (
+        <div className="bg-white rounded-xl border border-[#E2E8F0] p-4 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-[#1E293B]">
+              ONE Runtime Adapter Catalog ({catalogAdapters.length} registered)
+            </h3>
+            <span className="text-xs text-[#64748B]">REUSE · API_INTEGRATE · LEARN</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+            {catalogAdapters.map((ad) => (
+              <Badge key={ad.id} variant="outline" className="text-[11px] font-mono" title={`${ad.category} · ${ad.strategy} · ${ad.licenseClass} · ${ad.description}`}>
+                {ad.id}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="flex items-center gap-3">

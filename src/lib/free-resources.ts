@@ -36,6 +36,10 @@ export type ResourceCategory =
   | 'speech-asr'
   | 'llm-inference'
   | 'telephony'
+  | 'video-meetings'
+  | 'coding-agent'
+  | 'automation'
+  | 'media-streaming'
   | 'hosting'
   | 'database'
   | 'storage'
@@ -385,7 +389,123 @@ export const FREE_RESOURCES: readonly FreeResource[] = [
     usedBy: ['Call recording archive'],
     caveat: 'Egress is metered. Playback of recordings at scale is a real cost.',
   },
+
+  // ─── Ecosystem Self-Hosted & Open Infrastructure (2026-11-28 intake) ─────
+  {
+    id: 'vllm',
+    name: 'vLLM (GPU Inference Engine)',
+    category: 'llm-inference',
+    free: 'free',
+    selfHostable: true,
+    freeAllowance: 'Unlimited Apache-2.0 OpenAI-compatible serving on self-hosted GPUs.',
+    verifyUrl: 'https://github.com/vllm-project/vllm',
+    usedBy: ['VLLM_BASE_URL', 'src/lib/platform/providers.ts', 'Command Router'],
+    caveat: 'Requires CUDA/ROCm GPU server; CPU-only hosts should use llama.cpp or Ollama.',
+  },
+  {
+    id: 'llama-cpp',
+    name: 'llama.cpp Server',
+    category: 'llm-inference',
+    free: 'free',
+    selfHostable: true,
+    freeAllowance: 'Unlimited MIT CPU/GPU GGUF inference with OpenAI-compatible API.',
+    verifyUrl: 'https://github.com/ggml-org/llama.cpp',
+    usedBy: ['AI_PROVIDER_PRESETS: llama-cpp', 'src/lib/ai-router/provider-registry.ts'],
+    caveat: 'Large unquantized models will OOM without matching RAM.',
+  },
+  {
+    id: 'rasonyang-voice-stack',
+    name: 'FreeSBC & Cascade Realtime Gateway (Apache-2.0)',
+    category: 'telephony',
+    free: 'free',
+    selfHostable: true,
+    freeAllowance: 'Unlimited self-hosted pure-Go SBC & OpenAI Realtime WS voice bridge.',
+    verifyUrl: 'https://github.com/rasonyang',
+    usedBy: ['src/lib/integrations/connectors/telephony/rasonyang-stack.ts', 'src/lib/integrations/connectors/telephony/ai-native-callcenter.ts'],
+    caveat: 'Runs alongside FreeSWITCH/Asterisk + local ASR/TTS for zero vendor markup.',
+  },
+  {
+    id: 'joincall-call',
+    name: 'Call by joincalldotco (MIT)',
+    category: 'video-meetings',
+    free: 'free',
+    selfHostable: true,
+    freeAllowance: 'Unlimited self-hosted MIT video meeting rooms.',
+    verifyUrl: 'https://github.com/joincalldotco/Call',
+    usedBy: ['src/lib/integrations/connectors/media/joincall.ts', 'Meetings Hub'],
+    caveat: 'Requires TURN/STUN infrastructure for strict NAT traversal.',
+  },
+  {
+    id: 'obs-studio-ws',
+    name: 'OBS Studio WebSocket v5 (GPL-2.0 External Process)',
+    category: 'media-streaming',
+    free: 'free',
+    selfHostable: true,
+    freeAllowance: 'Free local/remote recording & streaming control.',
+    verifyUrl: 'https://github.com/obsproject/obs-studio',
+    usedBy: ['src/lib/integrations/connectors/media/obs-websocket.ts', 'Meetings Hub'],
+    caveat: 'Runs as separate external process over authenticated WebSocket v5 only; never embedded.',
+  },
+  {
+    id: 'activepieces-mit',
+    name: 'Activepieces MIT Core',
+    category: 'automation',
+    free: 'free',
+    selfHostable: true,
+    freeAllowance: 'Unlimited self-hosted MIT workflows & MCP pieces.',
+    verifyUrl: 'https://github.com/activepieces/activepieces',
+    usedBy: ['src/lib/integrations/connectors/automation/activepieces.ts', 'docker-compose.selfhost-free-stack.yml'],
+    caveat: 'Enterprise packages/ee modules are commercial — keep strictly on MIT core.',
+  },
+  {
+    id: 'temporal-mit',
+    name: 'Temporal Workflow Engine (MIT)',
+    category: 'automation',
+    free: 'free',
+    selfHostable: true,
+    freeAllowance: 'Unlimited self-hosted durable workflow execution.',
+    verifyUrl: 'https://github.com/temporalio/temporal',
+    usedBy: ['src/lib/integrations/connectors/automation/temporal.ts', 'docker-compose.selfhost-free-stack.yml'],
+    caveat: 'Opt-in compose profile; requires PostgreSQL & Elasticsearch/visibility config at scale.',
+  },
+  {
+    id: 'opencode-mit',
+    name: 'OpenCode & Browse MCP (anomalyco, MIT)',
+    category: 'coding-agent',
+    free: 'free',
+    selfHostable: true,
+    freeAllowance: 'Unlimited self-hosted coding & browser MCP harnesses.',
+    verifyUrl: 'https://github.com/orgs/anomalyco/repositories',
+    usedBy: ['src/lib/integrations/connectors/coding-agent/opencode.ts', 'src/lib/integrations/connectors/coding-agent/browse-mcp.ts'],
+    caveat: 'Must run inside isolated sandboxes with human approval for mutations.',
+  },
+  {
+    id: 'larksuite-open-platform',
+    name: 'Lark Suite Open Platform & MCP (MIT SDK)',
+    category: 'messaging',
+    free: 'quota',
+    selfHostable: false,
+    freeAllowance: 'Free starter workspace plan + MIT OpenAPI MCP/CLI SDKs (re-verify seats/API quota).',
+    verifyUrl: 'https://www.larksuite.com/en_us/plans',
+    usedBy: ['src/lib/integrations/connectors/messaging/larksuite.ts'],
+    caveat: 'Lark SaaS workspace limits apply on free plan; API credentials must remain tenant-encrypted.',
+  },
 ] as const;
+
+export function searchFreeResources(query: string, category?: ResourceCategory | 'all'): FreeResource[] {
+  const q = query.trim().toLowerCase();
+  return FREE_RESOURCES.filter((r) => {
+    if (category && category !== 'all' && r.category !== category) return false;
+    if (!q) return true;
+    return (
+      r.name.toLowerCase().includes(q) ||
+      r.id.toLowerCase().includes(q) ||
+      r.freeAllowance.toLowerCase().includes(q) ||
+      r.caveat.toLowerCase().includes(q) ||
+      r.usedBy.some((u) => u.toLowerCase().includes(q))
+    );
+  });
+}
 
 export function resourcesByCategory(category: ResourceCategory): FreeResource[] {
   return FREE_RESOURCES.filter((r) => r.category === category);

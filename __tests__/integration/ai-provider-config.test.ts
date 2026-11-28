@@ -112,7 +112,7 @@ describe('AI provider configuration (real DB + real HTTP)', () => {
     expect(JSON.stringify(view)).not.toContain(API_KEY);
 
     const row = await real.db.aIProviderConfig.findUniqueOrThrow({ where: { id: configId } });
-    expect(row.encryptedApiKey).toMatch(/^v1:/);
+    expect(row.encryptedApiKey).toMatch(/^v2:/);
     expect(row.encryptedApiKey).not.toContain(API_KEY);
     expect(row.companyId).toBe(companyA.id);
 

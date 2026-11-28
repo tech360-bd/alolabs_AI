@@ -97,7 +97,7 @@ describe('POST /api/company/integrations', () => {
 
     const data = mocks.db.integrationCredential.create.mock.calls[0][0].data;
     expect(data.companyId).toBe(companyId);
-    expect(data.encryptedSecret).toMatch(/^v1:/);
+    expect(data.encryptedSecret).toMatch(/^v2:/);
     expect(data.encryptedSecret).not.toContain(SECRET);
     expect(data.secretFingerprint).toBeTruthy();
 

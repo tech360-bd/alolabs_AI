@@ -23,10 +23,14 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'skill.permissions',
   model: 'skillPermission',
   label: 'SkillPermission',
-  // This table has no tenant column of its own — see the security report.
+  // Global skill-permission catalog; restricted to platform super_admin.
   tenantField: null,
+  requireTenant: false,
+  roles: ['super_admin'],
+  writeRoles: ['super_admin'],
   createSchema,
   updateSchema,
   searchFields: ['accessLevel'],
-  writeRoles: ['super_admin', 'admin'],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'skillId', 'roleId', 'accessLevel', 'createdAt'],
 });

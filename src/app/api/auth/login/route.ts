@@ -17,11 +17,24 @@ const loginBodySchema = z.object({
   rememberMe: z.boolean().optional().default(false),
 }).strict();
 
+function getClientIp(request: NextRequest): string {
+  const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1';
+  const realIp = request.headers.get('x-real-ip')?.trim();
+  if (realIp) return realIp.slice(0, 64);
+  if (trustProxy) {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) {
+      const rightmost = forwarded.split(',').at(-1)?.trim();
+      if (rightmost) return rightmost.slice(0, 64);
+    }
+  }
+  const peerIp = (request as NextRequest & { ip?: string }).ip?.trim();
+  return peerIp ? peerIp.slice(0, 64) : 'unknown';
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || request.headers.get('x-real-ip')
-      || 'unknown';
+    const clientIp = getClientIp(request);
 
     // Check IP-based rate limit
     if (!(await checkLimit(`login:ip:${clientIp}`, MAX_ATTEMPTS_PER_IP, RATE_LIMIT_WINDOW_MS)).allowed) {

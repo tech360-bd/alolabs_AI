@@ -68,9 +68,13 @@ export function v1Handler<T>(
       const isAiServicePlane = segments[2] === 'ai' && segments.length >= 4 && segments[3] !== 'health';
       if (!isAiServicePlane) {
         const resource = segments[2] === 'command' ? 'runs' : segments[2];
-        const action = segments.includes('run') || segments.includes('inference') || segments[2] === 'command'
-          ? 'execute'
-          : request.method === 'GET' ? 'read' : 'write';
+        const action =
+          segments.includes('run') ||
+          segments.includes('execute') ||
+          segments.includes('inference') ||
+          segments[2] === 'command'
+            ? 'execute'
+            : request.method === 'GET' ? 'read' : 'write';
         if (identity.kind === 'apiKey' && resource && !hasScope(identity, `${resource}:${action}`)) {
           throw new V1Error(`Scope required: ${resource}:${action}`, 403, 'FORBIDDEN');
         }

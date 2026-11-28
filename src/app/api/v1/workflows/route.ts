@@ -77,7 +77,7 @@ export const POST = v1Handler(async ({ identity }, request) => {
   });
 
   await db.workflowPermission.create({
-    data: { id: randomUUID(), workflowId: workflow.id, companyId: identity.companyId },
+    data: { id: randomUUID(), workflowId: workflow.id, companyId: identity.companyId, accessLevel: 'full' },
   }).catch(() => { /* may already exist */ });
 
   return { id: workflow.id, name: workflow.name, slug: workflow.slug, status: workflow.status, steps: workflow.workflowSteps.length };

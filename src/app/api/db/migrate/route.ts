@@ -84,7 +84,29 @@ export async function POST(request: Request) {
   try {
     const user = await requireAuth();
 
-    const body = await request.json().catch(() => ({}));
+    // Only live super_admins can trigger schema migrations across the platform
+    if (user.role !== 'super_admin') {
+      return NextResponse.json(
+        { error: 'Forbidden: super_admin access required' },
+        { status: 403 },
+      );
+    }
+    const liveUser = await db.user.findUnique({
+      where: { id: user.userId },
+      select: { role: true, isActive: true },
+    });
+    if (!liveUser?.isActive || liveUser.role !== 'super_admin') {
+      return NextResponse.json(
+        { error: 'Forbidden: super_admin access required' },
+        { status: 403 },
+      );
+    }
+
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
     const {
       targetType,
       adapterName = 'primary',
@@ -97,29 +119,30 @@ export async function POST(request: Request) {
       migrations?: MigrationStep[];
     };
 
-    // Only admins/super_admins can trigger migrations
-    if (user.role !== 'super_admin' && user.role !== 'admin') {
+    if (customMigrations !== undefined) {
       return NextResponse.json(
-        { error: 'Forbidden: admin access required' },
+        { error: 'Custom SQL migrations via HTTP API are disabled for security' },
         { status: 403 },
       );
     }
 
-    const migrations = customMigrations ?? getMigrations(targetType ?? 'primary');
+    if (typeof adapterName !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(adapterName)) {
+      return NextResponse.json({ error: 'Invalid adapterName' }, { status: 400 });
+    }
 
-    // Create backup before migration (default)
+    const migrations = getMigrations(targetType ?? 'primary');
+
+    // Pre-migration backup is mandatory unless explicitly skipped in non-production
     let backupFilename: string | null = null;
-    if (createBackup) {
+    const mustBackup = process.env.NODE_ENV === 'production' || createBackup !== false;
+    if (mustBackup) {
       try {
         backupFilename = await createPreMigrationBackup(adapterName);
       } catch {
-        // If backup fails, proceed only if explicitly requested without backup
-        if (createBackup) {
-          return NextResponse.json(
-            { error: 'Migration aborted: pre-migration backup failed' },
-            { status: 500 },
-          );
-        }
+        return NextResponse.json(
+          { error: 'Migration aborted: pre-migration backup failed' },
+          { status: 500 },
+        );
       }
     }
 

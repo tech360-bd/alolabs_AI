@@ -145,7 +145,7 @@ export interface Principal {
 async function resolvePrincipal(request: NextRequest): Promise<Principal | null> {
   // Legacy path first: it honours the `x-company-id` / `x-company-slug` headers
   // and validates the requested tenant against the user's memberships.
-  const legacy = await getAuthUser();
+  const legacy = await getAuthUser(request);
   if (legacy) {
     return {
       kind: 'session',
@@ -497,7 +497,23 @@ export function secureRoute<TBody = unknown, TQuery = unknown, TParams = unknown
       }
 
       // 7. Role based authorisation
-      if (principal && !isAdmin(principal)) {
+      const superAdminOnly = Boolean(
+        options.roles &&
+          options.roles.includes('super_admin') &&
+          !options.roles.includes('admin'),
+      );
+      const bypassForAdmin = principal
+        ? superAdminOnly
+          ? principal.role === 'super_admin'
+          : isAdmin(principal)
+        : false;
+      const scopedApiKeyBypass = Boolean(
+        principal &&
+          principal.kind === 'apiKey' &&
+          options.scope &&
+          !superAdminOnly,
+      );
+      if (principal && !bypassForAdmin && !scopedApiKeyBypass) {
         if (options.roles && !options.roles.includes(principal.role)) {
           await recordSecurityEvent({
             type: 'authorization_denied',

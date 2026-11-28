@@ -77,6 +77,29 @@ export const createSchema = z
     };
   });
 
+export const updateSchema = z
+  .object({
+    contactId: z.string().min(1).max(128).optional(),
+    factors: factorsSchema,
+  })
+  .transform(({ contactId, factors: input }) => {
+    const out: Record<string, unknown> = {};
+    if (contactId !== undefined) out.contactId = contactId;
+    if (input !== undefined) {
+      const factors = {
+        websiteVisits: input.websiteVisits ?? 0,
+        emailOpens: input.emailOpens ?? 0,
+        dealValue: input.dealValue ?? 0,
+        lastContactDaysAgo: input.lastContactDaysAgo ?? 90,
+      };
+      out.score = scoreFactors(factors);
+      out.maxScore = 100;
+      out.factors = JSON.stringify(factors);
+      out.calculatedBy = 'rule-engine';
+    }
+    return out;
+  });
+
 export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'crm.lead-score',
   model: 'crmLeadScore',
@@ -84,7 +107,10 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   tenantField: null,
   ownership: { delegate: 'crmContact', fk: 'contactId', relation: 'contact' },
   createSchema,
+  updateSchema,
   searchFields: [],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'contactId', 'score', 'calculatedBy', 'createdAt'],
   afterCreate: async (record) => {
     // Keep the parent contact's score in sync (original behaviour).
     await db.crmContact.update({

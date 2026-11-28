@@ -15,7 +15,7 @@ import type {
   AIGatewayError,
 } from './types';
 import { getRouter, ensureRouterSynced } from '@/lib/ai-router';
-import type { AIRequest, AIMessage, AIModel } from '@/lib/ai-router';
+import type { AIRequest, AIMessage, AIModel, AIStreamChunk } from '@/lib/ai-router';
 import {
   AIRouterError,
   AIProviderUnavailableError,
@@ -96,7 +96,9 @@ function validateGatewayRequest(req: AIGatewayRequest): void {
     if (!msg.role || typeof msg.role !== 'string') {
       throw new ValidationError(`messages[${i}].role is required and must be a string.`);
     }
-    if (!msg.content || typeof msg.content !== 'string') {
+    const hasToolCalls = Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0;
+    const hasImages = Array.isArray(msg.imageUrls) && msg.imageUrls.length > 0;
+    if (typeof msg.content !== 'string' || (!msg.content && !hasToolCalls && !hasImages && msg.role !== 'tool')) {
       throw new ValidationError(`messages[${i}].content is required and must be a string.`);
     }
   }
@@ -115,12 +117,17 @@ function toAIMessages(messages: AIGatewayRequest['messages']): AIMessage[] {
   return messages.map((m) => ({
     role: m.role as AIMessage['role'],
     content: m.content,
+    ...(m.name ? { name: m.name } : {}),
+    ...(m.toolCallId ? { toolCallId: m.toolCallId } : {}),
+    ...(m.toolCalls?.length ? { toolCalls: m.toolCalls } : {}),
+    ...(m.imageUrls?.length ? { imageUrls: m.imageUrls } : {}),
   }));
 }
 
 function toAIRequest(req: AIGatewayRequest, modelOverride?: string): AIRequest {
+  const rawModel = modelOverride ?? req.model ?? '';
   return {
-    model: modelOverride || req.model || '',
+    model: rawModel === 'auto' ? '' : rawModel,
     messages: toAIMessages(req.messages),
     temperature: req.temperature,
     maxTokens: req.maxTokens,
@@ -141,6 +148,7 @@ function authorizedActor(req: AIGatewayRequest, actor: CompanyAIActor): CompanyA
 }
 
 function routingProfile(req: AIGatewayRequest): CompanyAIRequestOptions['profile'] {
+  if (req.routingProfile) return req.routingProfile;
   switch (req.taskType) {
     case 'fast': return 'local_fast';
     case 'coding': return 'free_coding';
@@ -189,6 +197,7 @@ export class AIGateway {
         provider: result.provider,
         usage: response.usage,
         finishReason: response.finishReason,
+        ...(response.toolCalls?.length ? { toolCalls: response.toolCalls } : {}),
         latencyMs: Date.now() - startedAt,
         costUsd: result.estimatedCostUsd,
         routedBy: 'company-ai-service',
@@ -199,6 +208,25 @@ export class AIGateway {
     } catch (err) {
       return safeError(err, requestId);
     }
+  }
+
+  /**
+   * Raw normalized stream chunks through the company-scoped AI service.
+   * Protocol gateways (Anthropic, OpenAI Chat/Responses, Gemini) consume this
+   * so auth, tenancy, budgets, quotas, routing, and audit remain unified.
+   */
+  static async *streamChunks(
+    req: AIGatewayRequest,
+    actor: CompanyAIActor,
+  ): AsyncGenerator<AIStreamChunk> {
+    const requestId = generateRequestId();
+    validateGatewayRequest(req);
+    const trustedActor = authorizedActor(req, actor);
+    yield* streamCompanyAIChat(
+      trustedActor,
+      toAIRequest({ ...req, stream: true }),
+      { ...companyAIOptions(req, requestId), maxTokens: req.maxTokens },
+    );
   }
 
   /** Streaming completion through the company-scoped AI service. */

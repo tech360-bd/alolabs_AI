@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/api-auth';
 
@@ -34,12 +34,37 @@ function maskEmail(email: string): string {
   return `${visible}${masked}@${domain}`;
 }
 
-async function authenticateAsAdmin() {
+async function authenticateInviteAdmin() {
   const user = await requireAuth();
-  if (!user.role || !['super_admin', 'company_admin'].includes(user.role)) {
-    throw new Error('Unauthorized');
+  const isPlatformAdmin = user.role === 'super_admin';
+  const isAdminRole =
+    isPlatformAdmin ||
+    user.role === 'company_admin' ||
+    user.role === 'admin' ||
+    user.companyRole === 'owner' ||
+    user.companyRole === 'admin';
+
+  if (!isAdminRole) {
+    throw new Error('Forbidden');
   }
-  return { id: user.userId, email: user.email, name: user.name, role: user.role };
+
+  let companyId = user.companyId ?? null;
+  if (!companyId && !isPlatformAdmin) {
+    const membership = await db.companyUser.findFirst({
+      where: { userId: user.userId, role: { in: ['owner', 'admin'] } },
+      select: { companyId: true },
+    });
+    companyId = membership?.companyId ?? null;
+  }
+
+  return {
+    id: user.userId,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    isPlatformAdmin,
+    companyId,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -47,15 +72,19 @@ async function authenticateAsAdmin() {
 // ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
   try {
-    const admin = await authenticateAsAdmin();
+    const admin = await authenticateInviteAdmin();
 
-    const body = await request.json();
-    const { email, role, companyId, message } = body as {
+    const body = (await request.json().catch(() => null)) as {
       email?: string;
       role?: string;
       companyId?: string;
       message?: string;
-    };
+    } | null;
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const { email, role, companyId: requestedCompanyId, message } = body;
 
     // --- Validate email ---
     if (!email || typeof email !== 'string' || !EMAIL_RE.test(email.trim())) {
@@ -75,14 +104,30 @@ export async function POST(request: NextRequest) {
     }
 
     // Prevent non-super_admins from inviting super_admins
-    if (role === 'super_admin' && admin.role !== 'super_admin') {
+    if (role === 'super_admin' && !admin.isPlatformAdmin) {
       return NextResponse.json(
         { error: 'Only super admins can invite super admins' },
         { status: 403 },
       );
     }
 
-    // --- Check for duplicate pending invitation ---
+    // --- Tenant isolation: non-super_admins can invite ONLY to their own company ---
+    let targetCompanyId: string | null = admin.companyId;
+    if (admin.isPlatformAdmin) {
+      targetCompanyId = requestedCompanyId?.trim() || admin.companyId || null;
+    } else {
+      if (!admin.companyId) {
+        return NextResponse.json({ error: 'Company membership required' }, { status: 403 });
+      }
+      if (requestedCompanyId && requestedCompanyId !== admin.companyId) {
+        return NextResponse.json(
+          { error: 'Forbidden: cannot invite users to another company' },
+          { status: 403 },
+        );
+      }
+    }
+
+    // --- Check for duplicate pending invitation within same company ---
     const existingInvitations = await db.settings.findMany({
       where: { key: { startsWith: 'invitation:' } },
       select: { key: true, value: true },
@@ -90,8 +135,16 @@ export async function POST(request: NextRequest) {
 
     for (const inv of existingInvitations) {
       try {
-        const data = JSON.parse(inv.value);
-        if (data.email === normalizedEmail && data.status === 'pending') {
+        const data = JSON.parse(inv.value) as {
+          email?: string;
+          status?: string;
+          companyId?: string | null;
+        };
+        if (
+          data.email === normalizedEmail &&
+          data.status === 'pending' &&
+          (data.companyId ?? null) === targetCompanyId
+        ) {
           return NextResponse.json(
             { error: 'A pending invitation already exists for this email' },
             { status: 409 },
@@ -110,7 +163,7 @@ export async function POST(request: NextRequest) {
     const invitationData = {
       email: normalizedEmail,
       role,
-      companyId: companyId || null,
+      companyId: targetCompanyId,
       message: message || null,
       invitedBy: admin.id,
       createdAt: now.toISOString(),
@@ -125,13 +178,18 @@ export async function POST(request: NextRequest) {
       create: { key: `invitation:${token}`, value: JSON.stringify(invitationData), type: 'json' },
     });
 
-    // Audit log
+    // Never persist plaintext invite tokens into AuditLog
     await db.auditLog.create({
       data: {
         userId: admin.id,
         action: 'create_invitation',
         resource: 'invitations',
-        details: JSON.stringify({ email: normalizedEmail, role, companyId, token }),
+        details: JSON.stringify({
+          email: normalizedEmail,
+          role,
+          companyId: targetCompanyId,
+          tokenPrefix: token.slice(0, 8),
+        }),
       },
     });
 
@@ -144,13 +202,14 @@ export async function POST(request: NextRequest) {
         inviteLink,
         email: normalizedEmail,
         role,
+        companyId: targetCompanyId,
         expiresAt: expiresAt.toISOString(),
       },
       { status: 201 },
     );
   } catch (error: unknown) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }
     console.error('POST /api/users/invite error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -158,11 +217,14 @@ export async function POST(request: NextRequest) {
 }
 
 // ---------------------------------------------------------------------------
-// GET — List invitations
+// GET — List invitations (strictly tenant-scoped; raw tokens redacted)
 // ---------------------------------------------------------------------------
 export async function GET(request: NextRequest) {
   try {
-    const admin = await authenticateAsAdmin();
+    const admin = await authenticateInviteAdmin();
+    if (!admin.isPlatformAdmin && !admin.companyId) {
+      return NextResponse.json({ error: 'Company membership required' }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const statusFilter = searchParams.get('status'); // 'pending' | 'accepted' | 'expired'
@@ -174,7 +236,7 @@ export async function GET(request: NextRequest) {
     });
 
     let invitations: Array<{
-      token: string;
+      tokenPreview: string;
       email: string;
       role: string;
       companyId: string | null;
@@ -188,32 +250,51 @@ export async function GET(request: NextRequest) {
 
     for (const s of allSettings) {
       try {
-        const data = JSON.parse(s.value);
-        invitations.push({ token: s.key.replace('invitation:', ''), ...data });
+        const data = JSON.parse(s.value) as {
+          email: string;
+          role: string;
+          companyId: string | null;
+          message: string | null;
+          invitedBy: string;
+          createdAt: string;
+          expiresAt: string;
+          status: string;
+          usedBy: string | null;
+        };
+        if (!admin.isPlatformAdmin && data.companyId !== admin.companyId) {
+          continue;
+        }
+        const rawToken = s.key.replace('invitation:', '');
+        invitations.push({
+          tokenPreview: `${rawToken.slice(0, 8)}...`,
+          email: data.email,
+          role: data.role,
+          companyId: data.companyId,
+          message: data.message,
+          invitedBy: data.invitedBy,
+          createdAt: data.createdAt,
+          expiresAt: data.expiresAt,
+          status: data.status,
+          usedBy: data.usedBy,
+        });
       } catch {
         // skip
       }
     }
 
-    // Apply status filter
     if (statusFilter) {
       invitations = invitations.filter((inv) => inv.status === statusFilter);
     }
 
-    // Mark expired pending invitations
     const now = new Date();
     invitations = invitations.map((inv) => {
-      if (
-        inv.status === 'pending' &&
-        new Date(inv.expiresAt) < now
-      ) {
+      if (inv.status === 'pending' && new Date(inv.expiresAt) < now) {
         return { ...inv, status: 'expired' };
       }
       return inv;
     });
 
-    // Mask emails for non-super_admin users
-    const shouldMask = admin.role !== 'super_admin';
+    const shouldMask = !admin.isPlatformAdmin;
     const response = invitations.map((inv) => ({
       ...inv,
       email: shouldMask ? maskEmail(inv.email) : inv.email,
@@ -221,8 +302,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: response, total: response.length });
   } catch (error: unknown) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }
     console.error('GET /api/users/invite error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -234,10 +315,18 @@ export async function GET(request: NextRequest) {
 // ---------------------------------------------------------------------------
 export async function PUT(request: NextRequest) {
   try {
-    const admin = await authenticateAsAdmin();
+    const user = await requireAuth();
+    const isPlatformAdmin = user.role === 'super_admin';
 
-    const body = await request.json();
-    const { token, action } = body as { token?: string; action?: string };
+    const body = (await request.json().catch(() => null)) as {
+      token?: string;
+      action?: string;
+    } | null;
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const { token, action } = body;
 
     if (!token || typeof token !== 'string') {
       return NextResponse.json({ error: 'token is required' }, { status: 400 });
@@ -249,7 +338,6 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // --- Fetch invitation ---
     const record = await db.settings.findUnique({
       where: { key: `invitation:${token}` },
     });
@@ -271,14 +359,21 @@ export async function PUT(request: NextRequest) {
     const now = new Date();
 
     if (action === 'accept') {
-      // Check expiry
       if (new Date(invitationData.expiresAt as string) < now) {
         return NextResponse.json({ error: 'Invitation has expired' }, { status: 410 });
       }
 
-      // Mark as accepted
+      // Only the invited email (or super_admin) can accept an invitation
+      const invitedEmail = typeof invitationData.email === 'string' ? invitationData.email.toLowerCase() : '';
+      if (!isPlatformAdmin && invitedEmail !== user.email.toLowerCase()) {
+        return NextResponse.json(
+          { error: 'Forbidden: this invitation belongs to another email address' },
+          { status: 403 },
+        );
+      }
+
       invitationData.status = 'accepted';
-      invitationData.usedBy = admin.id;
+      invitationData.usedBy = user.userId;
       invitationData.acceptedAt = now.toISOString();
 
       await db.settings.update({
@@ -288,13 +383,14 @@ export async function PUT(request: NextRequest) {
 
       await db.auditLog.create({
         data: {
-          userId: admin.id,
+          userId: user.userId,
           action: 'accept_invitation',
           resource: 'invitations',
           details: JSON.stringify({
-            token,
+            tokenPrefix: token.slice(0, 8),
             email: invitationData.email,
             role: invitationData.role,
+            companyId: invitationData.companyId ?? null,
           }),
         },
       });
@@ -307,7 +403,13 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // --- action === 'resend' ---
+    // --- action === 'resend' --- (must be an admin of the invitation's company or super_admin)
+    const admin = await authenticateInviteAdmin();
+    const invCompanyId = (invitationData.companyId as string | null) ?? null;
+    if (!admin.isPlatformAdmin && invCompanyId !== admin.companyId) {
+      return NextResponse.json({ error: 'Invitation not found' }, { status: 404 });
+    }
+
     const newExpiresAt = new Date(now.getTime() + INVITATION_TTL_MS);
     invitationData.expiresAt = newExpiresAt.toISOString();
     invitationData.resentAt = now.toISOString();
@@ -323,7 +425,12 @@ export async function PUT(request: NextRequest) {
         userId: admin.id,
         action: 'resend_invitation',
         resource: 'invitations',
-        details: JSON.stringify({ token, email: invitationData.email, newExpiresAt }),
+        details: JSON.stringify({
+          tokenPrefix: token.slice(0, 8),
+          email: invitationData.email,
+          companyId: invCompanyId,
+          newExpiresAt,
+        }),
       },
     });
 
@@ -335,8 +442,8 @@ export async function PUT(request: NextRequest) {
       inviteLink: `/invite?token=${token}`,
     });
   } catch (error: unknown) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
     }
     console.error('PUT /api/users/invite error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -16,6 +16,8 @@ import {
   ChevronRight,
   ExternalLink,
   Timer,
+  Trash2,
+  Radio,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -52,6 +54,10 @@ interface Meeting {
   duration: number
   attendees: string[]
   meetingLink: string
+  provider?: 'livekit' | 'joincall' | 'custom'
+  roomName?: string
+  livekitStatus?: 'verified_room' | 'unconfigured_sfu' | 'sfu_error' | 'not_applicable'
+  livekitError?: string
   status: 'scheduled' | 'completed' | 'cancelled'
   createdBy: string
   createdAt: string
@@ -95,6 +101,9 @@ export default function MeetingsPanel() {
   const [formDuration, setFormDuration] = useState('30')
   const [formAttendees, setFormAttendees] = useState('')
   const [formLink, setFormLink] = useState('')
+  const [formProvider, setFormProvider] = useState<'livekit' | 'joincall' | 'custom'>('livekit')
+  const [livekitConfigured, setLivekitConfigured] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchMeetings = useCallback(async () => {
     try {
@@ -102,14 +111,19 @@ export default function MeetingsPanel() {
       if (search) params.set('search', search)
       const res = await apiFetch(`/api/meetings?${params}`)
       const data = await res.json()
+      if (!res.ok) {
+        toast.error('Error', { description: data.error || `Failed to load meetings (HTTP ${res.status})` })
+        return
+      }
       setMeetings(data.meetings || [])
+      setLivekitConfigured(Boolean(data.livekitConfigured))
       setStats(data.stats || { total: 0, scheduled: 0, completed: 0, cancelled: 0, upcomingThisWeek: 0, avgDuration: 0 })
     } catch {
       toast.error('Error', { description: 'Failed to load meetings' })
     } finally {
       setLoading(false)
     }
-  }, [search, toast])
+  }, [search])
 
   useEffect(() => { fetchMeetings() }, [fetchMeetings])
 
@@ -139,7 +153,7 @@ export default function MeetingsPanel() {
 
   const openCreate = () => {
     setFormTitle(''); setFormDescription(''); setFormDate(''); setFormTime('')
-    setFormDuration('30'); setFormAttendees(''); setFormLink('')
+    setFormDuration('30'); setFormAttendees(''); setFormLink(''); setFormProvider('livekit')
     setAddOpen(true)
   }
 
@@ -154,12 +168,52 @@ export default function MeetingsPanel() {
       const res = await apiFetch('/api/meetings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: formTitle, description: formDescription, date: `${formDate}T${formTime}:00`, duration: parseInt(formDuration, 10), attendees, meetingLink: formLink }),
+        body: JSON.stringify({
+          title: formTitle,
+          description: formDescription,
+          date: `${formDate}T${formTime}:00`,
+          duration: parseInt(formDuration, 10),
+          attendees,
+          meetingLink: formLink,
+          provider: formProvider,
+        }),
       })
-      if (res.ok) { toast.success('Created', { description: 'Meeting has been scheduled'  }); setAddOpen(false); fetchMeetings() }
-      else { const data = await res.json(); toast.error('Error', { description: data.error }) }
+      const data = await res.json()
+      if (res.ok) {
+        const sfuMsg =
+          data.livekitStatus === 'verified_room'
+            ? `LiveKit SFU room ${data.roomName} verified & JWT issued`
+            : data.livekitStatus === 'unconfigured_sfu'
+              ? 'Scheduled in database (LiveKit SFU env unconfigured)'
+              : 'Meeting has been scheduled'
+        toast.success('Created', { description: sfuMsg })
+        setAddOpen(false)
+        fetchMeetings()
+      } else {
+        toast.error('Error', { description: data.livekitError || data.error || 'Failed to schedule meeting' })
+      }
     } catch { toast.error('Error', { description: 'Failed to create meeting' }) }
     finally { setSaving(false) }
+  }
+
+  const handleDelete = async (meeting: Meeting) => {
+    setDeletingId(meeting.id)
+    try {
+      const res = await apiFetch(`/api/meetings?id=${encodeURIComponent(meeting.id)}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Delete failed', { description: data.error || `HTTP ${res.status}` })
+        return
+      }
+      toast.success('Meeting removed', {
+        description: meeting.roomName ? `Cleaned up room ${meeting.roomName}` : 'Meeting deleted',
+      })
+      fetchMeetings()
+    } catch {
+      toast.error('Delete failed', { description: 'Unable to delete meeting' })
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const formatDuration = (mins: number) => {
@@ -184,11 +238,17 @@ export default function MeetingsPanel() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#1E293B]">Meetings</h2>
-          <p className="text-sm text-[#64748B] mt-1">Schedule and manage team meetings</p>
+          <p className="text-sm text-[#64748B] mt-1">Schedule and manage team &amp; LiveKit SFU meetings</p>
         </div>
-        <Button onClick={openCreate} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
-          <Plus className="w-4 h-4 mr-2" /> New Meeting
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className={livekitConfigured ? 'bg-emerald-100 text-emerald-800 text-xs' : 'bg-amber-100 text-amber-800 text-xs'}>
+            <Radio className="w-3 h-3 mr-1" />
+            {livekitConfigured ? 'LiveKit SFU Configured' : 'LiveKit SFU Unconfigured'}
+          </Badge>
+          <Button onClick={openCreate} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
+            <Plus className="w-4 h-4 mr-2" /> New Meeting
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -233,9 +293,21 @@ export default function MeetingsPanel() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <h4 className="font-semibold text-sm text-[#1E293B]">{meeting.title}</h4>
-                    <Badge className={`text-[10px] shrink-0 ${statusConfig[meeting.status] || ''}`}>{meeting.status}</Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {meeting.livekitStatus && (
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {meeting.livekitStatus}
+                        </Badge>
+                      )}
+                      <Badge className={`text-[10px] ${statusConfig[meeting.status] || ''}`}>{meeting.status}</Badge>
+                    </div>
                   </div>
-                  <p className="text-xs text-[#64748B] mb-3 line-clamp-2">{meeting.description || 'No description'}</p>
+                  <p className="text-xs text-[#64748B] mb-2 line-clamp-2">{meeting.description || 'No description'}</p>
+                  {meeting.roomName && (
+                    <p className="text-[11px] font-mono text-slate-500 mb-2 truncate">
+                      {meeting.provider ?? 'livekit'} · room: {meeting.roomName}
+                    </p>
+                  )}
                   <div className="flex items-center gap-4 text-xs text-[#94A3B8] mb-3">
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(meeting.date).toLocaleString()}</span>
                     <span className="flex items-center gap-1"><Timer className="w-3 h-3" />{formatDuration(meeting.duration)}</span>
@@ -253,13 +325,25 @@ export default function MeetingsPanel() {
                       </div>
                     </div>
                   )}
-                  {meeting.meetingLink && (
-                    <Button size="sm" variant="outline" className="w-full h-8 text-xs text-[#0066CC] border-[#0066CC]/30 hover:bg-[#0066CC]/5" asChild>
-                      <a href={meeting.meetingLink} target="_blank" rel="noopener noreferrer">
-                        <Video className="w-3 h-3 mr-1" /> Join Meeting <ExternalLink className="w-3 h-3 ml-1" />
-                      </a>
+                  <div className="flex items-center gap-2">
+                    {meeting.meetingLink && (
+                      <Button size="sm" variant="outline" className="flex-1 h-8 text-xs text-[#0066CC] border-[#0066CC]/30 hover:bg-[#0066CC]/5" asChild>
+                        <a href={meeting.meetingLink} target="_blank" rel="noopener noreferrer">
+                          <Video className="w-3 h-3 mr-1" /> Join Meeting <ExternalLink className="w-3 h-3 ml-1" />
+                        </a>
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-50"
+                      disabled={deletingId === meeting.id}
+                      onClick={() => handleDelete(meeting)}
+                      title="Delete meeting and SFU room"
+                    >
+                      {deletingId === meeting.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                     </Button>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -329,9 +413,10 @@ export default function MeetingsPanel() {
               <div><Label>Date</Label><Input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="mt-1" /></div>
               <div><Label>Time</Label><Input type="time" value={formTime} onChange={(e) => setFormTime(e.target.value)} className="mt-1" /></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div><Label>Provider</Label><Select value={formProvider} onValueChange={(v) => setFormProvider(v as 'livekit' | 'joincall' | 'custom')}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="livekit">LiveKit SFU</SelectItem><SelectItem value="joincall">JoinCall</SelectItem><SelectItem value="custom">Custom Link</SelectItem></SelectContent></Select></div>
               <div><Label>Duration</Label><Select value={formDuration} onValueChange={setFormDuration}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="15">15 min</SelectItem><SelectItem value="30">30 min</SelectItem><SelectItem value="45">45 min</SelectItem><SelectItem value="60">1 hour</SelectItem><SelectItem value="90">1.5 hours</SelectItem><SelectItem value="120">2 hours</SelectItem></SelectContent></Select></div>
-              <div><Label>Meeting Link</Label><Input value={formLink} onChange={(e) => setFormLink(e.target.value)} placeholder="https://zoom.us/..." className="mt-1" /></div>
+              <div><Label>Meeting Link (optional)</Label><Input value={formLink} onChange={(e) => setFormLink(e.target.value)} placeholder="Auto for LiveKit..." className="mt-1" /></div>
             </div>
             <div><Label>Attendees (comma separated)</Label><Input value={formAttendees} onChange={(e) => setFormAttendees(e.target.value)} placeholder="colleague@company.com, team-lead@company.com" className="mt-1" /></div>
           </div>

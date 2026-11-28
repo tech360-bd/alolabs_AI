@@ -1,7 +1,7 @@
 // ALO Labs AIOS — WhatsApp Webhook API
 // Handles verification and incoming message processing
 
-import { randomUUID } from 'node:crypto';
+import crypto, { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { recordSecurityEvent } from '@/lib/api/secure-route';
@@ -38,6 +38,12 @@ function getAIHandlerConfig(): { enabled: boolean; endpoint: string } {
   };
 }
 
+function safeSecretCompare(a: string, b: string): boolean {
+  const hashA = crypto.createHash('sha256').update(a, 'utf8').digest();
+  const hashB = crypto.createHash('sha256').update(b, 'utf8').digest();
+  return crypto.timingSafeEqual(hashA, hashB);
+}
+
 // ─── GET: WhatsApp Verification Challenge ───────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -46,14 +52,12 @@ export async function GET(request: NextRequest) {
     const mode = searchParams.get('hub.mode');
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
 
-    if (mode === 'subscribe' && token && challenge) {
-      const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
-      if (token === verifyToken) {
-        return new NextResponse(challenge, {
-          headers: { 'Content-Type': 'text/plain' },
-        });
-      }
+    if (mode === 'subscribe' && verifyToken && token && challenge && safeSecretCompare(token, verifyToken)) {
+      return new NextResponse(challenge, {
+        headers: { 'Content-Type': 'text/plain' },
+      });
     }
 
     return NextResponse.json({ error: 'Verification failed' }, { status: 403 });
@@ -68,58 +72,63 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
+
+    // Verify webhook signature BEFORE parsing JSON.
+    // Fail closed when WHATSAPP_APP_SECRET is missing — unsigned webhooks are never trusted.
+    const signature = request.headers.get('x-hub-signature-256');
+    const appSecret = process.env.WHATSAPP_APP_SECRET;
+
+    if (!appSecret) {
+      void recordSecurityEvent({
+        type: 'webhook_secret_missing',
+        severity: 'critical',
+        resource: 'whatsapp.webhook',
+        action: 'receive',
+        requestId: randomUUID(),
+        details: { reason: 'WHATSAPP_APP_SECRET not configured' },
+      });
+      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 401 });
+    }
+
+    if (!signature) {
+      void recordSecurityEvent({
+        type: 'webhook_signature_missing',
+        severity: 'high',
+        resource: 'whatsapp.webhook',
+        action: 'receive',
+        requestId: randomUUID(),
+        details: { reason: 'missing x-hub-signature-256' },
+      });
+      return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
+    }
+
+    const expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
+    let valid = false;
+    try {
+      const bufA = Buffer.from(signature, 'utf8');
+      const bufB = Buffer.from(expected, 'utf8');
+      valid = bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+    } catch {
+      valid = false;
+    }
+
+    if (!valid) {
+      void recordSecurityEvent({
+        type: 'webhook_signature_invalid',
+        severity: 'critical',
+        resource: 'whatsapp.webhook',
+        action: 'receive',
+        requestId: randomUUID(),
+        details: { reason: 'hmac mismatch' },
+      });
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+
     let body: unknown;
     try {
       body = JSON.parse(rawBody);
     } catch {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-    }
-
-    // Verify webhook signature.
-    //
-    // This endpoint is unauthenticated by design (Meta calls it), so the HMAC
-    // signature IS the authentication. Previously a mismatch only wrote a
-    // warning to the log and processing continued, which let anyone forge
-    // inbound messages. A missing or invalid signature is now rejected with
-    // 401 whenever WHATSAPP_APP_SECRET is configured.
-    const signature = request.headers.get('x-hub-signature-256');
-    const appSecret = process.env.WHATSAPP_APP_SECRET;
-
-    if (appSecret) {
-      if (!signature) {
-        void recordSecurityEvent({
-          type: 'webhook_signature_missing',
-          severity: 'high',
-          resource: 'whatsapp.webhook',
-          action: 'receive',
-          requestId: randomUUID(),
-          details: { reason: 'missing x-hub-signature-256' },
-        });
-        return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
-      }
-
-      const crypto = await import('node:crypto');
-      const expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
-      let valid = false;
-      try {
-        const bufA = Buffer.from(signature);
-        const bufB = Buffer.from(expected);
-        valid = bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
-      } catch {
-        valid = false;
-      }
-
-      if (!valid) {
-        void recordSecurityEvent({
-          type: 'webhook_signature_invalid',
-          severity: 'critical',
-          resource: 'whatsapp.webhook',
-          action: 'receive',
-          requestId: randomUUID(),
-          details: { reason: 'hmac mismatch' },
-        });
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-      }
     }
 
     // Parse with WhatsApp client

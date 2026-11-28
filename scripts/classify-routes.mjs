@@ -66,6 +66,7 @@ const PUBLIC = [
   [/^\.\/seo\/route\.ts$/, 'crawler metadata'],
   [/^\.\/whatsapp\/webhook\/route\.ts$/, 'provider callback, signature-verified'],
   [/^\.\/voice\/telephony\/webhook\/route\.ts$/, 'provider callback, signature-verified'],
+  [/^\.\/social\/webhooks\//, 'provider callback, signature-verified'],
   [/^\.\/email\/track\/open\//, 'open-pixel beacon'],
 ];
 

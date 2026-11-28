@@ -44,10 +44,10 @@ export async function GET(req: NextRequest) {
     const eventType = searchParams.get('eventType'); // filter by event type
     const status = searchParams.get('status'); // filter by delivery status
 
-    // F6: companyId from trusted session context. Super admins may optionally
+    // F6: companyId from trusted session context. Only platform super_admins may
     // inspect another company via ?company=<slug>.
-    const isAdmin = user.role === 'super_admin' || user.role === 'admin';
-    const companySlug = isAdmin ? searchParams.get('company') : undefined;
+    const isPlatformAdmin = user.role === 'super_admin';
+    const companySlug = isPlatformAdmin ? searchParams.get('company') : undefined;
     let companyId = user.companyId ?? '__none__';
     if (companySlug) {
       const c = await db.company.findUnique({ where: { slug: companySlug }, select: { id: true } });
@@ -116,10 +116,9 @@ export async function GET(req: NextRequest) {
       db.webhookDelivery.count({ where: legacyWhere }),
     ]);
 
-    // F6: Defensive — strip any legacy rows whose webhook.companyId doesn't
-    // match (shouldn't happen due to the where clause, but defense in depth).
+    // F6: Defensive — strip any legacy rows whose webhook.companyId doesn't match.
     const tenantLegacyData = legacyData.filter(
-      (d) => isAdmin || d.webhook?.companyId === user.companyId,
+      (d) => isPlatformAdmin || d.webhook?.companyId === user.companyId,
     );
 
     return NextResponse.json({

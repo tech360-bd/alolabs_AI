@@ -23,10 +23,13 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'agent.permissions',
   model: 'agentPermission',
   label: 'AgentPermission',
-  // This table has no tenant column of its own — see the security report.
+  // AgentPermission inherits tenant ownership through its parent Agent.
   tenantField: null,
+  ownership: { delegate: 'agent', fk: 'agentId', relation: 'agent' },
   createSchema,
   updateSchema,
   searchFields: ['resourceId', 'accessLevel'],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'agentId', 'resourceId', 'accessLevel', 'createdAt'],
   writeRoles: ['super_admin', 'admin'],
 });

@@ -28,10 +28,12 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'model.health',
   model: 'modelHealth',
   label: 'ModelHealth',
-  // This table has no tenant column of its own — see the security report.
+  // Global ModelRegistry health records; writes restricted to platform super_admin.
   tenantField: null,
+  writeRoles: ['super_admin'],
   createSchema,
   updateSchema,
   searchFields: ['status'],
-  writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
+  orderBy: { lastCheckedAt: 'desc' },
+  sortableFields: ['id', 'modelId', 'status', 'avgLatencyMs', 'errorRate', 'successRate', 'lastCheckedAt', 'createdAt'],
 });

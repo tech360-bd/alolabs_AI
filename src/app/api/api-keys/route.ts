@@ -83,23 +83,16 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const ip = clientIp(request);
 
-    // Super admins may inspect another company for support; everyone else is
-    // scoped to their own company. A non-admin passing ?company= is still
-    // scoped to their own — the param is ignored, not an error.
-    const isAdmin = user.role === 'super_admin' || user.role === 'admin';
-    const targetSlug = isAdmin ? companySlug : undefined;
+    // Only platform super_admins may inspect another company for support;
+    // every tenant role (including tenant admin) is strictly scoped to its own company.
+    const isPlatformAdmin = user.role === 'super_admin';
+    const targetSlug = isPlatformAdmin ? companySlug : undefined;
 
     let where: Record<string, unknown> = {};
     if (targetSlug) {
       const company = await db.company.findUnique({ where: { slug: targetSlug }, select: { id: true } });
       where.companyId = company?.id ?? '__none__';
-    } else if (!isAdmin) {
-      // Non-admin: strictly own company. If the user has no company, return empty.
-      where.companyId = user.companyId ?? '__none__';
-    }
-    // Admins without a ?company= filter see their own company's keys (safer
-    // default than the old "all companies" behaviour).
-    if (isAdmin && !targetSlug) {
+    } else {
       where.companyId = user.companyId ?? '__none__';
     }
 
@@ -133,7 +126,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const { name, keyType, scopes, rateLimit, expiresAt } = body;
 
     // P0-A: companyId is resolved server-side. A caller-supplied companyId is

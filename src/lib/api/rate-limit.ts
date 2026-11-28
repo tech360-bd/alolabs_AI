@@ -42,6 +42,14 @@ if (typeof setInterval !== 'undefined') {
  */
 export function checkRateLimit(keyId: string, limit: number): RateLimitResult {
   const now = Date.now();
+  if (limit <= 0) {
+    return { allowed: false, limit, remaining: 0, resetAt: now + WINDOW_MS };
+  }
+  if (buckets.size > 10_000) {
+    for (const [key, bucket] of buckets) {
+      if (bucket.resetAt < now) buckets.delete(key);
+    }
+  }
   const existing = buckets.get(keyId);
 
   if (!existing || existing.resetAt < now) {

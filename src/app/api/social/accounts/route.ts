@@ -66,11 +66,19 @@ function parseAccountSetting(key: string, value: string): ConnectedAccount | nul
   }
 }
 
+async function getHeaderStore(request?: NextRequest) {
+  try {
+    return await (await import('next/headers')).headers();
+  } catch {
+    return request?.headers ?? new Headers();
+  }
+}
+
 // ─── GET: List all connected social accounts ────────────────────────────────────
 
-export async function GET() {
+export async function GET(request?: NextRequest) {
   try {
-    const authHeader = await (await import('next/headers')).headers();
+    const authHeader = await getHeaderStore(request);
     const authorization = authHeader.get('authorization');
     if (!authorization?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -118,7 +126,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = await (await import('next/headers')).headers();
+    const authHeader = await getHeaderStore(request);
     const authorization = authHeader.get('authorization');
     if (!authorization?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -130,7 +138,10 @@ export async function POST(request: NextRequest) {
     }
     if (!canManageSocial(session.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const { platform, accessToken, refreshToken, expiresIn, platformUserId, platformUsername, metadata } = body as {
       platform: SocialPlatform;
       accessToken: string;
@@ -210,7 +221,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = await (await import('next/headers')).headers();
+    const authHeader = await getHeaderStore(request);
     const authorization = authHeader.get('authorization');
     if (!authorization?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

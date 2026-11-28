@@ -2,6 +2,7 @@
 
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
+import { toast } from 'sonner'
 import {
   Webhook,
   Plus,
@@ -139,10 +140,14 @@ export default function WebhooksPanel() {
       ])
       const webhooksData = await webhooksRes.json()
       const companiesData = await companiesRes.json()
+      if (!webhooksRes.ok) {
+        toast.error('Error', { description: webhooksData.error || `Failed to load webhooks (HTTP ${webhooksRes.status})` })
+        return
+      }
       setWebhooks(webhooksData.data || [])
       setCompanies(companiesData.data || [])
     } catch {
-      // silently handle
+      toast.error('Error', { description: 'Failed to load webhooks' })
     } finally {
       setLoading(false)
     }
@@ -185,13 +190,17 @@ export default function WebhooksPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingId, ...form }),
       })
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
+        toast.success(isEdit ? 'Webhook updated' : 'Webhook created')
         setDialogOpen(false)
         resetForm()
         fetchData()
+      } else {
+        toast.error('Save failed', { description: data.error || `HTTP ${res.status}` })
       }
     } catch {
-      // silently handle
+      toast.error('Save failed', { description: 'Unable to save webhook' })
     } finally {
       setSubmitting(false)
     }
@@ -200,15 +209,21 @@ export default function WebhooksPanel() {
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      await apiFetch('/api/webhooks', {
+      const res = await apiFetch('/api/webhooks', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: deleteConfirm.id }),
       })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Delete failed', { description: data.error || `HTTP ${res.status}` })
+        return
+      }
+      toast.success('Webhook deleted')
       setDeleteConfirm({ open: false, id: '', name: '' })
       fetchData()
     } catch {
-      // silently handle
+      toast.error('Delete failed', { description: 'Unable to delete webhook' })
     } finally {
       setDeleting(false)
     }

@@ -97,7 +97,12 @@ function mockFetchForTokenExchange() {
         ok: true,
         status: 200,
         text: async () => 'ok',
-        json: async () => ({ id: 123456, email: 'dev@example.com', name: 'Dev User' }),
+        json: async () => ({
+          id: 123456,
+          email: 'dev@example.com',
+          email_verified: true,
+          name: 'Dev User',
+        }),
       };
     }
     throw new Error(`Unexpected fetch: ${url}`);
@@ -477,5 +482,59 @@ describe('POST /api/auth/oauth/[provider] — JSON callback', () => {
       routeContext('github')
     );
     expect(post.status).toBe(502);
+  });
+
+  it('rejects unverified OAuth emails with 403 before account linking', async () => {
+    armHappyPathDb();
+    global.fetch = vi.fn(async (input: unknown) => {
+      const url = String(input);
+      if (url.includes('/access_token')) {
+        return { ok: true, status: 200, text: async () => 'ok', json: async () => ({ access_token: 'at-1', expires_in: 3600 }) };
+      }
+      if (url.includes('api.github.com/user/emails')) {
+        return { ok: true, status: 200, text: async () => 'ok', json: async () => [{ email: 'dev@example.com', primary: true, verified: false }] };
+      }
+      return { ok: true, status: 200, text: async () => 'ok', json: async () => ({ id: 123456, email: 'dev@example.com', email_verified: false, name: 'Dev User' }) };
+    }) as unknown as typeof fetch;
+
+    const res = await GET({ url: routeUrl('/api/auth/oauth/github') } as any, routeContext('github'));
+    const resData = await res.json();
+    const post = await POST(
+      { url: routeUrl('/api/auth/oauth/github'), json: async () => ({ code: 'auth-code', state: resData.state }) } as any,
+      routeContext('github')
+    );
+    expect(post.status).toBe(403);
+    expect(db.oAuthAccount.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects disabled accounts (isActive: false) with 403', async () => {
+    armHappyPathDb();
+    mockFetchForTokenExchange();
+    (db.user.findUnique as any).mockResolvedValue({ ...EXISTING_USER, isActive: false });
+    const res = await GET({ url: routeUrl('/api/auth/oauth/github') } as any, routeContext('github'));
+    const resData = await res.json();
+    const post = await POST(
+      { url: routeUrl('/api/auth/oauth/github'), json: async () => ({ code: 'auth-code', state: resData.state }) } as any,
+      routeContext('github')
+    );
+    expect(post.status).toBe(403);
+    expect(db.oAuthAccount.create).not.toHaveBeenCalled();
+  });
+
+  it('requires MFA verification instead of issuing a session when otpEnabled is true', async () => {
+    armHappyPathDb();
+    mockFetchForTokenExchange();
+    (db.user.findUnique as any).mockResolvedValue({ ...EXISTING_USER, otpEnabled: true });
+    const res = await GET({ url: routeUrl('/api/auth/oauth/github') } as any, routeContext('github'));
+    const resData = await res.json();
+    const post = await POST(
+      { url: routeUrl('/api/auth/oauth/github'), json: async () => ({ code: 'auth-code', state: resData.state }) } as any,
+      routeContext('github')
+    );
+    const body = await post.json();
+    expect(post.status).toBe(200);
+    expect(body.mfaPending).toBe(true);
+    expect(body.token).toBeNull();
+    expect(typeof body.tempToken).toBe('string');
   });
 });

@@ -7,11 +7,19 @@ import { db } from '@/lib/db';
 import { verifySessionToken } from '@/lib/auth';
 import type { WhatsAppTemplate } from '@/lib/whatsapp/types';
 
+async function getHeaderStore(request: NextRequest) {
+  try {
+    return await (await import('next/headers')).headers();
+  } catch {
+    return request.headers;
+  }
+}
+
 // ─── POST: Send Message ────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = await (await import('next/headers')).headers();
+    const authHeader = await getHeaderStore(request);
     const authorization = authHeader.get('authorization');
     if (!authorization?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -45,7 +53,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'type is required' }, { status: 400 });
     }
 
-    const clientResult = await getWhatsAppClient(body.phoneNumberId);
+    // Enforce tenant ownership of the WhatsApp number when company memberships exist
+    let targetPhoneNumberId = body.phoneNumberId;
+    if (typeof db.companyUser?.findFirst === 'function') {
+      const membership = await db.companyUser.findFirst({
+        where: { userId: session.userId },
+        select: { companyId: true },
+      });
+      const callerCompanyId = membership?.companyId ?? null;
+      const numbersSetting = await db.settings.findUnique({ where: { key: 'whatsapp:numbers' } });
+      if (numbersSetting) {
+        try {
+          const numbers = JSON.parse(numbersSetting.value) as Array<{
+            phoneNumberId: string;
+            companyId?: string;
+            isDefault?: boolean;
+          }>;
+          if (targetPhoneNumberId) {
+            const matched = numbers.find((n) => n.phoneNumberId === targetPhoneNumberId);
+            if (matched?.companyId && session.role !== 'super_admin' && matched.companyId !== callerCompanyId) {
+              return NextResponse.json({ error: 'Forbidden: WhatsApp number belongs to another company' }, { status: 403 });
+            }
+          } else if (callerCompanyId) {
+            const owned = numbers.filter((n) => n.companyId === callerCompanyId);
+            const preferred = owned.find((n) => n.isDefault) || owned[0];
+            if (preferred) {
+              targetPhoneNumberId = preferred.phoneNumberId;
+            } else if (numbers.some((n) => Boolean(n.companyId)) && session.role !== 'super_admin') {
+              return NextResponse.json({ error: 'No WhatsApp number registered for your company' }, { status: 403 });
+            }
+          }
+        } catch {
+          // ignore malformed numbers settings; getWhatsAppClient will handle
+        }
+      }
+    }
+
+    const clientResult = await getWhatsAppClient(targetPhoneNumberId);
     if (!clientResult) {
       return NextResponse.json(
         { error: 'WhatsApp not configured. Connect a WhatsApp Business number first.' },

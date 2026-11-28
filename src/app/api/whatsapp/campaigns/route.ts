@@ -31,6 +31,7 @@ interface CampaignStats {
 
 interface StoredCampaign {
   id: string;
+  companyId?: string;
   name: string;
   description: string;
   template: WhatsAppTemplate;
@@ -193,11 +194,19 @@ async function executeCampaign(
   await saveCampaign(campaign);
 }
 
+async function getHeaderStore(request: NextRequest) {
+  try {
+    return await (await import('next/headers')).headers();
+  } catch {
+    return request.headers;
+  }
+}
+
 // ─── POST: Create Campaign ────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = await (await import('next/headers')).headers();
+    const authHeader = await getHeaderStore(request);
     const authorization = authHeader.get('authorization');
     if (!authorization?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -239,23 +248,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Resolve phone number ID
-    let resolvedPhoneNumberId = body.phoneNumberId || '';
-    if (!resolvedPhoneNumberId) {
-      try {
-        const numbersSetting = await db.settings.findUnique({
-          where: { key: 'whatsapp:numbers' },
-        });
-        if (numbersSetting) {
-          const numbers = JSON.parse(numbersSetting.value) as Array<{
-            phoneNumberId: string;
-            isDefault: boolean;
-          }>;
-          const defaultNumber = numbers.find((n) => n.isDefault) || numbers[0];
-          if (defaultNumber) resolvedPhoneNumberId = defaultNumber.phoneNumberId;
-        }
-      } catch { /* ignore */ }
+    // Resolve caller's tenant companyId
+    const membership = await db.companyUser.findFirst({
+      where: { userId: session.userId },
+      select: { companyId: true },
+    });
+    const callerCompanyId = membership?.companyId ?? null;
+    if (!callerCompanyId && session.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Company membership required' }, { status: 403 });
     }
+
+    // Resolve phone number ID scoped to caller's company
+    let resolvedPhoneNumberId = body.phoneNumberId || '';
+    let resolvedOwnerCompanyId: string | undefined = callerCompanyId ?? undefined;
+    try {
+      const numbersSetting = await db.settings.findUnique({
+        where: { key: 'whatsapp:numbers' },
+      });
+      if (numbersSetting) {
+        const numbers = JSON.parse(numbersSetting.value) as Array<{
+          phoneNumberId: string;
+          companyId?: string;
+          isDefault: boolean;
+        }>;
+        if (resolvedPhoneNumberId) {
+          const target = numbers.find((n) => n.phoneNumberId === resolvedPhoneNumberId);
+          if (target && target.companyId && callerCompanyId && target.companyId !== callerCompanyId && session.role !== 'super_admin') {
+            return NextResponse.json({ error: 'Forbidden: WhatsApp number belongs to another company' }, { status: 403 });
+          }
+          resolvedOwnerCompanyId = target?.companyId ?? resolvedOwnerCompanyId;
+        } else {
+          const scopedNumbers = callerCompanyId
+            ? numbers.filter((n) => n.companyId === callerCompanyId)
+            : numbers;
+          const defaultNumber = scopedNumbers.find((n) => n.isDefault) || scopedNumbers[0];
+          if (defaultNumber) {
+            resolvedPhoneNumberId = defaultNumber.phoneNumberId;
+            resolvedOwnerCompanyId = defaultNumber.companyId ?? resolvedOwnerCompanyId;
+          }
+        }
+      }
+    } catch { /* ignore */ }
 
     if (!resolvedPhoneNumberId) {
       return NextResponse.json(
@@ -282,6 +315,7 @@ export async function POST(request: NextRequest) {
 
     const campaign: StoredCampaign = {
       id: campaignId,
+      companyId: resolvedOwnerCompanyId,
       name: body.name,
       description: body.description || '',
       template: body.template,
@@ -368,7 +402,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = await (await import('next/headers')).headers();
+    const authHeader = await getHeaderStore(request);
     const authorization = authHeader.get('authorization');
     if (!authorization?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -386,17 +420,32 @@ export async function GET(request: NextRequest) {
     const includeRecipients = searchParams.get('includeRecipients') === 'true';
     const campaignId = searchParams.get('id');
 
+    const membership = await db.companyUser.findFirst({
+      where: { userId: session.userId },
+      select: { companyId: true },
+    });
+    const callerCompanyId = membership?.companyId ?? null;
+    if (!callerCompanyId && session.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Company membership required' }, { status: 403 });
+    }
+
     // If specific campaign requested
     if (campaignId) {
       const campaign = await getCampaign(campaignId);
       if (!campaign) {
         return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
       }
+      if (session.role !== 'super_admin' && campaign.companyId !== callerCompanyId) {
+        return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      }
       return NextResponse.json({ data: campaign });
     }
 
-    // List all campaigns
+    // List all campaigns scoped to caller's company
     let campaigns = await listAllCampaigns();
+    if (session.role !== 'super_admin') {
+      campaigns = campaigns.filter((c) => c.companyId === callerCompanyId);
+    }
 
     // Filter by status
     if (status) {

@@ -15,7 +15,7 @@ export const POST = secureRoute(
   {
     resource: 'infra.ping',
     action: 'execute',
-    roles: ['super_admin', 'admin'],
+    roles: ['super_admin'],
     rateLimit: { limit: 30, windowMs: 60_000 },
   },
   async (context) => {

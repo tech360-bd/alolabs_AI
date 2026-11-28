@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server'
 import { cookies, headers } from 'next/headers'
 import { db } from './db'
 import { verifySessionToken } from './auth'
@@ -15,21 +16,25 @@ export interface AuthenticatedUser {
   companyRole?: string
 }
 
-export async function getAuthUser(): Promise<AuthenticatedUser | null> {
-  const headersList = await headers()
-  const authHeader = headersList.get('authorization')
-  let token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : ''
-
-  // SSR compatibility fallback. Browser API clients use the Bearer token from
-  // localStorage; the mirrored httpOnly cookie only supports server-rendered
-  // page gates and older same-origin callers during the migration.
-  if (!token) {
-    const cookieStore = await cookies()
-    token = cookieStore.get(SESSION_COOKIE)?.value ?? ''
-  }
-  if (!token) return null
-
+export async function getAuthUser(request?: NextRequest): Promise<AuthenticatedUser | null> {
   try {
+    const headersList = request ? request.headers : await headers()
+    const authHeader = headersList.get('authorization')
+    let token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : ''
+
+    // SSR compatibility fallback. Browser API clients use the Bearer token from
+    // localStorage; the mirrored httpOnly cookie only supports server-rendered
+    // page gates and older same-origin callers during the migration.
+    if (!token) {
+      if (request) {
+        token = request.cookies?.get(SESSION_COOKIE)?.value ?? ''
+      } else {
+        const cookieStore = await cookies()
+        token = cookieStore.get(SESSION_COOKIE)?.value ?? ''
+      }
+    }
+    if (!token) return null
+
     // Single source of truth for session validity (existence, expiry, idle timeout).
     const session = await verifySessionToken(token)
     if (!session) return null
@@ -89,8 +94,8 @@ export async function getAuthUser(): Promise<AuthenticatedUser | null> {
   }
 }
 
-export async function requireAuth(): Promise<AuthenticatedUser> {
-  const user = await getAuthUser()
+export async function requireAuth(request?: NextRequest): Promise<AuthenticatedUser> {
+  const user = await getAuthUser(request)
   if (!user) throw new Error('Unauthorized')
   return user
 }

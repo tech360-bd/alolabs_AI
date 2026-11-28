@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  audienceForToken,
   audienceMayCallApi,
   isClientPagePath,
   isInternalPagePath,
@@ -21,7 +20,6 @@ export const PUBLIC_API_ROUTES: readonly PublicApiRoute[] = [
   { path: '/api/auth/password-reset', methods: ['POST'] },
   { path: '/api/auth/mfa/verify', methods: ['POST'] },
   { path: '/api/auth/mfa/resend', methods: ['POST'] },
-  { path: '/api/auth/sso', methods: ['GET', 'POST'] },
   { path: '/api/auth/oauth', methods: ['GET', 'POST'] },
   { path: '/api/auth/oauth/', methods: ['GET', 'POST'] },
   { path: '/api/health/live', methods: ['GET'] },
@@ -33,10 +31,13 @@ export const PUBLIC_API_ROUTES: readonly PublicApiRoute[] = [
   { path: '/api/v1/ai/health', methods: ['GET'] },
   { path: '/api/ping', methods: ['GET'] },
   { path: '/api/infra/ping', methods: ['GET'] },
+  // Email open tracking pixel (HMAC-verified inside the route handler).
+  { path: '/api/email/track/open/', methods: ['GET'] },
   // Enterprise and webhook management APIs are private. Inbound webhooks
   // authenticate provider signatures in their individual handlers.
   { path: '/api/whatsapp/webhook', methods: ['GET', 'POST'] },
   { path: '/api/voice/telephony/webhook', methods: ['GET', 'POST'] },
+  { path: '/api/social/webhooks/', methods: ['GET', 'POST'] },
   { path: '/api/public/', methods: ['GET', 'POST', 'PUT', 'DELETE'] },
   // The stack register is a static catalogue *about this repository* — every
   // row is a claim plus the file that proves it. No tenant row, credential or
@@ -186,14 +187,40 @@ const ACCESS_DENIED_ROUTE = '/api/access-denied';
 const REQUEST_PATH_HEADER = 'x-alo-request-path';
 const REQUEST_METHOD_HEADER = 'x-alo-request-method';
 
-// ─── IP Extraction ────────────────────────────────────────────────────────────
+// ─── IP & Credential Helpers ──────────────────────────────────────────────────
 
 function getClientIp(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0]!.trim();
+  const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1';
+  if (trustProxy) {
+    const realIp = request.headers.get('x-real-ip')?.trim();
+    if (realIp) return realIp;
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) {
+      const hops = forwarded.split(',').map((h) => h.trim()).filter(Boolean);
+      const rightmost = hops.at(-1);
+      if (rightmost) return rightmost;
+    }
   }
-  return 'unknown';
+  const peerIp = (request as NextRequest & { ip?: string }).ip;
+  return peerIp?.trim() || 'direct';
+}
+
+const COMPANY_API_KEY_RE = /^alo_(?!pk_)[A-Za-z0-9_-]{8,}$/;
+const PLATFORM_API_KEY_RE = /^alo_pk_[A-Za-z0-9_-]{8,}$/;
+const OPAQUE_LEGACY_TOKEN_RE = /^(?:alc_)?[a-f0-9]{96}$/;
+
+function isValidApiKeyForPath(key: string, isPlatformV1: boolean): boolean {
+  return isPlatformV1 ? PLATFORM_API_KEY_RE.test(key) : COMPANY_API_KEY_RE.test(key);
+}
+
+function resolveProxyJwtSecret(): string | undefined {
+  const envSecret = process.env.JWT_SECRET;
+  if (envSecret && envSecret.length >= 32) return envSecret;
+  if (process.env.NODE_ENV !== 'production') {
+    const devSecret = (globalThis as { __aloDevJwtSecret?: string }).__aloDevJwtSecret;
+    if (devSecret && devSecret.length >= 32) return devSecret;
+  }
+  return undefined;
 }
 
 // ─── Proxy ──────────────────────────────────────────────────────────────────
@@ -225,46 +252,58 @@ export async function proxy(request: NextRequest) {
   // never let a caller supply it themselves.
   forwardedHeaders.delete('x-alo-authenticated-user-id');
 
-  // Verify private API Bearer JWTs before forwarding the request. The database
+  // Verify private API credentials before forwarding the request. The database
   // row, revocation state and current account role are checked again by the
-  // route-level auth helper. Old opaque tokens are temporarily passed through
-  // to those helpers during the rolling migration, but are never stamped as
-  // proxy-verified identities.
+  // route-level auth helper.
   const scrape = isMetricsScrape(pathname, method, request.headers.get('authorization'));
   let hasV1Key = false;
   let edgeClaims: EdgeJwtClaims | null = null;
   if (isApi && !isPublicApiRoute(pathname, method)) {
+    const isV1 = pathname.startsWith('/api/v1/');
+    const isPlatformV1 =
+      pathname === '/api/v1/platform' || pathname.startsWith('/api/v1/platform/');
+
     // A provider redirect is a browser navigation and cannot set Authorization.
     // Only this GET callback may reuse the mirrored cookie. The route still
     // verifies the DB session, admin role and browser-bound account-link state.
-    if (method === 'GET' && /^\/api\/social\/oauth\/[a-z]+$/.test(pathname) && !forwardedHeaders.has('authorization')) {
+    if (
+      method === 'GET' &&
+      /^\/api\/social\/oauth\/[a-z]+$/.test(pathname) &&
+      !forwardedHeaders.has('authorization')
+    ) {
       const session = request.cookies.get(SESSION_COOKIE_NAME)?.value;
       if (session) forwardedHeaders.set('authorization', `Bearer ${session}`);
     }
-    /**
-     * The browser talks to `/api/v1/platform/**` with its own session cookie;
-     * it has no reason to hold an API key, and asking it to would mean every
-     * page has to mint and store a long-lived credential in JS — exactly the
-     * pattern project API keys exist to avoid.
-     *
-     * So for the v1 service plane a `session-token` cookie is a first-class
-     * credential here: it is mirrored into an Authorization header (this proxy
-     * runs at the edge and cannot verify a Node session token itself) and the
-     * route-level resolver performs the real verification, revocation and
-     * workspace-membership checks. Nothing is trusted because of this header;
-     * it only carries the cookie forward.
-     */
-    const isV1 = pathname.startsWith('/api/v1/');
-    const sessionCookie = isV1 ? request.cookies.get(SESSION_COOKIE_NAME)?.value : undefined;
-    if (sessionCookie && !forwardedHeaders.get('authorization')) {
-      forwardedHeaders.set('authorization', `Bearer ${sessionCookie}`);
+
+    const rawApiKeyHeader = isV1 ? request.headers.get('x-api-key')?.trim() : undefined;
+    if (isV1 && request.headers.has('x-api-key') && !rawApiKeyHeader) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Empty API key header' },
+        { status: 401 },
+      );
     }
+    if (rawApiKeyHeader) {
+      if (!isValidApiKeyForPath(rawApiKeyHeader, isPlatformV1)) {
+        return NextResponse.json(
+          { error: 'Unauthorized', message: 'Invalid API key format' },
+          { status: 401 },
+        );
+      }
+      hasV1Key = true;
+    }
+
+    // For /api/v1/** browser sessions, mirror `session-token` into Authorization
+    // ONLY when neither X-API-Key nor Authorization was sent, and ALWAYS verify
+    // the credential below — never skip edge JWT verification.
+    if (isV1 && !hasV1Key && !forwardedHeaders.has('authorization')) {
+      const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+      if (sessionCookie) {
+        forwardedHeaders.set('authorization', `Bearer ${sessionCookie}`);
+      }
+    }
+
     const authHeader = forwardedHeaders.get('authorization');
-    hasV1Key = isV1 && Boolean(request.headers.get('x-api-key')?.trim());
-    // A browser session on the v1 plane is handled by the route resolver; the
-    // edge only needs to confirm a credential is present.
-    const hasV1Session = isV1 && Boolean(sessionCookie) && !hasV1Key;
-    if (!hasV1Key && !hasV1Session && !scrape) {
+    if (!hasV1Key && !scrape) {
       if (!authHeader?.startsWith('Bearer ')) {
         return NextResponse.json(
           { error: 'Unauthorized', message: 'Missing or invalid Authorization header' },
@@ -279,21 +318,35 @@ export async function proxy(request: NextRequest) {
         );
       }
 
-      if (token.split('.').length === 3) {
-        const secret = process.env.JWT_SECRET;
-        if (secret && secret.length >= 32) {
-          edgeClaims = await verifyEdgeJwt(token, secret);
-          if (!edgeClaims) {
-            return NextResponse.json({ error: 'Unauthorized', message: 'Invalid or expired Bearer JWT' }, { status: 401 });
-          }
-          forwardedHeaders.set('x-alo-authenticated-user-id', edgeClaims.userId);
-        } else if (process.env.NODE_ENV === 'production') {
-          return NextResponse.json({ error: 'Unauthorized', message: 'JWT verification is not configured' }, { status: 401 });
+      if (token.startsWith('alo_')) {
+        if (!isV1 || !isValidApiKeyForPath(token, isPlatformV1)) {
+          return NextResponse.json(
+            { error: 'Unauthorized', message: 'Invalid or misplaced API key credential' },
+            { status: 401 },
+          );
         }
-        // In development without JWT_SECRET, the Node route auth helper still
-        // verifies using its per-process development key.
-      } else if (!/^(?:alc_)?[a-f0-9]{96}$/.test(token)) {
-        return NextResponse.json({ error: 'Unauthorized', message: 'Unsupported Bearer credential' }, { status: 401 });
+        hasV1Key = true;
+      } else if (token.split('.').length === 3) {
+        const secret = resolveProxyJwtSecret();
+        if (!secret) {
+          return NextResponse.json(
+            { error: 'Unauthorized', message: 'JWT verification is not configured' },
+            { status: 401 },
+          );
+        }
+        edgeClaims = await verifyEdgeJwt(token, secret);
+        if (!edgeClaims) {
+          return NextResponse.json(
+            { error: 'Unauthorized', message: 'Invalid or expired Bearer JWT' },
+            { status: 401 },
+          );
+        }
+        forwardedHeaders.set('x-alo-authenticated-user-id', edgeClaims.userId);
+      } else if (!OPAQUE_LEGACY_TOKEN_RE.test(token)) {
+        return NextResponse.json(
+          { error: 'Unauthorized', message: 'Unsupported Bearer credential' },
+          { status: 401 },
+        );
       }
     }
   }
@@ -317,20 +370,41 @@ export async function proxy(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
-  // ── Page auth enforcement: private routes require a session cookie ──────
+  // ── Page auth enforcement: private routes require a verified session cookie
   if (isPageRoute && isPrivatePageRoute(pathname)) {
-    const hasSession = Boolean(request.cookies.get(SESSION_COOKIE_NAME)?.value);
-    if (!hasSession) {
+    const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value?.trim();
+    const redirectToLogin = () => {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('next', pathname + search);
       const redirectResponse = NextResponse.redirect(loginUrl);
       redirectResponse.headers.set('Cache-Control', 'private, no-store');
       return redirectResponse;
+    };
+
+    if (!sessionCookie) {
+      return redirectToLogin();
     }
+
+    let cookieAudience: 'internal' | 'client' | null = null;
+    if (sessionCookie.split('.').length === 3) {
+      const secret = resolveProxyJwtSecret();
+      if (!secret) {
+        return redirectToLogin();
+      }
+      const claims = await verifyEdgeJwt(sessionCookie, secret);
+      if (!claims) {
+        return redirectToLogin();
+      }
+      cookieAudience = claims.audience;
+    } else if (OPAQUE_LEGACY_TOKEN_RE.test(sessionCookie)) {
+      cookieAudience = sessionCookie.startsWith('alc_') ? 'client' : 'internal';
+    } else {
+      return redirectToLogin();
+    }
+
     // Each surface has its own pages. A client cookie on an internal page, or
     // an internal cookie on the portal, is sent to its own home. The server
     // components repeat this check against the database before rendering.
-    const cookieAudience = audienceForToken(request.cookies.get(SESSION_COOKIE_NAME)?.value);
     const wantsClientPage = isClientPagePath(pathname);
     // /platform is deliberately reachable from both surfaces — see
     // SHARED_PAGE_PREFIXES in src/lib/access/surfaces.ts.
@@ -345,11 +419,23 @@ export async function proxy(request: NextRequest) {
   }
 
   // ── API audience separation ──────────────────────────────────────────────
-  // Bearer JWT signatures were verified before the downstream request headers
-  // were built. The route-level helper revalidates the session against Prisma.
+  // Only verified JWT claims (or verified-format opaque migration tokens) are
+  // consulted here — never unverified JWT claims.
   if (isApi && !isPublicApiRoute(pathname, method) && !hasV1Key && !scrape && pathname !== ACCESS_DENIED_ROUTE) {
     const bearer = forwardedHeaders.get('authorization')!.slice('Bearer '.length).trim();
-    const bearerAudience = edgeClaims?.audience ?? audienceForToken(bearer);
+    const bearerAudience = edgeClaims
+      ? edgeClaims.audience
+      : OPAQUE_LEGACY_TOKEN_RE.test(bearer)
+        ? bearer.startsWith('alc_')
+          ? 'client'
+          : 'internal'
+        : null;
+    if (!bearerAudience) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Unverified credential' },
+        { status: 401 },
+      );
+    }
     if (!audienceMayCallApi(bearerAudience, pathname, method)) {
       const denied = NextResponse.rewrite(new URL(ACCESS_DENIED_ROUTE, request.url), {
         request: { headers: forwardedHeaders },

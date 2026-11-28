@@ -3,8 +3,18 @@
  * ALO Labs AIOS — Unified types for the AI Gateway layer.
  */
 
+import type { AIToolCall } from '@/lib/ai-router/types';
+import type { ModelRoutingProfile } from '@/lib/multi-tenant-ai/policy';
+
 export interface AIGatewayRequest {
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{
+    role: string;
+    content: string;
+    name?: string;
+    toolCallId?: string;
+    toolCalls?: AIToolCall[];
+    imageUrls?: string[];
+  }>;
   model?: string;
   agentId?: string;
   departmentId?: string;
@@ -15,6 +25,7 @@ export interface AIGatewayRequest {
   stream?: boolean;
   tools?: unknown[];
   taskType?: 'fast' | 'balanced' | 'reasoning' | 'coding' | 'vision';
+  routingProfile?: ModelRoutingProfile;
   priority?: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
   metadata?: Record<string, unknown>;
 }
@@ -30,6 +41,7 @@ export interface AIGatewayResponse {
     totalTokens: number;
   };
   finishReason: string;
+  toolCalls?: AIToolCall[];
   latencyMs: number;
   costUsd: number | null;
   routedBy: string;

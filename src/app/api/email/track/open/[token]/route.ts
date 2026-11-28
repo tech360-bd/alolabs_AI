@@ -24,16 +24,19 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
     },
   });
 
-  if (!messageId || messageId.length > 200) return gif;
+  if (!messageId || messageId.length > 200 || !/^[A-Za-z0-9._:@-]+$/.test(messageId)) return gif;
+  if (!/^[a-f0-9]{64}$/i.test(token)) return gif;
 
   const service = new EmailTrackingService();
   if (!service.isConfigured() || !service.verifyToken(messageId, token, 'open')) return gif;
 
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    undefined;
-  const userAgent = request.headers.get('user-agent') || undefined;
+  const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1';
+  const ip = trustProxy
+    ? request.headers.get('x-real-ip')?.trim() ||
+      request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ||
+      undefined
+    : undefined;
+  const userAgent = request.headers.get('user-agent')?.slice(0, 500) || undefined;
 
   try {
     await recordTrackingEvent({ messageId, type: 'open', ...(ip ? { ip } : {}), ...(userAgent ? { userAgent } : {}) });

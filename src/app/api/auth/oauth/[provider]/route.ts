@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { createSessionToken, hashPassword } from '@/lib/auth';
 import { CLIENT_ROLE, audienceForToken } from '@/lib/access/surfaces';
 import { provisionClientAccount } from '@/lib/client-services/operations';
+import { encryptField, isFieldEncryptionConfigured } from '@/lib/security/field-encryption';
 import {
   buildOAuthCallbackUrl,
   resolveAppBaseUrl,
@@ -20,34 +21,35 @@ import {
  *
  * GET (with `code`/`state` params) → browser callback:
  *   this is where the provider sends the user back to `redirect_uri`.
- *   Exchanges the code, creates the session, sets the httpOnly
+ *   Exchanges the code, enforces verified email + isActive + MFA,
+ *   creates the session (or MFA temp challenge), sets the httpOnly
  *   `session-token` cookie, and redirects to the sanitized `next` path.
- *   Without this branch the provider round-trip was a dead loop.
  *
- * POST → JSON callback API for programmatic clients (unchanged contract:
- *   `{ code, state }` in, `{ user, token }` out).
+ * POST → JSON callback API for programmatic clients (`{ code, state }` in,
+ *   `{ user, token }` or `{ user, token: null, mfaPending: true, tempToken }` out).
  */
 
-/** Server-side state lifetime. A state older than this is rejected. */
 const STATE_TTL_MS = 10 * 60 * 1000;
-
-/** Cookie name + options mirror `src/app/api/auth/login/route.ts`. */
 const SESSION_COOKIE = 'session-token';
-const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24; // matches SESSION_TTL_HOURS default of 24h
+const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24;
+
+class OAuthFlowError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number = 500,
+  ) {
+    super(message);
+    this.name = 'OAuthFlowError';
+  }
+}
 
 interface OAuthStatePayload {
   provider: string;
   next?: string;
 }
 
-/**
- * Parse a persisted state value. Current format is JSON `{provider, next}`;
- * rows written by the legacy format (a bare provider string) are still
- * accepted for flows initiated before this change.
- */
 function parseStateValue(raw: string, provider: string): OAuthStatePayload | null {
   if (raw === provider) {
-    // Legacy format: state row value is the bare provider name.
     return { provider };
   }
   try {
@@ -56,7 +58,7 @@ function parseStateValue(raw: string, provider: string): OAuthStatePayload | nul
       return { provider, next: typeof parsed.next === 'string' ? parsed.next : undefined };
     }
   } catch {
-    // fall through — malformed or foreign state
+    // malformed or foreign state
   }
   return null;
 }
@@ -77,11 +79,6 @@ async function createOAuthState(provider: string, next: string): Promise<string>
   return state;
 }
 
-/**
- * Single-use state consumption. The row is deleted BEFORE it is acted on
- * (even on validation failure) so a state can never be replayed, and an
- * expired or foreign state is rejected.
- */
 async function consumeOAuthState(
   state: string,
   provider: string
@@ -95,11 +92,21 @@ async function consumeOAuthState(
   return parseStateValue(record.value, provider);
 }
 
-/**
- * Exchange authorization code for OAuth tokens with the provider.
- * When real provider credentials are configured, performs actual HTTP token exchange.
- * Falls back to generating cryptographic tokens for self-hosted/custom providers.
- */
+function protectProviderToken(token: string): string {
+  if (!token) return '';
+  if (isFieldEncryptionConfigured()) {
+    return encryptField(token);
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new OAuthFlowError(
+      'ENCRYPTION_KEY must be configured in production to store OAuth provider tokens.',
+      500,
+    );
+  }
+  // Never store raw plaintext OAuth bearer tokens in the database even when encryption is unconfigured.
+  return '';
+}
+
 async function exchangeAuthorizationCode(
   providerConfig: { tokenUrl?: string; clientId: string; clientSecret?: string },
   code: string,
@@ -110,7 +117,10 @@ async function exchangeAuthorizationCode(
   expiresIn: number;
 }> {
   if (!providerConfig.tokenUrl || !providerConfig.clientSecret) {
-    throw new Error('OAuth provider is not fully configured (missing tokenUrl or clientSecret).');
+    throw new OAuthFlowError(
+      'OAuth provider is not fully configured (missing tokenUrl or clientSecret).',
+      502,
+    );
   }
 
   let tokenResponse: Response;
@@ -128,17 +138,26 @@ async function exchangeAuthorizationCode(
       signal: AbortSignal.timeout(10000),
     });
   } catch (err) {
-    throw new Error(`Failed to reach OAuth provider token endpoint: ${err instanceof Error ? err.message : 'Network error'}`);
+    throw new OAuthFlowError(
+      `Failed to reach OAuth provider token endpoint: ${err instanceof Error ? err.message : 'Network error'}`,
+      502,
+    );
   }
 
   if (!tokenResponse.ok) {
     const errorBody = await tokenResponse.text().catch(() => '');
-    throw new Error(`OAuth token exchange failed with status ${tokenResponse.status}: ${errorBody}`);
+    throw new OAuthFlowError(
+      `OAuth token exchange failed with status ${tokenResponse.status}: ${errorBody}`,
+      502,
+    );
   }
 
   const tokenData = await tokenResponse.json();
   if (!tokenData.access_token) {
-    throw new Error('OAuth provider did not return an access_token in the token response.');
+    throw new OAuthFlowError(
+      'OAuth provider did not return an access_token in the token response.',
+      502,
+    );
   }
 
   return {
@@ -148,21 +167,55 @@ async function exchangeAuthorizationCode(
   };
 }
 
-/**
- * Fetch user profile from the provider's userinfo endpoint.
- * When real provider configuration includes a userinfo URL, performs actual HTTP request.
- */
+async function fetchGitHubVerifiedEmail(accessToken: string): Promise<string | null> {
+  try {
+    const res = await fetch('https://api.github.com/user/emails', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+    const entries = (await res.json()) as Array<{
+      email?: unknown;
+      verified?: unknown;
+      primary?: unknown;
+    }>;
+    if (!Array.isArray(entries)) return null;
+    const primaryVerified = entries.find(
+      (entry) => entry.verified === true && entry.primary === true && typeof entry.email === 'string',
+    );
+    if (primaryVerified && typeof primaryVerified.email === 'string') {
+      return primaryVerified.email.trim().toLowerCase();
+    }
+    const anyVerified = entries.find(
+      (entry) => entry.verified === true && typeof entry.email === 'string',
+    );
+    return anyVerified && typeof anyVerified.email === 'string'
+      ? anyVerified.email.trim().toLowerCase()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchProviderUserInfo(
+  provider: string,
   providerConfig: { userInfoUrl?: string; clientId: string; clientSecret?: string },
   accessToken: string
 ): Promise<{
   id: string;
   email: string;
+  emailVerified: boolean;
   name: string;
   avatar?: string;
 }> {
   if (!providerConfig.userInfoUrl) {
-    throw new Error('OAuth provider is not fully configured (missing userInfoUrl).');
+    throw new OAuthFlowError(
+      'OAuth provider is not fully configured (missing userInfoUrl).',
+      502,
+    );
   }
 
   let userInfoResponse: Response;
@@ -175,59 +228,103 @@ async function fetchProviderUserInfo(
       signal: AbortSignal.timeout(10000),
     });
   } catch (err) {
-    throw new Error(`Failed to reach OAuth provider userinfo endpoint: ${err instanceof Error ? err.message : 'Network error'}`);
+    throw new OAuthFlowError(
+      `Failed to reach OAuth provider userinfo endpoint: ${err instanceof Error ? err.message : 'Network error'}`,
+      502,
+    );
   }
 
   if (!userInfoResponse.ok) {
     const errorBody = await userInfoResponse.text().catch(() => '');
-    throw new Error(`OAuth userinfo request failed with status ${userInfoResponse.status}: ${errorBody}`);
+    throw new OAuthFlowError(
+      `OAuth userinfo request failed with status ${userInfoResponse.status}: ${errorBody}`,
+      502,
+    );
   }
 
   const userData = await userInfoResponse.json();
   const userId = String(userData.id || userData.sub || '');
-  const email = userData.email || '';
+  let email = typeof userData.email === 'string' ? userData.email.trim().toLowerCase() : '';
+  let emailVerified =
+    userData.email_verified === true ||
+    userData.verified_email === true ||
+    userData.verified === true;
 
   if (!userId) {
-    throw new Error('OAuth provider did not return a user ID in the userinfo response.');
+    throw new OAuthFlowError(
+      'OAuth provider did not return a user ID in the userinfo response.',
+      502,
+    );
+  }
+
+  // GitHub's /user endpoint omits email verification unless /user/emails is queried.
+  let isGitHubUserInfoHost = false;
+  try {
+    isGitHubUserInfoHost = new URL(providerConfig.userInfoUrl).hostname.toLowerCase() === 'api.github.com';
+  } catch {
+    isGitHubUserInfoHost = false;
+  }
+  const isGitHub = provider === 'github' || isGitHubUserInfoHost;
+  if (!emailVerified && isGitHub && userData.email_verified === undefined) {
+    const verifiedGitHubEmail = await fetchGitHubVerifiedEmail(accessToken);
+    if (verifiedGitHubEmail) {
+      email = verifiedGitHubEmail;
+      emailVerified = true;
+    }
+  }
+
+  if (!email) {
+    throw new OAuthFlowError(
+      'OAuth provider did not return a valid email address. Please ensure the provider is configured with the correct scopes.',
+      502,
+    );
+  }
+
+  if (!emailVerified) {
+    throw new OAuthFlowError(
+      'OAuth provider email address is not verified.',
+      403,
+    );
   }
 
   return {
     id: userId,
     email,
+    emailVerified,
     name: userData.name || userData.display_name || userData.login || '',
     avatar: userData.avatar_url || userData.picture || userData.image,
   };
 }
 
-/**
- * Shared core of the callback: validate the provider, exchange the code
- * (using the SAME absolute redirect_uri that was sent at initiation),
- * upsert the user + OAuth account, and mint a session token.
- */
 async function completeOAuthCallback(
   provider: string,
   code: string,
   requestOrigin: string
 ): Promise<{
-  user: { id: string; email: string; name: string; role: string };
-  sessionToken: string;
+  user: { id: string; email: string; name: string; role: string; mfaRequired?: boolean };
+  sessionToken: string | null;
+  mfaPending: boolean;
+  tempToken?: string;
 }> {
   const providerConfig = await db.oAuthProvider.findUnique({
     where: { provider },
   });
 
   if (!providerConfig) {
-    throw new Error(`OAuth provider '${provider}' is not configured`);
+    throw new OAuthFlowError(`OAuth provider '${provider}' is not configured`, 502);
+  }
+
+  if (!providerConfig.isActive) {
+    throw new OAuthFlowError(`OAuth provider '${provider}' is currently disabled`, 400);
   }
 
   const redirectUri = buildOAuthCallbackUrl(provider, requestOrigin);
   const tokens = await exchangeAuthorizationCode(providerConfig, code, redirectUri);
-  const providerUser = await fetchProviderUserInfo(providerConfig, tokens.accessToken);
+  const providerUser = await fetchProviderUserInfo(provider, providerConfig, tokens.accessToken);
+  const normalizedEmail = providerUser.email.trim().toLowerCase();
 
-  // Validate that we got usable user info
-  if (!providerUser.email) {
-    throw new Error('OAuth provider did not return a valid email address. Please ensure the provider is configured with the correct scopes.');
-  }
+  const encryptedAccessToken = protectProviderToken(tokens.accessToken);
+  const encryptedRefreshToken = protectProviderToken(tokens.refreshToken);
 
   const existingAccount = await db.oAuthAccount.findFirst({
     where: {
@@ -241,44 +338,60 @@ async function completeOAuthCallback(
 
   if (existingAccount) {
     user = existingAccount.user;
+    if (user.isActive === false) {
+      throw new OAuthFlowError('Account is disabled', 403);
+    }
     await db.oAuthAccount.update({
       where: { id: existingAccount.id },
       data: {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
         tokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
-        profileJson: JSON.stringify(providerUser),
+        profileJson: JSON.stringify({
+          id: providerUser.id,
+          email: normalizedEmail,
+          name: providerUser.name,
+          avatar: providerUser.avatar,
+          emailVerified: providerUser.emailVerified,
+        }),
         updatedAt: new Date(),
       },
     });
   } else {
     user = await db.user.findUnique({
-      where: { email: providerUser.email },
+      where: { email: normalizedEmail },
     });
 
     if (user) {
+      if (user.isActive === false) {
+        throw new OAuthFlowError('Account is disabled', 403);
+      }
+      // Safe to link because fetchProviderUserInfo already verified email ownership.
       await db.oAuthAccount.create({
         data: {
           userId: user.id,
           providerId: providerConfig.id,
           provider,
           providerAccountId: providerUser.id,
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
+          accessToken: encryptedAccessToken,
+          refreshToken: encryptedRefreshToken,
           tokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
-          profileJson: JSON.stringify(providerUser),
+          profileJson: JSON.stringify({
+            id: providerUser.id,
+            email: normalizedEmail,
+            name: providerUser.name,
+            avatar: providerUser.avatar,
+            emailVerified: providerUser.emailVerified,
+          }),
         },
       });
     } else {
       const randomPassword = crypto.randomBytes(24).toString('hex');
       user = await db.user.create({
         data: {
-          email: providerUser.email,
+          email: normalizedEmail,
           passwordHash: await hashPassword(randomPassword),
-          name: providerUser.name || providerUser.email.split('@')[0],
-          // Sign-up through an identity provider creates a CLIENT login, the
-          // same as public registration. Internal accounts are only ever
-          // created by an internal administrator.
+          name: providerUser.name || normalizedEmail.split('@')[0],
           role: CLIENT_ROLE,
           isActive: true,
           oauthAccounts: {
@@ -286,10 +399,16 @@ async function completeOAuthCallback(
               providerId: providerConfig.id,
               provider,
               providerAccountId: providerUser.id,
-              accessToken: tokens.accessToken,
-              refreshToken: tokens.refreshToken,
+              accessToken: encryptedAccessToken,
+              refreshToken: encryptedRefreshToken,
               tokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
-              profileJson: JSON.stringify(providerUser),
+              profileJson: JSON.stringify({
+                id: providerUser.id,
+                email: normalizedEmail,
+                name: providerUser.name,
+                avatar: providerUser.avatar,
+                emailVerified: providerUser.emailVerified,
+              }),
             },
           },
         },
@@ -302,7 +421,35 @@ async function completeOAuthCallback(
     }
   }
 
-  // Sessions carry expiry + idle timeout (see src/lib/auth.ts).
+  if (user.otpEnabled) {
+    const tempToken = crypto.randomBytes(24).toString('hex');
+    await db.settings.upsert({
+      where: { key: `mfa_temp:${tempToken}` },
+      create: {
+        key: `mfa_temp:${tempToken}`,
+        value: JSON.stringify({ userId: user.id, rememberMe: false, createdAt: Date.now() }),
+        type: 'json',
+      },
+      update: {
+        value: JSON.stringify({ userId: user.id, rememberMe: false, createdAt: Date.now() }),
+        type: 'json',
+      },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        mfaRequired: true,
+      },
+      sessionToken: null,
+      mfaPending: true,
+      tempToken,
+    };
+  }
+
   const sessionToken = await createSessionToken(user.id, { method: `oauth:${provider}` });
 
   await db.user.update({
@@ -318,6 +465,7 @@ async function completeOAuthCallback(
       role: user.role,
     },
     sessionToken,
+    mfaPending: false,
   };
 }
 
@@ -331,7 +479,6 @@ function sessionCookieOptions() {
   };
 }
 
-/** Browser-facing failure redirect — never echo untrusted URL material. */
 function redirectToLoginError(provider: string, requestOrigin: string): NextResponse {
   const base = resolveAppBaseUrl(requestOrigin);
   const target = `${base}/login?error=oauth_failed&provider=${encodeURIComponent(provider)}`;
@@ -349,23 +496,28 @@ export async function GET(
   const callbackCode = url.searchParams.get('code');
   const callbackState = url.searchParams.get('state');
 
-  // ── Callback branch: the provider sent the user back with code + state. ──
+  // ── Callback branch ──────────────────────────────────────────────────────
   if (callbackCode && callbackState) {
     try {
       const statePayload = await consumeOAuthState(callbackState, provider);
       if (!statePayload) {
-        // Invalid, expired, foreign, or already-consumed state.
         return redirectToLoginError(provider, requestOrigin);
       }
 
-      const { user, sessionToken } = await completeOAuthCallback(provider, callbackCode, requestOrigin);
+      const result = await completeOAuthCallback(provider, callbackCode, requestOrigin);
 
-      // Land each account on its own surface; a `next` that points at the
-      // other surface is ignored rather than followed.
+      if (result.mfaPending && result.tempToken) {
+        const base = resolveAppBaseUrl(requestOrigin);
+        const mfaTarget = `${base}/login?mfaPending=1&tempToken=${encodeURIComponent(result.tempToken)}&provider=${encodeURIComponent(provider)}`;
+        return NextResponse.redirect(mfaTarget);
+      }
+
+      const sessionToken = result.sessionToken!;
       const isClient = audienceForToken(sessionToken) === 'client';
       const home = isClient ? '/portal' : '/dashboard';
       const requestedNext = sanitizeOAuthNextPath(statePayload.next);
-      const nextPath = requestedNext && requestedNext.startsWith('/portal') === isClient ? requestedNext : home;
+      const nextPath =
+        requestedNext && requestedNext.startsWith('/portal') === isClient ? requestedNext : home;
       const target = `${resolveAppBaseUrl(requestOrigin)}${nextPath}`;
       const response = NextResponse.redirect(target);
       response.cookies.set(SESSION_COOKIE, sessionToken, sessionCookieOptions());
@@ -376,7 +528,7 @@ export async function GET(
     }
   }
 
-  // ── Initiation branch: return { authorizationUrl, state } as JSON. ────────
+  // ── Initiation branch ────────────────────────────────────────────────────
   try {
     const providerConfig = await db.oAuthProvider.findUnique({
       where: { provider },
@@ -396,15 +548,12 @@ export async function GET(
       );
     }
 
-    // `?next=` is captured here and carried through the state blob to the
-    // callback; it is sanitized at consumption time, never trusted raw.
     const requestedNext = url.searchParams.get('next') || '';
     const state = await createOAuthState(provider, requestedNext);
 
     const url2 = new URL(providerConfig.authorizationUrl);
     url2.searchParams.set('response_type', 'code');
     url2.searchParams.set('client_id', providerConfig.clientId);
-    // Absolute redirect_uri — providers reject relative URIs (RFC 6749 §3.1.2).
     url2.searchParams.set('redirect_uri', buildOAuthCallbackUrl(provider, requestOrigin));
     let scopes: string[] = [];
     try {
@@ -428,15 +577,16 @@ export async function GET(
   }
 }
 
-// POST: JSON callback API — exchange code for token, create/find user, create session.
+// POST: JSON callback API
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ provider: string }> }
 ) {
   try {
     const { provider } = await params;
-    const body = await request.json();
-    const { code, state } = body;
+    const body = await request.json().catch(() => null);
+    const code = typeof body?.code === 'string' ? body.code : '';
+    const state = typeof body?.state === 'string' ? body.state : '';
 
     if (!code || !state) {
       return NextResponse.json(
@@ -454,28 +604,32 @@ export async function POST(
     }
 
     const requestOrigin = new URL(request.url).origin;
-    const { user, sessionToken } = await completeOAuthCallback(provider, code, requestOrigin);
+    const result = await completeOAuthCallback(provider, code, requestOrigin);
 
+    if (result.mfaPending) {
+      return NextResponse.json({
+        user: result.user,
+        token: null,
+        mfaPending: true,
+        tempToken: result.tempToken,
+      });
+    }
+
+    const sessionToken = result.sessionToken!;
     return NextResponse.json({
-      user,
+      user: result.user,
       token: sessionToken,
-      // `next` is honored by API clients only when it is a safe in-app path.
-      redirectTo: audienceForToken(sessionToken) === 'client'
-        ? '/portal'
-        : sanitizeOAuthNextPath(statePayload.next) || '/dashboard',
+      redirectTo:
+        audienceForToken(sessionToken) === 'client'
+          ? '/portal'
+          : sanitizeOAuthNextPath(statePayload.next) || '/dashboard',
     });
   } catch (error) {
     console.error('OAuth callback error:', error);
+    if (error instanceof OAuthFlowError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     const message = error instanceof Error ? error.message : 'Internal server error';
-    const isProviderError = message.startsWith('Failed to reach OAuth')
-      || message.startsWith('OAuth token exchange failed')
-      || message.startsWith('OAuth userinfo request failed')
-      || message.startsWith('OAuth provider did not return')
-      || message.startsWith('OAuth provider is not fully configured')
-      || message.includes('is not configured');
-    return NextResponse.json(
-      { error: message },
-      { status: isProviderError ? 502 : 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

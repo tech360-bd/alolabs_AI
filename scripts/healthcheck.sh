@@ -35,8 +35,8 @@ check_warn() { echo -e "  ${YELLOW}!${NC} $1"; HEALTH_OK=1; }
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ── Configuration ───────────────────────────────────────────────
-PM2_APP_NAME="agentos"
-HEALTH_URL="http://localhost:3000/api/health"
+PM2_APP_NAME="alolabs-agentos"
+HEALTH_URL="http://127.0.0.1:${PORT:-3011}/api/health/ready"
 DB_FILE="${PROJECT_DIR}/db/custom.db"
 DISK_WARN_THRESHOLD=80
 

@@ -7,7 +7,10 @@ import { legacyTenant, legacyAuthResponse } from '@/lib/api/legacy-session';
 export async function POST(request: NextRequest) {
   try {
     const tenant = await legacyTenant(request);
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const { companyId: requestedCompanyId, payload, apiKey, method = 'POST', url = '/api/test' } = body;
 
     if (requestedCompanyId && requestedCompanyId !== tenant.companyId) {

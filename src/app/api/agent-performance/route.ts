@@ -38,10 +38,26 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'agent.performance',
   model: 'agentPerformanceScore',
   label: 'AgentPerformanceScore',
-  // This table has no tenant column of its own — see the security report.
+  // AgentPerformanceScore inherits tenant ownership through its Agent.
   tenantField: null,
+  ownership: { delegate: 'agent', fk: 'agentId' },
   createSchema,
   updateSchema,
   searchFields: ['period'],
+  orderBy: { calculatedAt: 'desc' },
+  sortableFields: [
+    'id',
+    'agentId',
+    'period',
+    'successRate',
+    'errorRate',
+    'avgRuntimeMs',
+    'outputQualityScore',
+    'userCorrectionCount',
+    'blockedActionCount',
+    'approvalRequiredCount',
+    'productivityScore',
+    'calculatedAt',
+  ],
   writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
 });

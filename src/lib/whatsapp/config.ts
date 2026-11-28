@@ -1,4 +1,5 @@
 import { readSocialCredential } from '@/lib/social/credentials';
+import { decryptField, isEncryptedField } from '@/lib/security/field-encryption';
 /**
  * WhatsApp client/config resolution shared by the webhook and the inbox.
  *
@@ -9,6 +10,11 @@ import { readSocialCredential } from '@/lib/social/credentials';
 import { db } from '@/lib/db';
 import { WhatsAppBusinessClient } from './client';
 import type { WhatsAppConfig } from './types';
+
+function unwrapWhatsAppToken(raw: string): string {
+  if (!raw) return '';
+  return isEncryptedField(raw) ? decryptField(raw) : raw;
+}
 
 export interface StoredWhatsAppNumber {
   id?: string;
@@ -67,7 +73,7 @@ export async function buildWhatsAppClient(phoneNumberId?: string): Promise<Whats
     const defaultNumber = numbers.find((n) => n.isDefault) || numbers[0];
     if (defaultNumber) {
       if (!resolvedPhoneNumberId) resolvedPhoneNumberId = defaultNumber.phoneNumberId;
-      if (!resolvedAccessToken) resolvedAccessToken = defaultNumber.accessToken;
+      if (!resolvedAccessToken) resolvedAccessToken = unwrapWhatsAppToken(defaultNumber.accessToken);
     }
   }
 
@@ -125,7 +131,7 @@ export async function getWhatsAppClient(phoneNumberId?: string): Promise<{
 
         if (target) {
           if (!resolvedPhoneNumberId) resolvedPhoneNumberId = target.phoneNumberId;
-          if (!accessToken) accessToken = target.accessToken;
+          if (!accessToken) accessToken = unwrapWhatsAppToken(target.accessToken);
         }
       }
     } catch { /* ignore */ }

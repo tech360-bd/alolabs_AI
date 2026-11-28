@@ -10,24 +10,22 @@
 
 ---
 
-> **AgentOS transformation status (2026-10-08): experimental / NOT production-ready.**
-> The existing README below describes the larger legacy codebase and contains
-> historical counts/claims that have not been fully re-audited. Current schema:
-> **175 Prisma models**. Current checks: typecheck, lint (1 warning),
-> **724 tests across 51 files**, local production build/start and SQLite smoke. A successful
-> *live AI* run requires a configured provider and remains **NOT VERIFIED**
-> in this environment. Without one, runs fail honestly with
-> **Configuration required**. See [final audit](ALO_LABS_AGENTOS_FINAL_AUDIT.md)
-> and [AgentOS guide](docs/AGENTOS_GUIDE.md) before any deployment.
+> **AgentOS status:** Current schema: **272 Prisma models** (SQLite + MySQL parity,
+> `schema.prisma` / `schema.mysql.prisma` / `schema.mysql.push.prisma`) and **557 API routes**.
+> MySQL/MariaDB is mandatory in production (`NODE_ENV=production`); local development and
+> CI tests run with SQLite or a MySQL service container. A successful *live AI* run
+> requires a configured provider and remains **NOT VERIFIED** without provider credentials.
+> See [final audit](ALO_LABS_AGENTOS_FINAL_AUDIT.md) and [AgentOS guide](docs/AGENTOS_GUIDE.md)
+> before deployment.
 >
-> New entry points: `POST /api/runs`, `GET /api/runs/:id`, `GET /api/runs/:id/events`
+> Primary entry points: `POST /api/runs`, `GET /api/runs/:id`, `GET /api/runs/:id/events`
 > (SSE), `POST /api/workflows/:id/run`, and the versioned `/api/v1/*` surface.
 > For first login, follow the [contributor quickstart](docs/CONTRIBUTOR_QUICKSTART.md).
 
 ## Features
 
-- **251 REST API Routes** — Comprehensive backend covering agents, CRM, workflows, RAG, billing, social media, and more
-- **122 Prisma Data Models** — Full relational schema with users, roles, agents, workflows, tickets, deals, documents
+- **557 REST API Routes** — Comprehensive backend covering agents, CRM, workflows, RAG, billing, social media, and more
+- **272 Prisma Data Models** — Full relational schema with users, roles, agents, workflows, tickets, deals, documents
 - **82 Admin Panels** — Feature-rich dashboard panels for every aspect of the system
 - **Commanding Center (Free AI Agent)** — Super Admin & Admin's own tool-calling agent on 100% free models (Groq, OpenRouter `:free`, Gemini, Cerebras, Ollama) with weather/Wikipedia/web-search/image/CRM/knowledge tools. See [docs/COMMAND-AGENT-FREE-AI.md](docs/COMMAND-AGENT-FREE-AI.md)
 - **Multi-Provider AI Router** — Route LLM requests across Ollama, OpenRouter, DeepSeek, Mistral, Qwen, and Z-AI
@@ -61,7 +59,8 @@
 | Tailwind CSS | 4.x | Utility-first CSS framework |
 | shadcn/ui | latest | Accessible component library (Radix UI primitives) |
 | Prisma | 6.x | ORM and database schema management |
-| SQLite | 3.x | Primary database (file-based, zero config) |
+| MySQL / MariaDB | 8.0+ / 10.6+ | Mandatory production database |
+| SQLite | 3.x | Local development & test database |
 | Redis | 7.x | Caching, rate limiting, session storage (optional) |
 | Qdrant | latest | Vector database for RAG embeddings (optional) |
 | MinIO | latest | S3-compatible object storage (optional) |
@@ -80,11 +79,12 @@
 ```
 alolabs-agentos/
 ├── prisma/
-│   └── schema.prisma              # 122 models, SQLite datasource
+│   ├── schema.prisma              # 272 models, SQLite datasource (dev/test)
+│   └── schema.mysql.prisma        # 272 models, MySQL datasource (production)
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx / page.tsx / globals.css
-│   │   └── api/                    # 251 API routes
+│   │   └── api/                    # 557 API routes
 │   │       ├── health/             # Health check endpoints
 │   │       ├── auth/               # Login, logout, MFA, SSO, OAuth, sessions
 │   │       ├── agents/             # Agent CRUD, registry, runtime, memory
@@ -171,15 +171,15 @@ Copy `.env.example` to `.env` and configure. Generate secrets: `openssl rand -ba
 | `APP_SECRET` | NextAuth session encryption secret | — | **Yes** |
 | `ENCRYPTION_KEY` | Data encryption key | — | **Yes** |
 | `CSRF_SECRET` | CSRF token signing secret | — | **Yes** |
-| `NEXT_PUBLIC_APP_URL` | Public-facing application URL | `http://localhost:3000` | Yes |
-| `ALLOWED_ORIGINS` | CORS allowed origins | `http://localhost:3000` | Yes |
-| `SITE_NAME` / `SITE_URL` / `APP_PORT` | UI name, internal URL, port | `ALO Labs Agent Hub` / `http://localhost:3000` / `3000` | No |
+| `NEXT_PUBLIC_APP_URL` | Public-facing application URL | `http://localhost:3011` | Yes |
+| `ALLOWED_ORIGINS` | CORS allowed origins | `http://localhost:3011` | Yes |
+| `SITE_NAME` / `SITE_URL` / `APP_PORT` | UI name, internal URL, port | `ALO Labs Agent Hub` / `http://localhost:3011` / `3011` | No |
 
 ### Database
 
 | Variable | Purpose | Default | Required |
 |---|---|---|---|
-| `DATABASE_URL` | SQLite database path | `file:./db/agenthub.db` | Yes |
+| `DATABASE_URL` | Database URL (`mysql://` in prod, `file:` in dev/test) | `file:./db/custom.db` | Yes |
 | `STORAGE_PATH` | Local file storage path | `./storage` | No |
 | `POSTGRES_HOST` / `PORT` / `USER` / `PASSWORD` / `DB` | PostgreSQL (optional) | `localhost` / `5432` / `alohub` / — / `alohub` | No |
 | `POSTGRES_URL` | Full PostgreSQL connection string | — | No |
@@ -383,7 +383,7 @@ export DOMAIN=agentos.yourdomain.com
 sudo DOMAIN=$DOMAIN caddy run --config /etc/caddy/Caddyfile
 ```
 
-Caddy listens on **80** (HTTP → HTTPS redirect) and **443** (HTTPS), proxying to `localhost:3000`. DNS A-record must point to the server's public IP.
+Caddy listens on **80** (HTTP → HTTPS redirect) and **443** (HTTPS), proxying to `127.0.0.1:3011`. DNS A-record must point to the server's public IP.
 
 ### Caddyfile
 
@@ -398,11 +398,10 @@ Caddy listens on **80** (HTTP → HTTPS redirect) and **443** (HTTPS), proxying 
         Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
         Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
         -Server
-        Cache-Control "public, max-age=31536000, immutable"
     }
     handle /api/* {
         header Cache-Control "no-store, no-cache, must-revalidate"
-        reverse_proxy localhost:3000 {
+        reverse_proxy 127.0.0.1:3011 {
             header_up Host {host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
@@ -410,7 +409,7 @@ Caddy listens on **80** (HTTP → HTTPS redirect) and **443** (HTTPS), proxying 
         }
     }
     handle /socket.io/* {
-        reverse_proxy localhost:3000 {
+        reverse_proxy 127.0.0.1:3005 {
             header_up Host {host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
@@ -420,10 +419,11 @@ Caddy listens on **80** (HTTP → HTTPS redirect) and **443** (HTTPS), proxying 
         }
     }
     handle /_next/static/* {
-        reverse_proxy localhost:3000 { header_up Host {host} }
+        header Cache-Control "public, max-age=31536000, immutable"
+        reverse_proxy 127.0.0.1:3011 { header_up Host {host} }
     }
     handle {
-        reverse_proxy localhost:3000 {
+        reverse_proxy 127.0.0.1:3011 {
             header_up Host {host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
@@ -445,22 +445,20 @@ sudo ufw allow 443/tcp
 sudo ufw status verbose
 ```
 
-> **Do NOT** expose ports 3000, 6379, 6333, or 9000. Use Caddy on 80/443.
+> **Do NOT** expose ports 3011, 3004, 3005, 6379, 6333, or 9000. Use Caddy on 80/443.
 
 ---
 
 ## Database Management
 
-AgentOS uses **SQLite** via Prisma ORM. Database file set by `DATABASE_URL` (default: `file:./db/agenthub.db`).
+Production requires **MySQL / MariaDB** via Prisma ORM (`prisma/schema.mysql.prisma`). Local development and CI tests also support **SQLite** via `PRISMA_SQLITE_ADAPTER=1` and `DATABASE_URL="file:..."`.
 
 ```bash
-npx prisma generate       # Generate Prisma client (after schema changes)
-bun run db:push           # Push schema to database (no migration files)
-bun run db:migrate        # Run migrations in development
-bun run db:reset          # Reset database (destructive — drops all data)
-npx prisma studio         # Visual DB browser at http://localhost:5555
-npx prisma validate        # Validate schema without changes
-npx prisma format          # Format schema file
+npm run db:generate:mysql # Generate MySQL Prisma client (production)
+npm run db:push:mysql     # Push DDL variant to a disposable MySQL database
+npm run db:generate       # Generate SQLite Prisma client (local dev)
+npm run db:push:sqlite    # Push SQLite DDL cleanly (air-gapped compatible)
+npx prisma validate       # Validate schema without changes
 ```
 
 ---
@@ -490,13 +488,13 @@ sudo bash deploy/scripts/backup.sh --id weekly-backup --db-only
 sudo bash deploy/scripts/restore.sh --backup-id 20250101_120000
 ```
 
-### Manual Restore
+### Manual Restore (local SQLite only)
 ```bash
 cp "backups/20250101_120000/custom.db" db/custom.db
 [ -f "backups/20250101_120000/storage.tar.gz" ] && tar xzf "backups/20250101_120000/storage.tar.gz"
 cp "backups/20250101_120000/.env" .env
-npx prisma generate && npx prisma db push
-pm2 restart agentos
+npm run db:generate:client-engine
+pm2 restart alolabs-agentos
 ```
 
 ---
@@ -504,13 +502,12 @@ pm2 restart agentos
 ## Updating the Deployment
 
 ```bash
-git pull origin main
-bun install
-npx prisma generate
-npx prisma db push
-bun run build
-pm2 restart agentos
-curl http://localhost:3000/api/health   # Verify
+git pull --ff-only origin main
+npm ci --no-audit
+npm run db:generate:mysql
+NODE_ENV=production npm run build
+pm2 restart alolabs-agentos
+curl -sf http://127.0.0.1:3011/api/health/ready   # Verify
 ```
 
 Automated: `sudo bash deploy/scripts/upgrade.sh` (zero-downtime) or `sudo bash deploy/scripts/rollback.sh` (rollback).
@@ -539,10 +536,10 @@ The realtime service runs on port **3005** (configurable via `REALTIME_PORT`). R
 ## Architecture
 
 ALO Labs AgentOS is a full-stack enterprise AI Agent Operating System built on the **Next.js 16 App Router**:
-- **251 API Routes** — RESTful API layer: auth, agents, CRM, workflows, RAG, billing, social media, email, SMS, WhatsApp, observability
-- **122 Prisma Models** — Comprehensive SQLite-backed data model with multi-tenancy, RBAC, audit logging
+- **557 API Routes** — RESTful API layer: auth, agents, CRM, workflows, RAG, billing, social media, email, SMS, WhatsApp, observability
+- **272 Prisma Models** — Multi-tenant data model (MySQL/MariaDB in production, SQLite in local dev/test) with RBAC and audit logging
 - **82 Dashboard Panels** — Admin interface built with shadcn/ui, Tailwind CSS 4, and React 19
-- **SQLite** — Zero-configuration primary database; PostgreSQL and MySQL adapters available for scaling
+- **MySQL / MariaDB + SQLite** — Production runs MySQL/MariaDB; local development and CI tests support SQLite
 - **Redis** — Optional in-memory store for rate limiting, session caching, pub/sub event broadcasting
 - **Qdrant** — Optional vector database for RAG: document ingestion, embedding, similarity search
 - **MinIO/S3** — Optional object storage for file uploads, media library, document management
@@ -557,7 +554,7 @@ ALO Labs AgentOS is a full-stack enterprise AI Agent Operating System built on t
 
 | Issue | Cause | Solution |
 |---|---|---|
-| Port 3000 already in use | Another process | `sudo lsof -i :3000` then `sudo kill <PID>`, or change `APP_PORT` |
+| Port 3011 already in use | Another process | `sudo lsof -i :3011` then `sudo kill <PID>`, or change `PORT` |
 | Build: module not found | Stale deps | `rm -rf node_modules && bun install && npx prisma generate` |
 | Build: prisma client missing | Not generated | `npx prisma generate` before `bun run build` |
 | Prisma db push fails | Schema mismatch / locked DB | Close Prisma Studio, check `DATABASE_URL`, `mkdir -p db` |

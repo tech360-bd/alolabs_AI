@@ -60,6 +60,10 @@ export interface ExecuteToolOptions {
 export async function executeTool(options: ExecuteToolOptions): Promise<ToolExecutionResult> {
   const start = Date.now();
   const tool = getTool(options.toolName);
+  const safeArgs =
+    options.args && typeof options.args === 'object' && !Array.isArray(options.args)
+      ? options.args
+      : {};
 
   const record = async (result: Omit<ToolExecutionResult, 'toolName' | 'durationMs'>) => {
     const durationMs = Date.now() - start;
@@ -70,7 +74,7 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolExec
           agentId: options.context.agentDbId ?? null,
           toolName: options.toolName.slice(0, 120),
           toolCategory: tool?.category ?? 'unknown',
-          input: serialise(options.args).slice(0, MAX_OUTPUT_CHARS),
+          input: serialise(safeArgs).slice(0, MAX_OUTPUT_CHARS),
           output: result.output || null,
           status: result.ok ? 'success' : result.blocked ? 'blocked' : 'failed',
           durationMs,
@@ -92,17 +96,17 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolExec
   const actionClass = actionClassForTool(tool);
   const privileged = tool.risk === 'high' || tool.requiresApproval;
 
-  // 1. Verify a supplied approval *before* evaluating policy. A verified approval
-  //    is evidence the engine can accept; an unverified id is ignored. (Phase B
-  //    evaluated policy first, so a valid approval could never satisfy it.)
+  // 1. Verify any supplied approval *before* evaluating policy so both
+  //    privileged tools and policy-triggered require_approval paths accept a
+  //    bound approval without looping forever.
   let verifiedApproval = false;
   let approvalFailure = '';
-  if (privileged && options.approvalId) {
+  if (options.approvalId) {
     const approval = await verifyToolApproval({
       approvalId: options.approvalId,
       companyId: options.context.companyId,
       toolName: tool.name,
-      args: options.args,
+      args: safeArgs,
       actionClass,
       allowedApproverRoles: defaultApproversFor(actionClass),
     });
@@ -147,7 +151,7 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolExec
         actionClass,
         action: `Execute tool ${tool.name}`,
         resource: `tool:${tool.name}`,
-        payload: { tool: tool.name, args: options.args },
+        payload: { tool: tool.name, args: safeArgs },
         riskLevel: governance.riskLevel,
         requiredApprovers: approvers,
         description: governance.explanation.slice(0, 1000),
@@ -183,9 +187,9 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolExec
     return record({ ok: false, output: '', error: reason, blocked: true, blockReason: reason });
   }
 
-  // 3. A privileged call consumes its approval atomically before executing, so
-  //    two concurrent runs cannot both use the same human decision (GAP-004).
-  if (privileged && verifiedApproval && options.approvalId) {
+  // 3. Consume any verified approval atomically before executing, so two
+  //    concurrent runs cannot both use the same human decision (GAP-004).
+  if (verifiedApproval && options.approvalId) {
     const consumption = await consumeApproval(options.approvalId, options.context.companyId, options.context.userId ?? null);
     if (!consumption.consumed) {
       const reason = `Approval could not be consumed: ${consumption.reason}`;
@@ -195,7 +199,7 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolExec
 
   try {
     const value = await withTimeout(
-      tool.handler(options.args, options.context),
+      tool.handler(safeArgs, options.context),
       options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
       `Tool "${tool.name}"`,
     );

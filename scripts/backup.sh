@@ -4,12 +4,12 @@
 # Performs SQLite dump, storage backup, 30-day retention cleanup
 #
 # Cron-ready: Add to crontab for daily backups at 2 AM:
-#   0 2 * * * /opt/alo-labs-ai-eos/scripts/backup.sh >> /opt/alo-labs-ai-eos/logs/backup.log 2>&1
+#   0 2 * * * /opt/alolabs-agentos/scripts/backup.sh >> /opt/alolabs-agentos/logs/backup.log 2>&1
 # ============================================================
 set -euo pipefail
 
-APP_DIR="/opt/alo-labs-ai-eos"
-BACKUP_DIR="/opt/alo-labs-ai-eos/backups"
+APP_DIR="${APP_DIR:-/opt/alolabs-agentos}"
+BACKUP_DIR="${APP_DIR}/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 KEEP_DAYS=30
 DB_PATH="$APP_DIR/db/custom.db"

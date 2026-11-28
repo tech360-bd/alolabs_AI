@@ -2,7 +2,7 @@
 
 import { apiFetch } from '@/lib/api-client'
 import { useState, useEffect, useCallback } from 'react'
-import { Server, Plus, Play, Square, RefreshCw, Activity, Loader2, Trash2 } from 'lucide-react'
+import { Server, Plus, Play, Square, RefreshCw, Activity, Loader2, Trash2, PlugZap } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -37,16 +37,71 @@ import {
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 
-interface McpServer {
+interface RawMcpServer {
+  id: string
+  name: string
+  host: string
+  port: number
+  protocol: 'http' | 'https' | 'ws' | 'wss'
+  status: 'connected' | 'disconnected' | 'error'
+  description?: string | null
+  config?: string | null
+  tools?: string | null
+  latencyMs?: number | null
+  lastError?: string | null
+  lastPingAt?: string | null
+  updatedAt: string
+}
+
+interface McpServerView {
   id: string
   name: string
   endpointUrl: string
   authType: string
   capabilities: string[]
   autoStart: boolean
-  status: string
-  lastHeartbeat: string | null
+  status: 'connected' | 'disconnected' | 'error'
+  latencyMs: number | null
+  lastError: string | null
+  lastPingAt: string | null
   updatedAt: string
+}
+
+function parseJsonSafe<T>(raw: string | null | undefined, fallback: T): T {
+  if (!raw) return fallback
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
+}
+
+function normalizeServer(raw: RawMcpServer): McpServerView {
+  const cfg = parseJsonSafe<Record<string, unknown>>(raw.config, {})
+  const parsedTools = parseJsonSafe<unknown[]>(raw.tools, [])
+  const capabilities = parsedTools
+    .map((item) => {
+      if (typeof item === 'string') return item
+      if (item && typeof item === 'object' && 'name' in item && typeof (item as { name?: unknown }).name === 'string') {
+        return (item as { name: string }).name
+      }
+      return null
+    })
+    .filter((v): v is string => Boolean(v))
+
+  return {
+    id: raw.id,
+    name: raw.name,
+    endpointUrl: `${raw.protocol}://${raw.host}:${raw.port}`,
+    authType: typeof cfg.authType === 'string' ? cfg.authType : 'none',
+    capabilities,
+    autoStart: Boolean(cfg.autoStart),
+    status: raw.status,
+    latencyMs: raw.latencyMs ?? null,
+    lastError: raw.lastError ?? null,
+    lastPingAt: raw.lastPingAt ?? null,
+    updatedAt: raw.updatedAt,
+  }
 }
 
 const capColors: Record<string, string> = {
@@ -58,21 +113,28 @@ const capColors: Record<string, string> = {
   'analytics': 'bg-orange-100 text-orange-700',
 }
 
-function HealthDot({ status }: { status: string }) {
-  const color = status === 'active' ? 'bg-emerald-500' : status === 'starting' ? 'bg-amber-400' : 'bg-gray-300'
-  const pulse = status === 'active' ? 'animate-pulse' : ''
+function HealthDot({ status }: { status: McpServerView['status'] }) {
+  const color = status === 'connected' ? 'bg-emerald-500' : status === 'error' ? 'bg-red-500' : 'bg-gray-300'
+  const pulse = status === 'connected' ? 'animate-pulse' : ''
   return <span className={`inline-block w-2.5 h-2.5 rounded-full ${color} ${pulse}`} />
 }
 
 export default function McpManagerPanel() {
-  const [servers, setServers] = useState<McpServer[]>([])
+  const [servers, setServers] = useState<McpServerView[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [actioning, setActioning] = useState<string | null>(null)
 
   const [addOpen, setAddOpen] = useState(false)
+  const [callOpen, setCallOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [selectedServer, setSelectedServer] = useState<McpServer | null>(null)
+  const [selectedServer, setSelectedServer] = useState<McpServerView | null>(null)
+
+  const [callToolName, setCallToolName] = useState('')
+  const [callToolArgs, setCallToolArgs] = useState('{}')
+  const [callApproved, setCallApproved] = useState(false)
+  const [callResult, setCallResult] = useState<string | null>(null)
+  const [callingTool, setCallingTool] = useState(false)
 
   const [formName, setFormName] = useState('')
   const [formEndpoint, setFormEndpoint] = useState('')
@@ -83,14 +145,15 @@ export default function McpManagerPanel() {
   const fetchServers = useCallback(async () => {
     try {
       const res = await apiFetch('/api/mcp-servers')
-      const data = await res.json()
-      setServers(data.servers || [])
+      const json = await res.json()
+      const rows: RawMcpServer[] = Array.isArray(json.data) ? json.data : Array.isArray(json.servers) ? json.servers : []
+      setServers(rows.map(normalizeServer))
     } catch {
       toast.error('Error', { description: 'Failed to load MCP servers' })
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [])
 
   useEffect(() => {
     fetchServers()
@@ -98,7 +161,7 @@ export default function McpManagerPanel() {
     return () => clearInterval(interval)
   }, [fetchServers])
 
-  const handleAction = async (server: McpServer, newStatus: string) => {
+  const handleAction = async (server: McpServerView, newStatus: 'connected' | 'disconnected') => {
     setActioning(server.id)
     try {
       const res = await apiFetch('/api/mcp-servers', {
@@ -107,24 +170,35 @@ export default function McpManagerPanel() {
         body: JSON.stringify({ id: server.id, status: newStatus }),
       })
       if (res.ok) {
-        const label = newStatus === 'active' ? 'started' : newStatus === 'stopped' ? 'stopped' : 'restarting'
-        toast.success(`Server ${label}`, { description: `${server.name} is now ${label}` })
-        // If restarting, set to active after a delay
-        if (newStatus === 'restarting') {
-          setTimeout(async () => {
-            await apiFetch('/api/mcp-servers', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: server.id, status: 'active' }),
-            })
-            fetchServers()
-          }, 1500)
-        } else {
-          fetchServers()
-        }
+        toast.success(`Server ${newStatus}`, { description: `${server.name} marked ${newStatus}` })
+        fetchServers()
       }
     } catch {
       toast.error('Error', { description: 'Action failed' })
+    } finally {
+      setActioning(null)
+    }
+  }
+
+  const handleTest = async (server: McpServerView) => {
+    setActioning(server.id)
+    try {
+      const res = await apiFetch('/api/mcp-servers/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: server.id }),
+      })
+      const json = await res.json()
+      if (json.reachable) {
+        toast.success('MCP Probe Succeeded', {
+          description: `${server.name} responded in ${json.latencyMs}ms (${json.toolCount ?? 0} tools discovered)`,
+        })
+      } else {
+        toast.error('MCP Probe Failed', { description: json.error || 'Target did not respond cleanly' })
+      }
+      fetchServers()
+    } catch {
+      toast.error('Error', { description: 'MCP probe request failed' })
     } finally {
       setActioning(null)
     }
@@ -144,26 +218,49 @@ export default function McpManagerPanel() {
       toast.error('Validation Error', { description: 'Name and endpoint URL are required' })
       return
     }
+    let host = 'localhost'
+    let port = 3000
+    let protocol: 'http' | 'https' | 'ws' | 'wss' = 'https'
+    try {
+      const parsed = new URL(formEndpoint.trim())
+      const proto = parsed.protocol.replace(':', '')
+      if (proto === 'http' || proto === 'https' || proto === 'ws' || proto === 'wss') {
+        protocol = proto
+      }
+      host = parsed.hostname
+      port = parsed.port ? Number(parsed.port) : protocol === 'https' || protocol === 'wss' ? 443 : 80
+    } catch {
+      toast.error('Validation Error', { description: 'Enter a valid URL such as https://mcp.example.com:443' })
+      return
+    }
+
+    const tools = formCapabilities
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+
     setSaving(true)
     try {
       const res = await apiFetch('/api/mcp-servers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: formName,
-          endpointUrl: formEndpoint,
-          authType: formAuthType,
-          capabilities: formCapabilities,
-          autoStart: formAutoStart,
+          name: formName.trim(),
+          host,
+          port,
+          protocol,
+          description: formEndpoint.trim(),
+          config: { authType: formAuthType, autoStart: formAutoStart },
+          tools,
         }),
       })
       if (res.ok) {
-        toast.success('Added', { description: 'MCP server registered successfully'  })
+        toast.success('Added', { description: 'MCP server registered successfully' })
         setAddOpen(false)
         fetchServers()
       } else {
         const data = await res.json()
-        toast.error('Error', { description: data.error })
+        toast.error('Error', { description: data.error || 'Failed to add server' })
       }
     } catch {
       toast.error('Error', { description: 'Failed to add server' })
@@ -172,9 +269,58 @@ export default function McpManagerPanel() {
     }
   }
 
-  const openDelete = (server: McpServer) => {
+  const openDelete = (server: McpServerView) => {
     setSelectedServer(server)
     setDeleteOpen(true)
+  }
+
+  const openCallTool = (server: McpServerView) => {
+    setSelectedServer(server)
+    setCallToolName(server.capabilities[0] ?? '')
+    setCallToolArgs('{}')
+    setCallApproved(false)
+    setCallResult(null)
+    setCallOpen(true)
+  }
+
+  const handleCallTool = async () => {
+    if (!selectedServer || !callToolName.trim()) {
+      toast.error('Tool name is required')
+      return
+    }
+    let parsedArgs: Record<string, unknown> = {}
+    try {
+      parsedArgs = JSON.parse(callToolArgs || '{}') as Record<string, unknown>
+    } catch {
+      toast.error('Invalid JSON arguments')
+      return
+    }
+    setCallingTool(true)
+    setCallResult(null)
+    try {
+      const res = await apiFetch('/api/mcp-servers/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedServer.id,
+          toolName: callToolName.trim(),
+          arguments: parsedArgs,
+          approved: callApproved,
+        }),
+      })
+      const json = await res.json()
+      setCallResult(JSON.stringify(json, null, 2))
+      if (res.ok && json.success) {
+        toast.success(`MCP tool ${callToolName} executed (${json.latencyMs}ms)`)
+        fetchServers()
+      } else {
+        toast.error(json.requiresApproval ? 'Approval required for mutating tool' : json.error || 'Tool call failed')
+      }
+    } catch {
+      toast.error('MCP tools/call request failed')
+    } finally {
+      setCallingTool(false)
+    }
   }
 
   const handleDelete = async () => {
@@ -183,7 +329,7 @@ export default function McpManagerPanel() {
     try {
       const res = await apiFetch(`/api/mcp-servers?id=${selectedServer.id}`, { method: 'DELETE' })
       if (res.ok) {
-        toast.success('Deleted', { description: 'MCP server removed'  })
+        toast.success('Deleted', { description: 'MCP server removed' })
         setDeleteOpen(false)
         fetchServers()
       }
@@ -194,14 +340,14 @@ export default function McpManagerPanel() {
     }
   }
 
-  const activeServers = servers.filter((s) => s.status === 'active')
+  const connectedServers = servers.filter((s) => s.status === 'connected')
   const allCapabilities = [...new Set(servers.flatMap((s) => s.capabilities || []))]
 
   if (loading) {
     return (
       <div className="space-y-6 p-6">
         <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
@@ -217,11 +363,10 @@ export default function McpManagerPanel() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#1E293B]">MCP Server Manager</h2>
-          <p className="text-sm text-[#64748B] mt-1">Manage Model Context Protocol servers</p>
+          <p className="text-sm text-[#64748B] mt-1">Manage and probe Model Context Protocol servers behind SSRF validation</p>
         </div>
         <Button onClick={openAdd} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
           <Plus className="w-4 h-4 mr-2" />
@@ -229,11 +374,10 @@ export default function McpManagerPanel() {
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Total Servers', value: servers.length, icon: Server, color: 'text-[#0066CC]' },
-          { label: 'Active', value: activeServers.length, icon: Activity, color: 'text-emerald-600' },
+          { label: 'Connected', value: connectedServers.length, icon: Activity, color: 'text-emerald-600' },
           { label: 'Capabilities', value: allCapabilities.length, icon: RefreshCw, color: 'text-[#E8501A]' },
         ].map((stat) => (
           <Card key={stat.label} className="border-[#E2E8F0]">
@@ -250,7 +394,6 @@ export default function McpManagerPanel() {
         ))}
       </div>
 
-      {/* Server Cards */}
       {servers.length === 0 ? (
         <Card className="border-[#E2E8F0]">
           <CardContent className="py-16 text-center">
@@ -263,31 +406,36 @@ export default function McpManagerPanel() {
           {servers.map((server) => (
             <Card key={server.id} className="border-[#E2E8F0] hover:shadow-sm transition-shadow">
               <CardHeader className="p-4 pb-2">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-[#F8FAFC]">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-2 rounded-lg bg-[#F8FAFC] shrink-0">
                       <Server className="w-5 h-5 text-[#0066CC]" />
                     </div>
-                    <div>
-                      <CardTitle className="text-sm font-semibold text-[#1E293B]">{server.name}</CardTitle>
-                      <p className="text-xs text-[#94A3B8] font-mono truncate max-w-[220px]">{server.endpointUrl}</p>
+                    <div className="min-w-0">
+                      <CardTitle className="text-sm font-semibold text-[#1E293B] truncate">{server.name}</CardTitle>
+                      <p className="text-xs text-[#94A3B8] font-mono truncate">{server.endpointUrl}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <HealthDot status={server.status} />
                     <Badge
-                      variant={server.status === 'active' ? 'default' : 'secondary'}
-                      className={`text-[10px] ${server.status === 'active' ? 'bg-emerald-100 text-emerald-700' : ''}`}
+                      variant={server.status === 'connected' ? 'default' : 'secondary'}
+                      className={`text-[10px] ${
+                        server.status === 'connected'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : server.status === 'error'
+                            ? 'bg-red-100 text-red-700'
+                            : ''
+                      }`}
                     >
-                      {server.status === 'active' ? 'Running' : server.status === 'starting' ? 'Starting' : server.status === 'restarting' ? 'Restarting' : 'Stopped'}
+                      {server.status === 'connected' ? 'Connected' : server.status === 'error' ? 'Error' : 'Disconnected'}
                     </Badge>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="p-4 pt-0 space-y-3">
-                {/* Capabilities */}
                 <div className="flex flex-wrap gap-1.5">
-                  {(server.capabilities || []).map((cap) => (
+                  {server.capabilities.map((cap) => (
                     <Badge
                       key={cap}
                       variant="secondary"
@@ -298,34 +446,41 @@ export default function McpManagerPanel() {
                   ))}
                 </div>
 
-                {/* Meta */}
                 <div className="flex items-center justify-between text-xs text-[#94A3B8]">
                   <span>Auth: {server.authType}</span>
-                  {server.autoStart && <Badge variant="outline" className="text-[10px]">Auto-Start</Badge>}
+                  <div className="flex items-center gap-2">
+                    {typeof server.latencyMs === 'number' && <span>{server.latencyMs} ms</span>}
+                    {server.autoStart && <Badge variant="outline" className="text-[10px]">Auto-Start</Badge>}
+                  </div>
                 </div>
 
-                {server.lastHeartbeat && (
-                  <p className="text-[10px] text-[#CBD5E1]">
-                    Last heartbeat: {new Date(server.lastHeartbeat).toLocaleString()}
+                {server.lastError && (
+                  <p className="text-[11px] text-red-600 truncate" title={server.lastError}>
+                    {server.lastError}
                   </p>
                 )}
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 pt-2 border-t border-[#F1F5F9]">
-                  {server.status !== 'active' ? (
+                {server.lastPingAt && (
+                  <p className="text-[10px] text-[#94A3B8]">
+                    Last probe: {new Date(server.lastPingAt).toLocaleString()}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#F1F5F9]">
+                  {server.status !== 'connected' ? (
                     <Button
                       size="sm"
                       variant="outline"
                       className="text-xs h-7"
                       disabled={actioning === server.id}
-                      onClick={() => handleAction(server, 'active')}
+                      onClick={() => handleAction(server, 'connected')}
                     >
                       {actioning === server.id ? (
                         <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                       ) : (
                         <Play className="w-3 h-3 mr-1" />
                       )}
-                      Start
+                      Enable
                     </Button>
                   ) : (
                     <Button
@@ -333,21 +488,30 @@ export default function McpManagerPanel() {
                       variant="outline"
                       className="text-xs h-7"
                       disabled={actioning === server.id}
-                      onClick={() => handleAction(server, 'stopped')}
+                      onClick={() => handleAction(server, 'disconnected')}
                     >
                       <Square className="w-3 h-3 mr-1" />
-                      Stop
+                      Disable
                     </Button>
                   )}
                   <Button
                     size="sm"
                     variant="outline"
                     className="text-xs h-7"
-                    disabled={actioning === server.id || server.status !== 'active'}
-                    onClick={() => handleAction(server, 'restarting')}
+                    disabled={actioning === server.id}
+                    onClick={() => handleTest(server)}
                   >
-                    <RefreshCw className="w-3 h-3 mr-1" />
-                    Restart
+                    <PlugZap className="w-3 h-3 mr-1" />
+                    Test Connection
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7"
+                    onClick={() => openCallTool(server)}
+                  >
+                    <Play className="w-3 h-3 mr-1" />
+                    Call Tool
                   </Button>
                   <Button
                     size="sm"
@@ -364,7 +528,6 @@ export default function McpManagerPanel() {
         </div>
       )}
 
-      {/* Add Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -377,11 +540,11 @@ export default function McpManagerPanel() {
           <div className="space-y-4 py-2">
             <div>
               <Label>Server Name</Label>
-              <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="e.g., File System Server" className="mt-1" />
+              <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="e.g., Browse MCP Server" className="mt-1" />
             </div>
             <div>
               <Label>Endpoint URL</Label>
-              <Input value={formEndpoint} onChange={(e) => setFormEndpoint(e.target.value)} placeholder="http://localhost:3001/mcp" className="mt-1" />
+              <Input value={formEndpoint} onChange={(e) => setFormEndpoint(e.target.value)} placeholder="https://mcp.example.com:443" className="mt-1" />
             </div>
             <div>
               <Label>Auth Type</Label>
@@ -396,8 +559,8 @@ export default function McpManagerPanel() {
               </Select>
             </div>
             <div>
-              <Label>Capabilities (comma-separated)</Label>
-              <Input value={formCapabilities} onChange={(e) => setFormCapabilities(e.target.value)} placeholder="file-system, web-search, database" className="mt-1" />
+              <Label>Capabilities / Tools (comma-separated)</Label>
+              <Input value={formCapabilities} onChange={(e) => setFormCapabilities(e.target.value)} placeholder="browser.inspect_page, repo.read_file" className="mt-1" />
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={formAutoStart} onCheckedChange={setFormAutoStart} />
@@ -414,7 +577,56 @@ export default function McpManagerPanel() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Dialog */}
+      <Dialog open={callOpen} onOpenChange={setCallOpen}>
+        <DialogContent className="sm:max-w-[540px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Play className="w-4 h-4 text-[#0066CC]" />
+              Call MCP Tool — {selectedServer?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Invoke JSON-RPC tools/call behind SSRF validation, risk gating, and audit logging.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label>Tool Name</Label>
+              <Input
+                value={callToolName}
+                onChange={(e) => setCallToolName(e.target.value)}
+                placeholder="e.g., repo.read_file"
+                className="mt-1 font-mono text-xs"
+              />
+            </div>
+            <div>
+              <Label>Arguments (JSON)</Label>
+              <Input
+                value={callToolArgs}
+                onChange={(e) => setCallToolArgs(e.target.value)}
+                placeholder='{"path":"README.md"}'
+                className="mt-1 font-mono text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch checked={callApproved} onCheckedChange={setCallApproved} />
+              <Label className="text-xs">Explicit human approval for mutating/write tools</Label>
+            </div>
+            {callResult && (
+              <pre className="text-[11px] bg-slate-50 border border-slate-200 rounded p-2.5 max-h-48 overflow-auto whitespace-pre-wrap break-all">
+                {callResult}
+              </pre>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCallOpen(false)}>Close</Button>
+            <Button onClick={handleCallTool} disabled={callingTool} className="bg-[#0066CC] hover:bg-[#0066CC]/90">
+              {callingTool && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Execute Tool
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

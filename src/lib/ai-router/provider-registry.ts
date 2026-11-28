@@ -209,6 +209,22 @@ export function buildProviderFromConfig(record: ProviderConfigRecord): BaseAIPro
   if (!endpoint) throw new Error(`Provider config "${record.name}" needs a baseUrl.`);
 
   const scope = record.companyId ? `${record.companyId}.${record.name}` : record.name;
+  // Native Ollama `/api/*` endpoints (when baseUrl does not target the `/v1` OpenAI shim)
+  // speak `/api/tags` + `/api/chat` NDJSON via OllamaProvider rather than `/chat/completions`.
+  if (record.provider === 'ollama' && !endpoint.replace(/\/+$/, '').endsWith('/v1')) {
+    const ollamaName = routerNameForConfig(record);
+    const seedModels = models.map((m) => ({
+      id: m.id,
+      name: m.id,
+      provider: ollamaName,
+      family: 'custom' as const,
+      parameters: {},
+      contextLength: m.contextLength ?? 32_768,
+      capabilities: m.capabilities ?? (['chat', 'streaming', 'function-calling', 'code-generation'] as AICapability[]),
+      endpoint: normaliseOllamaEndpoint(endpoint),
+    }));
+    return new OllamaProvider(normaliseOllamaEndpoint(endpoint), ollamaName, seedModels);
+  }
   // UnoRouter: free models only — the adapter refuses every non-`:free` lane by
   // construction, whatever the catalog row claims.
   if (record.provider === 'unorouter-free') {

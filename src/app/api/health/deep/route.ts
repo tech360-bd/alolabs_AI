@@ -6,13 +6,19 @@
 
 import { NextResponse } from 'next/server';
 import { withAuth } from '@/lib/route-auth';
-import { db } from '@/lib/db';
+import { db, describeDatasource } from '@/lib/db';
 import { isQdrantConnected, getQdrantConfig, pingQdrant, getQdrantStats, listCollections } from '@/lib/qdrant';
 import { getAgentStateManager } from '@/lib/agent-runtime/state';
 import { getAgentScheduler } from '@/lib/agent-runtime/scheduler';
 import { getMemoryStore } from '@/lib/memory';
 
 const VERSION = '1.0.0';
+const DEEP_HEALTH_ROLES = new Set([
+  'super_admin',
+  'platform_super_admin',
+  'admin',
+  'infrastructure_admin',
+]);
 
 type CheckStatus = 'healthy' | 'degraded' | 'unhealthy';
 
@@ -26,23 +32,34 @@ interface SubsystemCheck {
 
 async function checkDatabase(): Promise<SubsystemCheck & { latencyMs: number; sizeBytes?: number }> {
   try {
+    const datasource = describeDatasource();
     const t0 = Date.now();
     await db.$queryRaw`SELECT 1 as ok`;
     const latencyMs = Date.now() - t0;
 
-    // DB file size
+    // DB file size only applies when running on local SQLite
     let sizeBytes: number | undefined;
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const dbPath = path.join(process.cwd(), 'db', 'custom.db');
-      const stat = fs.statSync(dbPath);
-      sizeBytes = stat.size;
-    } catch {
-      // File size not available
+    if (datasource.provider === 'sqlite') {
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const dbPath = path.join(process.cwd(), 'db', 'custom.db');
+        const stat = fs.statSync(dbPath);
+        sizeBytes = stat.size;
+      } catch {
+        // File size not available
+      }
     }
 
-    return { status: 'healthy', latencyMs, sizeBytes, detail: 'SQLite connected' };
+    const providerLabel =
+      datasource.provider === 'mysql'
+        ? 'MySQL'
+        : datasource.provider === 'mariadb'
+          ? 'MariaDB'
+          : datasource.provider === 'sqlite'
+            ? 'SQLite'
+            : datasource.provider;
+    return { status: 'healthy', latencyMs, ...(sizeBytes !== undefined ? { sizeBytes } : {}), detail: `${providerLabel} connected` };
   } catch (err: unknown) {
     return {
       status: 'unhealthy',
@@ -110,7 +127,7 @@ async function checkRAG(): Promise<SubsystemCheck & { collections?: { name: stri
       return {
         status: 'degraded',
         fallbackMode: true,
-        detail: 'Qdrant not configured — SQLite fallback mode',
+        detail: 'Qdrant not configured — Local RAG fallback mode',
       };
     }
 
@@ -118,7 +135,7 @@ async function checkRAG(): Promise<SubsystemCheck & { collections?: { name: stri
       return {
         status: 'degraded',
         fallbackMode: true,
-        detail: 'Qdrant configured but not connected — SQLite fallback mode',
+        detail: 'Qdrant configured but not connected — Local RAG fallback mode',
       };
     }
 
@@ -263,7 +280,10 @@ function computeOverallStatus(checks: SubsystemCheck[]): CheckStatus {
 
 // ─── Route handler (authenticated) ────────────────────────────────
 
-export const GET = withAuth(async (_request, _context, _user) => {
+export const GET = withAuth(async (_request, _context, user) => {
+  if (!user || !DEEP_HEALTH_ROLES.has(user.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   const [dbCheck, memoryCheck, aiRouterCheck, ragCheck, schedulerCheck, agentsCheck, errorCounts] =
     await Promise.all([
       checkDatabase(),

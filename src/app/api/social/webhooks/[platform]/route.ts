@@ -1,12 +1,9 @@
 // ALO Labs AIOS — Social Webhooks API
-// Receives webhook events from all social platforms
+// Receives and cryptographically verifies webhook events from social platforms
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { db } from '@/lib/db';
-import type { SocialPlatform } from '@/lib/social/types';
-
-// ─── Telegram Webhook Payload Type ──────────────────────────────────────────────
 
 interface TelegramWebhookUpdate {
   update_id: number;
@@ -21,8 +18,6 @@ interface TelegramWebhookUpdate {
   };
 }
 
-// ─── Supported Platforms ───────────────────────────────────────────────────────
-
 const SUPPORTED_PLATFORMS = new Set<string>([
   'facebook',
   'instagram',
@@ -35,7 +30,18 @@ const SUPPORTED_PLATFORMS = new Set<string>([
   'whatsapp',
 ]);
 
-// ─── Platform Webhook Secret Env Vars ──────────────────────────────────────────
+function timingSafeEqualStrings(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function timingSafeEqualDigests(a: string, b: string): boolean {
+  const hashA = crypto.createHash('sha256').update(a, 'utf8').digest();
+  const hashB = crypto.createHash('sha256').update(b, 'utf8').digest();
+  return crypto.timingSafeEqual(hashA, hashB);
+}
 
 function getWebhookSecret(platform: string): string | null {
   const envVars: Record<string, string> = {
@@ -43,95 +49,109 @@ function getWebhookSecret(platform: string): string | null {
     instagram: process.env.INSTAGRAM_APP_SECRET || '',
     linkedin: process.env.LINKEDIN_CLIENT_SECRET || '',
     twitter: process.env.TWITTER_CLIENT_SECRET || '',
-    youtube: process.env.GOOGLE_CLIENT_SECRET || '',
+    youtube: process.env.YOUTUBE_WEBHOOK_SECRET || process.env.GOOGLE_CLIENT_SECRET || '',
     tiktok: process.env.TIKTOK_CLIENT_SECRET || '',
     pinterest: process.env.PINTEREST_APP_SECRET || '',
-    telegram: process.env.TELEGRAM_BOT_TOKEN || '',
+    telegram: process.env.TELEGRAM_WEBHOOK_SECRET || process.env.TELEGRAM_BOT_TOKEN || '',
     whatsapp: process.env.WHATSAPP_APP_SECRET || '',
   };
   return envVars[platform] || null;
 }
-
-// ─── Signature Verification ────────────────────────────────────────────────────
 
 function verifySignature(
   platform: string,
   payload: string,
   signature: string | null,
   secret: string | null,
+  telegramSecretHeader: string | null,
 ): boolean {
-  if (!secret || !signature) return false;
+  if (!secret) return false;
 
   switch (platform) {
     case 'facebook':
-    case 'instagram': {
-      // Facebook/Instagram use X-Hub-Signature-256
-      if (!signature.startsWith('sha256=')) return false;
+    case 'instagram':
+    case 'whatsapp': {
+      if (!signature || !signature.startsWith('sha256=')) return false;
       const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(payload).digest('hex');
-      try {
-        const bufA = Buffer.from(signature);
-        const bufB = Buffer.from(expected);
-        if (bufA.length !== bufB.length) return false;
-        return crypto.timingSafeEqual(bufA, bufB);
-      } catch {
-        return false;
-      }
+      return timingSafeEqualStrings(signature, expected);
     }
 
     case 'twitter': {
-      // Twitter uses OAuth 1.0a signature — simplified validation
-      return signature.length > 0;
+      // Twitter Account Activity API signs x-twitter-webhooks-signature: sha256=<base64>
+      if (!signature || !signature.startsWith('sha256=')) return false;
+      const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(payload).digest('base64');
+      return timingSafeEqualStrings(signature, expected);
     }
 
     case 'tiktok': {
-      // TikTok signs with X-TikTok-Signature
-      if (!signature.startsWith('sha256=')) return false;
-      const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(payload).digest('hex');
-      try {
-        const bufA = Buffer.from(signature);
-        const bufB = Buffer.from(expected);
-        if (bufA.length !== bufB.length) return false;
-        return crypto.timingSafeEqual(bufA, bufB);
-      } catch {
-        return false;
+      if (!signature) return false;
+      if (signature.startsWith('sha256=')) {
+        const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(payload).digest('hex');
+        return timingSafeEqualStrings(signature, expected);
       }
+      // TikTok timestamped signature format: t=<unix_ts>,s=<hex_hmac>
+      const parts = Object.fromEntries(
+        signature.split(',').map((seg) => {
+          const [k, ...rest] = seg.trim().split('=');
+          return [k, rest.join('=')];
+        }),
+      );
+      if (parts.t && parts.s) {
+        const ts = Number(parts.t);
+        if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 300) return false;
+        const expected = crypto
+          .createHmac('sha256', secret)
+          .update(`${parts.t}.${payload}`)
+          .digest('hex');
+        return timingSafeEqualStrings(parts.s, expected);
+      }
+      return false;
     }
 
     case 'pinterest': {
-      // Pinterest uses X-Pinterest-Signature
-      const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64');
-      return signature === expected;
+      if (!signature) return false;
+      const expectedBase64 = crypto.createHmac('sha256', secret).update(payload).digest('base64');
+      if (timingSafeEqualStrings(signature, expectedBase64)) return true;
+      if (signature.startsWith('sha256=')) {
+        const expectedHex = 'sha256=' + crypto.createHmac('sha256', secret).update(payload).digest('hex');
+        return timingSafeEqualStrings(signature, expectedHex);
+      }
+      return false;
     }
 
     case 'telegram': {
-      // Telegram uses hash-based validation
+      // Telegram Bot API sends X-Telegram-Bot-Api-Secret-Token header configured at setWebhook.
+      if (telegramSecretHeader && process.env.TELEGRAM_WEBHOOK_SECRET) {
+        return timingSafeEqualDigests(telegramSecretHeader, process.env.TELEGRAM_WEBHOOK_SECRET);
+      }
+      // Fallback: HMAC-SHA256 using sha256(botToken) as key
+      if (!signature) return false;
       const secretKey = crypto.createHash('sha256').update(secret).digest();
-      const data = payload;
-      const hmac = crypto.createHmac('sha256', secretKey).update(data).digest('hex');
-      return signature === hmac;
+      const expected = crypto.createHmac('sha256', secretKey).update(payload).digest('hex');
+      return timingSafeEqualStrings(signature, expected);
     }
 
     case 'linkedin': {
-      // LinkedIn uses OAuth verification
-      return signature.length > 0;
+      if (!signature) return false;
+      const rawHex = signature.startsWith('hmacsha256=')
+        ? signature.slice('hmacsha256='.length)
+        : signature;
+      const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+      return timingSafeEqualStrings(rawHex, expected);
     }
 
     case 'youtube': {
-      // Google uses PubSub verification
-      return signature.length > 0;
-    }
-
-    case 'whatsapp': {
-      if (!signature.startsWith('sha256=')) return false;
-      const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(payload).digest('hex');
-      try {
-        const bufA = Buffer.from(signature);
-        const bufB = Buffer.from(expected);
-        if (bufA.length !== bufB.length) return false;
-        return crypto.timingSafeEqual(bufA, bufB);
-      } catch {
-        return false;
+      // Google PubSubHubbub (WebSub) signs X-Hub-Signature with sha256= or sha1=
+      if (!signature) return false;
+      if (signature.startsWith('sha256=')) {
+        const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(payload).digest('hex');
+        return timingSafeEqualStrings(signature, expected);
       }
+      if (signature.startsWith('sha1=')) {
+        const expected = 'sha1=' + crypto.createHmac('sha1', secret).update(payload).digest('hex');
+        return timingSafeEqualStrings(signature, expected);
+      }
+      return false;
     }
 
     default:
@@ -139,17 +159,13 @@ function verifySignature(
   }
 }
 
-// ─── Event Processing ──────────────────────────────────────────────────────────
-
 async function processWebhookEvent(
   platform: string,
   body: unknown,
-  signature: string | null,
 ): Promise<void> {
   const eventTypes = extractEventTypes(platform, body);
 
   for (const event of eventTypes) {
-    // Store in audit log
     await db.auditLog.create({
       data: {
         action: 'social_webhook_received',
@@ -158,7 +174,7 @@ async function processWebhookEvent(
           platform,
           event: event.type,
           eventId: event.id,
-          signatureVerified: !!signature,
+          signatureVerified: true,
           timestamp: new Date().toISOString(),
           data: event.summary,
         }),
@@ -189,7 +205,6 @@ function extractEventTypes(
               });
             }
           }
-          // Check for messaging events
           if (entry.messaging) {
             const messages = entry.messaging as Array<Record<string, unknown>>;
             for (const msg of messages) {
@@ -225,7 +240,6 @@ function extractEventTypes(
     }
 
     case 'twitter': {
-      // Twitter webhook payload structure
       if (data.tweet_create_events) {
         for (const tweet of data.tweet_create_events as Array<Record<string, unknown>>) {
           events.push({
@@ -363,19 +377,12 @@ function extractEventTypes(
   return events;
 }
 
-// ─── GET Handler (for webhook verification challenges) ──────────────────────────
+// ─── GET Handler (webhook verification challenges) ─────────────────────────────
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ platform: string }> },
 ) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
     const { platform } = await params;
 
@@ -388,17 +395,13 @@ export async function GET(
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
 
-    // Facebook/Instagram/WhatsApp verification
-    if (mode === 'subscribe' && challenge) {
-      const verifyToken = process.env[`${platform.toUpperCase()}_VERIFY_TOKEN`] || process.env.SOCIAL_WEBHOOK_VERIFY_TOKEN;
-      if (token === verifyToken) {
-        return new NextResponse(challenge, {
-          headers: { 'Content-Type': 'text/plain' },
-        });
-      }
+    if (mode === 'subscribe' && token && challenge) {
+      const verifyToken =
+        process.env[`${platform.toUpperCase()}_VERIFY_TOKEN`] ||
+        process.env.SOCIAL_WEBHOOK_VERIFY_TOKEN ||
+        (platform === 'whatsapp' ? process.env.WHATSAPP_VERIFY_TOKEN : '');
 
-      // Also check WhatsApp-specific token
-      if (platform === 'whatsapp' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+      if (verifyToken && timingSafeEqualDigests(token, verifyToken)) {
         return new NextResponse(challenge, {
           headers: { 'Content-Type': 'text/plain' },
         });
@@ -412,27 +415,42 @@ export async function GET(
   }
 }
 
-// ─── POST Handler (webhook event receiving) ─────────────────────────────────────
+// ─── POST Handler (webhook event receiving) ────────────────────────────────────
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ platform: string }> },
 ) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   const { platform } = await params;
   try {
     if (!SUPPORTED_PLATFORMS.has(platform)) {
       return NextResponse.json({ error: 'Unsupported platform' }, { status: 400 });
     }
 
-    // Read raw body for signature verification
     const rawBody = await request.text();
+
+    const signature =
+      request.headers.get('x-hub-signature-256') ||
+      request.headers.get('x-hub-signature') ||
+      request.headers.get('x-tiktok-signature') ||
+      request.headers.get('x-pinterest-signature') ||
+      request.headers.get('x-twitter-webhooks-signature') ||
+      request.headers.get('x-li-signature') ||
+      request.headers.get('x-signature') ||
+      null;
+    const telegramSecretHeader = request.headers.get('x-telegram-bot-api-secret-token');
+
+    // Fail closed: configured secret AND valid cryptographic signature are mandatory.
+    const secret = getWebhookSecret(platform);
+    if (!secret) {
+      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 401 });
+    }
+
+    const isValid = verifySignature(platform, rawBody, signature, secret, telegramSecretHeader);
+    if (!isValid) {
+      return NextResponse.json({ error: 'Invalid or missing webhook signature' }, { status: 401 });
+    }
+
     let body: unknown;
     try {
       body = JSON.parse(rawBody);
@@ -440,33 +458,11 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    // Get signature from headers
-    const signature =
-      request.headers.get('x-hub-signature-256') ||
-      request.headers.get('x-tiktok-signature') ||
-      request.headers.get('x-pinterest-signature') ||
-      request.headers.get('x-twitter-webhooks-signature') ||
-      request.headers.get('x-signature') ||
-      null;
+    await processWebhookEvent(platform, body);
 
-    // Verify webhook signature
-    const secret = getWebhookSecret(platform);
-    if (secret && signature) {
-      const isValid = verifySignature(platform, rawBody, signature, secret);
-      if (!isValid) {
-        console.warn(`Invalid webhook signature for ${platform}`);
-        // Still process but log the warning — some platforms may not sign all events
-      }
-    }
-
-    // Process the event
-    await processWebhookEvent(platform, body, signature);
-
-    // Always return 200 OK quickly to acknowledge receipt
     return NextResponse.json({ status: 'ok', platform });
   } catch (error: unknown) {
     console.error(`Social webhook POST error (${platform}):`, error);
-    // Still return 200 to prevent platform retries for non-critical errors
-    return NextResponse.json({ status: 'ok' });
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }

@@ -165,6 +165,10 @@ export const SHARED_API_ROUTES: readonly { path: string; methods: readonly strin
   { path: '/api/auth/me', methods: ['GET'] },
   { path: '/api/auth/logout', methods: ['POST'] },
   { path: '/api/auth/password-change', methods: ['POST'] },
+  { path: '/api/auth/mfa/setup', methods: ['POST'] },
+  { path: '/api/auth/mfa/verify', methods: ['POST'] },
+  { path: '/api/auth/mfa/disable', methods: ['POST'] },
+  { path: '/api/auth/sessions', methods: ['GET', 'POST', 'DELETE'] },
 ];
 
 /**

@@ -646,7 +646,7 @@ function orderedChatCandidates(prepared: PreparedRouting, request: AIRequest, es
     candidate,
     eligibility: { eligible: true, reason: candidate.routeKind ?? 'verified_free', kind: candidate.routeKind } as RoutingEligibility,
   })));
-  if (request.model) candidates = candidates.filter((candidate) => candidate.modelId === request.model);
+  if (request.model && request.model !== 'auto') candidates = candidates.filter((candidate) => candidate.modelId === request.model);
   const requiresFunctionCalling = Boolean(request.tools?.length);
   const requiresStreaming = request.stream === true;
   candidates = candidates.filter((candidate) =>
@@ -902,7 +902,7 @@ export async function* streamCompanyAIChat(
     const startedAt = Date.now();
     let completionTokens = 0;
     try {
-      for await (const chunk of router.streamChat(effectiveRequest, actor.companyId, options.agentId, buildContext(candidate, prepared, actor, options, prepared.requestId, 'locally_estimated'))) {
+      for await (const chunk of router.streamChat({ ...effectiveRequest, model: candidate.modelId }, actor.companyId, options.agentId, buildContext(candidate, prepared, actor, options, prepared.requestId, 'locally_estimated'))) {
         if (chunk.content) completionTokens += Math.ceil(chunk.content.length / 4);
         yield chunk;
       }

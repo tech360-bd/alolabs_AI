@@ -1,77 +1,7 @@
 import { db } from '@/lib/db'
 import { legacyTenant, tenantWhere, legacyAuthResponse } from '@/lib/api/legacy-session'
 import { NextRequest, NextResponse } from 'next/server'
-import { URL } from 'url'
-
-// ─── SSRF Protection ──────────────────────────────────────────────────
-
-/**
- * Validate that a URL is safe to fetch (not internal/private).
- * Blocks localhost, loopback, link-local, private RFC 1918 ranges,
- * and metadata endpoints. Only allows http:// and https://.
- */
-function validateUrlForHttpCall(rawUrl: string): void {
-  let parsed: URL
-  try {
-    parsed = new URL(rawUrl)
-  } catch {
-    throw new Error('Invalid URL')
-  }
-
-  // Only allow http and https
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`Protocol '${parsed.protocol}' is not allowed. Only http:// and https:// are permitted.`)
-  }
-
-  const hostname = parsed.hostname.toLowerCase()
-
-  // Block localhost and loopback
-  if (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '::1' ||
-    hostname.endsWith('.localhost')
-  ) {
-    throw new Error('Requests to localhost/loopback addresses are not allowed.')
-  }
-
-  // Block 0.0.0.0
-  if (hostname === '0.0.0.0' || hostname === '0177.0.0.1' || hostname === '2130706433') {
-    throw new Error('Requests to loopback addresses are not allowed.')
-  }
-
-  // Block 10.0.0.0/8 (Class A private)
-  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
-    throw new Error('Requests to private IP ranges (10.x.x.x) are not allowed.')
-  }
-
-  // Block 172.16.0.0/12 (Class B private)
-  if (/^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
-    throw new Error('Requests to private IP ranges (172.16-31.x.x) are not allowed.')
-  }
-
-  // Block 192.168.0.0/16 (Class C private)
-  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
-    throw new Error('Requests to private IP ranges (192.168.x.x) are not allowed.')
-  }
-
-  // Block 169.254.0.0/16 (link-local / metadata endpoints)
-  if (/^169\.254\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
-    throw new Error('Requests to link-local/metadata addresses (169.254.x.x) are not allowed.')
-  }
-
-  // Block cloud metadata endpoints by hostname
-  const blockedHostnames = [
-    'metadata.google.internal',
-    'metadata.goog',
-    '169.254.169.254',
-    'metadata.aws',
-    'metadata',
-  ]
-  if (blockedHostnames.includes(hostname)) {
-    throw new Error('Requests to cloud metadata endpoints are not allowed.')
-  }
-}
+import { assertSafeExternalUrl } from '@/lib/security/ssrf'
 
 function evaluateCondition(
   conditionType: string,
@@ -176,7 +106,8 @@ async function executeAction(
       const url = (config.url as string)
       const method = (config.method as string) || 'POST'
       const headers = (config.headers as Record<string, string>) || {}
-      const timeoutMs = (config.timeout as number) || 10000
+      const rawTimeout = Number(config.timeout)
+      const timeoutMs = Number.isFinite(rawTimeout) ? Math.min(Math.max(rawTimeout, 100), 30_000) : 10_000
 
       if (!url) {
         return {
@@ -186,9 +117,9 @@ async function executeAction(
         }
       }
 
-      // SSRF protection — validate URL before making any request
+      // SSRF protection — validate URL + DNS resolution before making any request
       try {
-        validateUrlForHttpCall(url)
+        await assertSafeExternalUrl(url, { allowHttp: process.env.NODE_ENV !== 'production' })
       } catch (ssrfErr) {
         return {
           success: false,
@@ -198,14 +129,11 @@ async function executeAction(
       }
 
       // ─── TIMEOUT & CANCELLATION REMEDIATION ──────────────────────────
-      // Use AbortController ownership and timer cleanup
-      // Ensure abort-aware delays and safe cleanup
       const controller = new AbortController()
       let timeoutHandle: NodeJS.Timeout | null = null
       let fetchResult: Record<string, unknown> | null = null
 
       try {
-        // Start timeout timer
         timeoutHandle = setTimeout(() => {
           controller.abort()
         }, timeoutMs)
@@ -214,6 +142,8 @@ async function executeAction(
           method,
           headers: { 'Content-Type': 'application/json', ...headers },
           signal: controller.signal,
+          // Never auto-follow redirects (prevents redirect-based SSRF to 169.254.169.254 / loopback)
+          redirect: 'manual',
         }
 
         if (method !== 'GET' && method !== 'HEAD') {
@@ -508,6 +438,7 @@ async function executeAction(
           title: subject,
           message: emailBody,
           priority: 'normal',
+          companyId,
           userId,
           metadata: JSON.stringify({
             channel: 'email',
@@ -538,8 +469,14 @@ async function executeAction(
 export async function POST(request: NextRequest) {
   try {
     const tenant = await legacyTenant(request)
-    const body = await request.json()
-    const { triggerId, eventData: inputEventData } = body
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    const { triggerId, eventData: inputEventData } = body as {
+      triggerId?: string
+      eventData?: Record<string, unknown>
+    }
 
     if (!triggerId) {
       return NextResponse.json({ error: 'triggerId is required' }, { status: 400 })
@@ -599,17 +536,15 @@ export async function POST(request: NextRequest) {
       // Ensure delays respect AbortController if one were present (centralized)
       // For now, use safe timeout with cleanup
       if (action.delaySeconds && action.delaySeconds > 0) {
-        // Use AbortController-aware delay if possible, otherwise safe timeout
-        // In automation execution, we use a simple timeout but ensure it's cancellable
-        // if the overall execution is aborted (handled in POST catch)
-        await new Promise((resolve) => setTimeout(resolve, action.delaySeconds * 1000))
+        const clampedDelayMs = Math.min(action.delaySeconds, 60) * 1000
+        await new Promise((resolve) => setTimeout(resolve, clampedDelayMs))
       }
 
       const actionStart = Date.now()
       let result: Record<string, unknown> = { success: false, message: 'Action not executed' }
       let attempts = 0
-      const maxAttempts = 1 + (action.retryCount || 0)
-      const retryDelay = (action.retryDelaySeconds || 30) * 1000
+      const maxAttempts = 1 + Math.min(Math.max(action.retryCount || 0, 0), 3)
+      const retryDelay = Math.min(Math.max(action.retryDelaySeconds || 30, 0), 60) * 1000
 
       while (attempts < maxAttempts) {
         attempts++

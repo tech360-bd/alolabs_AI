@@ -205,9 +205,9 @@ function bearerOf(request: NextRequest): string | null {
   return null;
 }
 
-/** Project key from `x-api-key` or a bearer token that carries the pk prefix. */
+/** Project key from `x-api-key`, `x-goog-api-key`, or a bearer token that carries the pk prefix. */
 function apiKeyOf(request: NextRequest): string | null {
-  const header = request.headers.get('x-api-key')?.trim();
+  const header = request.headers.get('x-api-key')?.trim() || request.headers.get('x-goog-api-key')?.trim();
   if (header) return header;
   const bearer = bearerOf(request);
   return bearer?.startsWith(PLATFORM_KEY_PREFIX) ? bearer : null;
@@ -249,24 +249,22 @@ async function principalFromApiKey(plaintext: string): Promise<PlatformPrincipal
     .catch(() => undefined);
 
   // T-3: an API key's workspace must belong to a company the key's creator is
-  // still a member of. Without this an offboarded employee's key kept working
-  // for as long as the AiApiKey row lived, because only AiWorkspaceMember was
-  // consulted and that row is never removed by an offboarding.
-  const creatorCompany = (await db.companyUser.findFirst({
-    where: { userId: user.id },
-    select: { companyId: true },
-  })) as { companyId: string } | null;
-
+  // still a member of. Query CompanyUser specifically matching keyWorkspace.companyId
+  // so multi-company users are validated against the workspace's owning company
+  // rather than an arbitrary first membership.
   const keyWorkspace = (await db.aiWorkspace.findUnique({
     where: { id: key.workspaceId },
     select: { companyId: true },
   })) as { companyId: string | null } | null;
 
-  if (!creatorCompany) return null;
-  // A workspace not yet backfilled has no company: fail closed rather than
-  // letting an unowned workspace be entered through the API.
   if (!keyWorkspace?.companyId) return null;
-  if (keyWorkspace.companyId !== creatorCompany.companyId) return null;
+
+  const creatorCompany = (await db.companyUser.findFirst({
+    where: { userId: user.id, companyId: keyWorkspace.companyId },
+    select: { companyId: true },
+  })) as { companyId: string } | null;
+
+  if (!creatorCompany) return null;
 
   return {
     kind: 'api-key',

@@ -37,7 +37,11 @@ type AuthenticatedHandler = (
 export function withAuth(handler: AuthenticatedHandler) {
   return async (request: NextRequest, context?: Record<string, unknown>): Promise<NextResponse> => {
     const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    const bearerToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length).trim()
+      : null;
+    const cookieToken = request.cookies?.get?.('session-token')?.value ?? null;
+    const token = bearerToken || cookieToken;
 
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized: missing token' }, { status: 401 });

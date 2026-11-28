@@ -152,15 +152,21 @@ async function* parseNDJSONLines(
 // ─── Provider ───────────────────────────────────────────────────────
 
 export class OllamaProvider extends BaseAIProvider {
-  readonly name = 'ollama' as const;
+  readonly name: import('./types').AIProvider;
   supportedModels: AIModel[] = [];
 
   private endpoint: string;
   private abortController: AbortController | null = null;
 
-  constructor(endpoint?: string) {
+  constructor(
+    endpoint?: string,
+    providerName: import('./types').AIProvider = 'ollama',
+    initialModels: AIModel[] = [],
+  ) {
     super();
     this.endpoint = endpoint ?? 'http://localhost:11434';
+    this.name = providerName;
+    this.supportedModels = initialModels;
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────
@@ -175,7 +181,10 @@ export class OllamaProvider extends BaseAIProvider {
         false,
       );
     }
-    this.supportedModels = await this.listModels();
+    const discovered = await this.listModels();
+    if (discovered.length > 0) {
+      this.supportedModels = discovered;
+    }
     this._initialized = true;
   }
 
@@ -210,7 +219,7 @@ export class OllamaProvider extends BaseAIProvider {
       return {
         id: tag.name,
         name: tag.name,
-        provider: 'ollama' as const,
+        provider: this.name,
         family,
         parameters: {},
         contextLength: parseContextLength(tag.size),
@@ -302,11 +311,18 @@ export class OllamaProvider extends BaseAIProvider {
       };
 
       this.abortController = new AbortController();
+      const combinedSignal = this.abortController.signal;
+      const timeoutSignal = requestAbortSignal(request, 120_000);
+      const signal =
+        typeof AbortSignal.any === 'function'
+          ? AbortSignal.any([combinedSignal, timeoutSignal])
+          : timeoutSignal;
+
       const response = await fetch(`${this.endpoint}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ollamaReq),
-        signal: this.abortController.signal,
+        body: JSON.stringify(request.tools ? { ...ollamaReq, tools: request.tools as unknown[] } : ollamaReq),
+        signal,
       });
 
       if (!response.ok) {
@@ -319,11 +335,24 @@ export class OllamaProvider extends BaseAIProvider {
       }
 
       for await (const chunk of parseNDJSONLines(response)) {
+        const toolCalls = extractToolCalls(chunk.message);
+        const promptTokens = chunk.prompt_eval_count ?? 0;
+        const completionTokens = chunk.eval_count ?? 0;
         const streamChunk: AIStreamChunk = {
           id: responseId,
           content: chunk.message?.content ?? '',
           model: chunk.model ?? request.model,
-          finishReason: chunk.done ? 'stop' : undefined,
+          ...(toolCalls?.length ? { toolCalls } : {}),
+          ...(chunk.done
+            ? {
+                finishReason: toolCalls?.length ? 'tool-calls' : 'stop',
+                usage: {
+                  promptTokens,
+                  completionTokens,
+                  totalTokens: promptTokens + completionTokens,
+                },
+              }
+            : {}),
         };
         yield streamChunk;
       }

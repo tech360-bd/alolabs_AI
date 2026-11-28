@@ -24,6 +24,7 @@ export const POST = secureRoute(
   {
     resource: 'agent-runtime.execute.v1',
     action: 'execute',
+    scope: 'agents:execute',
     roles: ['super_admin', 'admin', 'manager', 'operator'],
     rateLimit: { limit: 60, windowMs: 60_000 },
     body: executeSchema,
@@ -56,6 +57,7 @@ export const DELETE = secureRoute(
   {
     resource: 'agent-runtime.execute.v1',
     action: 'delete',
+    scope: 'agents:write',
     roles: ['super_admin', 'admin', 'manager', 'operator'],
     body: z.object({ agentId: z.string().min(1, 'agentId is required') }),
     bodyStatus: 400,

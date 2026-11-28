@@ -1303,6 +1303,236 @@ export const LINK_COVERAGE: CoverageEntry[] = [
     gap: 'Re-submit with the specific repository URL(s) to be evaluated; an account listing alone cannot move past this verdict.',
     upstreamMeta: { checkedAt: REQUESTED_DATE },
   },
+  // Third sweep: Complete Ecosystem Control Plane & Asset Vault intake (2026-11-28).
+  {
+    id: 'free-claude-code', url: 'https://github.com/Alishahryar1/free-claude-code', kind: 'repository', category: 'AI & models',
+    upstream: 'Multi-provider & multi-harness free LLM gateway (Python, SPDX AGPL-3.0-only despite NOASSERTION tag).',
+    verdict: 'implemented',
+    claim: 'Architecture inspires ALO Command Router and multi-protocol gateway (Anthropic Messages, OpenAI Chat & Responses, Gemini GenerateContent) while keeping the ONE Runtime FCC adapter strictly isolated over REST with zero AGPL code copied.',
+    evidence: [
+      { label: 'Command Router engine', path: 'src/lib/ai-router/command-router.ts', kind: 'library' },
+      { label: 'Multi-protocol gateway', path: 'src/lib/ai-router/protocol-gateway.ts', kind: 'library' },
+      { label: 'Isolated FCC REST connector', path: 'src/lib/integrations/connectors/gateway/free-claude-code.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 73812, language: 'Python', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'dashboard-design-skill', url: 'https://github.com/abdiraimov-otabek/dashboard-design-skill', kind: 'repository', category: 'Design systems',
+    upstream: 'MIT dashboard UI quality rules distilled from 127 dashboards: honest KPIs, alert-only color, named layouts & 3-width screenshot QA.',
+    verdict: 'implemented',
+    claim: 'Applied to the Super Command Hub and Asset Vault panels with explicit 3-viewport browser QA presets (`desktop 1440x900`, `tablet 768x1024`, `mobile 390x844`).',
+    evidence: [
+      { label: 'Browser QA viewport presets', path: 'src/lib/browser/agent-session.ts', kind: 'library' },
+      { label: 'Asset Vault registry', path: 'src/lib/ecosystem/asset-vault.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 1220, archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'neondatabase-autoscaling', url: 'https://github.com/neondatabase/autoscaling', kind: 'repository', category: 'Monitoring & ops',
+    upstream: 'Kubernetes Postgres vertical autoscaling (Go, Apache-2.0).',
+    verdict: 'not_applicable',
+    claim: 'Incompatible with ALO Labs AI production MySQL/MariaDB and NeonVM dependency; cataloged in Asset Vault as non-deployed infrastructure reference only.',
+    evidence: [
+      { label: 'Asset Vault compatibility entry', path: 'src/lib/ecosystem/asset-vault.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 265, language: 'Go', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'twilio-call-gpt', url: 'https://github.com/twilio-labs/call-gpt', kind: 'repository', category: 'Voice, calls & SMS',
+    upstream: 'Generative AI voice telephony over Twilio Media Streams (JavaScript, MIT code with paid Twilio runtime).',
+    verdict: 'implemented',
+    claim: 'Integrated via the ONE Runtime `telephony.call-gpt` adapter as an optional BYO-credentials connector while keeping self-hosted LiveKit and FreeSWITCH/rasonyang as primary free stack.',
+    evidence: [
+      { label: 'Call-GPT connector', path: 'src/lib/integrations/connectors/telephony/call-gpt.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 497, language: 'JavaScript', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'tool-calls-10x', url: 'https://github.com/perrypixel/10x-Tool-Calls', kind: 'repository', category: 'Developer tooling',
+    upstream: 'Unlicensed repository (no LICENSE file) describing tool-call optimization rules.',
+    verdict: 'in_kind',
+    claim: 'Excluded from copying due to missing license. ALO Labs built an independent first-party Tool Optimization Engine (`optimizeToolCallBatch`, `compactToolOutput`) with zero copied text or code.',
+    evidence: [
+      { label: 'First-party Tool Optimizer', path: 'src/lib/coding-agents/tool-optimizer.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 852, language: 'Python', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'livekit', url: 'https://github.com/livekit/livekit', kind: 'repository', category: 'Voice, calls & SMS',
+    upstream: 'Self-hosted real-time WebRTC SFU, SIP & AI voice/video infrastructure (Go, Apache-2.0).',
+    verdict: 'implemented',
+    claim: 'Integrated as ALO Labs primary WebRTC & SIP backbone with HMAC-SHA256 LiveKit room token signing and SSRF-guarded Twirp API controls.',
+    evidence: [
+      { label: 'LiveKit ONE Runtime connector', path: 'src/lib/integrations/connectors/telephony/livekit.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 22435, language: 'Go', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'joincall-call', url: 'https://github.com/joincalldotco/Call', kind: 'repository', category: 'Chat & messaging',
+    upstream: 'Open-source self-hosted video meetings system (TypeScript, MIT).',
+    verdict: 'implemented',
+    claim: 'Integrated via `media.joincall` ONE Runtime connector and `MeetingSession` room persistence.',
+    evidence: [
+      { label: 'Joincall connector', path: 'src/lib/integrations/connectors/media/joincall.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 437, language: 'TypeScript', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'obs-studio', url: 'https://github.com/obsproject/obs-studio', kind: 'repository', category: 'Media & creation',
+    upstream: 'OBS Studio live streaming and screen recording daemon (C, GPL-2.0 COPYING).',
+    verdict: 'implemented',
+    claim: 'Controlled strictly as a separate process over authenticated OBS WebSocket v5 (SHA-256 challenge); zero GPL source code bundled.',
+    evidence: [
+      { label: 'OBS WebSocket v5 connector', path: 'src/lib/integrations/connectors/media/obs-websocket.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 80159, language: 'C', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'nocobase-nococrm', url: 'https://github.com/nocobase/NocoCRM', kind: 'repository', category: 'Business operations',
+    upstream: 'B2B CRM built on NocoBase (TypeScript, custom NocoBase License Agreement updated 2026-11-16).',
+    verdict: 'reference',
+    claim: 'Flagged restricted in Asset Vault/LicenseRecord: no code embedded or auto-deployed; external API boundary only after legal clearance.',
+    evidence: [
+      { label: 'NocoBase API adapter', path: 'src/lib/integrations/connectors/automation/nocobase.ts', kind: 'library' },
+      { label: 'Asset Vault license gate', path: 'src/lib/ecosystem/asset-vault.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 14, language: 'TypeScript', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'sahilatahar-code-sync', url: 'https://github.com/sahilatahar/Code-Sync', kind: 'repository', category: 'Developer tooling',
+    upstream: 'MIT real-time collaborative coding room editor (TypeScript).',
+    verdict: 'in_kind',
+    claim: 'Real-time sandbox room collaboration concepts incorporated into the ALO Coding Harness & isolated sandbox orchestrator.',
+    evidence: [
+      { label: 'Coding Harness registry', path: 'src/lib/coding-agents/harness-registry.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 335, language: 'TypeScript', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'postmill-app', url: 'https://github.com/postmill-ai/postmill-app', kind: 'repository', category: 'Social & publishing',
+    upstream: 'Social media creative and multi-channel scheduling platform (TypeScript, AGPL-3.0).',
+    verdict: 'implemented',
+    claim: 'Integrated solely over an isolated external REST adapter (`content.postmill`) with publish actions gated behind human approval.',
+    evidence: [
+      { label: 'Postmill sidecar connector', path: 'src/lib/integrations/connectors/content/postmill.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 353, language: 'TypeScript', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'anomalyco-org', url: 'https://github.com/orgs/anomalyco/repositories', kind: 'repository', category: 'Developer tooling',
+    upstream: 'anomalyco GitHub org (92 repos paginated: opencode MIT, browse MIT, models.dev MIT, sst MIT).',
+    verdict: 'implemented',
+    claim: 'Paginated all 92 repositories in Asset Vault; registered `coding-agent.opencode` and `coding-agent.browse-mcp` adapters.',
+    evidence: [
+      { label: 'Generated intake snapshot', path: 'src/lib/ecosystem/intake-data.generated.ts', kind: 'library' },
+      { label: 'OpenCode connector', path: 'src/lib/integrations/connectors/coding-agent/opencode.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 229750, language: 'TypeScript', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'librechat-org-list', url: 'https://github.com/orgs/LibreChat-AI/repositories', kind: 'repository', category: 'AI & models',
+    upstream: 'LibreChat-AI GitHub org (14 repos paginated: LibreChat MIT, rag-api MIT, code-interpreter Apache-2.0, admin-panel AGPL-3.0).',
+    verdict: 'implemented',
+    claim: 'Paginated all 14 repositories in Asset Vault; LibreChat connector stays active while AGPL admin-panel is excluded.',
+    evidence: [
+      { label: 'Generated intake snapshot', path: 'src/lib/ecosystem/intake-data.generated.ts', kind: 'library' },
+      { label: 'LibreChat connector', path: 'src/lib/integrations/connectors/ai-chat/librechat.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 47613, language: 'TypeScript', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'swe-agent-org', url: 'https://github.com/orgs/SWE-agent/repositories', kind: 'repository', category: 'Developer tooling',
+    upstream: 'SWE-agent GitHub org (10 repos paginated: SWE-agent MIT, mini-swe-agent MIT, SWE-ReX MIT).',
+    verdict: 'implemented',
+    claim: 'Paginated all 10 repositories and registered SWE-agent and mini-SWE-agent inside ALO Coding Harness Sandbox Orchestrator.',
+    evidence: [
+      { label: 'Coding Harness registry', path: 'src/lib/coding-agents/harness-registry.ts', kind: 'library' },
+      { label: 'SWE-agent adapter', path: 'src/lib/integrations/connectors/coding-agent/swe-agent.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 20885, language: 'Python', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'meigen-ai-org', url: 'https://github.com/orgs/MeiGen-AI/repositories', kind: 'repository', category: 'Media & creation',
+    upstream: 'MeiGen-AI GitHub org (18 repos paginated: InfiniteTalk Apache-2.0, MultiTalk Apache-2.0, X-Cut AGPL-3.0).',
+    verdict: 'implemented',
+    claim: 'Paginated all 18 repositories; Apache-2.0 video/avatar adapter stays behind host hardware/VRAM checks without auto-downloading weights.',
+    evidence: [
+      { label: 'InfiniteTalk adapter', path: 'src/lib/integrations/connectors/media/infinite-talk.ts', kind: 'library' },
+      { label: 'Hardware capability detector', path: 'src/lib/platform/hardware.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 8488, language: 'Python', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'jarves-org', url: 'https://github.com/orgs/jarves/repositories', kind: 'repository', category: 'Reference & content',
+    upstream: 'jarves GitHub org (9 repos paginated: legacy Symfony 3 PHP CMS, unrelated to AI assistants).',
+    verdict: 'not_applicable',
+    claim: 'Paginated all 9 repositories in Asset Vault; legacy PHP CMS archive with zero AI capability.',
+    evidence: [
+      { label: 'Generated intake snapshot', path: 'src/lib/ecosystem/intake-data.generated.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 335, language: 'JavaScript', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'mirrorfly-org', url: 'https://github.com/orgs/MirrorFly/repositories', kind: 'repository', category: 'Voice, calls & SMS',
+    upstream: 'MirrorFly GitHub org (26 sample SDK repos; commercial quote-only self-hosted backend).',
+    verdict: 'not_applicable',
+    claim: 'Paginated all 26 sample repositories and verified commercial licensing terms; excluded in favor of Apache-2.0 LiveKit and MIT Call.',
+    evidence: [
+      { label: 'Asset Vault license assessment', path: 'src/lib/ecosystem/asset-vault.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 60, language: 'JavaScript', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'rasonyang-user', url: 'https://github.com/rasonyang', kind: 'repository', category: 'Voice, calls & SMS',
+    upstream: 'rasonyang GitHub account (55 repos paginated: ai-native-callcenter, freesbc, cascade-realtime-gateway, web-sip-phone — Apache-2.0).',
+    verdict: 'implemented',
+    claim: 'Paginated all 55 repos and added FreeSBC + Cascade Realtime Gateway ONE Runtime adapters alongside AI Native Call Center.',
+    evidence: [
+      { label: 'rasonyang voice stack connectors', path: 'src/lib/integrations/connectors/telephony/rasonyang-stack.ts', kind: 'library' },
+    ],
+    upstreamMeta: { stars: 858, language: 'Go', archived: false, checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'topic-jarvis-ai', url: 'https://github.com/topics/jarvis-ai', kind: 'site', category: 'Reference & content',
+    upstream: 'GitHub topic jarvis-ai (238 indexed repositories; top vetted assistants evaluated).',
+    verdict: 'reference',
+    claim: 'Indexed top repositories from GitHub topic jarvis-ai inside Asset Vault intake snapshot for voice assistant and local privacy patterns.',
+    evidence: [
+      { label: 'Generated intake snapshot', path: 'src/lib/ecosystem/intake-data.generated.ts', kind: 'library' },
+    ],
+    upstreamMeta: { checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'search-ai-call', url: 'https://github.com/search?q=ai+call&type=repositories', kind: 'site', category: 'Voice, calls & SMS',
+    upstream: 'GitHub search for ai call (34,573 indexed repos including litellm, langfuse, call-center-ai, axonhub).',
+    verdict: 'reference',
+    claim: 'Top verified gateway & AI call repositories from GitHub search indexed into Asset Vault for evaluation and license screening.',
+    evidence: [
+      { label: 'Generated intake snapshot', path: 'src/lib/ecosystem/intake-data.generated.ts', kind: 'library' },
+    ],
+    upstreamMeta: { checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'jarvis-cx-site', url: 'https://jarvis.cx', kind: 'site', category: 'Chat & messaging',
+    upstream: 'Jarvis CX — commercial SaaS omnichannel AI customer support helpdesk (14-day trial).',
+    verdict: 'reference',
+    claim: 'Fetched live website; commercial SaaS not free/self-hostable. Off/Training/Autopilot progression & human discount approval ideas noted for ALO Inbox.',
+    evidence: [
+      { label: 'Asset Vault entry', path: 'src/lib/ecosystem/asset-vault.ts', kind: 'library' },
+    ],
+    upstreamMeta: { checkedAt: '2026-11-28' },
+  },
+  {
+    id: 'jarvis-institute-site', url: 'https://jarvis.institute/compare/jarvis-vs-chatgpt', kind: 'site', category: 'Reference & content',
+    upstream: 'Jarvis AI Assistant — proprietary $9.99 Windows desktop app with RELAXED/GUARDED/STRICT local privacy modes.',
+    verdict: 'in_kind',
+    claim: 'Fetched live comparison page; proprietary binary excluded. Guarded credential-redaction and Strict local-only mode implemented in ALO Command Router.',
+    evidence: [
+      { label: 'Guarded secret redaction', path: 'src/lib/ai-router/protocol-gateway.ts', kind: 'library' },
+      { label: 'Command Router privacy enforcement', path: 'src/lib/ai-router/command-router.ts', kind: 'library' },
+    ],
+    upstreamMeta: { checkedAt: '2026-11-28' },
+  },
 
 ];
 

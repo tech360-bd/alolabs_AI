@@ -358,19 +358,23 @@ export async function redisIncrBy(key: string, amount: number): Promise<number> 
 
 export async function rateLimitCheck(key: string, limit: number, windowSeconds: number): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
   const rlKey = `rl:${key}`;
+  const safeWindow = Math.max(1, windowSeconds);
   const now = Math.floor(Date.now() / 1000);
-  const windowKey = `${rlKey}:${now - (now % windowSeconds)}`;
+  if (limit <= 0) {
+    return { allowed: false, remaining: 0, resetAt: now + safeWindow };
+  }
+  const windowKey = `${rlKey}:${now - (now % safeWindow)}`;
 
   if (pool.connected && pool.client) {
     try {
       const pipeline = pool.client.pipeline();
       pipeline.incr(windowKey);
-      pipeline.expire(windowKey, windowSeconds + 1);
+      pipeline.expire(windowKey, safeWindow + 1);
       pipeline.ttl(windowKey);
       const results = await pipeline.exec();
 
       const count = (results?.[0]?.[1] as number) || 0;
-      const ttl = (results?.[2]?.[1] as number) || windowSeconds;
+      const ttl = (results?.[2]?.[1] as number) || safeWindow;
       const remaining = Math.max(0, limit - count);
       const resetAt = now + ttl;
 
@@ -383,13 +387,16 @@ export async function rateLimitCheck(key: string, limit: number, windowSeconds: 
     }
   }
 
-  // Memory fallback
+  // Memory fallback (prune stale counters so long-running processes stay bounded)
+  if (memoryCounters.size > 10_000) {
+    memoryCounters.clear();
+  }
   const current = memoryCounters.get(windowKey) || 0;
   if (current >= limit) {
-    return { allowed: false, remaining: 0, resetAt: (Math.floor(Date.now() / (windowSeconds * 1000)) + 1) * windowSeconds };
+    return { allowed: false, remaining: 0, resetAt: (Math.floor(Date.now() / (safeWindow * 1000)) + 1) * safeWindow };
   }
   memoryCounters.set(windowKey, current + 1);
-  return { allowed: true, remaining: limit - current - 1, resetAt: (Math.floor(Date.now() / (windowSeconds * 1000)) + 1) * windowSeconds };
+  return { allowed: true, remaining: limit - current - 1, resetAt: (Math.floor(Date.now() / (safeWindow * 1000)) + 1) * safeWindow };
 }
 
 // ─── Pub/Sub ─────────────────────────────────────────────────────────────────

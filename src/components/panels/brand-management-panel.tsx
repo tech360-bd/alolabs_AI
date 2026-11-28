@@ -2,6 +2,7 @@
 
 import { apiFetch } from '@/lib/api-client'
 import { useEffect, useState, useCallback } from 'react'
+import { toast } from 'sonner'
 import {
   Palette,
   Upload,
@@ -125,16 +126,22 @@ export default function BrandManagementPanel() {
     setSaving(true)
     try {
       const brand = editState[companyId]
-      await apiFetch('/api/brands', {
+      const res = await apiFetch('/api/brands', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(brand),
       })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Save failed', { description: data.error || `HTTP ${res.status}` })
+        return
+      }
       setSavedId(companyId)
+      toast.success('Brand saved')
       setTimeout(() => setSavedId(null), 2000)
       fetchData()
     } catch {
-      // silently handle
+      toast.error('Save failed', { description: 'Unable to save brand settings' })
     } finally {
       setSaving(false)
     }
