@@ -9,7 +9,8 @@
  *   - Primary self-hosted Voice AI, SIP & WebRTC meeting infrastructure for ALO Labs AI
  */
 
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash } from 'node:crypto';
+import jwt from 'jsonwebtoken';
 import {
   type ConnectorContext,
   type ExternalSystemAdapter,
@@ -19,10 +20,6 @@ import {
   requireApiKey,
   runConnectorOp,
 } from '../../types';
-
-function base64UrlEncode(input: string | Buffer): string {
-  return Buffer.from(input).toString('base64url');
-}
 
 export interface LiveKitTokenClaims {
   apiKey: string;
@@ -40,17 +37,10 @@ export interface LiveKitTokenClaims {
  * Generates an HS256 JWT token conforming to LiveKit AccessToken grants.
  */
 export function signLiveKitAccessToken(claims: LiveKitTokenClaims): string {
-  const now = Math.floor(Date.now() / 1000);
   const ttl = Math.max(60, Math.min(86_400, claims.ttlSeconds ?? 3600));
-  const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = base64UrlEncode(
-    JSON.stringify({
-      iss: claims.apiKey,
-      sub: claims.identity,
+  return jwt.sign(
+    {
       name: claims.name ?? claims.identity,
-      iat: now,
-      nbf: now,
-      exp: now + ttl,
       video: {
         room: claims.roomName,
         roomJoin: true,
@@ -58,12 +48,16 @@ export function signLiveKitAccessToken(claims: LiveKitTokenClaims): string {
         canPublish: claims.canPublish ?? true,
         canSubscribe: claims.canSubscribe ?? true,
       },
-    }),
+    },
+    claims.apiSecret,
+    {
+      algorithm: 'HS256',
+      issuer: claims.apiKey,
+      subject: claims.identity,
+      notBefore: 0,
+      expiresIn: ttl,
+    },
   );
-  const signature = createHmac('sha256', claims.apiSecret)
-    .update(`${header}.${payload}`)
-    .digest('base64url');
-  return `${header}.${payload}.${signature}`;
 }
 
 /**
@@ -78,33 +72,23 @@ export function verifyLiveKitWebhook(
 ): { valid: boolean; reason?: string; event?: Record<string, unknown> } {
   if (!authHeader) return { valid: false, reason: 'Missing Authorization header' };
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  const parts = token.split('.');
-  if (parts.length !== 3) return { valid: false, reason: 'Malformed JWT' };
-  const [headerB64, payloadB64, sigB64] = parts;
-
-  const expectedSig = createHmac('sha256', apiSecret)
-    .update(`${headerB64}.${payloadB64}`)
-    .digest();
-  const providedSig = Buffer.from(sigB64, 'base64url');
-  if (expectedSig.length !== providedSig.length || !timingSafeEqual(expectedSig, providedSig)) {
-    return { valid: false, reason: 'Invalid webhook signature' };
-  }
+  if (token.split('.').length !== 3) return { valid: false, reason: 'Malformed JWT' };
 
   let claims: { iss?: string; exp?: number; nbf?: number; sha256?: string };
   try {
-    claims = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as typeof claims;
-  } catch {
-    return { valid: false, reason: 'Malformed JWT payload' };
+    claims = jwt.verify(token, apiSecret, {
+      algorithms: ['HS256'],
+      issuer: apiKey,
+      clockTolerance: 5,
+    }) as typeof claims;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Invalid webhook signature';
+    if (msg.includes('issuer')) return { valid: false, reason: 'Issuer mismatch' };
+    if (msg.includes('expired')) return { valid: false, reason: 'Webhook token expired' };
+    if (msg.includes('not active')) return { valid: false, reason: 'Webhook token not yet valid' };
+    return { valid: false, reason: 'Invalid webhook signature' };
   }
 
-  if (claims.iss !== apiKey) return { valid: false, reason: 'Issuer mismatch' };
-  const now = Math.floor(Date.now() / 1000);
-  if (typeof claims.exp === 'number' && now > claims.exp) {
-    return { valid: false, reason: 'Webhook token expired' };
-  }
-  if (typeof claims.nbf === 'number' && now < claims.nbf - 5) {
-    return { valid: false, reason: 'Webhook token not yet valid' };
-  }
   if (claims.sha256) {
     const bodyDigest = createHash('sha256').update(rawBody).digest('base64');
     const bodyDigestHex = createHash('sha256').update(rawBody).digest('hex');
@@ -132,24 +116,23 @@ async function lkTwirp(
   if (!apiSecret) {
     throw new IntegrationError('telephony.livekit', 'missing extras.apiSecret for LiveKit token signing');
   }
-  const now = Math.floor(Date.now() / 1000);
-  const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = base64UrlEncode(
-    JSON.stringify({
-      iss: apiKey,
-      iat: now,
-      exp: now + 300,
+  const token = jwt.sign(
+    {
       video: { roomList: true, roomCreate: true, roomAdmin: true },
       sip: { list: true, admin: true },
-    }),
+    },
+    apiSecret,
+    {
+      algorithm: 'HS256',
+      issuer: apiKey,
+      expiresIn: 300,
+    },
   );
-  const sig = createHmac('sha256', apiSecret).update(`${header}.${payload}`).digest('base64url');
-  const jwt = `${header}.${payload}.${sig}`;
 
   const res = await guardedFetch('telephony.livekit', joinUrl(ctx.credential.baseUrl, servicePath), {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${jwt}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),

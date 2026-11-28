@@ -258,8 +258,13 @@ async function fetchProviderUserInfo(
   }
 
   // GitHub's /user endpoint omits email verification unless /user/emails is queried.
-  const isGitHub =
-    provider === 'github' || providerConfig.userInfoUrl.includes('api.github.com');
+  let isGitHubUserInfoHost = false;
+  try {
+    isGitHubUserInfoHost = new URL(providerConfig.userInfoUrl).hostname.toLowerCase() === 'api.github.com';
+  } catch {
+    isGitHubUserInfoHost = false;
+  }
+  const isGitHub = provider === 'github' || isGitHubUserInfoHost;
   if (!emailVerified && isGitHub && userData.email_verified === undefined) {
     const verifiedGitHubEmail = await fetchGitHubVerifiedEmail(accessToken);
     if (verifiedGitHubEmail) {

@@ -20,6 +20,7 @@ import {
   createDecipheriv,
   createHash,
   hkdfSync,
+  pbkdf2Sync,
   randomBytes,
 } from 'node:crypto';
 
@@ -261,7 +262,13 @@ export function needsFieldReencryption(value: string): boolean {
  * attacker.
  */
 export function fingerprint(secret: string): string {
-  const digest = createHash('sha256').update(secret).digest('hex').slice(0, 12);
+  const digest = pbkdf2Sync(
+    secret,
+    'alolabs:field-encryption:fingerprint:v1',
+    100_000,
+    6,
+    'sha256',
+  ).toString('hex');
   const tail = secret.length >= 8 ? secret.slice(-4) : '';
   return tail ? `…${tail} (sha256:${digest})` : `sha256:${digest}`;
 }

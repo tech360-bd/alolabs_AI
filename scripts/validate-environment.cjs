@@ -88,7 +88,7 @@ function validateEnvironment(env, options = {}) {
             break;
           }
         } catch {
-          problem('ALLOWED_ORIGINS', `invalid origin format "${origin}"`);
+          problem('ALLOWED_ORIGINS', 'contains an invalid origin URL format');
           break;
         }
       }

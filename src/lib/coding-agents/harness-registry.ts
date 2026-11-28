@@ -406,13 +406,23 @@ export async function executeSandboxedHarnessSession(params: {
     throw new Error(`Protected branch "${session.branchName}" cannot be executed`);
   }
 
-  const sandboxDir = `/tmp/alo-sandboxes/${params.companyId.replace(/[^a-zA-Z0-9_-]/g, '_')}/${session.id.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  const sandboxRoot = path.resolve('/tmp/alo-sandboxes');
+  const safeCompany = params.companyId.replace(/[^a-zA-Z0-9_-]/g, '_') || 'default';
+  const safeSession = session.id.replace(/[^a-zA-Z0-9_-]/g, '_') || 'session';
+  const sandboxDir = path.resolve(sandboxRoot, safeCompany, safeSession);
+  if (!sandboxDir.startsWith(`${sandboxRoot}${path.sep}`)) {
+    throw new Error('Invalid sandbox workspace path');
+  }
   const pathCheck = validateSandboxWorkspacePath(sandboxDir);
   if (!pathCheck.ok) {
     throw new Error(pathCheck.reason ?? 'Invalid sandbox workspace');
   }
 
-  const fileName = (params.targetFileName ?? 'sandbox-change.mjs').replace(/[^a-zA-Z0-9._-]/g, '_');
+  const rawFileName = path.basename(params.targetFileName ?? 'sandbox-change.mjs').replace(/[^a-zA-Z0-9._-]/g, '_');
+  const fileName =
+    !rawFileName || rawFileName === '.' || rawFileName === '..' || rawFileName.includes('..')
+      ? 'sandbox-change.mjs'
+      : rawFileName;
   const content =
     params.proposedContent ??
     `export function sandboxTaskSummary() {\n  return { sessionId: ${JSON.stringify(session.id)}, harness: ${JSON.stringify(session.harness.slug)}, status: 'verified' };\n}\n`;
@@ -424,12 +434,15 @@ export async function executeSandboxedHarnessSession(params: {
     await execFileAsync('git', ['init', '-b', 'main'], { cwd: sandboxDir, env, timeout: 5_000 });
     await execFileAsync('git', ['config', 'user.email', 'sandbox@alolabs.local'], { cwd: sandboxDir, env, timeout: 5_000 });
     await execFileAsync('git', ['config', 'user.name', 'ALO Sandbox Runner'], { cwd: sandboxDir, env, timeout: 5_000 });
-    await writeFile(path.join(sandboxDir, 'README.md'), '# Disposable Sandbox Repo\n', 'utf8');
+    await writeFile(path.resolve(sandboxDir, 'README.md'), '# Disposable Sandbox Repo\n', 'utf8');
     await execFileAsync('git', ['add', 'README.md'], { cwd: sandboxDir, env, timeout: 5_000 });
     await execFileAsync('git', ['commit', '-m', 'chore: initial sandbox baseline'], { cwd: sandboxDir, env, timeout: 5_000 });
     await execFileAsync('git', ['checkout', '-b', session.branchName], { cwd: sandboxDir, env, timeout: 5_000 });
 
-    const targetPath = path.join(sandboxDir, fileName);
+    const targetPath = path.resolve(sandboxDir, fileName);
+    if (!targetPath.startsWith(`${sandboxDir}${path.sep}`)) {
+      throw new Error('Sandbox target path escapes workspace boundary');
+    }
     await writeFile(targetPath, content, 'utf8');
 
     let verificationPassed = true;

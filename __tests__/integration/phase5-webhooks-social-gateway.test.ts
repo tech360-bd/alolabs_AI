@@ -59,6 +59,7 @@ beforeAll(async () => {
   await db.companyUser.create({ data: { userId: A.userId, companyId: A.companyId, role: 'owner' } });
   await db.companyUser.create({ data: { userId: B.userId, companyId: B.companyId, role: 'owner' } });
 
+  const { hashApiKey } = await import('@/lib/api-gateway');
   apiKeyA = `alo_p5_${crypto.randomBytes(16).toString('hex')}`;
   apiKeyAIpLocked = `alo_p5_${crypto.randomBytes(16).toString('hex')}`;
 
@@ -67,7 +68,7 @@ beforeAll(async () => {
       companyId: A.companyId,
       name: 'Alpha Open Key',
       keyPrefix: apiKeyA.slice(0, 12),
-      keyHash: crypto.createHash('sha256').update(apiKeyA).digest('hex'),
+      keyHash: hashApiKey(apiKeyA),
       scopes: JSON.stringify(['*']),
       isActive: true,
     },
@@ -78,7 +79,7 @@ beforeAll(async () => {
       companyId: A.companyId,
       name: 'Alpha IP Locked Key',
       keyPrefix: apiKeyAIpLocked.slice(0, 12),
-      keyHash: crypto.createHash('sha256').update(apiKeyAIpLocked).digest('hex'),
+      keyHash: hashApiKey(apiKeyAIpLocked),
       scopes: JSON.stringify(['*']),
       ipAllowlist: JSON.stringify(['203.0.113.0/24']),
       isActive: true,
