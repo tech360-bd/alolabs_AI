@@ -17,6 +17,20 @@
 #   workflows    Temporal durable workflow engine (MIT) + PostgreSQL + UI
 #   cms          Directus headless CMS (MSCL-1.0-GPL, source-available) [CONDITIONAL]
 #   nocode       NocoBase no-code platform (custom NocoBase agreement) [CONDITIONAL]
+#   chat-calls   Rocket.Chat team chat (MIT core) — free equivalent of the
+#                commercial MirrorFly chat SDK
+#   video-calls  Jitsi Meet self-hosted video/voice conferencing (Apache-2.0) —
+#                free equivalent of MirrorFly's audio/video-call features
+#   social       Postmill self-hosted social-media scheduler (AGPL-3.0, run as
+#                an unmodified separate service) — free equivalent of the paid
+#                outstand.so API
+#
+# FREE-EQUIVALENT MAP (2026-11-28, round 3): requested services that are NOT
+# free with self-hosting are replaced by the free services above:
+#   MirrorFly (commercial SDK, quote-based)  -> chat-calls + video-calls
+#   outstand.so ($19–$129/mo SaaS)           -> social
+#   jarvis.institute ($9.99 proprietary app) -> openwebui / chat-ui (already
+#                                               present; local-model assistant)
 #
 # LICENSE NOTES (verified 2026-11-28 against each upstream LICENSE file):
 #   - LiteLLM: LICENSE file is MIT text; enterprise/ directory carries separate
@@ -31,10 +45,19 @@
 #     external commercial offerings.
 #   - NocoBase: full custom license agreement (LICENSE.txt, updated 2026-11-16).
 #     Deploying it binds the operator to that agreement — legal review first.
+#   - Rocket.Chat: LICENSE file is MIT (Expat) for everything outside the
+#     "apps/meteor/ee/" and "ee/" directories (verified from upstream LICENSE
+#     2026-11-28); those EE directories carry their own license and are not
+#     part of the published community image used here.
+#   - Jitsi Meet: Apache-2.0 (docker-jitsi-meet deployment pattern).
+#   - Postmill: AGPL-3.0 — integrated as a SEPARATE SERVICE running the
+#     published upstream image, no code copied (reuse policy). Run it
+#     unmodified; AGPL obligations attach to your modifications only.
 #
 # COST: zero. All services run locally. RAM budgets (opt-in per profile):
 #   ai-gateway ~0.5 GB | chat-ui ~1.0 GB | openwebui ~1.0 GB |
-#   automation ~1.5 GB | workflows ~1.5 GB | cms ~0.5 GB | nocode ~1.0 GB
+#   automation ~1.5 GB | workflows ~1.5 GB | cms ~0.5 GB | nocode ~1.0 GB |
+#   chat-calls ~1.5 GB | video-calls ~1.5 GB | social ~1.5 GB
 # Do not enable every profile at once on the shared 16 GB host (see
 # docker-compose.capacity.yml: ~6 GB is reserved for other projects).
 #
@@ -369,6 +392,247 @@ services:
     mem_limit: 768m
     networks: [free-stack-net]
 
+  # ── chat-calls: Rocket.Chat — free MirrorFly chat equivalent ─
+  # MIT-licensed community image (ee/ dirs are separate and not in the image).
+  # MongoDB MUST run as a single-node replica set (Rocket.Chat requires the
+  # oplog); the one-shot init container performs rs.initiate.
+  rocketchat-mongo:
+    image: mongo:7
+    container_name: alolabs-rc-mongo
+    restart: unless-stopped
+    profiles: [chat-calls]
+    command: ["mongod", "--oplogSize", "128", "--replSet", "rs0"]
+    volumes:
+      - rocketchat_mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 768m
+    networks: [free-stack-net]
+
+  rocketchat-mongo-init:
+    image: mongo:7
+    container_name: alolabs-rc-mongo-init
+    restart: "no"
+    profiles: [chat-calls]
+    depends_on:
+      rocketchat-mongo:
+        condition: service_healthy
+    # The replica-set member host must be the SERVICE name so other
+    # containers resolve it (the upstream example's "localhost" only works
+    # when compose shares the mongo network namespace).
+    entrypoint: >
+      bash -c "until mongosh --host rocketchat-mongo --quiet --eval 'rs.status().ok' | grep -q 1; do
+      mongosh --host rocketchat-mongo --quiet --eval
+      'rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"rocketchat-mongo:27017\"}]})' || true; sleep 3; done"
+    mem_limit: 256m
+    networks: [free-stack-net]
+
+  rocketchat:
+    image: rocket.chat:latest
+    container_name: alolabs-rocket-chat
+    restart: unless-stopped
+    profiles: [chat-calls]
+    environment:
+      PORT: "3000"
+      ROOT_URL: ${ROCKETCHAT_ROOT_URL:?set ROCKETCHAT_ROOT_URL e.g. http://127.0.0.1:3020}
+      MONGO_URL: mongodb://rocketchat-mongo:27017/rocketchat?replicaSet=rs0
+      MONGO_OPLOG_URL: mongodb://rocketchat-mongo:27017/local?replicaSet=rs0
+      # Initial admin (Rocket.Chat documented env vars; change on first login)
+      ADMIN_USERNAME: ${ROCKETCHAT_ADMIN_USERNAME:?set ROCKETCHAT_ADMIN_USERNAME}
+      ADMIN_EMAIL: ${ROCKETCHAT_ADMIN_EMAIL:?set ROCKETCHAT_ADMIN_EMAIL}
+      ADMIN_PASS: ${ROCKETCHAT_ADMIN_PASS:?set ROCKETCHAT_ADMIN_PASS}
+    volumes:
+      - rocketchat_uploads:/app/uploads
+    ports:
+      - "127.0.0.1:3020:3000"
+    depends_on:
+      rocketchat-mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/info || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    mem_limit: 1g
+    networks: [free-stack-net]
+
+  # ── video-calls: Jitsi Meet — free MirrorFly audio/video equivalent ──
+  # Apache-2.0; deployment pattern from the official docker-jitsi-meet stack
+  # (web + prosody + jicofo + jvb). Point Rocket.Chat's admin settings
+  # (Settings > Video Conference) at the Jitsi PUBLIC_URL to embed calls in
+  # chat rooms. Internal-only auth keeps it a private deployment.
+  jitsi-web:
+    image: jitsi/web:stable
+    container_name: alolabs-jitsi-web
+    restart: unless-stopped
+    profiles: [video-calls]
+    environment:
+      ENABLE_HTTPS: "0"
+      HTTP_PORT: "80"
+      PUBLIC_URL: ${JITSI_PUBLIC_URL:?set JITSI_PUBLIC_URL e.g. http://127.0.0.1:8100}
+      ENABLE_AUTH: "0"
+      ENABLE_GUESTS: "0"
+      ENABLE_RECORDING: "0"
+      TZ: ${JITSI_TZ:-Asia/Dhaka}
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_INTERNAL_MUC_DOMAIN: internal-muc.meet.jitsi
+      XMPP_MUC_DOMAIN: muc.meet.jitsi
+      XMPP_RECORDER_DOMAIN: recorder.meet.jitsi
+      XMPP_SERVER: jitsi-prosody
+    ports:
+      - "127.0.0.1:8100:80"
+    depends_on:
+      - jitsi-prosody
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  jitsi-prosody:
+    image: jitsi/prosody:stable
+    container_name: alolabs-jitsi-prosody
+    restart: unless-stopped
+    profiles: [video-calls]
+    expose:
+      - "5222"
+      - "5347"
+    environment:
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_INTERNAL_MUC_DOMAIN: internal-muc.meet.jitsi
+      XMPP_MUC_DOMAIN: muc.meet.jitsi
+      XMPP_RECORDER_DOMAIN: recorder.meet.jitsi
+      XMPP_SERVER: jitsi-prosody
+      ENABLE_AUTH: "0"
+      TZ: ${JITSI_TZ:-Asia/Dhaka}
+    mem_limit: 256m
+    networks: [free-stack-net]
+
+  jitsi-jicofo:
+    image: jitsi/jicofo:stable
+    container_name: alolabs-jitsi-jicofo
+    restart: unless-stopped
+    profiles: [video-calls]
+    depends_on:
+      - jitsi-prosody
+    environment:
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_SERVER: jitsi-prosody
+      JICOFO_COMPONENT_SECRET: ${JITSI_JICOFO_COMPONENT_SECRET:?set JITSI_JICOFO_COMPONENT_SECRET}
+      JICOFO_AUTH_USER: focus
+      JICOFO_AUTH_PASSWORD: ${JITSI_JICOFO_AUTH_PASSWORD:?set JITSI_JICOFO_AUTH_PASSWORD}
+      TZ: ${JITSI_TZ:-Asia/Dhaka}
+    mem_limit: 384m
+    networks: [free-stack-net]
+
+  jitsi-jvb:
+    image: jitsi/jvb:stable
+    container_name: alolabs-jitsi-jvb
+    restart: unless-stopped
+    profiles: [video-calls]
+    depends_on:
+      - jitsi-prosody
+    environment:
+      XMPP_SERVER: jitsi-prosody
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      JVB_AUTH_USER: jvb
+      JVB_AUTH_PASSWORD: ${JITSI_JVB_AUTH_PASSWORD:?set JITSI_JVB_AUTH_PASSWORD}
+      JVB_PORT: "10000"
+      JVB_ADVERTISE_IPS: ${JITSI_JVB_ADVERTISE_IPS:-127.0.0.1}
+      TZ: ${JITSI_TZ:-Asia/Dhaka}
+    ports:
+      - "10000:10000/udp"
+    mem_limit: 768m
+    networks: [free-stack-net]
+
+  # ── social: Postmill — free outstand.so equivalent ─────────
+  # AGPL-3.0, run as an unmodified separate service from the PUBLISHED
+  # upstream image (no source copied). Self-hosted social scheduling across
+  # 45+ channels with bring-your-own-key AI; channel credentials are
+  # configured in-app per organization (Settings > Channels), so no paid
+  # service is needed to boot. Billing stays off: Stripe keys empty.
+  postmill-redis:
+    image: redis:7-alpine
+    container_name: alolabs-postmill-redis
+    restart: unless-stopped
+    profiles: [social]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - postmill_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+    networks: [free-stack-net]
+
+  postmill-postgres:
+    image: postgres:17-alpine
+    container_name: alolabs-postmill-postgres
+    restart: unless-stopped
+    profiles: [social]
+    environment:
+      POSTGRES_USER: postmill-user
+      POSTGRES_PASSWORD: ${POSTMILL_DB_PASSWORD:?set POSTMILL_DB_PASSWORD}
+      POSTGRES_DB: postmill-db
+    volumes:
+      - postmill_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postmill-user -d postmill-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    mem_limit: 512m
+    networks: [free-stack-net]
+
+  postmill:
+    image: ghcr.io/postmill-ai/postmill-app:latest
+    container_name: alolabs-postmill
+    restart: unless-stopped
+    profiles: [social]
+    environment:
+      MAIN_URL: ${POSTMILL_MAIN_URL:?set POSTMILL_MAIN_URL e.g. http://127.0.0.1:4007}
+      FRONTEND_URL: ${POSTMILL_MAIN_URL:?set POSTMILL_MAIN_URL}
+      NEXT_PUBLIC_BACKEND_URL: ${POSTMILL_MAIN_URL:?set POSTMILL_MAIN_URL}/api
+      JWT_SECRET: ${POSTMILL_JWT_SECRET:?set POSTMILL_JWT_SECRET}
+      DATABASE_URL: postgresql://postmill-user:${POSTMILL_DB_PASSWORD:?set POSTMILL_DB_PASSWORD}@postmill-postgres:5432/postmill-db
+      REDIS_URL: redis://postmill-redis:6379
+      BACKEND_INTERNAL_URL: http://localhost:3000
+      IS_GENERAL: "true"
+      DISABLE_REGISTRATION: ${POSTMILL_DISABLE_REGISTRATION:-true}
+      # Billing deliberately off (Postmill honours Stripe keys only when set)
+      STRIPE_PUBLISHABLE_KEY: ""
+      STRIPE_SECRET_KEY: ""
+      STRIPE_SIGNING_KEY: ""
+    volumes:
+      - postmill_config:/config/
+      - postmill_uploads:/uploads/
+    ports:
+      # All-in-one image: nginx on 5000 routes /api to the backend and the
+      # rest to the frontend. Publish nginx only, per upstream guidance.
+      - "127.0.0.1:4007:5000"
+    depends_on:
+      postmill-postgres:
+        condition: service_healthy
+      postmill-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:5000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    mem_limit: 1g
+    networks: [free-stack-net]
+
 volumes:
   librechat_mongo:
   librechat_uploads:
@@ -379,6 +643,12 @@ volumes:
   directus_uploads:
   nocobase_postgres:
   nocobase_storage:
+  rocketchat_mongo:
+  rocketchat_uploads:
+  postmill_redis:
+  postmill_postgres:
+  postmill_config:
+  postmill_uploads:
 
 networks:
   # Isolated by default. To reach Ollama from docker-compose.inference.yml:

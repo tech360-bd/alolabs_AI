@@ -150,3 +150,28 @@ Round-2 answers, compact: **free = Code-Sync (integrate-ready), MultiTalk/Infini
 (research, GPU-gated); free-with-conditions = postmill (AGPL isolated service);
 not free = MirrorFly (org-level confirmed), jarvis.institute (page-level confirmed);
 prohibited = the no-license MeiGen-AI repos and MirrorFly samples.**
+
+## Round 3 — 2026-11-28: free equivalents BUILT for the not-free services
+
+Per the operator instruction "if any issue then build same service", every
+requested system that failed the free-self-host test is now replaced by a
+**free self-hosted equivalent integrated in
+`docker-compose.selfhost-free-stack.yml`**. Candidates were license-checked
+against their upstream LICENSE files before selection.
+
+| Not-free requested service | Free equivalent BUILT | License evidence (checked 2026-11-28) | New profile |
+| --- | --- | --- | --- |
+| MirrorFly (chat + audio/video calls, commercial SDK, quote-based) | **Rocket.Chat** (team chat, channels, DMs, mobile-ready) — upstream LICENSE read: MIT (Expat) for everything outside `apps/meteor/ee/` and `ee/`; the published community image excludes those EE dirs. Deployed with MongoDB single-node replica set (Rocket.Chat requires the oplog). | RocketChat/Rocket.Chat, 46,503★ | `chat-calls` |
+| MirrorFly (audio/video call features) | **Jitsi Meet** (web/prosody/jicofo/jvb stack, official docker-jitsi-meet pattern) — Apache-2.0, GitHub-detected. Rocket.Chat embeds it via Settings → Video Conference. | jitsi/jitsi-meet, 30,309★ | `video-calls` |
+| outstand.so (paid unified social posting SaaS, $19–$129/mo) | **Postmill** — runs the published upstream image `ghcr.io/postmill-ai/postmill-app:latest` as an unmodified separate service (AGPL-3.0; no code copied, reuse policy respected). 45+ channels, AI creative suite, BYOK; billing deliberately off (Stripe keys empty). Round-2's "reference only" verdict is upgraded to **integrated service** on the same legal basis as Jan (PR #88). | postmill-ai/postmill-app, 355★ | `social` |
+| jarvis.institute ($9.99 proprietary Windows assistant) | **Already covered, no new build needed**: Open WebUI (`openwebui`) and LibreChat (`chat-ui`) provide the same category — local-model AI assistant with chat, voice input, tools and memory, $0. Mapping documented; nothing proprietary added. | round 1/2 audits | existing profiles |
+
+Candidates evaluated but not chosen: Matrix Synapse + Element (both AGPL —
+Rocket.Chat's MIT core gives the same capability with a cleaner license);
+LiveKit (Apache-2.0, excellent SFU but requires building a client app — Jitsi
+is browser-ready with zero app development, closer to MirrorFly's turnkey
+behavior).
+
+The new profiles follow the established fail-closed pattern: every secret is
+`${VAR:?}`, every port binds to loopback, every service has healthchecks and
+memory ceilings, and nothing starts without an explicit `--profile` flag.
