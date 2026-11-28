@@ -37,9 +37,9 @@ cd "$PROJECT_DIR" || error "Cannot cd to ${PROJECT_DIR}"
 # ============================================================
 # 2. Install Dependencies
 # ============================================================
-info "Installing dependencies with Bun..."
-if ! bun install; then
-    error "Failed to install dependencies with Bun"
+info "Installing locked dependencies..."
+if ! npm ci --no-audit; then
+    error "Failed to install locked dependencies"
 fi
 success "Dependencies installed"
 
@@ -47,25 +47,18 @@ success "Dependencies installed"
 # 3. Generate Prisma Client
 # ============================================================
 info "Generating Prisma client..."
-if ! npx prisma generate; then
-    error "Failed to generate Prisma client"
+if [[ "${DATABASE_URL:-}" == mysql://* || "${DATABASE_URL:-}" == mariadb://* ]]; then
+    npm run db:generate:mysql || error "Failed to generate MySQL Prisma client"
+else
+    npm run db:generate || error "Failed to generate Prisma client"
 fi
 success "Prisma client generated"
 
 # ============================================================
-# 4. Push Database Schema
-# ============================================================
-info "Pushing database schema..."
-if ! npx prisma db push; then
-    error "Failed to push database schema"
-fi
-success "Database schema pushed"
-
-# ============================================================
-# 5. Build Next.js Application
+# 4. Build Next.js Application
 # ============================================================
 info "Building Next.js application (production)..."
-if ! bun run build; then
+if ! NODE_ENV=production npm run build; then
     error "Next.js build failed"
 fi
 success "Next.js build completed"

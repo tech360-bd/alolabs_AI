@@ -25,7 +25,6 @@ const PUBLIC_API_EXACT_PATHS = new Set([
   '/api/auth/password-reset',
   '/api/auth/mfa/verify',
   '/api/auth/mfa/resend',
-  '/api/auth/sso',
   '/api/auth/oauth',
   '/api/health/live',
   '/api/health/ready',

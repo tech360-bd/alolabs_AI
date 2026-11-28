@@ -24,11 +24,13 @@ for arg in "$@"; do
   esac
 done
 
-# Bun
-if command -v bun &>/dev/null; then
+# Runtime (Node.js 22+ or Bun)
+if command -v node &>/dev/null; then
+  res node_runtime pass "Node $(node --version 2>/dev/null || echo unknown)"
+elif command -v bun &>/dev/null; then
   res bun_runtime pass "Bun $(bun --version 2>/dev/null || echo unknown)"
 else
-  res bun_runtime fail "Bun not found"
+  res runtime fail "Neither Node.js nor Bun found"
 fi
 
 # package.json
@@ -39,7 +41,7 @@ else
 fi
 
 # lockfile
-if [[ -f "${PROJECT_DIR}/bun.lock" ]]; then
+if [[ -f "${PROJECT_DIR}/package-lock.json" || -f "${PROJECT_DIR}/bun.lock" ]]; then
   res lockfile pass "Found"
 else
   res lockfile fail "Missing"
@@ -98,7 +100,7 @@ fi
 RESULTS="${RESULTS%,}"
 
 echo "========================================="
-echo "  ALO Labs AISMH - Verify"
+echo "  ALO Labs AgentOS - Verify"
 echo "  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "========================================="
 echo "${RESULTS}" | tr ',' '

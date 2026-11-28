@@ -1,11 +1,9 @@
 import { z } from 'zod';
 import { secureCrud } from '@/lib/api/secure-crud';
+import { workflowOwnershipSpec } from '@/lib/api/workflow-ownership';
 
 /**
- * workflow.usage-summaries — authenticated, authorised, audited and rate limited.
- *
- * Replaces a hand-written route that verified a session token inline but
- * applied no role check and no tenant scope to the queries below.
+ * workflow.usage-summaries — authenticated, authorised, tenant-scoped, audited and rate limited.
  */
 
 const createSchema = z.object({
@@ -30,10 +28,21 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'workflow.usage-summaries',
   model: 'workflowUsageSummary',
   label: 'WorkflowUsageSummary',
-  // This table has no tenant column of its own — see the security report.
   tenantField: null,
+  ownership: workflowOwnershipSpec(),
   createSchema,
   updateSchema,
   searchFields: ['period'],
+  orderBy: { calculatedAt: 'desc' },
+  sortableFields: [
+    'id',
+    'workflowId',
+    'period',
+    'totalRuns',
+    'successCount',
+    'failureCount',
+    'avgDurationMs',
+    'calculatedAt',
+  ],
   writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword, createSessionToken } from '@/lib/auth';
+import { passwordPolicySchema } from '@/lib/auth/password-policy';
 import { z } from 'zod';
 import { CLIENT_ROLE } from '@/lib/access/surfaces';
 import { recordAccessViolation } from '@/lib/access/audit';
@@ -13,7 +14,7 @@ import { provisionDefaultWorkspace } from '@/lib/platform/workspaces';
 // register themselves into the internal workforce.
 const RegisterSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: passwordPolicySchema,
   name: z.string().min(1, 'Name is required').max(100),
   companyName: z.string().trim().min(2).max(120).optional(),
 });
@@ -85,9 +86,13 @@ export async function POST(request: NextRequest) {
     const token = await createSessionToken(user.id, { method: 'register' });
 
     // Log registration event
-    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || request.headers.get('x-real-ip')
-      || 'unknown';
+    const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1';
+    const clientIp = (
+      request.headers.get('x-real-ip')?.trim()
+      || (trustProxy ? request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() : undefined)
+      || (request as NextRequest & { ip?: string }).ip?.trim()
+      || 'unknown'
+    ).slice(0, 64);
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
     await db.auditLog.create({

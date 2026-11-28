@@ -6,14 +6,14 @@ set -Eeuo pipefail
 # Deploys a new release with rollback capability
 # ═══════════════════════════════════════════════════════════════════════════
 
-readonly APP_NAME="alolabs-aISMH"
+readonly APP_NAME="alolabs-agentos"
 readonly APP_USER="alolabs"
 readonly DEPLOY_BASE="/opt/${APP_NAME}"
 readonly SERVICE_NAME="${APP_NAME}"
 readonly RELEASES_DIR="${DEPLOY_BASE}/releases"
 readonly SHARED_DIR="${DEPLOY_BASE}/shared"
 readonly SCRIPT_NAME="update.sh"
-readonly TEMP_DIR_BASE="/tmp/alolabs-deploy"
+TEMP_DIR_BASE=""
 
 MAX_ROLLBACK_WAIT=30
 
@@ -103,8 +103,8 @@ extract_archive() {
   local archive="$1" release_dir="$2"
   local temp_extract
 
-  temp_extract="${TEMP_DIR_BASE}/extract_$(date +%s)"
-  mkdir -p "${temp_extract}"
+  temp_extract="$(mktemp -d)"
+  TEMP_DIR_BASE="${temp_extract}"
 
   log_action "Extracting archive..."
   tar xzf "${archive}" -C "${temp_extract}" 2>/dev/null
@@ -283,7 +283,7 @@ verify_health() {
   local delay=3
 
   for i in $(seq 1 "${retries}"); do
-    if curl -sf --max-time 10 "http://localhost:3000/api/health" 2>/dev/null | grep -q '"status":"healthy"'; then
+    if curl -sf --max-time 10 "http://127.0.0.1:${PORT:-3011}/api/health/ready" 2>/dev/null; then
       log_action "Health check passed (attempt ${i}/${retries})"
       return 0
     fi
@@ -353,7 +353,7 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-trap 'rm -rf "${TEMP_DIR_BASE:-/tmp/alolabs-deploy}" 2>/dev/null; true' EXIT
+trap '[[ -n "${TEMP_DIR_BASE}" ]] && rm -rf "${TEMP_DIR_BASE}" 2>/dev/null || true' EXIT
 
 log_action "Starting staged deployment..."
 

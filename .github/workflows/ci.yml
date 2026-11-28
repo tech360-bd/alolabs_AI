@@ -89,8 +89,13 @@ jobs:
         run: npm audit --omit=dev --audit-level=moderate
       - name: Generate test Prisma client
         run: bun run db:generate
-      - name: Prisma delegate/schema reconciliation
-        run: bun run check:prisma-delegates
+      - name: Prisma delegate, migration, and MySQL compatibility checks
+        run: |
+          bun run check:prisma-delegates
+          bun run verify:migrations
+          bun run verify:mysql
+          bun run audit:routes
+          node scripts/validate-environment.cjs
       - name: TypeScript hard gate
         shell: bash
         run: |

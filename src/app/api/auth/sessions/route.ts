@@ -12,11 +12,13 @@ import { verifySessionToken } from '@/lib/auth';
 
 async function authenticate(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  const token = authHeader.slice('Bearer '.length).trim();
+  const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : '';
+  const cookieToken = request.cookies?.get?.('session-token')?.value ?? '';
+  const token = bearer || cookieToken;
   if (!token) return null;
 
-  const session = await verifySessionToken(token);
+  // Shared account endpoint: both internal and client portal users may manage their own sessions.
+  const session = await verifySessionToken(token, { audience: 'any' });
   return session ? { userId: session.userId, token } : null;
 }
 

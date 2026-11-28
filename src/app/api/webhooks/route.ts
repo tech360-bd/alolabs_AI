@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import crypto from 'crypto';
 import { requireAuth, canManageCompany, type AuthenticatedUser } from '@/lib/api-auth';
+import { validateExternalUrlSyntax } from '@/lib/security/ssrf';
 
 /**
  * /api/webhooks — webhook config management.
@@ -38,8 +39,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const companySlug = searchParams.get('company') || '';
-    const isAdmin = user.role === 'super_admin' || user.role === 'admin';
-    const targetSlug = isAdmin ? companySlug : undefined;
+    const isPlatformAdmin = user.role === 'super_admin';
+    const targetSlug = isPlatformAdmin ? companySlug : undefined;
 
     const where: Record<string, unknown> = {};
     if (targetSlug) {
@@ -85,7 +86,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const { name, url, events } = body;
 
     // P0-A: companyId resolved server-side. Caller-supplied companyId ignored.
@@ -93,11 +97,20 @@ export async function POST(request: NextRequest) {
     if (!companyId) {
       return NextResponse.json({ error: 'No active company membership' }, { status: 403 });
     }
-    if (!name || !url || !events || events.length === 0) {
+    if (!name || !url || !events || !Array.isArray(events) || events.length === 0) {
       return NextResponse.json({ error: 'name, url, and events are required' }, { status: 400 });
     }
     if (!canManageCompany(user) && user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    try {
+      validateExternalUrlSyntax(String(url), { allowHttp: process.env.NODE_ENV !== 'production' });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'Invalid webhook URL' },
+        { status: 400 },
+      );
     }
 
     const company = await db.company.findUnique({ where: { id: companyId }, select: { id: true } });

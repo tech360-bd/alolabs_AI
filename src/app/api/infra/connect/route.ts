@@ -10,8 +10,11 @@ type InfraType = (typeof VALID_TYPES)[number]
 
 export async function POST(request: NextRequest) {
   try {
-    await requireRole('super_admin', 'admin');
-    const body = await request.json()
+    await requireRole('super_admin');
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const { type, config, action } = body as {
       type: InfraType
       config?: Record<string, unknown>

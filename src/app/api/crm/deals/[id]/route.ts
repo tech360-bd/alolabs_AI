@@ -51,7 +51,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (expectedClose !== undefined) updateData.expectedClose = expectedClose ? new Date(expectedClose) : null
     if (actualClose !== undefined) updateData.actualClose = actualClose ? new Date(actualClose) : null
     if (lostReason !== undefined) updateData.lostReason = lostReason || null
-    if (stageId !== undefined) updateData.stageId = stageId
+    if (stageId !== undefined) {
+      const stage = await db.crmPipelineStage.findFirst({
+        where: { id: String(stageId), pipelineId: deal.pipelineId },
+        select: { id: true },
+      })
+      if (!stage) {
+        return NextResponse.json({ error: 'Pipeline stage not found' }, { status: 404 })
+      }
+      updateData.stageId = stageId
+    }
     if (status !== undefined) updateData.status = status
     if (assignedTo !== undefined) updateData.assignedTo = assignedTo || null
     if (metadata !== undefined) updateData.metadata = JSON.stringify(metadata)

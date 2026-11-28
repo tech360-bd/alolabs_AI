@@ -8,7 +8,7 @@ import { requireRole } from '@/lib/api-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    await requireRole('admin', 'super_admin');
+    await requireRole('super_admin');
     // Read all infra service records from DB
     const dbServices = await db.infraService.findMany({
       orderBy: { createdAt: 'asc' },

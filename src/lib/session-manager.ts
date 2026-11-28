@@ -292,7 +292,7 @@ export async function cleanupExpiredSessions(): Promise<number> {
 
 /** Rotate an active session into a new JWT and immediately revoke the old token. */
 export async function refreshSession(token: string): Promise<string | null> {
-  const verified = await verifySessionToken(token);
+  const verified = await verifySessionToken(token, { audience: 'any' });
   if (!verified) return null;
 
   const old = verified.session;

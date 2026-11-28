@@ -56,16 +56,28 @@ const endpointConfigs = new Map<string, EndpointConfig>([
 // `limit` timestamps per key, expiring the list after its real window.
 const SLIDING = `
   local key, now, window, limit = KEYS[1], tonumber(ARGV[1]), tonumber(ARGV[2]), tonumber(ARGV[3])
+  if limit <= 0 then return {0, 0, now+window} end
   local head = redis.call('LINDEX', key, 0)
   while head and tonumber(head) <= now-window do
     redis.call('LPOP', key)
     head = redis.call('LINDEX', key, 0)
   end
   local count = redis.call('LLEN', key)
-  if count >= limit then return {0, 0, tonumber(head)+window} end
+  if count >= limit then return {0, 0, tonumber(head or now)+window} end
   redis.call('RPUSH', key, now)
   redis.call('PEXPIRE', key, window)
   return {1, limit-count-1, tonumber(head or now)+window}`;
+
+const PEEK_SLIDING = `
+  local key, now, window, limit = KEYS[1], tonumber(ARGV[1]), tonumber(ARGV[2]), tonumber(ARGV[3])
+  if limit <= 0 then return {0, 0, now+window} end
+  local head = redis.call('LINDEX', key, 0)
+  while head and tonumber(head) <= now-window do
+    redis.call('LPOP', key)
+    head = redis.call('LINDEX', key, 0)
+  end
+  local count = redis.call('LLEN', key)
+  return {count, math.max(0, limit-count), tonumber(head or now)+window}`;
 
 // Five *failed* credentials start a fixed lockout. Reads and attempts during
 // lockout do not extend it; sub-threshold buckets also expire.
@@ -90,14 +102,49 @@ function sweep(now: number) {
 
 export async function checkLimit(key: string, limit = DEFAULT_MAX_REQUESTS, windowMs = DEFAULT_WINDOW_MS): Promise<RateLimitResult> {
   const now = Date.now();
-  const shared = await evalLimitScript(SLIDING, `${KEY_PREFIX}window:v2:${key}`, now, windowMs, limit);
+  const safeWindowMs = Math.max(1, windowMs);
+  if (limit <= 0) {
+    return { allowed: false, remaining: 0, resetAt: now + safeWindowMs, limit };
+  }
+  const shared = await evalLimitScript(SLIDING, `${KEY_PREFIX}window:v2:${key}`, now, safeWindowMs, limit);
   if (shared) return { allowed: shared[0] === 1, remaining: shared[1], resetAt: shared[2], limit };
   sweep(now);
-  const timestamps = (windows.get(key)?.timestamps ?? []).filter(t => t > now - windowMs);
+  const timestamps = (windows.get(key)?.timestamps ?? []).filter(t => t > now - safeWindowMs);
   const allowed = timestamps.length < limit;
   if (allowed) timestamps.push(now);
-  windows.set(key, { timestamps, expires: timestamps[timestamps.length-1] + windowMs });
-  return { allowed, remaining: Math.max(0, limit - timestamps.length), resetAt: timestamps[0] + windowMs, limit };
+  const tail = timestamps[timestamps.length - 1] ?? now;
+  const head = timestamps[0] ?? now;
+  if (timestamps.length > 0) {
+    windows.set(key, { timestamps, expires: tail + safeWindowMs });
+  }
+  return { allowed, remaining: Math.max(0, limit - timestamps.length), resetAt: head + safeWindowMs, limit };
+}
+
+export async function peekLimit(
+  key: string,
+  limit = DEFAULT_MAX_REQUESTS,
+  windowMs = DEFAULT_WINDOW_MS,
+): Promise<{ count: number; remaining: number; resetAt: number }> {
+  const now = Date.now();
+  const safeWindowMs = Math.max(1, windowMs);
+  if (limit <= 0) {
+    return { count: 0, remaining: 0, resetAt: now + safeWindowMs };
+  }
+  const shared = await evalLimitScript(PEEK_SLIDING, `${KEY_PREFIX}window:v2:${key}`, now, safeWindowMs, limit);
+  if (shared) return { count: shared[0], remaining: shared[1], resetAt: shared[2] };
+  sweep(now);
+  const timestamps = (windows.get(key)?.timestamps ?? []).filter(t => t > now - safeWindowMs);
+  const head = timestamps[0] ?? now;
+  return {
+    count: timestamps.length,
+    remaining: Math.max(0, limit - timestamps.length),
+    resetAt: head + safeWindowMs,
+  };
+}
+
+export async function resetLimit(key: string): Promise<void> {
+  await redisDel(`${KEY_PREFIX}window:v2:${key}`);
+  windows.delete(key);
 }
 
 export function checkEndpointLimit(endpoint: string, identifier: string): Promise<RateLimitResult> {

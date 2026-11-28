@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **Bun** runtime (recommended) or Node.js 20+
+- **Node.js 22.13+** (or Bun 1.3.4+)
 - **Git** for version control
 - A code editor with TypeScript support (VS Code recommended)
 
@@ -10,18 +10,16 @@
 
 ```bash
 # Clone and install dependencies
-bun install
+npm ci
 
-# Generate Prisma client and push schema
-bun run db:generate
-bun run db:push
-
-# Seed the database (creates initial admin user, departments, agents, skills)
-bun run scripts/seed.ts
+# Generate SQLite Prisma client and push schema (local dev)
+export DATABASE_URL="file:$PWD/db/custom.db" PRISMA_SQLITE_ADAPTER=1
+npm run db:generate:client-engine
+npm run db:push:sqlite
 
 # Start development server
-bun run dev
-# Server runs at http://localhost:3000
+npm run dev
+# Server runs at http://localhost:3011
 ```
 
 ## Project Structure
@@ -32,7 +30,7 @@ src/
 │   ├── layout.tsx              # Root layout, global providers
 │   ├── page.tsx                # SPA entry point
 │   ├── globals.css             # Tailwind v4 imports
-│   └── api/                    # 251 API route directories
+│   └── api/                    # 557 API route directories
 │       ├── auth/               # Authentication endpoints
 │       ├── agents/             # Agent management
 │       ├── skills/             # Skill management
@@ -92,100 +90,56 @@ src/app/api/my-resource/route.ts
 src/app/api/my-resource/[id]/route.ts
 ```
 
-### 2. Implement the handler
+### 2. Implement the handler (using `secureCrud` or `secureRoute`)
+
+All non-public endpoints MUST authenticate, enforce tenant scoping, validate input with Zod, audit mutations, and enforce rate limits. Never write raw un-scoped `db.myModel.findMany()` handlers.
 
 ```typescript
 // src/app/api/my-resource/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { z } from 'zod';
+import { secureCrud } from '@/lib/api/secure-crud';
 
-export async function GET(request: NextRequest) {
-  // 1. Authenticate
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) {
-    return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-  }
+const createSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
 
-  try {
-    // 2. Parse query parameters
-    const { searchParams } = new URL(request.url);
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')));
+const updateSchema = createSchema.partial();
 
-    // 3. Query database
-    const [items, total] = await Promise.all([
-      db.myModel.findMany({
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      db.myModel.count(),
-    ]);
-
-    // 4. Return paginated response
-    return NextResponse.json({
-      data: items,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    });
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  // Same auth pattern
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) {
-    return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-  }
-
-  try {
-    const body = await request.json();
-
-    // Validate input
-    if (!body.name) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
-    }
-
-    // Create record
-    const item = await db.myModel.create({
-      data: { name: body.name },
-    });
-
-    return NextResponse.json({ data: item }, { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
+export const { GET, POST, PUT, DELETE } = secureCrud({
+  resource: 'my.resources',
+  model: 'myModel',
+  label: 'MyModel',
+  tenantField: 'companyId',
+  createSchema,
+  updateSchema,
+  searchFields: ['name'],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'name', 'createdAt'],
+});
 ```
 
-### 3. Alternative: Using withAuth wrapper
+### 3. Alternative: Custom action with `secureRoute`
 
-For cleaner code, use the `withAuth` HOC from `src/lib/route-auth.ts`:
+For custom non-CRUD routes, wrap handlers with `secureRoute` from `@/lib/api/secure-route`:
 
 ```typescript
-import { withAuth } from '@/lib/route-auth';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { secureRoute } from '@/lib/api/secure-route';
 
-export const GET = withAuth(async (req, ctx, user) => {
-  // user.userId, user.role, user.email, user.name are guaranteed
-  const items = await db.myModel.findMany();
-  return NextResponse.json({ data: items });
-});
+const bodySchema = z.object({ name: z.string().min(1) });
+
+export const POST = secureRoute(
+  {
+    resource: 'my.resources',
+    action: 'create',
+    requireTenant: true,
+    bodySchema,
+  },
+  async ({ companyId, body }) => {
+    return NextResponse.json({ data: { companyId, name: body.name } }, { status: 201 });
+  },
+);
 ```
 
 ### 4. Register in navigation
@@ -260,8 +214,8 @@ const MyPanel = React.lazy(() => import('@/components/panels/my-panel'));
 ### Adding a new model
 
 1. Add the model to `prisma/schema.prisma`
-2. Run `bun run db:push` (development) or `bun run db:migrate` (production migration)
-3. Run `bun run db:generate` to update the Prisma client
+2. Regenerate the MySQL schemas (`npm run db:generate:schema`) and add paired forward/rollback SQL migrations under `prisma/migrations/mysql/` (`npm run verify:migrations` + `npm run verify:mysql`)
+3. Update local SQLite (`npm run db:push:sqlite`) and regenerate Prisma clients (`npm run db:generate:client-engine` / `npm run db:generate:mysql`)
 
 ### Adding a field to an existing model
 
@@ -272,10 +226,12 @@ model Agent {
 }
 ```
 
-Then run:
+Then regenerate and verify schema parity:
 
 ```bash
-bun run db:push
+npm run db:generate:schema
+npm run verify:mysql
+npm run db:push:sqlite
 ```
 
 ### Adding relations

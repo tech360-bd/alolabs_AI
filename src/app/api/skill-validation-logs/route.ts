@@ -25,10 +25,14 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'skill.validation-logs',
   model: 'skillValidationLog',
   label: 'SkillValidationLog',
-  // This table has no tenant column of its own — see the security report.
+  // Global skill validation audit log; restricted to platform super_admin.
   tenantField: null,
+  requireTenant: false,
+  roles: ['super_admin'],
+  writeRoles: ['super_admin'],
   createSchema,
   updateSchema,
   searchFields: ['status', 'reason'],
-  writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'skillId', 'status', 'checkedBy', 'createdAt'],
 });

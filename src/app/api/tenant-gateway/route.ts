@@ -379,14 +379,17 @@ export async function POST(request: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
   try {
-    const body = await request.json();
-    const { action } = body;
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+    const { action } = body as { action?: string };
 
     switch (action) {
       case 'validate':
-        return handleValidate(body);
+        return handleValidate(body, session);
       case 'execute':
-        return handleExecute(body, request);
+        return handleExecute(body, request, session);
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
@@ -397,7 +400,10 @@ export async function POST(request: NextRequest) {
 }
 
 // ── VALIDATE ───────────────────────────────────────────────────────────
-async function handleValidate(body: Record<string, unknown>) {
+async function handleValidate(
+  body: Record<string, unknown>,
+  session: { userId: string; role: string },
+) {
   const { apiKey, requiredScopes } = body;
   const errors: string[] = [];
 
@@ -411,6 +417,17 @@ async function handleValidate(body: Record<string, unknown>) {
   if (!keyRecord) {
     errors.push('Invalid API key');
     return NextResponse.json({ valid: false, errors });
+  }
+
+  // 1b. Enforce caller tenant ownership of this key
+  if (session.role !== 'super_admin') {
+    const membership = await db.companyUser.findFirst({
+      where: { userId: session.userId, companyId: keyRecord.companyId },
+      select: { id: true },
+    });
+    if (!membership) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
   }
 
   // 2. Check active
@@ -476,7 +493,11 @@ async function handleValidate(body: Record<string, unknown>) {
 }
 
 // ── EXECUTE ────────────────────────────────────────────────────────────
-async function handleExecute(body: Record<string, unknown>, request: NextRequest) {
+async function handleExecute(
+  body: Record<string, unknown>,
+  request: NextRequest,
+  session: { userId: string; role: string },
+) {
   const { apiKey, workflowId, agentId, input, requiredScopes } = body;
   const errors: string[] = [];
 
@@ -490,6 +511,18 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
   if (!keyRecord) {
     return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
   }
+
+  // 1b. Enforce caller tenant ownership of this key
+  if (session.role !== 'super_admin') {
+    const membership = await db.companyUser.findFirst({
+      where: { userId: session.userId, companyId: keyRecord.companyId },
+      select: { id: true },
+    });
+    if (!membership) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
   if (!keyRecord.isActive) {
     return NextResponse.json({ error: 'API key is inactive' }, { status: 403 });
   }
@@ -497,12 +530,15 @@ async function handleExecute(body: Record<string, unknown>, request: NextRequest
     return NextResponse.json({ error: 'API key has expired' }, { status: 403 });
   }
 
-  // 2b. IP allowlist enforcement
+  // 2b. IP allowlist enforcement (fail closed when allowlist is configured)
   const ipAllowlist: string[] = JSON.parse(keyRecord.ipAllowlist || '[]');
-  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || request.headers.get('x-real-ip')
-    || '';
-  if (ipAllowlist.length > 0 && clientIp && !isIpAllowed(clientIp, ipAllowlist)) {
+  const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1';
+  const clientIp = trustProxy
+    ? request.headers.get('x-real-ip')?.trim() ||
+      request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ||
+      ''
+    : request.headers.get('x-real-ip')?.trim() || '';
+  if (ipAllowlist.length > 0 && (!clientIp || !isIpAllowed(clientIp, ipAllowlist))) {
     return NextResponse.json({ error: 'IP not in allowlist' }, { status: 403 });
   }
 

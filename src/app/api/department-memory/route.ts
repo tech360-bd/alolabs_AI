@@ -31,5 +31,7 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   createSchema,
   updateSchema,
   searchFields: ['category', 'content'],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'departmentId', 'category', 'temperature', 'createdAt', 'updatedAt'],
   writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
 });

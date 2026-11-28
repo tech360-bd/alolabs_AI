@@ -11,13 +11,17 @@ if [ -z "${1:-}" ]; then
     echo "Example: ./restore.sh 20250101_120000"
     echo ""
     echo "Available backups:"
-    ls -1 /opt/alo-labs-ai-eos/backups/*.db 2>/dev/null | sed 's/.*custom_\(.*\)\.db/  \1/' || echo "  (none found)"
+    ls -1 /opt/alolabs-agentos/backups/*.db 2>/dev/null | sed 's/.*custom_\(.*\)\.db/  \1/' || echo "  (none found)"
     exit 1
 fi
 
-APP_DIR="/opt/alo-labs-ai-eos"
-BACKUP_DIR="/opt/alo-labs-ai-eos/backups"
+APP_DIR="${APP_DIR:-/opt/alolabs-agentos}"
+BACKUP_DIR="${APP_DIR}/backups"
 TIMESTAMP="$1"
+if ! [[ "$TIMESTAMP" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "ERROR: Invalid backup timestamp format" >&2
+    exit 1
+fi
 DB_PATH="$APP_DIR/db/custom.db"
 
 # ── Verify backup exists ──────────────────────────────────────
@@ -43,7 +47,7 @@ fi
 echo "Stopping application..."
 cd "$APP_DIR"
 if command -v pm2 &>/dev/null; then
-    pm2 stop alo-labs-ai-eos 2>/dev/null || echo "PM2 process not running — skipping stop"
+    pm2 stop alolabs-agentos 2>/dev/null || echo "PM2 process not running — skipping stop"
 else
     echo "PM2 not found — ensure the app is stopped manually"
 fi
@@ -78,7 +82,7 @@ fi
 # ── Restart Application ───────────────────────────────────────
 echo "Restarting application..."
 if command -v pm2 &>/dev/null; then
-    pm2 start alo-labs-ai-eos 2>/dev/null || pm2 restart alo-labs-ai-eos 2>/dev/null || echo "Manual restart required"
+    pm2 start alolabs-agentos 2>/dev/null || pm2 restart alolabs-agentos 2>/dev/null || echo "Manual restart required"
 else
     echo "PM2 not found — restart the application manually"
 fi

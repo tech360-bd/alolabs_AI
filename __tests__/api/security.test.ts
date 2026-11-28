@@ -67,6 +67,13 @@ vi.mock('@/lib/security/secret-manager', () => ({
   getSecret: (...args: unknown[]) => mockGetSecret(...args),
   setSecret: (...args: unknown[]) => mockSetSecret(...args),
   rotateSecret: (...args: unknown[]) => mockRotateSecret(...args),
+  SecretManagerError: class SecretManagerError extends Error {
+    code: string;
+    constructor(message: string, code = 'invalid-record') {
+      super(message);
+      this.code = code;
+    }
+  },
 }));
 
 // ─── Mock DB for secrets route ──────────────────────────────────────
@@ -307,8 +314,28 @@ describe('POST /api/security/secrets', () => {
     expect(data.maskedValue).toContain('****');
   });
 
-  it('should rotate a secret', async () => {
+  it('should mask short secrets completely without exposing prefix or suffix', async () => {
+    mockSetSecret.mockResolvedValue(undefined);
+    mockGetSecret.mockResolvedValue('short12345');
+    mockAuditLogCreate.mockResolvedValue({});
+
+    const req = new MockNextRequest('http://localhost/api/security/secrets', {
+      key: 'SHORT_SECRET',
+      value: 'short12345',
+    });
+    const response = await SECRETS_POST(req as any);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.maskedValue).toBe('****************');
+    expect(data.maskedValue).not.toContain('shor');
+    expect(data.maskedValue).not.toContain('2345');
+    expect(data.value).toBeUndefined();
+  });
+
+  it('should rotate a secret without leaking the raw secret value', async () => {
     mockRotateSecret.mockResolvedValue('new-rotated-value-32bytes!!');
+    mockGetSecret.mockResolvedValue('new-rotated-value-32bytes!!');
+    mockAuditLogCreate.mockResolvedValue({});
     const req = new MockNextRequest('http://localhost/api/security/secrets', {
       key: 'ROTATE_ME',
       rotate: true,
@@ -317,7 +344,20 @@ describe('POST /api/security/secrets', () => {
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.success).toBe(true);
-    expect(data.value).toBe('new-rotated-value-32bytes!!');
+    expect(data.rotated).toBe(true);
+    expect(data.value).toBeUndefined();
+    expect(data.maskedValue).toContain('****');
+    expect(data.fingerprint).toMatch(/^sha256:/);
+  });
+
+  it('should reject overwriting ENCRYPTION_KEY via API', async () => {
+    const req = new MockNextRequest('http://localhost/api/security/secrets', {
+      key: 'ENCRYPTION_KEY',
+      value: 'replacement-encryption-key-value-32chars',
+    });
+    const response = await SECRETS_POST(req as any);
+    expect(response.status).toBe(403);
+    expect(mockSetSecret).not.toHaveBeenCalled();
   });
 });
 

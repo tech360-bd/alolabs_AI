@@ -14,11 +14,17 @@ import { getStorage } from '@/lib/storage';
  */
 
 
+const SAFE_FOLDER_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+
 export async function GET(request: NextRequest) {
   try {
     const user = await requireCompanyAuth();
     const storage = getStorage();
-    const folder = new URL(request.url).searchParams.get('folder') ?? 'uploads';
+    const rawFolder = new URL(request.url).searchParams.get('folder');
+    const folder = rawFolder ?? 'uploads';
+    if (!SAFE_FOLDER_RE.test(folder)) {
+      return NextResponse.json({ error: 'Invalid folder name' }, { status: 400 });
+    }
     const files = (await storage.list(folder)).filter((file) => file.companyId === user.companyId);
 
     return NextResponse.json({
@@ -50,7 +56,11 @@ export async function POST(request: NextRequest) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'Missing file field' }, { status: 400 });
     }
-    const folder = typeof formData.get('folder') === 'string' ? (formData.get('folder') as string) : undefined;
+    const rawFolder = formData.get('folder');
+    const folder = typeof rawFolder === 'string' && rawFolder.trim() ? rawFolder.trim() : undefined;
+    if (folder !== undefined && !SAFE_FOLDER_RE.test(folder)) {
+      return NextResponse.json({ error: 'Invalid folder name' }, { status: 400 });
+    }
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const storage = getStorage();

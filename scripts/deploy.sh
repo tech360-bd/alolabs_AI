@@ -20,14 +20,14 @@ success() { echo -e "${GREEN}[OK]${NC}    $*"; }
 
 # ── Project directory ───────────────────────────────────────────
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PM2_APP_NAME="alo-labs-ai-eos"
+PM2_APP_NAME="alolabs-agentos"
 BRANCH="${DEPLOY_BRANCH:-main}"
 
 cd "$PROJECT_DIR" || error "Cannot cd to ${PROJECT_DIR}"
 
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
-echo -e "${GREEN}  ALO Labs AI-EOS — Deployment${NC}"
+echo -e "${GREEN}  ALO Labs AgentOS — Deployment${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 echo -e "  Branch:   ${BRANCH}"
 echo -e "  Dir:      ${PROJECT_DIR}"
@@ -38,31 +38,30 @@ echo ""
 # 1. Git Pull
 # ============================================================
 info "Pulling latest code from origin/${BRANCH}..."
-git fetch origin "${BRANCH}" || warn "git fetch failed — continuing with local code"
-git checkout "${BRANCH}"     || warn "git checkout failed"
-git pull origin "${BRANCH}"  || warn "git pull failed — continuing with existing code"
+git fetch origin "${BRANCH}" || error "git fetch failed"
+git checkout "${BRANCH}"     || error "git checkout failed"
+git pull --ff-only origin "${BRANCH}" || error "git pull failed"
 success "Code updated"
 
 # ============================================================
 # 2. Install Dependencies
 # ============================================================
-info "Installing dependencies..."
-npm install --production=false || error "npm install failed"
+info "Installing locked dependencies..."
+npm ci --no-audit || error "npm ci failed"
 success "Dependencies installed"
 
 # ============================================================
-# 3. Prisma Migrate
+# 3. Generate Production MySQL Prisma Client
 # ============================================================
-info "Running Prisma migrations..."
-npx prisma generate || warn "prisma generate failed"
-npx prisma migrate deploy || warn "prisma migrate deploy failed"
-success "Database migrations applied"
+info "Generating Prisma client..."
+npm run db:generate:mysql || error "db:generate:mysql failed"
+success "Prisma client generated"
 
 # ============================================================
 # 4. Build Application
 # ============================================================
 info "Building application..."
-npm run build || error "npm run build failed"
+NODE_ENV=production npm run build || error "npm run build failed"
 success "Build complete"
 
 # ============================================================
@@ -88,7 +87,7 @@ pm2 save || warn "pm2 save failed"
 # 6. Health Check
 # ============================================================
 info "Waiting for application to become healthy..."
-HEALTH_URL="http://localhost:3000/api/health"
+HEALTH_URL="http://127.0.0.1:${PORT:-3011}/api/health/ready"
 MAX_RETRIES=15
 RETRY_DELAY=2
 

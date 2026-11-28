@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/api-auth'
 // GET: List Redis keys
 export async function GET(request: NextRequest) {
   try {
-    await requireRole('super_admin', 'admin')
+    await requireRole('super_admin')
     const { searchParams } = new URL(request.url)
     const pattern = searchParams.get('pattern') || '*'
 
@@ -39,8 +39,11 @@ export async function GET(request: NextRequest) {
 // POST: Set a key
 export async function POST(request: NextRequest) {
   try {
-    await requireRole('super_admin', 'admin')
-    const body = await request.json()
+    await requireRole('super_admin')
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
     const { key, value, ttl } = body as { key: string; value: string; ttl?: number }
 
     if (!key || value === undefined) {
@@ -71,8 +74,11 @@ export async function POST(request: NextRequest) {
 // DELETE: Delete keys
 export async function DELETE(request: NextRequest) {
   try {
-    await requireRole('super_admin', 'admin')
-    const body = await request.json()
+    await requireRole('super_admin')
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
     const { keys } = body as { keys: string[] }
 
     if (!keys || !Array.isArray(keys) || keys.length === 0) {

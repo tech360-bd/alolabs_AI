@@ -22,7 +22,7 @@
  * The public signature is unchanged so existing call sites keep working.
  */
 
-import { checkLimit } from '@/lib/security/rate-limiter';
+import { checkLimit, peekLimit, resetLimit } from '@/lib/security/rate-limiter';
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -59,13 +59,9 @@ export async function checkRateLimit(
 
 /**
  * Clear a bucket (e.g. after a successful login, or an admin unlock).
- *
- * Only affects the in-process window; a Redis-backed deployment expires keys by
- * TTL. Callers must not rely on this for security decisions.
  */
 export async function resetRateLimit(key: string): Promise<void> {
-  const { resetAttempts } = await import('@/lib/security/rate-limiter');
-  await resetAttempts(`${KEY_PREFIX}${key}`);
+  await resetLimit(`${KEY_PREFIX}${key}`);
 }
 
 /** Current usage for a key, without consuming a slot. */
@@ -74,9 +70,9 @@ export async function getRateLimitUsage(
   limit: number,
   windowMs: number,
 ): Promise<{ count: number; remaining: number; resetAt: Date }> {
-  const result = await checkLimit(`${KEY_PREFIX}peek:${key}`, limit, windowMs);
+  const result = await peekLimit(`${KEY_PREFIX}${key}`, limit, windowMs);
   return {
-    count: Math.max(0, limit - result.remaining - (result.allowed ? 1 : 0)),
+    count: result.count,
     remaining: result.remaining,
     resetAt: new Date(result.resetAt),
   };

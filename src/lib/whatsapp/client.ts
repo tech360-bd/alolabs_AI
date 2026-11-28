@@ -269,18 +269,22 @@ export class WhatsAppBusinessClient {
   // ─── Webhook Verification ─────────────────────────────────────────────────
 
   verifyWebhook(mode: string, token: string, challenge: string): string | null {
-    if (mode === 'subscribe' && token === this.config.verifyToken) {
-      return challenge;
+    if (mode !== 'subscribe' || !this.config.verifyToken || !token || !challenge) {
+      return null;
     }
-    return null;
+    const a = crypto.createHash('sha256').update(token, 'utf8').digest();
+    const b = crypto.createHash('sha256').update(this.config.verifyToken, 'utf8').digest();
+    return crypto.timingSafeEqual(a, b) ? challenge : null;
   }
 
   /**
    * Verify the X-Hub-Signature-256 header of an incoming webhook.
    * Call this with the raw request body string and the signature header value.
    */
-  verifyWebhookSignature(payload: string, signatureHeader: string): boolean {
-    const expected = computeSignature(payload, this.config.verifyToken);
+  verifyWebhookSignature(payload: string, signatureHeader: string, appSecret?: string): boolean {
+    const secret = appSecret || process.env.WHATSAPP_APP_SECRET || this.config.verifyToken;
+    if (!secret || !signatureHeader) return false;
+    const expected = computeSignature(payload, secret);
     return timingSafeEqual(signatureHeader, expected);
   }
 

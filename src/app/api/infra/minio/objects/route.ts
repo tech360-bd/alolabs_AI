@@ -5,10 +5,11 @@ import { requireRole } from '@/lib/api-auth'
 // GET: List objects
 export async function GET(request: NextRequest) {
   try {
-    await requireRole('super_admin', 'admin')
+    await requireRole('super_admin')
     const { searchParams } = new URL(request.url)
     const prefix = searchParams.get('prefix') || ''
-    const limit = parseInt(searchParams.get('limit') || '100', 10)
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10)
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 1000) : 100
 
     const objects = await listObjects(prefix, limit)
 
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 // POST: Upload object (FormData with file + key)
 export async function POST(request: NextRequest) {
   try {
-    await requireRole('super_admin', 'admin')
+    await requireRole('super_admin')
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const key = formData.get('key') as string | null
@@ -58,6 +59,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
       return NextResponse.json({ error: error.message === 'Forbidden' ? 'Forbidden' : 'Unauthorized' }, { status: error.message === 'Forbidden' ? 403 : 401 })
+    }
+    if (error instanceof Error && error.message.startsWith('Invalid object key')) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
     console.error('[Infra MinIO Objects POST] Error:', error)
     return NextResponse.json({ error: 'Failed to upload object' }, { status: 500 })

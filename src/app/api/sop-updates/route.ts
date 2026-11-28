@@ -2,14 +2,11 @@ import { z } from 'zod';
 import { secureCrud } from '@/lib/api/secure-crud';
 
 /**
- * admin.sop-updates — authenticated, authorised, audited and rate limited.
- *
- * Replaces a hand-written route that verified a session token inline but
- * applied no role check and no tenant scope to the queries below.
+ * admin.sop-updates — authenticated, authorised, tenant-scoped, audited and rate limited.
  */
 
 const createSchema = z.object({
-  departmentId: z.string().optional(),
+  departmentId: z.string().min(1),
   title: z.string().min(1),
   content: z.string().min(1),
   reason: z.string().optional(),
@@ -19,7 +16,7 @@ const createSchema = z.object({
 });
 
 const updateSchema = z.object({
-  departmentId: z.string().nullable().optional(),
+  departmentId: z.string().min(1).optional(),
   title: z.string().min(1).optional(),
   content: z.string().min(1).optional(),
   reason: z.string().optional(),
@@ -32,10 +29,12 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'admin.sop-updates',
   model: 'sOPUpdate',
   label: 'SOPUpdate',
-  // This table has no tenant column of its own — see the security report.
   tenantField: null,
+  ownership: { delegate: 'department', fk: 'departmentId' },
   createSchema,
   updateSchema,
   searchFields: ['title', 'content', 'reason'],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'departmentId', 'title', 'status', 'suggestedBy', 'approvedBy', 'createdAt', 'updatedAt'],
   writeRoles: ['super_admin', 'admin'],
 });

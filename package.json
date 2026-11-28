@@ -26,7 +26,7 @@
     "db:migrate:client-separation": "npx tsx scripts/migrate-client-portal-separation.ts",
     "db:migrate:mysql": "npx tsx scripts/migrate-sqlite-to-mysql.ts",
     "db:push": "prisma db push",
-    "db:push:mysql": "prisma db push --schema=prisma/schema.mysql.prisma",
+    "db:push:mysql": "prisma db push --schema=prisma/schema.mysql.push.prisma --skip-generate",
     "db:push:sqlite": "tsx scripts/sqlite-push.ts",
     "dev": "next dev --hostname 0.0.0.0 -p 3011",
     "import:workflows": "npx tsx scripts/import-workflow-definitions.ts",

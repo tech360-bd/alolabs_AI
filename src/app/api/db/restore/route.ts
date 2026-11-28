@@ -28,16 +28,39 @@ interface RestoreRequest {
 // ─── Helpers ────────────────────────────────────────────────────────
 
 const BACKUP_DIR = join(process.cwd(), 'db', 'backups');
+const SAFE_BACKUP_FILENAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.sql$/;
+const SAFE_ADAPTER_RE = /^[A-Za-z0-9_-]{1,40}$/;
+
+function assertValidBackupFilename(filename: string): string {
+  if (
+    typeof filename !== 'string' ||
+    !SAFE_BACKUP_FILENAME_RE.test(filename) ||
+    filename.includes('..') ||
+    filename.includes('/') ||
+    filename.includes('\\')
+  ) {
+    throw new Error('Invalid filename');
+  }
+  return filename;
+}
 
 /**
  * Validate backup integrity:
+ * - Filename must be a safe `.sql` basename (no traversal/slashes)
  * - File must exist and be non-empty
- * - File must contain recognizable SQL patterns
+ * - File must contain recognizable SQL patterns and no dangerous escapes
  */
 async function validateBackup(
   filename: string,
   storage: string,
 ): Promise<{ valid: boolean; sizeBytes: number; error?: string; preview?: string }> {
+  let safeName: string;
+  try {
+    safeName = assertValidBackupFilename(filename);
+  } catch {
+    return { valid: false, sizeBytes: 0, error: 'Invalid filename' };
+  }
+
   let content: string;
 
   if (storage === 's3') {
@@ -50,7 +73,7 @@ async function validateBackup(
         };
       }
       const s3 = s3BackupClientFromEnv();
-      content = (await s3.getObjectBuffer(s3.config.bucket, filename)).toString('utf-8');
+      content = (await s3.getObjectBuffer(s3.config.bucket, safeName)).toString('utf-8');
     } catch (err) {
       return {
         valid: false,
@@ -59,26 +82,17 @@ async function validateBackup(
       };
     }
   } else {
-    // Sanitize filename - reject absolute paths and path traversal
-    const sanitizedName = filename.replace(/[\/\\\.]/g, '').replace(/\.\./g, '')
-    if (!sanitizedName || sanitizedName !== filename.replace(/[\/\\]/g, '')) {
-      return {
-        valid: false,
-        sizeBytes: 0,
-        error: 'Invalid filename',
-      }
-    }
-    const filepath = join(BACKUP_DIR, sanitizedName)
+    const filepath = join(BACKUP_DIR, safeName);
 
-    // Additional check: ensure resolved path is within BACKUP_DIR
-    const resolvedPath = resolve(filepath)
-    const resolvedBackup = resolve(BACKUP_DIR)
+    // Ensure resolved path is strictly inside BACKUP_DIR
+    const resolvedPath = resolve(filepath);
+    const resolvedBackup = resolve(BACKUP_DIR);
     if (!resolvedPath.startsWith(resolvedBackup + '/')) {
       return {
         valid: false,
         sizeBytes: 0,
         error: 'Invalid filename',
-      }
+      };
     }
 
     try {
@@ -120,8 +134,18 @@ async function validateBackup(
     };
   }
 
-  // Check for suspicious patterns (path traversal, shell injection)
-  const dangerousPatterns = [/;\s*DROP\s+DATABASE/i, /;\s*SHUTDOWN/i, /;\s*rm\s+-rf/i];
+  // Check for dangerous / privilege-escalation / OS-execution statements
+  const dangerousPatterns = [
+    /;\s*DROP\s+DATABASE/i,
+    /;\s*SHUTDOWN/i,
+    /;\s*rm\s+-rf/i,
+    /\bATTACH\s+DATABASE\b/i,
+    /\bLOAD_EXTENSION\s*\(/i,
+    /\bINTO\s+(?:OUTFILE|DUMPFILE)\b/i,
+    /\bCOPY\b[\s\S]*\bFROM\s+PROGRAM\b/i,
+    /\bxp_cmdshell\b/i,
+    /\bPRAGMA\s+/i,
+  ];
   for (const pattern of dangerousPatterns) {
     if (pattern.test(content)) {
       return {
@@ -146,6 +170,7 @@ async function executeRestore(
   storage: string,
   adapterName: string,
 ): Promise<{ statementsExecuted: number; durationMs: number }> {
+  const safeName = assertValidBackupFilename(filename);
   const manager = new DatabaseManager();
   await manager.autoConfigure();
   const adapter = manager.getAdapter(adapterName);
@@ -158,23 +183,16 @@ async function executeRestore(
         throw new Error('S3 backup storage is not configured (S3_ACCESS_KEY / MINIO_ACCESS_KEY missing)');
       }
       const s3 = s3BackupClientFromEnv();
-      content = (await s3.getObjectBuffer(s3.config.bucket, filename)).toString('utf-8');
+      content = (await s3.getObjectBuffer(s3.config.bucket, safeName)).toString('utf-8');
     } catch (err) {
       throw new Error(`S3 read failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   } else {
-    // Sanitize filename - reject absolute paths and path traversal
-    const sanitizedName = filename.replace(/[\/\\\.]/g, '').replace(/\.\./g, '')
-    if (!sanitizedName || sanitizedName !== filename.replace(/[\/\\]/g, '')) {
-      throw new Error('Invalid filename')
-    }
-    const filepath = join(BACKUP_DIR, sanitizedName)
-
-    // Additional check: ensure resolved path is within BACKUP_DIR
-    const resolvedPath = resolve(filepath)
-    const resolvedBackup = resolve(BACKUP_DIR)
+    const filepath = join(BACKUP_DIR, safeName);
+    const resolvedPath = resolve(filepath);
+    const resolvedBackup = resolve(BACKUP_DIR);
     if (!resolvedPath.startsWith(resolvedBackup + '/')) {
-      throw new Error('Invalid filename')
+      throw new Error('Invalid filename');
     }
 
     content = await readFile(filepath, 'utf-8');
@@ -221,7 +239,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as RestoreRequest;
+    const liveUser = await db.user.findUnique({
+      where: { id: user.userId },
+      select: { role: true, isActive: true },
+    });
+    if (!liveUser?.isActive || liveUser.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden: super_admin access required' }, { status: 403 });
+    }
+
+    const body = (await request.json().catch(() => null)) as RestoreRequest | null;
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const {
       filename,
       adapterName = 'primary',
@@ -234,6 +263,9 @@ export async function POST(request: Request) {
         { error: 'filename is required' },
         { status: 400 },
       );
+    }
+    if (!SAFE_ADAPTER_RE.test(adapterName)) {
+      return NextResponse.json({ error: 'Invalid adapterName' }, { status: 400 });
     }
 
     // Validate backup integrity first

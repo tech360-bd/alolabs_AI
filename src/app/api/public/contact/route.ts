@@ -21,10 +21,20 @@ const HOUSE_EMAIL = 'info@alolabs.net';
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 5;
+const MAX_TRACKED_IPS = 10_000;
 const hits = new Map<string, { count: number; resetAt: number }>();
 
 function rateLimited(ip: string): boolean {
   const now = Date.now();
+  if (hits.size > MAX_TRACKED_IPS) {
+    for (const [key, val] of hits) {
+      if (val.resetAt < now) hits.delete(key);
+    }
+    if (hits.size > MAX_TRACKED_IPS) {
+      const oldest = hits.keys().next().value;
+      if (oldest) hits.delete(oldest);
+    }
+  }
   const entry = hits.get(ip);
   if (!entry || entry.resetAt < now) {
     hits.set(ip, { count: 1, resetAt: now + WINDOW_MS });

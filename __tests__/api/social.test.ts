@@ -175,7 +175,7 @@ describe('POST /api/social/accounts (connect)', () => {
     expect(data.success).toBe(true);
     expect(data.platform).toBe('twitter');
     const saved = mockSettingsUpsert.mock.calls[0][0].create.value;
-    expect(saved).toMatch(/^v1:/);
+    expect(saved).toMatch(/^v[12]:/);
     expect(saved).not.toContain('tw-access-token');
   });
 });

@@ -1,4 +1,5 @@
-import { completeJob, dequeue, failJob, type QueueItemData } from '../../src/lib/job-queue'
+import { createHash, timingSafeEqual } from 'node:crypto'
+import { cancelJob, completeJob, dequeue, failJob, type QueueItemData } from '../../src/lib/job-queue'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { mayOperateQueues } from '../../src/lib/access/queue'
@@ -158,10 +159,10 @@ async function broadcastQueueUpdate(queueId: string) {
 
 function isServiceToken(token: string): boolean {
   const expected = process.env.QUEUE_SERVICE_TOKEN ?? ''
-  if (expected.length < 32 || token.length !== expected.length) return false
-  let diff = 0
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ token.charCodeAt(i)
-  return diff === 0
+  if (expected.length < 32 || !token) return false
+  const a = createHash('sha256').update(token).digest()
+  const b = createHash('sha256').update(expected).digest()
+  return timingSafeEqual(a, b)
 }
 
 io.use(async (socket, next) => {
@@ -204,10 +205,31 @@ io.on('connection', (socket) => {
   // ─── job:enqueue ──────────────────────────────────────────────────────────
   socket.on('job:enqueue', async (data: QueuedJob) => {
     try {
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        socket.emit('job:error', { event: 'job:enqueue', error: 'Invalid payload' })
+        return
+      }
       const { queue, jobType, payload, priority } = data
+      if (typeof queue !== 'string' || !queue.trim() || queue.length > 120) {
+        socket.emit('job:error', { event: 'job:enqueue', error: 'Invalid queue name' })
+        return
+      }
+      if (typeof jobType !== 'string' || !jobType.trim() || jobType.length > 120) {
+        socket.emit('job:error', { event: 'job:enqueue', error: 'Invalid jobType' })
+        return
+      }
+      const serializedPayload = payload !== undefined ? JSON.stringify(payload) : '{}'
+      if (serializedPayload.length > 262_144) {
+        socket.emit('job:error', { event: 'job:enqueue', error: 'Payload exceeds 256 KB limit' })
+        return
+      }
+      const normalizedPriority =
+        typeof priority === 'number' && Number.isFinite(priority)
+          ? Math.min(100, Math.max(0, Math.round(priority)))
+          : 5
 
       // Find queue by name
-      const queueRecord = await db.jobQueue.findUnique({ where: { name: queue } })
+      const queueRecord = await db.jobQueue.findUnique({ where: { name: queue.trim() } })
       if (!queueRecord) {
         socket.emit('job:error', { event: 'job:enqueue', error: `Queue "${queue}" not found` })
         return
@@ -221,9 +243,9 @@ io.on('connection', (socket) => {
       const item = await db.queueItem.create({
         data: {
           queueId: queueRecord.id,
-          jobType,
-          priority: typeof priority === 'number' ? priority : 5,
-          payload: payload ? JSON.stringify(payload) : '{}',
+          jobType: jobType.trim(),
+          priority: normalizedPriority,
+          payload: serializedPayload,
           status: 'queued',
           maxAttempts: queueRecord.maxRetries,
         },
@@ -247,7 +269,11 @@ io.on('connection', (socket) => {
   // ─── job:dequeue ──────────────────────────────────────────────────────────
   socket.on('job:dequeue', async (data: DequeueRequest) => {
     try {
-      const { queue } = data
+      if (!data || typeof data !== 'object' || typeof data.queue !== 'string' || !data.queue.trim()) {
+        socket.emit('job:error', { event: 'job:dequeue', error: 'Invalid queue name' })
+        return
+      }
+      const queue = data.queue.trim()
 
       const queueRecord = await db.jobQueue.findUnique({ where: { name: queue } })
       if (!queueRecord) {
@@ -284,7 +310,13 @@ io.on('connection', (socket) => {
   // ─── job:complete ─────────────────────────────────────────────────────────
   socket.on('job:complete', async (data: CompleteJob) => {
     try {
-      const { itemId, result, error } = data
+      if (!data || typeof data !== 'object' || typeof data.itemId !== 'string' || !data.itemId.trim()) {
+        socket.emit('job:error', { event: 'job:complete', error: 'Invalid itemId' })
+        return
+      }
+      const itemId = data.itemId.trim()
+      const result = data.result
+      const error = typeof data.error === 'string' && data.error.length > 0 ? data.error.slice(0, 4000) : undefined
 
       const item = await db.queueItem.findUnique({ where: { id: itemId } })
       if (!item) {
@@ -326,7 +358,11 @@ io.on('connection', (socket) => {
   // ─── job:cancel ───────────────────────────────────────────────────────────
   socket.on('job:cancel', async (data: CancelJob) => {
     try {
-      const { itemId } = data
+      if (!data || typeof data !== 'object' || typeof data.itemId !== 'string' || !data.itemId.trim()) {
+        socket.emit('job:error', { event: 'job:cancel', error: 'Invalid itemId' })
+        return
+      }
+      const itemId = data.itemId.trim()
 
       const item = await db.queueItem.findUnique({ where: { id: itemId } })
       if (!item) {
@@ -342,10 +378,14 @@ io.on('connection', (socket) => {
         return
       }
 
-      const updated = await db.queueItem.update({
-        where: { id: itemId, status: item.status },
-        data: { status: 'cancelled', completedAt: new Date() },
-      })
+      const updated = await cancelJob(itemId, 'cancelled via queue socket')
+      if (!updated) {
+        socket.emit('job:error', {
+          event: 'job:cancel',
+          error: `Cannot cancel item in "${item.status}" status`,
+        })
+        return
+      }
 
       const formatted = formatItem(updated)
 
@@ -363,7 +403,11 @@ io.on('connection', (socket) => {
   // ─── queue:subscribe ──────────────────────────────────────────────────────
   socket.on('queue:subscribe', async (data: SubscribeRequest) => {
     try {
-      const { queue } = data
+      if (!data || typeof data !== 'object' || typeof data.queue !== 'string' || !data.queue.trim()) {
+        socket.emit('job:error', { event: 'queue:subscribe', error: 'Invalid queue name' })
+        return
+      }
+      const queue = data.queue.trim()
       const queueRecord = await db.jobQueue.findUnique({ where: { name: queue } })
       if (!queueRecord) {
         socket.emit('job:error', { event: 'queue:subscribe', error: `Queue "${queue}" not found` })

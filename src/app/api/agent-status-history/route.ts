@@ -27,10 +27,13 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'agent.status-history',
   model: 'agentStatusHistory',
   label: 'AgentStatusHistory',
-  // This table has no tenant column of its own — see the security report.
+  // AgentStatusHistory inherits tenant ownership through its parent Agent.
   tenantField: null,
+  ownership: { delegate: 'agent', fk: 'agentId', relation: 'agent' },
   createSchema,
   updateSchema,
   searchFields: ['fromStatus', 'toStatus', 'reason'],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'agentId', 'fromStatus', 'toStatus', 'changedBy', 'createdAt'],
   writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
 });

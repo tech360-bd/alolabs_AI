@@ -6,7 +6,7 @@ set -Eeuo pipefail
 # Reverts to the previous release
 # ═══════════════════════════════════════════════════════════════════════════
 
-readonly APP_NAME="alolabs-aismh"
+readonly APP_NAME="alolabs-agentos"
 readonly APP_USER="alolabs"
 readonly DEPLOY_BASE="/opt/${APP_NAME}"
 readonly SERVICE_NAME="${APP_NAME}"
@@ -98,7 +98,7 @@ verify_health() {
   local delay=3
 
   for i in $(seq 1 "${retries}"); do
-    if curl -sf --max-time 10 "http://localhost:3000/api/health" 2>/dev/null | grep -q '"status":"healthy"'; then
+    if curl -sf --max-time 10 "http://127.0.0.1:${PORT:-3011}/api/health/ready" 2>/dev/null; then
       log_action "Health check passed (attempt ${i}/${retries})"
       return 0
     fi
@@ -115,16 +115,17 @@ verify_health() {
 CHECK_MODE=false
 TARGET_RELEASE=""
 
-for arg in "$@"; do
-  case "${arg}" in
-    --target)  shift; TARGET_RELEASE="${1:-}" ;;
-    --check)   CHECK_MODE=true ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --target)  TARGET_RELEASE="${2:-}"; shift 2 ;;
+    --check)   CHECK_MODE=true; shift ;;
     --help|-h) cmd_help; exit 0 ;;
- esac
+    *)         printf 'Unknown option: %s\n' "$1" >&2; exit 1 ;;
+  esac
 done
 
 if [[ "${CHECK_MODE}" == true ]]; then
-  local prev=""
+  prev=""
   prev="$(find_previous_release)"
   if [[ -z "${prev}" ]]; then
     json_output false 1 "No previous release available for rollback"

@@ -26,9 +26,11 @@ async function fetchFacebookAnalytics(
   until: number,
 ): Promise<Record<string, unknown>> {
   const metrics = 'page_fans,page_follows,page_impressions,page_post_engagements,page_views_total';
-  const url = `https://graph.facebook.com/v19.0/${pageId}/insights?metric=${metrics}&period=day&since=${since}&until=${until}&access_token=${accessToken}`;
+  const url = `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}/insights?metric=${metrics}&period=day&since=${since}&until=${until}`;
 
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const res = await fetch(url, {
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
   if (!res.ok) throw new Error(`Facebook insights API error: ${res.status}`);
   const data = (await res.json()) as { data: Array<{ name: string; values: Array<{ value: number; end_time: string }> }> };
 
@@ -49,9 +51,11 @@ async function fetchInstagramAnalytics(
   until: number,
 ): Promise<Record<string, unknown>> {
   const metrics = 'impressions,reach,engagement,follower_count,comments,likes,saves,shares';
-  const url = `https://graph.facebook.com/v18.0/${igUserId}/insights?metric=${metrics}&period=day&since=${since}&until=${until}&access_token=${accessToken}`;
+  const url = `https://graph.facebook.com/v18.0/${encodeURIComponent(igUserId)}/insights?metric=${metrics}&period=day&since=${since}&until=${until}`;
 
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const res = await fetch(url, {
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
   if (!res.ok) throw new Error(`Instagram insights API error: ${res.status}`);
   const data = (await res.json()) as { data: Array<{ name: string; values: Array<{ value: number; end_time: string }> }> };
 
@@ -64,8 +68,8 @@ async function fetchInstagramAnalytics(
   // Also fetch user info
   try {
     const userRes = await fetch(
-      `https://graph.facebook.com/v18.0/${igUserId}?fields=username,name,account_type,followers_count,media_count&access_token=${accessToken}`,
-      { headers: { Accept: 'application/json' } },
+      `https://graph.facebook.com/v18.0/${encodeURIComponent(igUserId)}?fields=username,name,account_type,followers_count,media_count`,
+      { headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` } },
     );
     if (userRes.ok) {
       const userData = (await userRes.json()) as Record<string, unknown>;
@@ -175,12 +179,20 @@ type AnalyticsFetcher = (
  * Exported so the provider error-mapping contract can be tested with a
  * stub fetcher (no live provider account or outbound network needed).
  */
+async function getHeaderStore(request: NextRequest) {
+  try {
+    return await (await import('next/headers')).headers();
+  } catch {
+    return request.headers;
+  }
+}
+
 export async function handleSocialAnalytics(
   request: NextRequest,
   fetchForPlatform: AnalyticsFetcher = fetchAnalyticsForPlatform,
 ) {
   try {
-    const authHeader = await (await import('next/headers')).headers();
+    const authHeader = await getHeaderStore(request);
     const authorization = authHeader.get('authorization');
     if (!authorization?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

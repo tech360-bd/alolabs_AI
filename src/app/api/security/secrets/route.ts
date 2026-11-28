@@ -3,10 +3,11 @@
  * ALO Labs AIOS — Admin-only secret management.
  *
  * GET    /api/security/secrets — List secret keys (super_admin only)
- * POST   /api/security/secrets — Set/update a secret (super_admin only)
+ * POST   /api/security/secrets — Set/update/rotate a secret (super_admin only)
  * DELETE /api/security/secrets — Remove a secret (super_admin only)
  */
 
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/api-auth';
 import {
@@ -16,6 +17,41 @@ import {
   rotateSecret,
   validateSecrets,
 } from '@/lib/security/secret-manager';
+
+const ENV_ONLY_PATTERN = new Set([
+  'DATABASE_URL',
+  'REDIS_URL',
+  'POSTGRES_URL',
+  'ENCRYPTION_KEY',
+  'ENCRYPTION_KEYS',
+  'ENCRYPTION_KEY_ACTIVE',
+  'ENCRYPTION_KEY_PREVIOUS',
+  'ALO_KEK',
+  'ALO_KEK_KEYS',
+  'ALO_KEK_ACTIVE',
+]);
+
+function isProtectedSecretKey(key: string): boolean {
+  if (ENV_ONLY_PATTERN.has(key)) return true;
+  if (
+    key === 'APP_SECRET' &&
+    !process.env.ENCRYPTION_KEY &&
+    !process.env.ENCRYPTION_KEYS
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function safeMask(secret: string): string {
+  if (!secret || secret.length < 16) return '****************';
+  return `************${secret.slice(-4)}`;
+}
+
+function safeFingerprint(secret: string): string {
+  const digest = createHash('sha256').update(secret).digest('hex').slice(0, 12);
+  return `sha256:${digest}`;
+}
 
 // ─── GET: List Secret Keys ───────────────────────────────────────────
 
@@ -76,36 +112,66 @@ export async function POST(request: Request) {
       );
     }
 
-    // Prevent overwriting critical environment variable patterns
-    const protectedKeys = ['DATABASE_URL', 'REDIS_URL', 'POSTGRES_URL'];
-    if (protectedKeys.includes(key) && process.env[key]) {
+    // Never allow overwriting protected infrastructure or encryption keys via DB API
+    if (isProtectedSecretKey(key)) {
       return NextResponse.json(
-        { error: `Cannot overwrite protected environment variable "${key}" via API` },
+        { error: `Cannot modify env-only infrastructure or encryption key "${key}" via API` },
         { status: 403 },
       );
     }
 
+    if (value !== undefined) {
+      if (typeof value !== 'string' || value.length < 8) {
+        return NextResponse.json(
+          { error: 'Secret value must be a string at least 8 characters long' },
+          { status: 400 },
+        );
+      }
+      if (value.length > 65536) {
+        return NextResponse.json(
+          { error: 'Secret value exceeds maximum allowed length (65536 characters)' },
+          { status: 400 },
+        );
+      }
+    }
+
     if (rotate) {
-      // Rotate: generate new value or use provided value
-      const newValue = await rotateSecret(key, value);
+      const rotatedValue = await rotateSecret(key, value);
+
+      try {
+        const { db } = await import('@/lib/db');
+        await db.auditLog.create({
+          data: {
+            userId: user.userId,
+            action: 'secret_rotate',
+            resource: 'secret',
+            details: JSON.stringify({ key }),
+          },
+        });
+      } catch {
+        /* ignore */
+      }
+
+      // Resolve back through the secret manager to ensure DB update is active
+      const resolved = await getSecret(key);
+      const effective = resolved ?? rotatedValue;
+
+      // Never return complete secret values through the API
       return NextResponse.json({
         success: true,
         message: `Secret "${key}" rotated successfully`,
-        value: newValue, // Only returned once on rotation
+        key,
+        rotated: true,
+        source: 'database',
+        maskedValue: safeMask(effective),
+        fingerprint: safeFingerprint(effective),
+        lastRotatedAt: new Date().toISOString(),
       });
     }
 
     if (!value || typeof value !== 'string') {
       return NextResponse.json(
         { error: 'value is required (unless using rotate: true)' },
-        { status: 400 },
-      );
-    }
-
-    // Minimum length validation
-    if (value.length < 8) {
-      return NextResponse.json(
-        { error: 'Secret value must be at least 8 characters long' },
         { status: 400 },
       );
     }
@@ -127,16 +193,17 @@ export async function POST(request: Request) {
       /* ignore */
     }
 
-    // Mask existing value for confirmation
+    // Read back through getSecret() (DB takes precedence over static env) and return safe mask only
     const current = await getSecret(key);
-    const masked = current
-      ? `${current.slice(0, 4)}${'*'.repeat(Math.max(0, current.length - 8))}${current.slice(-4)}`
-      : 'unknown';
+    const effective = current ?? value;
 
     return NextResponse.json({
       success: true,
       message: `Secret "${key}" set successfully`,
-      maskedValue: masked,
+      key,
+      source: 'database',
+      maskedValue: safeMask(effective),
+      fingerprint: safeFingerprint(effective),
     });
   } catch (error: unknown) {
     if (error instanceof Error && error.message === 'Unauthorized') {
@@ -145,9 +212,18 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === 'Forbidden') {
       return NextResponse.json({ error: 'Forbidden: super_admin access required' }, { status: 403 });
     }
+    if (error instanceof Error && error.name === 'SecretManagerError') {
+      const code = (error as Error & { code?: string }).code;
+      if (code === 'protected-key') {
+        return NextResponse.json({ error: error.message }, { status: 403 });
+      }
+      if (code === 'invalid-secret-name' || code === 'not-set' || code === 'invalid-record') {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+    }
     console.error('Secrets set error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 },
     );
   }
@@ -166,6 +242,20 @@ export async function DELETE(request: Request) {
       return NextResponse.json(
         { error: 'key query parameter is required' },
         { status: 400 },
+      );
+    }
+
+    if (!/^[A-Z][A-Z0-9_]*$/.test(key)) {
+      return NextResponse.json(
+        { error: 'Key must be UPPER_SNAKE_CASE format' },
+        { status: 400 },
+      );
+    }
+
+    if (isProtectedSecretKey(key)) {
+      return NextResponse.json(
+        { error: `Cannot delete env-only infrastructure or encryption key "${key}" via API` },
+        { status: 403 },
       );
     }
 

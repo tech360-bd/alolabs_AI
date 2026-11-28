@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { legacyTenant, legacyAuthResponse } from '@/lib/api/legacy-session';
 
 export async function GET(request: NextRequest) {
-  // Auth check
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { verifySessionToken } = await import('@/lib/auth');
-  const session = await verifySessionToken(token);
-  if (!session) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   try {
+    const tenant = await legacyTenant(request);
+    const depts = await db.department.findMany({
+      where: { companyId: tenant.companyId },
+      select: { id: true },
+    });
+    const deptIds = depts.map((d) => d.id);
+
     const workflows = await db.workflow.findMany({
+      where: {
+        OR: [
+          { workflowPermissions: { some: { companyId: tenant.companyId } } },
+          ...(deptIds.length > 0 ? [{ departmentId: { in: deptIds } }] : []),
+        ],
+      },
       orderBy: { name: 'asc' },
       include: {
         _count: { select: { workflowSteps: true } },
@@ -32,6 +39,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data });
   } catch (error) {
+    const authFailure = legacyAuthResponse(error);
+    if (authFailure) return NextResponse.json({ error: authFailure.error }, { status: authFailure.status });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

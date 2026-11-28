@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { secureCrud } from '@/lib/api/secure-crud';
+import { workflowOwnershipSpec } from '@/lib/api/workflow-ownership';
 
 /**
- * workflow.steps — authenticated, authorised, audited and rate limited.
+ * workflow.steps — authenticated, authorised, tenant-scoped, audited and rate limited.
  *
- * Replaces a hand-written route that verified a session token inline but
- * applied no role check and no tenant scope to the queries below.
+ * WorkflowStep inherits tenancy through its parent Workflow
+ * (via Department.companyId or WorkflowPermission).
  */
 
 const createSchema = z.object({
@@ -18,6 +19,7 @@ const createSchema = z.object({
 });
 
 const updateSchema = z.object({
+  workflowId: z.string().min(1).optional(),
   stepNumber: z.number().int().min(0).optional(),
   agentId: z.string().nullable().optional(),
   skillId: z.string().nullable().optional(),
@@ -29,10 +31,12 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'workflow.steps',
   model: 'workflowStep',
   label: 'WorkflowStep',
-  // This table has no tenant column of its own — see the security report.
   tenantField: null,
+  ownership: workflowOwnershipSpec({ relation: 'workflow' }),
   createSchema,
   updateSchema,
   searchFields: ['action'],
+  orderBy: { stepNumber: 'asc' },
+  sortableFields: ['id', 'workflowId', 'stepNumber', 'agentId', 'skillId', 'action', 'createdAt'],
   writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
 });

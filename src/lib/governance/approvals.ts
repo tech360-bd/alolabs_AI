@@ -357,9 +357,9 @@ export function defaultApproversFor(actionClass: ActionClass): ApproverRole[] {
     case 'content.publish':
     case 'external.communicate':
     case 'data.export':
-      return ['organization_owner', 'project_manager'];
+      return ['super_admin', 'organization_owner', 'project_manager'];
     default:
-      return ['admin', 'organization_owner'];
+      return ['super_admin', 'admin', 'organization_owner'];
   }
 }
 

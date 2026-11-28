@@ -26,10 +26,14 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'tool.approvals',
   model: 'toolApprovalRequest',
   label: 'ToolApprovalRequest',
-  // This table has no tenant column of its own — see the security report.
+  // Legacy global table with no tenant key; restricted to super_admin.
   tenantField: null,
+  requireTenant: false,
+  roles: ['super_admin'],
+  writeRoles: ['super_admin'],
   createSchema,
   updateSchema,
   searchFields: ['toolName', 'reason', 'status'],
-  writeRoles: ['super_admin', 'admin'],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'toolName', 'riskLevel', 'status', 'createdAt'],
 });

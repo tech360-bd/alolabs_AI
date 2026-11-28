@@ -218,3 +218,69 @@ describe('secureCrud — authentication', () => {
     expect(mocks.delete).not.toHaveBeenCalled();
   });
 });
+
+describe('secureCrud — filters, sorting, and audit safety', () => {
+  const filteredHandlers = secureCrud({
+    resource: 'crm.contacts',
+    model: 'crmContact',
+    label: 'CrmContact',
+    createSchema: z.object({ name: z.string().min(1) }),
+    updateSchema: z.object({ name: z.string().min(1).optional() }),
+    filterSchema: z.object({
+      companyId: z.string().optional(),
+      status: z.enum(['lead', 'customer']).optional(),
+    }),
+    sortableFields: ['name', 'createdAt'],
+  });
+
+  it('returns 400 invalid_query when filterSchema validation fails', async () => {
+    const response = await filteredHandlers.GET(request(undefined, { status: 'invalid-status' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe('invalid_query');
+    expect(mocks.findMany).not.toHaveBeenCalled();
+  });
+
+  it('prevents declared filterSchema fields from overwriting tenant restrictions', async () => {
+    const response = await filteredHandlers.GET(request(undefined, { companyId: TENANT_B, status: 'lead' }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.findMany.mock.calls[0][0].where).toEqual({
+      companyId: TENANT_A,
+      status: 'lead',
+    });
+  });
+
+  it('rejects unknown sort fields and invalid sort directions with 400 invalid_query', async () => {
+    const badSort = await filteredHandlers.GET(request(undefined, { sort: 'passwordHash' }));
+    expect(badSort.status).toBe(400);
+    expect((await badSort.json()).error.code).toBe('invalid_query');
+
+    const badOrder = await filteredHandlers.GET(request(undefined, { sort: 'name', order: 'sideways' }));
+    expect(badOrder.status).toBe(400);
+    expect((await badOrder.json()).error.code).toBe('invalid_query');
+    expect(mocks.findMany).not.toHaveBeenCalled();
+  });
+
+  it('accepts allowlisted sort fields and valid sort direction', async () => {
+    const response = await filteredHandlers.GET(request(undefined, { sort: 'name', order: 'asc' }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.findMany.mock.calls[0][0].orderBy).toEqual({ name: 'asc' });
+  });
+
+  it('writes only validated fields to the PUT audit log (strips unexpected raw fields)', async () => {
+    mocks.findUnique.mockResolvedValue({ id: 'c1', companyId: TENANT_A, name: 'Ada' });
+
+    const response = await filteredHandlers.PUT(
+      request({ id: 'c1', name: 'Grace', maliciousExtra: 'should-not-be-audited' }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.auditLogCreate).toHaveBeenCalledTimes(1);
+    const details = JSON.parse(mocks.auditLogCreate.mock.calls[0][0].data.details as string);
+    expect(details.changes).toEqual({ name: 'Grace' });
+    expect(details.changes.maliciousExtra).toBeUndefined();
+  });
+});

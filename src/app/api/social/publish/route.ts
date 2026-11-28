@@ -288,11 +288,19 @@ async function publishToPlatform(
   }
 }
 
+async function getHeaderStore(request: NextRequest) {
+  try {
+    return await (await import('next/headers')).headers();
+  } catch {
+    return request.headers;
+  }
+}
+
 // ─── POST: Publish content ─────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = await (await import('next/headers')).headers();
+    const authHeader = await getHeaderStore(request);
     const authorization = authHeader.get('authorization');
     if (!authorization?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -318,6 +326,30 @@ export async function POST(request: NextRequest) {
         { error: 'At least one platform is required' },
         { status: 400 },
       );
+    }
+
+    if (body.mediaUrls) {
+      if (!Array.isArray(body.mediaUrls)) {
+        return NextResponse.json({ error: 'mediaUrls must be an array' }, { status: 400 });
+      }
+      for (const rawUrl of body.mediaUrls) {
+        let parsedUrl: URL;
+        try {
+          parsedUrl = new URL(String(rawUrl));
+        } catch {
+          return NextResponse.json({ error: 'Invalid mediaUrl' }, { status: 400 });
+        }
+        const host = parsedUrl.hostname.toLowerCase();
+        if (
+          parsedUrl.protocol !== 'https:' ||
+          host === 'localhost' ||
+          host.endsWith('.local') ||
+          host.endsWith('.internal') ||
+          /^(127\.|10\.|192\.168\.|169\.254\.|0\.|172\.(1[6-9]|2\d|3[01])\.|::1$|fc|fd|fe80)/i.test(host)
+        ) {
+          return NextResponse.json({ error: 'mediaUrls must be public https:// URLs' }, { status: 400 });
+        }
+      }
     }
 
     // Publishing (immediately or on a schedule) is consequential external

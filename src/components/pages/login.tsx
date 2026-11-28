@@ -145,8 +145,8 @@ export default function LoginPage() {
         setError('Please fill in all fields.')
         return
       }
-      if (password.length < 8) {
-        setError('Password must be at least 8 characters.')
+      if (password.length < 12) {
+        setError('Password must be at least 12 characters.')
         return
       }
       if (password !== confirmPassword) {
@@ -297,13 +297,17 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        if (res.status === 401) {
-            // Login challenges are single-use, including a rejected code.
+        if (res.status === 401 && data.retryAllowed !== true) {
             setMfaData(null)
             setMfaCode('')
             setPassword('')
             setError('Verification failed. Sign in again to request a new challenge.')
             setStep('error')
+            return
+          }
+          if (res.status === 401 && data.retryAllowed === true) {
+            setMfaCode('')
+            setMfaError(data.error || 'Invalid verification code. Please try again.')
             return
           }
           throw new Error(data.error || 'MFA verification failed.')
@@ -704,7 +708,19 @@ export default function LoginPage() {
               {mfaError && (
                 <Alert variant="destructive" className="mb-4 border-red-200 bg-red-50 text-red-700">
                   <AlertCircle className="h-4 w-4 text-red-500" />
-                  <AlertDescription className="text-sm text-red-700">{mfaError}</AlertDescription>
+                  <AlertDescription className="text-sm text-red-700 flex items-center justify-between gap-3">
+                    <span>{mfaError}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPassword('')
+                        handleBackToLogin()
+                      }}
+                      className="shrink-0 font-semibold underline hover:text-red-900"
+                    >
+                      Try Again
+                    </button>
+                  </AlertDescription>
                 </Alert>
               )}
 

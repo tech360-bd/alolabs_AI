@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { hashPassword, revokeUserSessions } from '@/lib/auth';
+import { passwordPolicySchema } from '@/lib/auth/password-policy';
 import { parseBody } from '@/lib/validators';
 import crypto from 'node:crypto';
 import { checkLimit } from '@/lib/security/rate-limiter';
@@ -13,11 +14,26 @@ const RESET_TOKEN_EXPIRY_MS = 900_000; // 15 minutes
 const resetRequestSchema = z.object({
   email: z.string().trim().email().max(255),
   token: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
-  newPassword: z.string().min(12).max(128).optional(),
+  newPassword: passwordPolicySchema.optional(),
 }).strict().refine(
   ({ token, newPassword }) => Boolean(token) === Boolean(newPassword),
   { message: 'token and newPassword must be provided together' },
 );
+
+function getClientIp(request: NextRequest): string {
+  const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1';
+  const realIp = request.headers.get('x-real-ip')?.trim();
+  if (realIp) return realIp.slice(0, 64);
+  if (trustProxy) {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) {
+      const rightmost = forwarded.split(',').at(-1)?.trim();
+      if (rightmost) return rightmost.slice(0, 64);
+    }
+  }
+  const peerIp = (request as NextRequest & { ip?: string }).ip?.trim();
+  return peerIp ? peerIp.slice(0, 64) : 'unknown';
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const normalized = email.toLowerCase();
     const key = `recovery:v2:${digest(normalized)}`;
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(request);
     if (!(await checkLimit(`recovery:ip:${ip}`, 20, 60_000)).allowed || !(await checkLimit(`recovery:${token ? 'apply' : 'request'}:${key}`, 5, 900_000)).allowed) {
       return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
     }
@@ -38,14 +54,14 @@ export async function POST(request: NextRequest) {
       // SECURITY AUDIT: Enforce server-only access and validate SMTP config
       if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
         console.error('[Password Reset] SMTP configuration missing or incomplete');
-        await db.auditLog.create({ data: { userId: 'system', action: 'password_reset_smtp_error', resource: 'Auth', details: JSON.stringify({ error: 'SMTP configuration missing' }) } }).catch(() => {});
+        await db.auditLog.create({ data: { userId: null, action: 'password_reset_smtp_error', resource: 'Auth', details: JSON.stringify({ error: 'SMTP configuration missing' }) } }).catch(() => {});
         return NextResponse.json({ error: 'Password recovery configuration error. Contact administrator.' }, { status: 503 });
       }
       
       const port = Number(process.env.SMTP_PORT || 587);
       if (!Number.isInteger(port) || port <= 0 || port > 65535) {
         console.error('[Password Reset] SMTP port invalid:', process.env.SMTP_PORT);
-        await db.auditLog.create({ data: { userId: 'system', action: 'password_reset_smtp_error', resource: 'Auth', details: JSON.stringify({ error: 'Invalid SMTP port' }) } }).catch(() => {});
+        await db.auditLog.create({ data: { userId: null, action: 'password_reset_smtp_error', resource: 'Auth', details: JSON.stringify({ error: 'Invalid SMTP port' }) } }).catch(() => {});
         return NextResponse.json({ error: 'Password recovery configuration error. Contact administrator.' }, { status: 503 });
       }
       
@@ -84,7 +100,7 @@ export async function POST(request: NextRequest) {
     return applied ? NextResponse.json({ success: true, message: 'Password changed. Sign in again.' }) : invalid();
   } catch {
     // SECURITY AUDIT: Log server-side errors for password reset
-    await db.auditLog.create({ data: { userId: 'system', action: 'password_reset_server_error', resource: 'Auth', details: '{}' } }).catch(() => {});
+    await db.auditLog.create({ data: { userId: null, action: 'password_reset_server_error', resource: 'Auth', details: '{}' } }).catch(() => {});
     return NextResponse.json({ error: 'Password recovery is unavailable.' }, { status: 500 });
   }
 }

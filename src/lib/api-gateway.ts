@@ -44,9 +44,10 @@ function cleanupRateLimits() {
   }
 }
 
-// Cleanup every 60 seconds
+// Cleanup every 60 seconds (do not keep process alive on its own)
 if (typeof globalThis !== 'undefined') {
-  setInterval(cleanupRateLimits, 60_000);
+  const interval = setInterval(cleanupRateLimits, 60_000);
+  interval.unref?.();
 }
 
 // ─── HMAC helpers ────────────────────────────────────────────────────────────
@@ -93,6 +94,9 @@ export function generateHMAC(payload: string, secret: string): string {
  * Returns the key record if valid, null otherwise
  */
 export async function verifyApiKey(apiKey: string) {
+  if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 8) {
+    return null;
+  }
   const keyHash = hashApiKey(apiKey);
   const keyRecord = await db.companyApiKey.findUnique({
     where: { keyHash },
@@ -217,13 +221,12 @@ export async function validateGatewayRequest(
   const { headers } = req;
 
   // 1. Extract API key from Authorization header
-  const authHeader = headers.authorization || headers['x-alo-signature'] ? '' : '';
   let apiKeyValue: string | null = null;
 
   if (headers.authorization?.startsWith('Bearer ')) {
-    apiKeyValue = headers.authorization.substring(7);
+    apiKeyValue = headers.authorization.substring(7).trim();
   } else if (headers.authorization?.startsWith('ApiKey ')) {
-    apiKeyValue = headers.authorization.substring(7);
+    apiKeyValue = headers.authorization.substring(7).trim();
   }
 
   if (!apiKeyValue) {
@@ -250,9 +253,35 @@ export async function validateGatewayRequest(
     };
   }
 
-  // 3. Verify HMAC signature if provided
-  if (headers['x-alo-timestamp'] && headers['x-alo-signature']) {
-    const timestamp = parseInt(headers['x-alo-timestamp'], 10);
+  // 2b. Verify declared company matches key owner
+  const declaredCompanyId = headers['x-alo-company-id']?.trim();
+  if (declaredCompanyId && declaredCompanyId !== keyData.company.id) {
+    return {
+      authenticated: false,
+      company: null,
+      user: null,
+      apiKey: null,
+      error: 'Company header does not match API key tenant',
+      errorCode: 403,
+    };
+  }
+
+  // 3. Verify HMAC signature if timestamp or signature is provided (never allow partial skip)
+  const hasTimestamp = Boolean(headers['x-alo-timestamp']);
+  const hasSignature = Boolean(headers['x-alo-signature']);
+  if (hasTimestamp !== hasSignature) {
+    return {
+      authenticated: false,
+      company: null,
+      user: null,
+      apiKey: null,
+      error: 'Both X-ALO-Timestamp and X-ALO-Signature headers are required for signed requests.',
+      errorCode: 401,
+    };
+  }
+
+  if (hasTimestamp && hasSignature) {
+    const timestamp = parseInt(headers['x-alo-timestamp']!, 10);
     const now = Date.now();
 
     // Reject requests older than 5 minutes
@@ -267,12 +296,23 @@ export async function validateGatewayRequest(
       };
     }
 
-    // Build the payload for HMAC verification
-    const bodyStr = req.body ? JSON.stringify(req.body) : '';
+    const bodyStr =
+      typeof req.body === 'string'
+        ? req.body
+        : req.body !== undefined
+          ? JSON.stringify(req.body)
+          : '';
     const payloadToSign = `${req.method}\n${req.url}\n${headers['x-alo-timestamp']}\n${bodyStr}`;
 
-    // Use the API key itself as the HMAC secret (in production, use a dedicated signing secret)
-    const isValid = verifyHMAC(payloadToSign, headers['x-alo-signature'], apiKeyValue);
+    let isValid = false;
+    const sig = headers['x-alo-signature']!;
+    if (/^[0-9a-f]{64}$/i.test(sig)) {
+      try {
+        isValid = verifyHMAC(payloadToSign, sig, apiKeyValue);
+      } catch {
+        isValid = false;
+      }
+    }
 
     if (!isValid) {
       return {

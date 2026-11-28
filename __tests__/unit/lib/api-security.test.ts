@@ -284,6 +284,18 @@ describe('secureRoute — authorisation', () => {
     }
   });
 
+  it('rejects tenant admin when roles explicitly restricts access to super_admin', async () => {
+    mocks.getAuthUser.mockResolvedValue(principal({ role: 'admin' }));
+    const route = secureRoute({ resource: 'platform.global', action: 'read', roles: ['super_admin'] }, () => ({ ok: true }));
+
+    const resAdmin = await route(request());
+    expect(resAdmin.status).toBe(403);
+
+    mocks.getAuthUser.mockResolvedValue(principal({ role: 'super_admin' }));
+    const resSuper = await route(request());
+    expect(resSuper.status).toBe(200);
+  });
+
   it('refuses an API key that lacks the required scope', async () => {
     mocks.authenticateV1.mockResolvedValue(principal({ kind: 'apiKey', keyId: 'key-1', scopes: ['agents:read'] }));
     const route = secureRoute({ resource: 'agents', action: 'create', scope: 'agents:write' }, () => ({ ok: true }));

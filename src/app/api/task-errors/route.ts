@@ -31,10 +31,13 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'task.errors',
   model: 'taskError',
   label: 'TaskError',
-  // This table has no tenant column of its own — see the security report.
+  // TaskError inherits tenant ownership through its parent Task.
   tenantField: null,
+  ownership: { delegate: 'task', fk: 'taskId', relation: 'task' },
   createSchema,
   updateSchema,
   searchFields: ['errorCode', 'message', 'severity'],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'taskId', 'stepId', 'agentId', 'errorCode', 'severity', 'createdAt'],
   writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
 });

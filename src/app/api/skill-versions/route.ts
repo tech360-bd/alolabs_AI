@@ -22,10 +22,14 @@ export const { GET, POST, PUT, DELETE } = secureCrud({
   resource: 'skill.versions',
   model: 'skillVersion',
   label: 'SkillVersion',
-  // This table has no tenant column of its own — see the security report.
+  // Global skill version catalog; restricted to platform super_admin.
   tenantField: null,
+  requireTenant: false,
+  roles: ['super_admin'],
+  writeRoles: ['super_admin'],
   createSchema,
   updateSchema,
   searchFields: ['version'],
-  writeRoles: ['super_admin', 'admin', 'manager', 'operator'],
+  orderBy: { createdAt: 'desc' },
+  sortableFields: ['id', 'skillId', 'version', 'createdAt'],
 });

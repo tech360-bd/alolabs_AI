@@ -25,5 +25,8 @@ describe('public API route matching', () => {
     expect(isPublicApiRoute('/api/publicity/contact', 'POST')).toBe(false);
     expect(isPublicApiRoute('/api/auth/oauth/google', 'GET')).toBe(true);
     expect(isPublicApiRoute('/api/auth/oauthish/google', 'GET')).toBe(false);
+    expect(isPublicApiRoute('/api/email/track/open/deadbeef.gif', 'GET')).toBe(true);
+    expect(isPublicApiRoute('/api/email/track/open/deadbeef.gif', 'POST')).toBe(false);
+    expect(isPublicApiRoute('/api/email/track/click/deadbeef', 'GET')).toBe(false);
   });
 });
