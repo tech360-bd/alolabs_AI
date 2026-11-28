@@ -127,3 +127,53 @@ provider belongs in that config while `SKIP_PAID_SERVICES=true` is policy.
   health endpoint before wiring app traffic.
 - License verdicts: text readings of upstream LICENSE files on 2026-11-28,
   not legal advice. Re-verify before commercial use.
+
+
+## Round-2 additions (2026-11-28, same-day second batch)
+
+### Code-Sync — free, integrate-ready (MIT)
+
+`sahilatahar/Code-Sync` is a real-time collaborative code editor (rooms,
+syntax highlighting, group chat, file save/download). Verified: Express +
+Socket.io + React + CodeMirror; **no paid service, no Firebase, no API keys**;
+ships its own docker-compose. No published image exists, so it is not added
+to `docker-compose.selfhost-free-stack.yml` (we do not vendor third-party
+source). Enablement path when needed:
+
+```bash
+git clone https://github.com/sahilatahar/Code-Sync.git /opt/code-sync
+cd /opt/code-sync
+# edit its compose to bind loopback only (127.0.0.1:3000:3000, 127.0.0.1:5173:5173)
+docker compose up -d --build
+```
+
+Phase-2 candidate; its only real gap for platform use is that it is a
+standalone dev tool, not wired into the API gateway.
+
+### postmill — the free self-hosted answer to outstand.so (AGPL-3.0)
+
+`postmill-ai/postmill-app` is an open-source social-media management platform
+(45+ channels, AI-powered creative suite, publish/schedule/engage). It does
+what the paid outstand.so SaaS does, self-hosted. Policy: AGPL = reference
+only — its code must not be embedded here, but running the unmodified
+upstream as a separate service is lawful; it ships a Dockerfile and compose.
+
+### MeiGen-AI org — voice/avatar research shelf (Apache-2.0 unless noted)
+
+`MultiTalk` (multi-person conversational video, NeurIPS 2025) joins
+`InfiniteTalk` as the Apache-2.0 avatar-generation references for the ALO
+Voice Contact Center design. All need dedicated GPU capacity this host does
+not have. Repos with **no license** (PosterOmni, Infinite-World, llia,
+PosterReward, LiveVAE, LongCat-Video-Avatar) are prohibited from copying;
+`X-Cut` is AGPL (reference only); `PosterCraft` has unclear license text —
+clarify upstream before any use.
+
+### MirrorFly org — verdict confirmed at org level
+
+All 26 `orgs/MirrorFly` repositories are sample apps and SDK wrappers for the
+commercial MirrorFly platform. 22 carry **no license**, and the few MIT
+wrappers require MirrorFly license keys to do anything. Together with the
+quote-only pricing on mirrorfly.com, the verdict is final: **MirrorFly is not
+a free self-hosted system.** The free in-stack equivalents remain LibreChat +
+Open WebUI (`chat-ui` / `openwebui` profiles) for chat, and the rasonyang
+Apache-2.0 voice stack for calling.
