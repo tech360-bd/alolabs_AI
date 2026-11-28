@@ -124,3 +124,54 @@ shared 16 GB host does not have spare).
   commercial operation.
 - Image tags pinned to `latest`/`main` intentionally for evaluation; pin
   digests before production hardening.
+
+
+## Round 2 — 2026-11-28 (same day, second batch)
+
+Checked the same way: GitHub API metadata + upstream LICENSE reads. Raw data:
+`oss-audit-data/new-links-2026-11-28-round2.json`.
+
+| Link | GitHub result | License | Stars | Disposition |
+| --- | --- | --- | --- | --- |
+| [sahilatahar/Code-Sync](https://github.com/sahilatahar/Code-Sync) | OK | MIT | 335 | **Free self-host confirmed** — Express + Socket.io server, React client, own compose, zero paid dependencies (no Firebase). No published image; enable via source clone (see guide). |
+| [postmill-ai/postmill-app](https://github.com/postmill-ai/postmill-app) | OK | AGPL-3.0 | 355 | Reference only (AGPL per policy). Ships Dockerfile + compose; legally self-hostable as a separate unmodified service. **The free self-hosted replacement for outstand.so** (45+ social channels, AI creative suite). |
+| [MeiGen-AI/InfiniteTalk](https://github.com/MeiGen-AI/InfiniteTalk) | OK | Apache-2.0 | 8,490 | Already recorded round 1 — GPU research reference. |
+| [MeiGen-AI/MultiTalk](https://github.com/MeiGen-AI/MultiTalk) | OK | Apache-2.0 | 3,044 | Voice/avatar research reference (NeurIPS 2025, audio-driven multi-person conversational video). |
+| MeiGen-AI/OPSD-V | OK | Apache-2.0 | 704 | Research reference (video generator post-training). |
+| MeiGen-AI/PositionIC, MeiGen-AI/Tool-Reflection-Bench | OK | Apache-2.0 / MIT | 7 / 10 | Research references. |
+| MeiGen-AI/GenEvolve | OK | Apache-2.0 (sniffed) | 106 | Research reference. |
+| MeiGen-AI/X-Cut | OK | AGPL-3.0 | 36 | Reference only per policy. |
+| MeiGen-AI/PosterCraft | OK | NOASSERTION (unclear text) | 1,029 | Do not copy until upstream license is clarified. |
+| MeiGen-AI/LongCat-Video-Avatar, PosterOmni, Infinite-World, llia, PosterReward, LiveVAE, multi-talk | OK | **none** | — | **Prohibited** — no license file. |
+| [MirrorFly org](https://github.com/orgs/MirrorFly/repositories) (26 repos) | OK | 22× **no license**, 3× MIT wrappers, 1× NOASSERTION | ≤60★ | **Confirmed NOT free.** All repos are sample apps for MirrorFly's commercial SDK: the samples carry no license, and even the MIT wrappers require MirrorFly license keys to function. Self-hosting MirrorFly remains quote-based (see round 1). |
+| `jarvis.institute/compare/jarvis-vs-chatgpt/` | — | proprietary | — | Comparison page confirms: $9.99 one-time, Microsoft Store distribution. Stays excluded. |
+
+Round-2 answers, compact: **free = Code-Sync (integrate-ready), MultiTalk/InfiniteTalk
+(research, GPU-gated); free-with-conditions = postmill (AGPL isolated service);
+not free = MirrorFly (org-level confirmed), jarvis.institute (page-level confirmed);
+prohibited = the no-license MeiGen-AI repos and MirrorFly samples.**
+
+## Round 3 — 2026-11-28: free equivalents BUILT for the not-free services
+
+Per the operator instruction "if any issue then build same service", every
+requested system that failed the free-self-host test is now replaced by a
+**free self-hosted equivalent integrated in
+`docker-compose.selfhost-free-stack.yml`**. Candidates were license-checked
+against their upstream LICENSE files before selection.
+
+| Not-free requested service | Free equivalent BUILT | License evidence (checked 2026-11-28) | New profile |
+| --- | --- | --- | --- |
+| MirrorFly (chat + audio/video calls, commercial SDK, quote-based) | **Rocket.Chat** (team chat, channels, DMs, mobile-ready) — upstream LICENSE read: MIT (Expat) for everything outside `apps/meteor/ee/` and `ee/`; the published community image excludes those EE dirs. Deployed with MongoDB single-node replica set (Rocket.Chat requires the oplog). | RocketChat/Rocket.Chat, 46,503★ | `chat-calls` |
+| MirrorFly (audio/video call features) | **Jitsi Meet** (web/prosody/jicofo/jvb stack, official docker-jitsi-meet pattern) — Apache-2.0, GitHub-detected. Rocket.Chat embeds it via Settings → Video Conference. | jitsi/jitsi-meet, 30,309★ | `video-calls` |
+| outstand.so (paid unified social posting SaaS, $19–$129/mo) | **Postmill** — runs the published upstream image `ghcr.io/postmill-ai/postmill-app:latest` as an unmodified separate service (AGPL-3.0; no code copied, reuse policy respected). 45+ channels, AI creative suite, BYOK; billing deliberately off (Stripe keys empty). Round-2's "reference only" verdict is upgraded to **integrated service** on the same legal basis as Jan (PR #88). | postmill-ai/postmill-app, 355★ | `social` |
+| jarvis.institute ($9.99 proprietary Windows assistant) | **Already covered, no new build needed**: Open WebUI (`openwebui`) and LibreChat (`chat-ui`) provide the same category — local-model AI assistant with chat, voice input, tools and memory, $0. Mapping documented; nothing proprietary added. | round 1/2 audits | existing profiles |
+
+Candidates evaluated but not chosen: Matrix Synapse + Element (both AGPL —
+Rocket.Chat's MIT core gives the same capability with a cleaner license);
+LiveKit (Apache-2.0, excellent SFU but requires building a client app — Jitsi
+is browser-ready with zero app development, closer to MirrorFly's turnkey
+behavior).
+
+The new profiles follow the established fail-closed pattern: every secret is
+`${VAR:?}`, every port binds to loopback, every service has healthchecks and
+memory ceilings, and nothing starts without an explicit `--profile` flag.

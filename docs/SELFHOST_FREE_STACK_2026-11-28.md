@@ -127,3 +127,115 @@ provider belongs in that config while `SKIP_PAID_SERVICES=true` is policy.
   health endpoint before wiring app traffic.
 - License verdicts: text readings of upstream LICENSE files on 2026-11-28,
   not legal advice. Re-verify before commercial use.
+
+
+## Round-2 additions (2026-11-28, same-day second batch)
+
+### Code-Sync — free, integrate-ready (MIT)
+
+`sahilatahar/Code-Sync` is a real-time collaborative code editor (rooms,
+syntax highlighting, group chat, file save/download). Verified: Express +
+Socket.io + React + CodeMirror; **no paid service, no Firebase, no API keys**;
+ships its own docker-compose. No published image exists, so it is not added
+to `docker-compose.selfhost-free-stack.yml` (we do not vendor third-party
+source). Enablement path when needed:
+
+```bash
+git clone https://github.com/sahilatahar/Code-Sync.git /opt/code-sync
+cd /opt/code-sync
+# edit its compose to bind loopback only (127.0.0.1:3000:3000, 127.0.0.1:5173:5173)
+docker compose up -d --build
+```
+
+Phase-2 candidate; its only real gap for platform use is that it is a
+standalone dev tool, not wired into the API gateway.
+
+### postmill — the free self-hosted answer to outstand.so (AGPL-3.0)
+
+`postmill-ai/postmill-app` is an open-source social-media management platform
+(45+ channels, AI-powered creative suite, publish/schedule/engage). It does
+what the paid outstand.so SaaS does, self-hosted. Policy: AGPL = reference
+only — its code must not be embedded here, but running the unmodified
+upstream as a separate service is lawful; it ships a Dockerfile and compose.
+
+### MeiGen-AI org — voice/avatar research shelf (Apache-2.0 unless noted)
+
+`MultiTalk` (multi-person conversational video, NeurIPS 2025) joins
+`InfiniteTalk` as the Apache-2.0 avatar-generation references for the ALO
+Voice Contact Center design. All need dedicated GPU capacity this host does
+not have. Repos with **no license** (PosterOmni, Infinite-World, llia,
+PosterReward, LiveVAE, LongCat-Video-Avatar) are prohibited from copying;
+`X-Cut` is AGPL (reference only); `PosterCraft` has unclear license text —
+clarify upstream before any use.
+
+### MirrorFly org — verdict confirmed at org level
+
+All 26 `orgs/MirrorFly` repositories are sample apps and SDK wrappers for the
+commercial MirrorFly platform. 22 carry **no license**, and the few MIT
+wrappers require MirrorFly license keys to do anything. Together with the
+quote-only pricing on mirrorfly.com, the verdict is final: **MirrorFly is not
+a free self-hosted system.** The free in-stack equivalents remain LibreChat +
+Open WebUI (`chat-ui` / `openwebui` profiles) for chat, and the rasonyang
+Apache-2.0 voice stack for calling.
+
+## Round 3 (2026-11-28): free equivalents BUILT into the compose stack
+
+Per the operator instruction, every not-free requested service is now replaced
+by a free self-hosted equivalent **added as an opt-in compose profile**:
+
+| Not-free service | Free equivalent | Profile | Port (loopback) |
+| --- | --- | --- | --- |
+| MirrorFly chat SDK (commercial) | Rocket.Chat, MIT core (`apps/meteor/ee/` excluded from the published image) | `chat-calls` | 3020 |
+| MirrorFly audio/video calls (commercial) | Jitsi Meet, Apache-2.0 (web + prosody + jicofo + jvb) | `video-calls` | 8100 (web), 10000/udp (media) |
+| outstand.so ($19–$129/mo) | Postmill, AGPL-3.0 — published image, unmodified, billing off | `social` | 4007 |
+| jarvis.institute ($9.99 proprietary) | already covered by `openwebui` / `chat-ui` (local-model assistant) | existing | 3085 / 3080 |
+
+### Enabling the new profiles
+
+```bash
+# 1. Append the fail-closed secrets to .env
+cat >> .env <<'EOF'
+# chat-calls (Rocket.Chat)
+ROCKETCHAT_ROOT_URL=http://127.0.0.1:3020
+ROCKETCHAT_ADMIN_USERNAME=admin
+ROCKETCHAT_ADMIN_EMAIL=admin@example.com
+ROCKETCHAT_ADMIN_PASS=change-me-now
+
+# video-calls (Jitsi Meet)
+JITSI_PUBLIC_URL=http://127.0.0.1:8100
+JITSI_JICOFO_COMPONENT_SECRET=$(openssl rand -hex 16)
+JITSI_JICOFO_AUTH_PASSWORD=$(openssl rand -hex 16)
+JITSI_JVB_AUTH_PASSWORD=$(openssl rand -hex 16)
+
+# social (Postmill)
+POSTMILL_MAIN_URL=http://127.0.0.1:4007
+POSTMILL_JWT_SECRET=$(openssl rand -hex 24)
+POSTMILL_DB_PASSWORD=$(openssl rand -hex 16)
+POSTMILL_DISABLE_REGISTRATION=true
+EOF
+
+# 2. Enable one profile at a time (respect the RAM budget table)
+docker compose -f docker-compose.selfhost-free-stack.yml --profile chat-calls up -d
+docker compose -f docker-compose.selfhost-free-stack.yml --profile video-calls up -d
+docker compose -f docker-compose.selfhost-free-stack.yml --profile social up -d
+
+# 3. Verify health before wiring traffic
+curl http://127.0.0.1:3020/api/info        # Rocket.Chat
+curl -I http://127.0.0.1:8100              # Jitsi web
+curl -I http://127.0.0.1:4007/             # Postmill
+```
+
+### Wiring chat to calls (free MirrorFly-style feature parity)
+
+In Rocket.Chat's admin panel set **Settings → Video Conference → Jitsi** and
+enable the app integration with the `JITSI_PUBLIC_URL` above; chat rooms then
+gain one-click embedded voice/video calls with no third-party SDK or key.
+
+### Postmill legal note
+
+Postmill is AGPL-3.0 and is run here as an **unmodified separate service from
+the published upstream image** — no source is embedded in this repository.
+AGPL obligations attach to modifications of Postmill itself: run it as-is and
+you owe nothing extra; fork or modify it and the modified source must be
+offered to its users. Channel credentials and AI keys are configured in-app
+per organization, so booting it requires zero paid services.
