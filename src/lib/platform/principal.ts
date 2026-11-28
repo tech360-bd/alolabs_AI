@@ -205,9 +205,9 @@ function bearerOf(request: NextRequest): string | null {
   return null;
 }
 
-/** Project key from `x-api-key` or a bearer token that carries the pk prefix. */
+/** Project key from `x-api-key`, `x-goog-api-key`, or a bearer token that carries the pk prefix. */
 function apiKeyOf(request: NextRequest): string | null {
-  const header = request.headers.get('x-api-key')?.trim();
+  const header = request.headers.get('x-api-key')?.trim() || request.headers.get('x-goog-api-key')?.trim();
   if (header) return header;
   const bearer = bearerOf(request);
   return bearer?.startsWith(PLATFORM_KEY_PREFIX) ? bearer : null;

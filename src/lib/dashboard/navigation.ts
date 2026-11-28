@@ -246,6 +246,7 @@ export const DASHBOARD_NAV: DashboardNavGroup[] = [
   {
     label: "Command",
     items: [
+      { id: "ecosystem-hub", label: "Ecosystem & Router Hub", icon: Layers },
       { id: "super-admin-console", label: "Super Admin Console", icon: Sparkles },
       { id: "super-admin", label: "Command Chat", icon: Crown },
       { id: "web-crm", label: "CRM Dashboard", icon: LayoutDashboard },
@@ -566,6 +567,7 @@ export const DASHBOARD_PANELS: Record<string, () => Promise<{ default: Component
   "memory-center": () => import('@/components/panels/memory-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "memory-engine": () => import('@/components/enterprise/panels/memory-engine') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "model-hub": () => import('@/components/panels/model-hub-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
+  "ecosystem-hub": () => import('@/components/enterprise/panels/super-admin-ecosystem-hub') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "ecosystem-stack": () => import('@/components/panels/ecosystem-stack-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "super-admin-operator": () => import('@/components/panels/super-admin-operator-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,
   "model-registry": () => import('@/components/panels/model-registry-panel') as unknown as Promise<{ default: ComponentType<DashboardPanelProps> }>,

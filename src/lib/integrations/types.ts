@@ -12,6 +12,7 @@
  */
 
 import { db } from '@/lib/db';
+import { assertSafeExternalUrl } from '@/lib/security/ssrf';
 
 export type IntegrationCategory =
   | 'crm'
@@ -180,7 +181,16 @@ export async function guardedFetch(
   init: RequestInit & { timeoutMs?: number } = {},
 ): Promise<Response> {
   const guard = isAllowedIntegrationUrl(url);
-  if (!guard.allowed) {
+  let dnsReason: string | null = null;
+  if (guard.allowed && process.env.ALO_ALLOW_INSECURE_INTEGRATION_TARGETS !== 'true') {
+    try {
+      await assertSafeExternalUrl(url, { allowHttp: false });
+    } catch (err) {
+      dnsReason = err instanceof Error ? err.message : 'Blocked by DNS/SSRF validation';
+    }
+  }
+  if (!guard.allowed || dnsReason) {
+    const blockedReason = guard.reason ?? dnsReason ?? 'Blocked by SSRF policy';
     // ─── SSRF REGRESSION PROTECTION: Audit blocked attempts ──────────────────
     try {
       await db.auditLog.create({
@@ -188,13 +198,13 @@ export async function guardedFetch(
           userId: 'system',
           action: 'integration_ssrf_blocked',
           resource: 'Integration',
-          details: JSON.stringify({ adapter, url, reason: guard.reason, timestamp: new Date().toISOString() }),
+          details: JSON.stringify({ adapter, url, reason: blockedReason, timestamp: new Date().toISOString() }),
         },
       });
     } catch {
       // ignore audit failure
     }
-    throw new IntegrationError(adapter, `blocked target: ${guard.reason}`);
+    throw new IntegrationError(adapter, `blocked target: ${blockedReason}`);
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), init.timeoutMs ?? DEFAULT_TIMEOUT_MS);

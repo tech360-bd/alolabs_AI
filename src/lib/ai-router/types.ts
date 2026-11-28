@@ -138,6 +138,8 @@ export interface AIStreamChunk {
   content: string;
   model: string;
   finishReason?: 'stop' | 'length' | 'tool-calls' | 'content-filter' | 'error';
+  usage?: AITokenUsage;
+  toolCalls?: AIToolCall[];
 }
 
 // ─── Usage Tracking ─────────────────────────────────────────────────

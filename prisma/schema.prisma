@@ -5592,3 +5592,264 @@ model EnvironmentApply {
   @@index([environmentId, status])
   @@index([createdAt])
 }
+
+// =============================================================================
+// SUPER ADMIN ECOSYSTEM CONTROL PLANE, ASSET VAULT & HARNESSES (2026-11-28)
+// =============================================================================
+
+model ExternalSource {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  url             String
+  sourceKind      String   @default("repository") // repository | organization | user | topic | search | website
+  displayName     String
+  category        String
+  availability    String   @default("verified")   // verified | restricted | commercial | unavailable
+  paginationTotal Int      @default(1)
+  reposDiscovered Int      @default(1)
+  fetchedAt       DateTime @default(now())
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  assets          ExternalAsset[]
+
+  @@index([sourceKind, category])
+}
+
+model ExternalAsset {
+  id                 String   @id @default(cuid())
+  sourceId           String
+  fullName           String
+  url                String   @unique
+  kind               String   @default("repository")
+  defaultBranch      String   @default("main")
+  headSha            String?
+  stars              Int      @default(0)
+  language           String?
+  archived           Boolean  @default(false)
+  licenseSpdx        String?
+  compatibilityStatus String  @default("candidate") // integrated | candidate | restricted | reference_only | incompatible
+  integrationPattern String   @default("API_INTEGRATE") // REUSE | API_INTEGRATE | LEARN | ISOLATED_SIDECAR | EXCLUDED
+  assetCategory      String   @default("general")
+  isPinned           Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  metadataJson       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  source          ExternalSource   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  integrations    Integration[]
+  licenseRecords  LicenseRecord[]
+  securityReviews SecurityReview[]
+
+  @@index([sourceId])
+  @@index([compatibilityStatus, assetCategory])
+  @@index([licenseSpdx])
+}
+
+model Integration {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  category        String
+  assetId         String?
+  companyId       String?
+  strategy        String   @default("API_INTEGRATE")
+  licenseClass    String   @default("permissive")
+  status          String   @default("configured") // active | configured | disabled | restricted | error
+  activeVersionId String?
+  isPinned        Boolean  @default(true)
+  configJson      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  asset    ExternalAsset?       @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  versions IntegrationVersion[]
+
+  @@index([category, status])
+  @@index([companyId])
+  @@index([assetId])
+}
+
+model IntegrationVersion {
+  id             String   @id @default(cuid())
+  integrationId  String
+  version        String
+  pinnedRef      String
+  sha256         String?
+  sbomJson       String?
+  changelog      String?
+  rollbackFromId String?
+  isActive       Boolean  @default(false)
+  createdBy      String?
+  createdAt      DateTime @default(now())
+
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, version])
+  @@index([integrationId, isActive])
+}
+
+model LicenseRecord {
+  id                    String   @id @default(cuid())
+  assetId               String
+  spdxId                String
+  licenseFile           String?
+  verifiedBy            String   @default("github-api-license-check")
+  copyleftScope         String   @default("none") // none | weak | strong_network | source_available | custom_commercial | unlicensed
+  commercialAllowed     Boolean  @default(true)
+  redistributionAllowed Boolean  @default(true)
+  boundaryRequired      String   @default("none") // none | external_service_only | legal_review_required | prohibited
+  verdict               String   @default("approved") // approved | conditional | restricted | prohibited
+  summary               String?
+  reviewedAt            DateTime @default(now())
+
+  asset ExternalAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, verdict])
+  @@index([spdxId])
+}
+
+model SecurityReview {
+  id                   String   @id @default(cuid())
+  assetId              String
+  riskLevel            String   @default("low") // low | medium | high | critical
+  ssrfChecked          Boolean  @default(true)
+  credentialEncryption Boolean  @default(true)
+  sandboxRequired      Boolean  @default(false)
+  approverId           String?
+  status               String   @default("approved") // pending | approved | conditional | rejected
+  findingsJson         String?
+  reviewedAt           DateTime @default(now())
+
+  asset ExternalAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, status])
+  @@index([riskLevel])
+}
+
+model AgentHarness {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  harnessType      String   @default("coding") // coding | browser | orchestration | collaboration
+  upstreamRepo     String?
+  licenseSpdx      String   @default("MIT")
+  sandboxMode      String   @default("isolated_worktree") // isolated_worktree | container | readonly_browser | restricted
+  isEnabled        Boolean  @default(true)
+  requiresApproval Boolean  @default(true)
+  healthStatus     String   @default("untested")
+  companyId        String?
+  configJson       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sessions AgentSession[]
+
+  @@index([harnessType, isEnabled])
+  @@index([companyId])
+}
+
+model AgentSession {
+  id               String    @id @default(cuid())
+  harnessId        String
+  companyId        String
+  userId           String
+  workspacePath    String
+  branchName       String
+  sandboxMode      String    @default("isolated_worktree")
+  status           String    @default("awaiting_approval") // pending | awaiting_approval | approved | running | completed | rejected | failed
+  requiresApproval Boolean   @default(true)
+  approvedBy       String?
+  approvedAt       DateTime?
+  modelUsed        String?
+  providerUsed     String?
+  tokenUsage       Int       @default(0)
+  promptSummary    String?
+  diffSummaryJson  String?
+  errorMessage     String?
+  startedAt        DateTime  @default(now())
+  endedAt          DateTime?
+
+  harness AgentHarness @relation(fields: [harnessId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([harnessId, startedAt])
+  @@index([userId])
+}
+
+model ToolRegistry {
+  id                 String   @id @default(cuid())
+  slug               String   @unique
+  name               String
+  category           String   @default("agent")
+  companyId          String?
+  requiresApproval   Boolean  @default(false)
+  readOnly           Boolean  @default(true)
+  optimizationPolicy String   @default("dedupe_and_compact")
+  batchCapable       Boolean  @default(true)
+  schemaJson         String?
+  isEnabled          Boolean  @default(true)
+  callsCount         Int      @default(0)
+  tokensSaved        Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([category, isEnabled])
+  @@index([companyId])
+}
+
+model MeetingSession {
+  id               String    @id @default(cuid())
+  roomCode         String    @unique
+  title            String
+  providerKind     String    @default("livekit") // livekit | joincall | webrtc
+  companyId        String
+  hostUserId       String
+  status           String    @default("scheduled") // scheduled | live | ended | cancelled
+  meetingUrl       String?
+  participantsJson String?
+  recordingState   String    @default("idle") // idle | recording | paused | stopped
+  obsScene         String?
+  startedAt        DateTime?
+  endedAt          DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([companyId, status])
+  @@index([hostUserId])
+}
+
+model WorkflowIntegration {
+  id               String    @id @default(cuid())
+  slug             String    @unique
+  name             String
+  engineKind       String    @default("activepieces") // activepieces | temporal | directus | nocobase | postmill | larksuite | n8n
+  companyId        String?
+  endpointUrl      String?
+  healthStatus     String    @default("unconfigured") // healthy | degraded | unconfigured | restricted
+  licenseVerdict   String    @default("approved")
+  requiresApproval Boolean   @default(false)
+  isEnabled        Boolean   @default(false)
+  policyJson       String?
+  lastTestedAt     DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([engineKind, isEnabled])
+  @@index([companyId])
+}
+
+model IntegrationHealth {
+  id         String   @id @default(cuid())
+  targetType String   // integration | mcp | harness | workflow | obs | livekit
+  targetId   String
+  companyId  String?
+  status     String   // healthy | degraded | unreachable | unconfigured
+  latencyMs  Int?
+  detail     String?
+  checkedAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([companyId, checkedAt])
+}

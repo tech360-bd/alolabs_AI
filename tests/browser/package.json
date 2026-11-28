@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node --test login.test.mjs",
     "test:crm-panel": "node --test --test-concurrency=1 crm-panel.test.mjs",
-    "test:command-center": "node --test --test-concurrency=1 command-center.test.mjs"
+    "test:command-center": "node --test --test-concurrency=1 command-center.test.mjs",
+    "test:ecosystem": "node --test --test-concurrency=1 ecosystem-control-plane.test.mjs"
   },
   "devDependencies": {
     "playwright": "1.58.2"

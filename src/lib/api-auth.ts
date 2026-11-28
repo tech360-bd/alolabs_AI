@@ -94,8 +94,8 @@ export async function getAuthUser(request?: NextRequest): Promise<AuthenticatedU
   }
 }
 
-export async function requireAuth(): Promise<AuthenticatedUser> {
-  const user = await getAuthUser()
+export async function requireAuth(request?: NextRequest): Promise<AuthenticatedUser> {
+  const user = await getAuthUser(request)
   if (!user) throw new Error('Unauthorized')
   return user
 }

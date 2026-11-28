@@ -3,7 +3,9 @@ import {
   FREE_RESOURCES,
   freeStackCoverage,
   immediatelyUsableResources,
+  searchFreeResources,
   trulyFreeResources,
+  type ResourceCategory,
 } from '@/lib/free-resources';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +18,7 @@ export const dynamic = 'force-dynamic';
  *
  * `?category=`   filter to one capability group
  * `?usable=1`    only resources that can be enabled today with env vars
+ * `?q=`          case-insensitive search across name, allowance, caveat, integration
  *
  * Nothing here enables a provider. A resource is a candidate; the operator
  * connects it through the existing AI provider admin or env configuration.
@@ -25,9 +28,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const usableOnly = searchParams.get('usable') === '1';
+    const q = searchParams.get('q') ?? '';
 
-    const base = usableOnly ? immediatelyUsableResources() : [...FREE_RESOURCES];
-    const data = category ? base.filter((r) => r.category === category) : base;
+    const base = q
+      ? searchFreeResources(q, (category as ResourceCategory | null) ?? 'all')
+      : usableOnly
+        ? immediatelyUsableResources()
+        : [...FREE_RESOURCES];
+    const data = !q && category ? base.filter((r) => r.category === category) : base;
 
     return {
       data,

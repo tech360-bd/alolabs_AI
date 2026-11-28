@@ -236,18 +236,27 @@ jobs:
         run: |
           set -o pipefail
           npm run test:command-center --prefix tests/browser 2>&1 | tee /tmp/command-center-browser.log
+      - name: Ecosystem Control Plane responsive Chromium QA (1440x900, 768x1024, 390x844)
+        id: ecosystem_browser
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:ecosystem --prefix tests/browser 2>&1 | tee /tmp/ecosystem-browser.log
       - name: Surface browser-test failure as a check annotation
-        if: steps.command_center_browser.outcome != 'success'
+        if: steps.command_center_browser.outcome != 'success' || steps.ecosystem_browser.outcome != 'success'
         shell: bash
         run: |
           mkdir -p tests/browser/artifacts
           [ -f /tmp/command-center-browser.log ] && cp /tmp/command-center-browser.log tests/browser/artifacts/command-center-browser.log
+          [ -f /tmp/ecosystem-browser.log ] && cp /tmp/ecosystem-browser.log tests/browser/artifacts/ecosystem-browser.log
           {
             grep -a 'RUN_API' /tmp/command-center-browser.log 2>/dev/null || true
             echo ' --- tail --- '
             tail -c 7000 /tmp/command-center-browser.log 2>/dev/null || true
+            tail -c 7000 /tmp/ecosystem-browser.log 2>/dev/null || true
           } > /tmp/command-center-detail.txt
-          echo "::error title=Commanding Center browser test failed::$(tr '\n' ' ' < /tmp/command-center-detail.txt | cut -c1-9000)"
+          echo "::error title=Browser verification test failed::$(tr '\n' ' ' < /tmp/command-center-detail.txt | cut -c1-9000)"
           exit 1
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

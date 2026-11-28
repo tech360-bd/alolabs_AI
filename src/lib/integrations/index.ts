@@ -71,6 +71,17 @@ export type { CallIntelligenceSummary } from './connectors/telephony/call-intell
 export { infiniteTalkAdapter } from './connectors/media/infinite-talk';
 export type { InfiniteTalkJob } from './connectors/media/infinite-talk';
 
+// ─── Wave-3: Complete Ecosystem Integrations (2026-11-28) ────────────────────
+export { livekitAdapter, livekitCreateRoom, signLiveKitAccessToken } from './connectors/telephony/livekit';
+export type { LiveKitTokenClaims } from './connectors/telephony/livekit';
+export { freesbcAdapter, cascadeRealtimeGatewayAdapter } from './connectors/telephony/rasonyang-stack';
+export { joincallAdapter, joincallCreateMeeting } from './connectors/media/joincall';
+export { obsWebSocketAdapter, computeObsWebSocketAuth, probeObsWebSocket } from './connectors/media/obs-websocket';
+export { browseMcpAdapter } from './connectors/coding-agent/browse-mcp';
+export { opencodeAdapter } from './connectors/coding-agent/opencode';
+export { postmillAdapter } from './connectors/content/postmill';
+export { larksuiteAdapter } from './connectors/messaging/larksuite';
+
 import { integrationRegistry } from './registry';
 import { twentyAdapter } from './connectors/crm/twenty';
 import { frappeAdapter } from './connectors/crm/frappe';
@@ -98,6 +109,14 @@ import { callGptAdapter } from './connectors/telephony/call-gpt';
 import { aiNativeCallcenterAdapter } from './connectors/telephony/ai-native-callcenter';
 import { callIntelligenceAdapter } from './connectors/telephony/call-intelligence';
 import { infiniteTalkAdapter } from './connectors/media/infinite-talk';
+import { livekitAdapter } from './connectors/telephony/livekit';
+import { freesbcAdapter, cascadeRealtimeGatewayAdapter } from './connectors/telephony/rasonyang-stack';
+import { joincallAdapter } from './connectors/media/joincall';
+import { obsWebSocketAdapter } from './connectors/media/obs-websocket';
+import { browseMcpAdapter } from './connectors/coding-agent/browse-mcp';
+import { opencodeAdapter } from './connectors/coding-agent/opencode';
+import { postmillAdapter } from './connectors/content/postmill';
+import { larksuiteAdapter } from './connectors/messaging/larksuite';
 
 import type { ExternalSystemAdapter } from './types';
 
@@ -152,6 +171,16 @@ export function bootstrapIntegrations(): void {
   registerAdapter(aiNativeCallcenterAdapter);
   registerAdapter(callIntelligenceAdapter);
   registerAdapter(infiniteTalkAdapter);
+  // Wave-3 ecosystem connectors — same ONE Runtime contract + license gates.
+  registerAdapter(livekitAdapter);
+  registerAdapter(freesbcAdapter);
+  registerAdapter(cascadeRealtimeGatewayAdapter);
+  registerAdapter(joincallAdapter);
+  registerAdapter(obsWebSocketAdapter);
+  registerAdapter(browseMcpAdapter);
+  registerAdapter(opencodeAdapter);
+  registerAdapter(postmillAdapter);
+  registerAdapter(larksuiteAdapter);
   bootstrapped = true;
 }
 

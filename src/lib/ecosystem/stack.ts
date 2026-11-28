@@ -143,6 +143,28 @@ const CURATED_NAMES: Record<string, string> = {
   'vllm-project-org': 'vLLM (organisation)',
   'youbtech01': 'YouBTech01 (account)',
   'minecraft': 'Minecraft',
+  'free-claude-code': 'Free Claude Code (FCC)',
+  'dashboard-design-skill': 'Dashboard Design Skill',
+  'neondatabase-autoscaling': 'Neon Autoscaling',
+  'twilio-call-gpt': 'Twilio Call-GPT',
+  'tool-calls-10x': '10x Tool Calls (Unlicensed Ref)',
+  'livekit': 'LiveKit Server & SIP',
+  'joincall-call': 'Call (joincalldotco)',
+  'obs-studio': 'OBS Studio (WebSocket v5)',
+  'nocobase-nococrm': 'NocoCRM (NocoBase)',
+  'sahilatahar-code-sync': 'Code-Sync',
+  'postmill-app': 'Postmill AI',
+  'anomalyco-org': 'anomalyco (OpenCode / Browse)',
+  'librechat-org-list': 'LibreChat-AI (Org)',
+  'swe-agent-org': 'SWE-agent (Org)',
+  'meigen-ai-org': 'MeiGen-AI (InfiniteTalk)',
+  'jarves-org': 'jarves (Legacy PHP CMS)',
+  'mirrorfly-org': 'MirrorFly (Commercial CPaaS)',
+  'rasonyang-user': 'rasonyang (Voice & FreeSBC)',
+  'topic-jarvis-ai': 'GitHub Topic: jarvis-ai',
+  'search-ai-call': 'GitHub Search: ai call',
+  'jarvis-cx-site': 'Jarvis CX (SaaS Ref)',
+  'jarvis-institute-site': 'Jarvis Desktop (Privacy Ref)',
 };
 
 export function displayName(entry: Pick<CoverageEntry, 'id' | 'url'>): string {
@@ -345,6 +367,42 @@ export const STACK_BRIEFS: Record<string, StackBrief> = {
       'Capability metadata that overstates the model sends vision or long-context work to a backend that will fail.',
     ],
   },
+  'livekit': {
+    useWhen: 'Self-hosted real-time voice rooms, WebRTC meetings, or SIP inbound/outbound media trunks are required.',
+    steps: [
+      'Configure LiveKit baseUrl, API key, and extras.apiSecret under ONE Runtime (`telephony.livekit`).',
+      'Mint short-lived scoped room tokens via `signLiveKitAccessToken()` in the Meetings Hub.',
+      'Pair with a SIP trunk or FreeSBC for PSTN dialing without exposing media servers directly.',
+    ],
+    risks: [
+      'LiveKit requires UDP media ports open or a configured TURN server behind restrictive NATs.',
+      'PSTN calls via SIP still incur carrier minute costs outside LiveKit.',
+    ],
+  },
+  'free-claude-code': {
+    useWhen: 'Routing Claude Code, Codex, Pi, or OpenCode CLI agents over unified protocol endpoints with free/local failover.',
+    steps: [
+      'Use ALO native `/api/v1/gateway/anthropic/v1/messages`, `/openai/v1/chat/completions`, `/openai/v1/responses`, or `/gemini/...`.',
+      'Configure routing strategy (`free-first`, `local-first`, `capability`, `fallback`) in Super Admin Command Router.',
+      'Keep any external FCC deployment isolated via REST (`gateway.free-claude-code`) — never import AGPL Python code.',
+    ],
+    risks: [
+      'GitHub displays NOASSERTION while LICENSE is AGPL-3.0-only; keep strictly separated over HTTP.',
+      'Free hosted provider quotas fluctuate and rate-limit rapidly under concurrent agent loops.',
+    ],
+  },
+  'obs-studio': {
+    useWhen: 'Streaming or capturing meeting recordings through a local/studio OBS daemon.',
+    steps: [
+      'Enable OBS WebSocket v5 with a strong password inside OBS Studio.',
+      'Register `ws(s)://` target + password under `media.obs-websocket` and verify SHA-256 Identify handshake.',
+      'Never bundle OBS GPL-2.0 source or native plugins inside the Next.js codebase.',
+    ],
+    risks: [
+      'Refuses unauthenticated OBS WebSocket servers by default.',
+      'GPL-2.0 boundary requires running OBS as an external standalone process only.',
+    ],
+  },
 };
 
 /**
@@ -451,6 +509,15 @@ export const ENTRY_ADAPTER: Record<string, string> = {
   'aider-org': 'coding-agent.aider',
   'librechat-org': 'ai-chat.librechat',
   'open-webui-org': 'ai-chat.open-webui',
+  'livekit': 'telephony.livekit',
+  'free-claude-code': 'gateway.free-claude-code',
+  'twilio-call-gpt': 'telephony.call-gpt',
+  'joincall-call': 'media.joincall',
+  'obs-studio': 'media.obs-websocket',
+  'postmill-app': 'content.postmill',
+  'anomalyco-org': 'coding-agent.opencode',
+  'swe-agent-org': 'coding-agent.swe-agent',
+  'rasonyang-user': 'telephony.freesbc',
 };
 
 export const STACK_UPDATED_AT = '2026-11-27';

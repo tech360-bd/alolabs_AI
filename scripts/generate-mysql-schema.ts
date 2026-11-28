@@ -101,6 +101,19 @@ const MODEL_SHORT_FIELDS: Record<string, Set<string>> = {
   ClientSupportTicket: new Set(['subject']),
   ClientNotification: new Set(['link']),
   ClientProjectExecution: new Set(['reviewStatus']),
+  // Ecosystem Control Plane & Asset Vault (2026-11-28)
+  ExternalSource: new Set(['sourceKind', 'displayName', 'availability']),
+  ExternalAsset: new Set(['fullName', 'kind', 'defaultBranch', 'headSha', 'language', 'integrationPattern']),
+  Integration: new Set(['strategy', 'licenseClass', 'activeVersionId']),
+  IntegrationVersion: new Set(['pinnedRef', 'rollbackFromId', 'createdBy']),
+  LicenseRecord: new Set(['licenseFile', 'verifiedBy', 'copyleftScope', 'boundaryRequired', 'verdict']),
+  SecurityReview: new Set(['riskLevel', 'approverId']),
+  AgentHarness: new Set(['harnessType', 'upstreamRepo', 'licenseSpdx', 'sandboxMode']),
+  AgentSession: new Set(['workspacePath', 'branchName', 'sandboxMode', 'approvedBy', 'modelUsed', 'providerUsed']),
+  ToolRegistry: new Set(['optimizationPolicy']),
+  MeetingSession: new Set(['providerKind', 'hostUserId', 'recordingState', 'obsScene']),
+  WorkflowIntegration: new Set(['engineKind', 'licenseVerdict']),
+  IntegrationHealth: new Set(['targetType']),
 };
 
 const lines = mysqlSchema.split('\n');
